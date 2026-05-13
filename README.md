@@ -20,7 +20,7 @@ FLUSH PRIVILEGES;
 
 Beim ersten Start spielt der Container die Schema-Migrationen automatisch ein.
 
-## Variante A: Unraid GUI
+## Setup über die Unraid GUI
 
 1. **Apps → Add Container → Template URL:**
    `https://raw.githubusercontent.com/anym001/PocketLog/main/unraid/pocketlog.xml`
@@ -54,22 +54,6 @@ Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
 | ENV `DB_PASSWORD` | dein Passwort |
 | ENV `TZ` | `Europe/Berlin` |
 | ENV `DEV_FAKE_USER` | *leer* (nur für lokales Testen setzen) |
-
-## Variante B: docker-compose (lokales Dev / andere Hosts)
-
-```bash
-cp .env.example .env
-nano .env                 # DB_PASSWORD usw. setzen
-docker compose up -d --build
-```
-
-Damit läuft PocketLog auf `http://localhost:8080`. Für lokales Testen ohne
-Authentik in `.env` zusätzlich `DEV_FAKE_USER=test` setzen — dann ersetzt das
-Backend den fehlenden Header durch diesen Wert.
-
-Die `docker-compose.yml` enthält **keine** MariaDB; du verbindest dich mit
-deiner externen Instanz (entweder über `network: external: true` zum gleichen
-Netzwerk oder über `DB_HOST=<host-ip>:3306`).
 
 ## API testen
 

@@ -24,8 +24,6 @@ User selbst bereitgestellt (typisch: bestehender MariaDB-Container auf Unraid).
 ## Projektstruktur
 ```
 PocketLog/
-├── docker-compose.yml                ← optional, ein Service (pocketlog)
-├── .env / .env.example               ← DB-Credentials, PROXY_NETWORK, TZ, DEV_FAKE_USER
 ├── unraid/
 │   └── pocketlog.xml                 ← Community-Apps-Template für die Unraid-GUI
 ├── swag/
@@ -123,19 +121,12 @@ const data = await api('GET', '/transactions?year=2026&month=5');
 
 ## Deployment
 
-**Unraid (empfohlen):** Template `unraid/pocketlog.xml` importieren oder ENV-
-Variablen in der "Add Container"-GUI manuell setzen. Image kommt aus
-`ghcr.io/anym001/pocketlog:latest` (oder lokal selbst gebaut).
-
-**docker-compose (lokal / andere Hosts):**
-```bash
-cp .env.example .env
-docker compose up -d --build
-```
-
-In beiden Fällen `swag/pocketlog.subdomain.conf` nach
-`/swag/config/nginx/proxy-confs/` legen und SWAG neu laden. In Authentik
-einen Forward-Auth-Provider + Application für `pocketlog.<domain>` anlegen.
+Template `unraid/pocketlog.xml` in Unraid importieren oder ENV-Variablen in der
+"Add Container"-GUI manuell setzen. Image kommt aus
+`ghcr.io/anym001/pocketlog:latest` (oder lokal selbst gebaut). Anschließend
+`swag/pocketlog.subdomain.conf` nach `/swag/config/nginx/proxy-confs/` legen,
+SWAG neu laden, und in Authentik einen Forward-Auth-Provider + Application für
+`pocketlog.<domain>` anlegen.
 
 ## Design-Prinzipien (Frontend)
 - Mobile-first, max-width 430px, safe-area-inset für iPhone
