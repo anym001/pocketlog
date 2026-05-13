@@ -7,7 +7,9 @@ from app.database import Base, DATABASE_URL
 from app import models  # noqa: F401  (Modelle für autogenerate registrieren)
 
 config = context.config
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# ConfigParser interpretiert '%' als Interpolation. Passwörter mit Sonderzeichen
+# werden via quote_plus zu %XX url-encoded — hier escapen, sonst ValueError.
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
