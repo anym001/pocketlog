@@ -5,9 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Haushaltsbuch">
-<title>Haushaltsbuch</title>
+<meta name="apple-mobile-web-app-title" content="PocketLog">
+<meta name="theme-color" content="#c8623a">
+<title>PocketLog – Haushaltsbuch</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="/db.js" defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -631,31 +637,8 @@
 <div id="settingsContent" style="display:none; padding: 24px 24px 100px;">
   <div style="padding-top:8px"></div>
   <div class="settings-section">
-    <h3>Nextcloud / WebDAV</h3>
-    <div class="settings-row">
-      <label>Server-URL</label>
-      <input type="url" id="cfg-url" placeholder="https://cloud.example.com" />
-    </div>
-    <div class="settings-row">
-      <label>Benutzername</label>
-      <input type="text" id="cfg-user" placeholder="dein-name" />
-    </div>
-    <div class="settings-row">
-      <label>Passwort / App-Token</label>
-      <input type="password" id="cfg-pass" placeholder="••••••••" />
-    </div>
-    <div class="settings-row">
-      <label>Pfad</label>
-      <input type="text" id="cfg-path" placeholder="/haushaltsbuch/" />
-    </div>
-    <button class="save-btn primary" onclick="saveConfig()">Verbindung speichern</button>
-    <button class="save-btn" style="margin-top:8px" onclick="testConnection()">Verbindung testen</button>
-    <div class="status-msg" id="connStatus"></div>
-  </div>
-  <div class="settings-section">
     <h3>Daten</h3>
     <button class="save-btn" onclick="exportCSV()">📄 Als CSV exportieren</button>
-    <button class="save-btn" style="margin-top:8px;color:var(--accent);border-color:var(--accent)" onclick="clearData()">🗑 Alle Daten löschen</button>
   </div>
   <div class="settings-section">
     <h3>Kategorien</h3>
@@ -700,6 +683,7 @@
       </div>
     </div>
     <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
+    <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
   </div>
 </div>
 
@@ -757,7 +741,6 @@ function switchMainTab(tab, btn) {
     nav.style.display='none'; panels.forEach(p=>p.style.display='none');
     fab.style.display='none'; settings.style.display='block';
     renderCategories();
-    loadConfig();
   } else {
     main.style.display=''; summary.style.display='';
     nav.style.display=''; panels.forEach(p=>p.style.display='');
@@ -777,10 +760,15 @@ function changeMonth(d) {
 function changeYear(d) { chartYear += d; document.getElementById('yearLabel').textContent = chartYear; renderCharts(); }
 
 // ── LOAD & RENDER ─────────────────────────────────────────────────────────────
+function normalizeTx(t) {
+  return { ...t, amount: Number(t.amount), tags: t.tags || [] };
+}
+
 async function loadAndRender() {
   document.getElementById('monthLabel').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
   try {
-    transactions = await api('GET', `/transactions?year=${currentYear}&month=${currentMonth+1}`);
+    const raw = await api('GET', `/transactions?year=${currentYear}&month=${currentMonth+1}`);
+    transactions = raw.map(normalizeTx);
   } catch(e) {
     console.error('Fehler beim Laden:', e);
     transactions = [];
@@ -802,7 +790,14 @@ function renderAll() {
   renderTransactions(transactions);
 }
 
-function getCatById(id) { return categories.find(c=>c.id===id) || {name:'Sonstiges',icon:'📦',color:'#9e9b96'}; }
+function getCatById(id) { return categories.find(c=>c.id===Number(id)) || {name:'Sonstiges',icon:'📦',color:'#9e9b96'}; }
+
+function getMonthTxs() {
+  return transactions.filter(t => {
+    const d = new Date(t.date + 'T12:00:00');
+    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+  });
+}
 
 function renderTransactions(txs) {
   const el = document.getElementById('transactionList');
@@ -820,9 +815,9 @@ function renderTransactions(txs) {
     const label = dDay.getTime()===today.getTime() ? 'Heute' : dDay.getTime()===today.getTime()-86400000 ? 'Gestern' :
       d.toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'});
     return `<div class="section-title">${label}</div>` + list.map(t => {
-      const cat = getCatById(t.category);
+      const cat = getCatById(t.category_id);
       const tags = (t.tags||[]).map(tg=>`<span class="tag">${tg}</span>`).join('');
-      return `<div class="transaction" onclick="editTransaction('${t.id}')">
+      return `<div class="transaction" onclick="editTransaction(${t.id})">
         <div class="t-icon" style="background:${cat.color}22">${cat.icon}</div>
         <div class="t-info">
           <div class="t-title">${t.desc}</div>
@@ -875,7 +870,10 @@ function renderMonthChart() {
 
 async function renderYearChart() {
   let yearTxs = [];
-  try { yearTxs = await api('GET', `/transactions?year=${chartYear}`); } catch(e) {}
+  try {
+    const raw = await api('GET', `/transactions?year=${chartYear}`);
+    yearTxs = raw.map(normalizeTx);
+  } catch(e) {}
   const monthly = Array.from({length:12},(_,m) => {
     const txs = yearTxs.filter(t => new Date(t.date).getMonth()===m);
     return { out: txs.filter(t=>t.type==='out').reduce((a,t)=>a+t.amount,0),
@@ -898,13 +896,13 @@ async function renderYearChart() {
 function renderCatBreakdown() {
   const txs = getMonthTxs().filter(t=>t.type==='out');
   const totals = {};
-  txs.forEach(t => totals[t.category] = (totals[t.category]||0) + t.amount);
+  txs.forEach(t => totals[t.category_id] = (totals[t.category_id]||0) + t.amount);
   const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
   const max = sorted[0]?.[1] || 1;
   const el = document.getElementById('catBreakdown');
   if (!sorted.length) { el.innerHTML='<p style="color:var(--text3);font-size:13px;text-align:center;padding:16px">Keine Ausgaben in diesem Monat</p>'; return; }
   el.innerHTML = sorted.map(([catId, amt]) => {
-    const cat = getCatById(catId);
+    const cat = getCatById(parseInt(catId));
     return `<div class="cat-row">
       <div class="cat-icon" style="background:${cat.color}22">${cat.icon}</div>
       <div class="cat-info">
@@ -924,16 +922,37 @@ function openModal(tx) {
   document.getElementById('inputDate').value   = tx?.date || new Date().toISOString().split('T')[0];
   const catSel = document.getElementById('inputCat');
   catSel.innerHTML = categories.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
-  if (tx) catSel.value = tx.category;
+  if (tx) catSel.value = tx.category_id;
   setType(tx?.type||'out', document.querySelector('.type-btn.out'));
   renderTagPills();
+  document.querySelector('.modal h2').textContent = tx ? 'Buchung bearbeiten' : 'Neue Buchung';
+  document.getElementById('deleteBtn').style.display = tx ? 'block' : 'none';
   document.getElementById('modalOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('inputAmount').focus(),300);
   document.getElementById('modalOverlay').dataset.editId = tx?.id || '';
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalOutside(e) { if(e.target===document.getElementById('modalOverlay')) closeModal(); }
-function editTransaction(id) { openModal(transactions.find(t=>t.id===id)); }
+function editTransaction(id) { openModal(transactions.find(t=>t.id===Number(id))); }
+
+async function deleteCurrentTransaction() {
+  const editId = document.getElementById('modalOverlay').dataset.editId;
+  if (!editId) return;
+  if (!confirm('Buchung wirklich löschen?')) return;
+  try {
+    await api('DELETE', `/transactions/${editId}`);
+    closeModal();
+    await loadAndRender();
+  } catch(e) {
+    if (!navigator.onLine && window.PocketLogOutbox) {
+      await window.PocketLogOutbox.enqueue({method:'DELETE', path:`/transactions/${editId}`});
+      closeModal();
+      updateSyncBadge();
+      return;
+    }
+    alert('Fehler beim Löschen: ' + e.message);
+  }
+}
 
 function setType(type, btn) {
   currentType = type;
@@ -967,15 +986,21 @@ async function addTransaction() {
   if (!amount || !desc || !date) { alert('Bitte Betrag, Beschreibung und Datum ausfüllen.'); return; }
   const body = {amount, desc, category_id: cat||null, date, type:currentType, tags:currentTags};
   const editId = document.getElementById('modalOverlay').dataset.editId;
+  const method = editId ? 'PUT' : 'POST';
+  const path = editId ? `/transactions/${editId}` : '/transactions';
   try {
-    if (editId) {
-      await api('PUT', `/transactions/${editId}`, body);
-    } else {
-      await api('POST', '/transactions', body);
-    }
+    await api(method, path, body);
     closeModal();
     await loadAndRender();
-  } catch(e) { alert('Fehler beim Speichern: ' + e.message); }
+  } catch(e) {
+    if (!navigator.onLine && window.PocketLogOutbox) {
+      await window.PocketLogOutbox.enqueue({method, path, body});
+      closeModal();
+      updateSyncBadge();
+      return;
+    }
+    alert('Fehler beim Speichern: ' + e.message);
+  }
 }
 
 // ── CATEGORIES ────────────────────────────────────────────────────────────────
@@ -1003,45 +1028,50 @@ function renderCategories() {
   `).join('');
 }
 
-// ── CONFIG (Settings-Tab: nur noch Kategorien-Verwaltung) ─────────────────────
-function loadConfig() {
-  // kein WebDAV mehr – Authentik übernimmt Auth, API die Datenhaltung
-}
-function saveConfig() {}
-
-function showStatus(id, msg, cls) {
-  const el=document.getElementById(id); el.textContent=msg; el.className='status-msg '+cls;
-  if(cls==='') setTimeout(()=>el.textContent='',4000);
-}
-
-// ── SYNC (entfällt – Daten leben in der Datenbank) ────────────────────────────
-async function syncNow(silent=false) {
-  // Daten sind immer aktuell – kein manueller Sync nötig
+// ── SYNC (Service-Worker-Outbox) ──────────────────────────────────────────────
+// Online-Schreibvorgänge laufen direkt; offline landen sie in der IndexedDB-
+// Outbox (frontend/db.js) und werden bei wieder hergestellter Verbindung
+// vom Service Worker bzw. diesem Aufruf nachgespielt.
+async function syncNow() {
   const label = document.getElementById('syncLabel');
-  label.textContent='✓';
-  setTimeout(()=>label.textContent='Sync',1500);
+  if (window.PocketLogOutbox) {
+    try {
+      const flushed = await window.PocketLogOutbox.drain(API);
+      label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
+      if (flushed > 0) await loadAndRender();
+    } catch (e) {
+      label.textContent = '⚠';
+      console.error('Sync fehlgeschlagen:', e);
+    }
+  } else {
+    label.textContent = '✓';
+  }
+  setTimeout(updateSyncBadge, 1500);
 }
+
+async function updateSyncBadge() {
+  const label = document.getElementById('syncLabel');
+  if (!window.PocketLogOutbox) { label.textContent = 'Sync'; return; }
+  const pending = await window.PocketLogOutbox.count();
+  label.textContent = pending > 0 ? `Pending: ${pending}` : 'Sync';
+}
+
+window.addEventListener('online', () => syncNow());
 
 // ── EXPORT ────────────────────────────────────────────────────────────────────
 async function exportCSV() {
   window.location.href = API + '/export/csv';
 }
 
-async function clearData() {
-  if (confirm('Wirklich alle Daten löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
-    try {
-      const all = await api('GET', '/transactions');
-      await Promise.all(all.map(t => api('DELETE', `/transactions/${t.id}`)));
-      await loadAndRender();
-    } catch(e) { alert('Fehler: ' + e.message); }
-  }
-}
-
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
   document.getElementById('yearLabel').textContent = chartYear;
+  if ('serviceWorker' in navigator) {
+    try { await navigator.serviceWorker.register('/sw.js'); } catch (e) { console.warn('SW registration failed:', e); }
+  }
   await loadCategories();
   await loadAndRender();
+  updateSyncBadge();
 }
 init();
 </script>
