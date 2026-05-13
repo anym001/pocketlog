@@ -106,6 +106,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
 
   if (isApi(url)) {
+    // /api/health dient als Online-Probe — niemals aus dem Cache beantworten,
+    // sonst wirkt der Sync-Button selbst im Flugmodus erfolgreich.
+    if (req.method === 'GET' && url.pathname === '/api/health') {
+      event.respondWith(fetch(req));
+      return;
+    }
     if (req.method === 'GET') {
       event.respondWith(networkFirst(req));
     } else {

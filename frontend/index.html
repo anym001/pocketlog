@@ -129,6 +129,8 @@
   .sync-btn:hover { border-color: var(--accent); color: var(--accent); }
   .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
   .sync-dot.syncing { background: var(--accent); animation: pulse 1s infinite; }
+  .sync-dot.error { background: #d94c3a; }
+  .sync-btn.error { border-color: #d94c3a; color: #d94c3a; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
   /* SUMMARY CARDS */
@@ -1501,21 +1503,51 @@ async function deleteTagEdit() {
 // Outbox (frontend/db.js) und werden bei wieder hergestellter Verbindung
 // vom Service Worker bzw. diesem Aufruf nachgespielt.
 async function syncNow() {
+  const btn = document.getElementById('syncBtn');
+  const dot = document.getElementById('syncDot');
   const label = document.getElementById('syncLabel');
-  if (window.PocketLogOutbox) {
+
+  btn.classList.remove('error');
+  dot.classList.remove('error');
+  dot.classList.add('syncing');
+
+  let flushed = 0;
+  let networkErr = navigator.onLine === false;
+
+  if (!networkErr && window.PocketLogOutbox) {
     try {
-      const flushed = await window.PocketLogOutbox.drain(API);
-      label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
-      if (flushed > 0) await loadTags();
-      await loadAndRender();
+      flushed = await window.PocketLogOutbox.drain(API);
     } catch (e) {
-      label.textContent = '⚠';
-      console.error('Sync fehlgeschlagen:', e);
+      networkErr = true;
+      console.error('Sync (drain) fehlgeschlagen:', e);
     }
-  } else {
-    label.textContent = '✓';
   }
-  setTimeout(updateSyncBadge, 1500);
+
+  if (!networkErr) {
+    try {
+      const r = await fetch(API + '/health', { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    } catch (e) {
+      networkErr = true;
+      console.error('Sync (health) fehlgeschlagen:', e);
+    }
+  }
+
+  const remaining = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+  dot.classList.remove('syncing');
+
+  if (networkErr || remaining > 0) {
+    btn.classList.add('error');
+    dot.classList.add('error');
+    label.textContent = remaining > 0 ? `⚠ ${remaining} offen` : '⚠ offline';
+    setTimeout(updateSyncBadge, 4000);
+    return;
+  }
+
+  label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
+  if (flushed > 0) await loadTags();
+  await loadAndRender();
+  setTimeout(updateSyncBadge, 2000);
 }
 
 function loadApiBaseInput() {
@@ -1550,10 +1582,22 @@ function showApiStatus(msg, kind) {
 }
 
 async function updateSyncBadge() {
+  const btn = document.getElementById('syncBtn');
+  const dot = document.getElementById('syncDot');
   const label = document.getElementById('syncLabel');
-  if (!window.PocketLogOutbox) { label.textContent = 'Sync'; return; }
+  if (!window.PocketLogOutbox) {
+    btn.classList.remove('error'); dot.classList.remove('error');
+    label.textContent = 'Sync';
+    return;
+  }
   const pending = await window.PocketLogOutbox.count();
-  label.textContent = pending > 0 ? `Pending: ${pending}` : 'Sync';
+  if (pending > 0) {
+    label.textContent = `Pending: ${pending}`;
+  } else {
+    btn.classList.remove('error');
+    dot.classList.remove('error');
+    label.textContent = 'Sync';
+  }
 }
 
 window.addEventListener('online', () => syncNow());
