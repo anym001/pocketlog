@@ -144,22 +144,5 @@ SWAG neu laden, und in Authentik einen Forward-Auth-Provider + Application für
 - StaticFiles-Mount IMMER zuletzt registrieren, damit `/api/*` vorher matcht
 
 ## Bekannte Einschränkungen / TODO (Backlog)
-- Icons sind Platzhalter, müssen durch echte App-Icons ersetzt werden
-- Swipe-to-Delete als zusätzliche UX (aktuell nur Modal-Button)
-- Wiederkehrende Buchungen, Budget-Grenzen pro Kategorie
-- Push-Benachrichtigungen bei Budget-Überschreitung
-- Backup-Job: nächtlicher `mariadb-dump` via Unraid-User-Script
-- Service Worker Background-Sync nutzt aktuell fix `/api` als Basis; bei
-  konfigurierter externer Backend-URL flushed nur die Window-getriggerte
-  `syncNow()` – Hintergrund-Sync bei geschlossenem Tab dann erst beim nächsten
-  Öffnen.
-- **Security: Header-Trust-Modell härten.** Das Backend vertraut aktuell blind
-  jedem `X-Authentik-Username`-Header. Wer Direktzugriff auf den Backend-Port
-  hat (LAN, fehlkonfigurierte Port-Freigabe, fehlende Netzwerk-Isolation),
-  kann jeden beliebigen User imitieren. Empfohlener nächster Schritt: ein
-  Shared-Secret zwischen SWAG und Backend — SWAG injiziert einen
-  zusätzlichen Header `X-Auth-Secret: <random>`, Backend prüft ihn gegen
-  eine ENV-Variable und antwortet sonst 401. Alternativen: mTLS zwischen
-  beiden Containern, signierte JWTs aus Authentik (OIDC statt Forward Auth).
-  Bis das umgesetzt ist: Backend-Port niemals außerhalb des SWAG-Netzwerks
-  exponieren.
+
+Siehe [`TODO.md`](TODO.md) für offene Punkte (Features, PWA-Limits, Security).
