@@ -170,6 +170,28 @@ def update_transaction(
     return tx
 
 
+def list_tags(db: Session, username: str) -> list[str]:
+    rows = db.scalars(
+        select(models.Transaction.tags).where(
+            and_(
+                models.Transaction.username == username,
+                models.Transaction.tags.is_not(None),
+            )
+        )
+    )
+    seen: set[str] = set()
+    for tags in rows:
+        if not tags:
+            continue
+        for t in tags:
+            if not isinstance(t, str):
+                continue
+            t = t.strip()
+            if t:
+                seen.add(t)
+    return sorted(seen, key=str.casefold)
+
+
 def delete_transaction(db: Session, username: str, tx_id: int) -> bool:
     tx = db.scalar(
         select(models.Transaction).where(

@@ -125,6 +125,13 @@ def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
     return Response(status_code=204)
 
 
+# ---------- Tags ----------
+
+@app.get("/api/tags", response_model=list[str])
+def get_tags(user: CurrentUser, db: DB):
+    return crud.list_tags(db, user)
+
+
 # ---------- CSV-Import ----------
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB

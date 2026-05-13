@@ -487,6 +487,24 @@
     font-size: 13px !important;
     background: none !important;
   }
+  .tag-suggestions {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  }
+  .tag-suggestions:empty { display: none; }
+  .tag-suggestion {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .tag-suggestion:hover, .tag-suggestion:active {
+    background: var(--bg2);
+    color: var(--text);
+  }
 
   .submit-btn {
     width: 100%;
@@ -731,8 +749,10 @@
     <div class="form-group">
       <label>Tags (Enter zum Hinzufügen)</label>
       <div class="tags-input-wrap" id="tagsWrap">
-        <input type="text" class="tag-add-input" id="tagInput" placeholder="+ Tag" onkeydown="handleTagInput(event)">
+        <input type="text" class="tag-add-input" id="tagInput" placeholder="+ Tag" list="tagsDatalist" autocomplete="off" onkeydown="handleTagInput(event)">
       </div>
+      <datalist id="tagsDatalist"></datalist>
+      <div class="tag-suggestions" id="tagSuggestions"></div>
     </div>
     <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
     <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
@@ -758,8 +778,9 @@ let currentType  = 'out';
 let currentTags  = [];
 let monthChartInst, yearChartInst;
 
-let transactions = [];   // wird per API geladen
-let categories   = [];   // wird per API geladen
+let transactions  = [];   // wird per API geladen
+let categories    = [];   // wird per API geladen
+let availableTags = [];   // distinkte Tags des Users (für Autocomplete/Suggestions)
 
 // ── API HELPER ────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -1092,7 +1113,10 @@ function openModal(tx) {
   catSel.innerHTML = categories.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
   if (tx) catSel.value = tx.category_id;
   setType(tx?.type||'out', document.querySelector('.type-btn.out'));
+  document.getElementById('tagInput').value = '';
   renderTagPills();
+  renderTagsDatalist();
+  renderTagSuggestions();
   document.querySelector('.modal h2').textContent = tx ? 'Buchung bearbeiten' : 'Neue Buchung';
   document.getElementById('deleteBtn').style.display = tx ? 'block' : 'none';
   document.getElementById('modalOverlay').classList.add('open');
@@ -1134,11 +1158,19 @@ function handleTagInput(e) {
   if (e.key==='Enter'||e.key===',') {
     e.preventDefault();
     const val = e.target.value.trim().replace(/,$/,'');
-    if (val && !currentTags.includes(val)) { currentTags.push(val); renderTagPills(); }
+    if (val && !currentTags.includes(val)) {
+      currentTags.push(val);
+      renderTagPills();
+      renderTagSuggestions();
+    }
     e.target.value = '';
   }
 }
-function removeTag(t) { currentTags = currentTags.filter(x=>x!==t); renderTagPills(); }
+function removeTag(t) {
+  currentTags = currentTags.filter(x=>x!==t);
+  renderTagPills();
+  renderTagSuggestions();
+}
 function renderTagPills() {
   const wrap = document.getElementById('tagsWrap');
   const inp  = document.getElementById('tagInput');
@@ -1158,16 +1190,32 @@ async function addTransaction() {
   const path = editId ? `/transactions/${editId}` : '/transactions';
   try {
     await api(method, path, body);
+    mergeIntoAvailableTags(currentTags);
     closeModal();
     await loadAndRender();
   } catch(e) {
     if (!navigator.onLine && window.PocketLogOutbox) {
       await window.PocketLogOutbox.enqueue({method, path, body});
+      mergeIntoAvailableTags(currentTags);
       closeModal();
       updateSyncBadge();
       return;
     }
     alert('Fehler beim Speichern: ' + e.message);
+  }
+}
+
+function mergeIntoAvailableTags(tags) {
+  if (!Array.isArray(tags) || !tags.length) return;
+  const lower = new Set(availableTags.map(t=>t.toLowerCase()));
+  let changed = false;
+  for (const t of tags) {
+    const v = (t||'').trim();
+    if (v && !lower.has(v.toLowerCase())) { availableTags.push(v); lower.add(v.toLowerCase()); changed = true; }
+  }
+  if (changed) {
+    availableTags.sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+    renderTagsDatalist();
   }
 }
 
@@ -1190,6 +1238,39 @@ async function loadCategories() {
   try { categories = await api('GET', '/categories'); } catch(e) { categories=[]; }
 }
 
+async function loadTags() {
+  try {
+    const tags = await api('GET', '/tags');
+    availableTags = Array.isArray(tags) ? tags : [];
+  } catch(e) {
+    availableTags = [];
+  }
+  renderTagsDatalist();
+}
+
+function renderTagsDatalist() {
+  const dl = document.getElementById('tagsDatalist');
+  if (!dl) return;
+  dl.innerHTML = availableTags.map(t=>`<option value="${t.replace(/"/g,'&quot;')}"></option>`).join('');
+}
+
+function renderTagSuggestions() {
+  const box = document.getElementById('tagSuggestions');
+  if (!box) return;
+  const lower = currentTags.map(x=>x.toLowerCase());
+  const remaining = availableTags.filter(t => !lower.includes(t.toLowerCase())).slice(0, 12);
+  box.innerHTML = remaining.map(t =>
+    `<button type="button" class="tag-suggestion" onclick="addTagFromSuggestion('${t.replace(/'/g,"\\'")}')">+ ${t}</button>`
+  ).join('');
+}
+
+function addTagFromSuggestion(t) {
+  if (!t) return;
+  if (!currentTags.includes(t)) currentTags.push(t);
+  renderTagPills();
+  renderTagSuggestions();
+}
+
 function renderCategories() {
   document.getElementById('catList').innerHTML = categories.map(c=>`
     <div class="tag-pill">${c.icon} ${c.name}</div>
@@ -1206,6 +1287,7 @@ async function syncNow() {
     try {
       const flushed = await window.PocketLogOutbox.drain(API);
       label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
+      if (flushed > 0) await loadTags();
       await loadAndRender();
     } catch (e) {
       label.textContent = '⚠';
@@ -1259,7 +1341,10 @@ window.addEventListener('online', () => syncNow());
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (ev) => {
-    if (ev.data?.type === 'SYNC_DONE') loadAndRender();
+    if (ev.data?.type === 'SYNC_DONE') {
+      loadTags();
+      loadAndRender();
+    }
   });
 }
 
@@ -1292,6 +1377,7 @@ async function importCSV(ev) {
     status.textContent = parts.join(' · ');
     status.className = 'status-msg ' + (r.imported > 0 ? 'ok' : 'err');
     await loadCategories();
+    await loadTags();
     await loadAndRender();
   } catch (e) {
     status.textContent = 'Import fehlgeschlagen: ' + e.message;
@@ -1308,6 +1394,7 @@ async function init() {
     try { await navigator.serviceWorker.register('/sw.js'); } catch (e) { console.warn('SW registration failed:', e); }
   }
   await loadCategories();
+  await loadTags();
   await loadAndRender();
   updateSyncBadge();
 }
