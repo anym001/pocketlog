@@ -47,3 +47,20 @@ Einmalige Schritte, danach kann der Abschnitt raus.
   (OIDC statt Forward Auth).
   Bis das umgesetzt ist: Backend-Port niemals außerhalb des SWAG-Netzwerks
   exponieren.
+
+## Nice-to-haves
+
+Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
+
+- **Tests in der CI.** Der Workflow baut aktuell nur das Image. Ein kleiner
+  `pytest`-Step davor könnte z.B. den Schema-Roundtrip (Frontend-Body →
+  Pydantic → DB-Spalte → Response) oder den CSV-Import-Parser absichern.
+  Hängt davon ab, ob automatisierte Tests dauerhaft gepflegt werden sollen.
+- **`/api/health` für externes Monitoring freigeben.** Liegt aktuell hinter
+  Authentik, also kein Uptime-Check von außen ohne Token. Bei Bedarf in SWAG
+  einen Location-Block für `/api/health` ohne `authentik-location.conf`
+  anlegen.
+- **Versions-Tags / Release-Prozess dokumentieren.** Der Workflow unterstützt
+  `vX.Y.Z`-Tags (→ Image-Tags `X.Y.Z` und `X.Y`), aber README/CLAUDE.md
+  erwähnen keinen Release-Workflow. Solange nur `:latest` deployt wird,
+  irrelevant.
