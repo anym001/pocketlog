@@ -65,7 +65,6 @@ Der Workflow `.github/workflows/build.yml` baut bei jedem Push auf `main` ein
 neues Image und pusht es nach `ghcr.io/<owner>/pocketlog`. Tags:
 
 - `:latest` — letzter Stand von `main`
-- `:sha-<short>` — jeder einzelne Commit, zum Pinnen
 - `:X.Y.Z` / `:X.Y` — bei Git-Tags `vX.Y.Z` (z.B. `git tag v1.0.0 && git push --tags`)
 
 **Einmalig nach dem ersten erfolgreichen Workflow-Run:** GitHub legt das
