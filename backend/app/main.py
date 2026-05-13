@@ -1,6 +1,5 @@
 import csv
 import io
-import os
 from pathlib import Path
 from typing import Annotated
 
@@ -24,12 +23,9 @@ app = FastAPI(
 def get_current_user(
     x_authentik_username: Annotated[str | None, Header()] = None,
 ) -> str:
-    if x_authentik_username:
-        return x_authentik_username
-    dev_user = os.environ.get("DEV_FAKE_USER", "").strip()
-    if dev_user:
-        return dev_user
-    raise HTTPException(status_code=401, detail="missing X-Authentik-Username header")
+    if not x_authentik_username:
+        raise HTTPException(status_code=401, detail="missing X-Authentik-Username header")
+    return x_authentik_username
 
 
 CurrentUser = Annotated[str, Depends(get_current_user)]

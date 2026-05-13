@@ -53,7 +53,6 @@ Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
 | ENV `DB_USER` | `pocketlog` |
 | ENV `DB_PASSWORD` | dein Passwort |
 | ENV `TZ` | `Europe/Berlin` |
-| ENV `DEV_FAKE_USER` | *leer* (nur für lokales Testen setzen) |
 
 ## API testen
 

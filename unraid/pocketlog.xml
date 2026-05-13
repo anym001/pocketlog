@@ -32,7 +32,5 @@
   <Config Name="DB_USER" Target="DB_USER" Default="pocketlog" Mode="" Description="DB-User mit Rechten auf DB_NAME." Type="Variable" Display="always" Required="true" Mask="false">pocketlog</Config>
   <Config Name="DB_PASSWORD" Target="DB_PASSWORD" Default="" Mode="" Description="Passwort des DB-Users." Type="Variable" Display="always" Required="true" Mask="true"/>
 
-  <!-- Optional: Authentik / Dev -->
   <Config Name="TZ" Target="TZ" Default="Europe/Berlin" Mode="" Description="Zeitzone." Type="Variable" Display="advanced" Required="false" Mask="false">Europe/Berlin</Config>
-  <Config Name="DEV_FAKE_USER" Target="DEV_FAKE_USER" Default="" Mode="" Description="LEER LASSEN in Produktion! Nur für lokales Testen ohne Authentik: setzt einen festen Benutzernamen." Type="Variable" Display="advanced" Required="false" Mask="false"/>
 </Container>

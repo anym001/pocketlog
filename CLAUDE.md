@@ -101,8 +101,8 @@ Jeder User bekommt beim ersten `GET /api/categories` Default-Kategorien
 ## Auth-Konzept
 - Authentik schützt die gesamte Domain per Forward Auth über SWAG
 - Nach Login setzt Authentik den Header `X-Authentik-Username`
-- FastAPI liest den Header in `get_current_user()` (`backend/app/main.py`)
-- Lokales Dev ohne Authentik: ENV `DEV_FAKE_USER=test` setzen → wird als Username genommen
+- FastAPI liest den Header in `get_current_user()` (`backend/app/main.py`); fehlt der Header → 401
+- Lokales Testen ohne Authentik: Header manuell mitschicken, z.B. `curl -H "X-Authentik-Username: test" http://localhost:8080/api/health`
 - Alle DB-Queries filtern nach `username` – Multi-User-fähig ohne extra Login-Code
 
 ## Frontend API-Aufruf
