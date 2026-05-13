@@ -22,16 +22,19 @@ Beim ersten Start spielt der Container die Schema-Migrationen automatisch ein.
 
 ## Setup über die Unraid GUI
 
-1. **Apps → Add Container → Template URL:**
-   `https://raw.githubusercontent.com/anym001/PocketLog/main/unraid/pocketlog.xml`
-   (oder das `unraid/pocketlog.xml` aus diesem Repo manuell laden)
-2. Felder ausfüllen:
+1. **Template einbinden:** `unraid/pocketlog.xml` aus diesem Repo holen
+   und nach `/boot/config/plugins/dockerMan/templates-user/` auf deinem
+   Unraid-Server kopieren. Danach in **Apps → Add Container** im
+   **Template:**-Dropdown `pocketlog` auswählen — alle Felder sind dann
+   vorbelegt. (Bei privatem Repo geht die Template-URL-Variante nicht; wer
+   lieber alles per Hand einträgt, nimmt die Tabelle unten.)
+2. Felder prüfen / ausfüllen:
    - **WebUI Port**: z.B. `8080`
    - **DB_HOST**: Container-Name oder IP deiner MariaDB
    - **DB_NAME** / **DB_USER** / **DB_PASSWORD**: wie oben angelegt
    - **Network**: dasselbe Docker-Network wie deine MariaDB *und* SWAG
      (sonst kommt PocketLog nicht an die DB bzw. SWAG nicht an PocketLog)
-3. **Apply** → der Container baut sich, läuft Alembic, startet uvicorn.
+3. **Apply** → der Container wird gezogen, läuft Alembic, startet uvicorn.
 4. **SWAG** vorbereiten:
    `swag/pocketlog.subdomain.conf` nach `/swag/config/nginx/proxy-confs/`
    kopieren, SWAG neu laden.

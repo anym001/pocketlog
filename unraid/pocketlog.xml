@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>PocketLog</Name>
+  <Name>pocketlog</Name>
   <Repository>ghcr.io/anym001/pocketlog:latest</Repository>
   <Registry>https://github.com/anym001/PocketLog</Registry>
   <Network>bridge</Network>
@@ -12,8 +12,6 @@
   <Overview>Haushaltsbuch als Progressive Web App. FastAPI-Backend + statische PWA in einem Image. Authentifizierung wird per Authentik Forward Auth (z.B. via SWAG) davor erledigt — die App selbst hat keinen Login. Daten werden in einer externen MariaDB gespeichert, die du selbst betreibst.</Overview>
   <Category>Productivity: Tools:</Category>
   <WebUI>http://[IP]:[PORT:8000]/</WebUI>
-  <TemplateURL>https://raw.githubusercontent.com/anym001/PocketLog/main/unraid/pocketlog.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/anym001/PocketLog/main/frontend/icons/icon-192.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
