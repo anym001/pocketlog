@@ -717,7 +717,7 @@
       <input type="number" class="amount-input" id="inputAmount" placeholder="0,00" step="0.01" inputmode="decimal">
     </div>
     <div class="form-group">
-      <label>Beschreibung</label>
+      <label>Beschreibung <span style="color:var(--text3);font-weight:400">(optional)</span></label>
       <input type="text" id="inputDesc" placeholder="z.B. Supermarkt">
     </div>
     <div class="form-group">
@@ -877,13 +877,16 @@ function renderTransactions(txs) {
     return `<div class="section-title">${label}</div>` + list.map(t => {
       const cat = getCatById(t.category_id);
       const tags = (t.tags||[]).map(tg=>`<span class="tag">${tg}</span>`).join('');
+      const hasDesc = (t.desc||'').trim().length > 0;
+      const title = hasDesc ? t.desc : cat.name;
+      const meta = hasDesc ? `<span>${cat.name}</span>${tags}` : tags;
       return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
           <div class="t-icon" style="background:${cat.color}22">${cat.icon}</div>
           <div class="t-info">
-            <div class="t-title">${t.desc}</div>
-            <div class="t-meta"><span>${cat.name}</span>${tags}</div>
+            <div class="t-title">${title}</div>
+            <div class="t-meta">${meta}</div>
           </div>
           <div class="t-amount ${t.type}">${t.type==='out'?'–':'+'}${fmtCurrency(t.amount)}</div>
         </div>
@@ -963,7 +966,7 @@ function attachSwipeHandlers(container) {
       e.stopPropagation();
       const id = Number(row.dataset.id);
       const tx = transactions.find(t => t.id === id);
-      const label = tx ? `„${tx.desc}"` : 'die Buchung';
+      const label = tx && tx.desc ? `„${tx.desc}"` : 'die Buchung';
       if (!confirm(`Soll ${label} wirklich gelöscht werden?`)) {
         row.classList.remove('swiped');
         return;
@@ -1148,7 +1151,7 @@ async function addTransaction() {
   const desc   = document.getElementById('inputDesc').value.trim();
   const cat    = parseInt(document.getElementById('inputCat').value);
   const date   = document.getElementById('inputDate').value;
-  if (!amount || !desc || !date) { alert('Bitte Betrag, Beschreibung und Datum ausfüllen.'); return; }
+  if (!amount || !date) { alert('Bitte Betrag und Datum ausfüllen.'); return; }
   const body = {amount, desc, category_id: cat||null, date, type:currentType, tags:currentTags};
   const editId = document.getElementById('modalOverlay').dataset.editId;
   const method = editId ? 'PUT' : 'POST';
