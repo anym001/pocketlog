@@ -214,6 +214,42 @@
     font-weight: 600;
     margin: 16px 0 8px;
   }
+  .tx-row {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+  }
+  .tx-row .transaction {
+    margin-bottom: 0;
+    position: relative;
+    z-index: 2;
+    touch-action: pan-y;
+    will-change: transform;
+    transition: transform 0.2s ease;
+  }
+  .tx-row.dragging .transaction { transition: none; }
+  .tx-row.swiped .transaction { transform: translateX(-88px); }
+  .tx-row.swiped .transaction:active { transform: translateX(-88px); }
+  .tx-action {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 88px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 500;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    cursor: pointer;
+    border: none;
+    border-top-right-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
+  }
+  .tx-action:focus-visible { outline: 2px solid var(--text); outline-offset: -4px; }
+
   .transaction {
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -836,17 +872,122 @@ function renderTransactions(txs) {
     return `<div class="section-title">${label}</div>` + list.map(t => {
       const cat = getCatById(t.category_id);
       const tags = (t.tags||[]).map(tg=>`<span class="tag">${tg}</span>`).join('');
-      return `<div class="transaction" onclick="editTransaction(${t.id})">
-        <div class="t-icon" style="background:${cat.color}22">${cat.icon}</div>
-        <div class="t-info">
-          <div class="t-title">${t.desc}</div>
-          <div class="t-meta"><span>${cat.name}</span>${tags}</div>
+      return `<div class="tx-row" data-id="${t.id}">
+        <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
+        <div class="transaction">
+          <div class="t-icon" style="background:${cat.color}22">${cat.icon}</div>
+          <div class="t-info">
+            <div class="t-title">${t.desc}</div>
+            <div class="t-meta"><span>${cat.name}</span>${tags}</div>
+          </div>
+          <div class="t-amount ${t.type}">${t.type==='out'?'–':'+'}${fmtCurrency(t.amount)}</div>
         </div>
-        <div class="t-amount ${t.type}">${t.type==='out'?'–':'+'}${fmtCurrency(t.amount)}</div>
       </div>`;
     }).join('');
   }).join('');
+  attachSwipeHandlers(el);
 }
+
+// ── SWIPE-TO-DELETE ───────────────────────────────────────────────────────────
+const SWIPE_ACTION_WIDTH = 88;
+const SWIPE_OPEN_THRESHOLD = 40;   // Pixel, ab denen die Action offen einrastet
+const TAP_TOLERANCE = 6;           // Pixel-Slop, unter dem ein Pointer-Down als Tap zählt
+
+function closeAllSwipes(except) {
+  document.querySelectorAll('.tx-row.swiped').forEach(r => {
+    if (r !== except) r.classList.remove('swiped');
+  });
+}
+
+function attachSwipeHandlers(container) {
+  container.querySelectorAll('.tx-row').forEach(row => {
+    const inner = row.querySelector('.transaction');
+    const action = row.querySelector('.tx-action');
+    let startX = 0, dx = 0, dragging = false, openOnStart = false;
+
+    inner.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      startX = e.clientX;
+      dx = 0;
+      dragging = true;
+      openOnStart = row.classList.contains('swiped');
+      row.classList.add('dragging');
+      try { inner.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    inner.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      let delta = e.clientX - startX;
+      if (openOnStart) delta -= SWIPE_ACTION_WIDTH;
+      dx = Math.min(0, Math.max(-SWIPE_ACTION_WIDTH, delta));
+      inner.style.transform = `translateX(${dx}px)`;
+    });
+
+    function endDrag(cancelled) {
+      if (!dragging) return;
+      dragging = false;
+      row.classList.remove('dragging');
+      inner.style.transform = '';
+
+      if (cancelled) {
+        // Wurde vom Browser abgebrochen (z.B. vertikaler Scroll): Status nicht ändern
+        return;
+      }
+
+      const movedFar = dx < -SWIPE_OPEN_THRESHOLD;
+      if (movedFar) {
+        closeAllSwipes(row);
+        row.classList.add('swiped');
+      } else if (Math.abs(dx) < TAP_TOLERANCE) {
+        // Tap
+        if (openOnStart) {
+          row.classList.remove('swiped');
+        } else {
+          closeAllSwipes();
+          editTransaction(Number(row.dataset.id));
+        }
+      } else {
+        row.classList.remove('swiped');
+      }
+    }
+
+    inner.addEventListener('pointerup', () => endDrag(false));
+    inner.addEventListener('pointercancel', () => endDrag(true));
+
+    action.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = Number(row.dataset.id);
+      const tx = transactions.find(t => t.id === id);
+      const label = tx ? `„${tx.desc}"` : 'die Buchung';
+      if (!confirm(`Soll ${label} wirklich gelöscht werden?`)) {
+        row.classList.remove('swiped');
+        return;
+      }
+      try {
+        await api('DELETE', `/transactions/${id}`);
+        await loadAndRender();
+      } catch (err) {
+        if (!navigator.onLine && window.PocketLogOutbox) {
+          await window.PocketLogOutbox.enqueue({method:'DELETE', path:`/transactions/${id}`});
+          row.classList.remove('swiped');
+          // Optimistisch entfernen, Sync übernimmt der SW
+          transactions = transactions.filter(t => t.id !== id);
+          renderAll();
+          updateSyncBadge();
+          return;
+        }
+        alert('Fehler beim Löschen: ' + err.message);
+        row.classList.remove('swiped');
+      }
+    });
+  });
+}
+
+// Beim Tippen außerhalb einer offenen Zeile diese wieder schließen.
+// Einmaliger globaler Listener (nicht pro Render neu registrieren).
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('.tx-row')) closeAllSwipes();
+}, { capture: true });
 
 // ── CHARTS ────────────────────────────────────────────────────────────────────
 function getChartColors() {
