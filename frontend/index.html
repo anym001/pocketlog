@@ -748,6 +748,11 @@
       <button class="save-btn" style="width:auto;padding:10px 16px" onclick="addCategory()">+</button>
     </div>
   </div>
+  <div class="settings-section">
+    <h3>Tags</h3>
+    <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+    <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
+  </div>
 </div>
 
 <!-- ADD MODAL -->
@@ -785,6 +790,21 @@
     </div>
     <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
     <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+  </div>
+</div>
+
+<!-- TAG EDIT MODAL -->
+<div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Tag bearbeiten</h2>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="tagEditName" maxlength="64">
+    </div>
+    <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
+    <button class="submit-btn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <button class="submit-btn" onclick="closeTagModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
   </div>
 </div>
 
@@ -873,6 +893,7 @@ function switchMainTab(tab, btn) {
     nav.style.display='none'; panels.forEach(p=>p.style.display='none');
     fab.style.display='none'; settings.style.display='block';
     renderCategories();
+    renderTagList();
     loadApiBaseInput();
   } else {
     main.style.display=''; summary.style.display='';
@@ -1268,6 +1289,7 @@ function mergeIntoAvailableTags(tags) {
   if (changed) {
     availableTags.sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
     renderTagsDatalist();
+    renderTagList();
   }
 }
 
@@ -1298,6 +1320,7 @@ async function loadTags() {
     availableTags = [];
   }
   renderTagsDatalist();
+  renderTagList();
 }
 
 function renderTagsDatalist() {
@@ -1406,6 +1429,70 @@ async function deleteCategoryEdit() {
     } else {
       alert('Fehler beim Löschen: ' + e.message);
     }
+  }
+}
+
+// ── TAGS (Einstellungen) ──────────────────────────────────────────────────────
+let editingTagName = null;
+
+function renderTagList() {
+  const box = document.getElementById('tagList');
+  if (!box) return;
+  if (!availableTags.length) {
+    box.innerHTML = '<p style="font-size:13px;color:var(--text3)">Noch keine Tags vorhanden.</p>';
+    return;
+  }
+  box.innerHTML = availableTags.map(t => {
+    const safe = t.replace(/"/g, '&quot;');
+    return `<div class="tag-pill cat-pill-edit" data-tag="${safe}">${t}</div>`;
+  }).join('');
+  box.querySelectorAll('[data-tag]').forEach(el => {
+    el.addEventListener('click', () => openTagModal(el.dataset.tag));
+  });
+}
+
+function openTagModal(name) {
+  editingTagName = name;
+  document.getElementById('tagEditName').value = name;
+  document.getElementById('tagModalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('tagEditName').focus(), 200);
+}
+
+function closeTagModal() {
+  document.getElementById('tagModalOverlay').classList.remove('open');
+  editingTagName = null;
+}
+function closeTagModalOutside(e) {
+  if (e.target === document.getElementById('tagModalOverlay')) closeTagModal();
+}
+
+async function saveTagEdit() {
+  if (!editingTagName) return;
+  const newName = document.getElementById('tagEditName').value.trim();
+  if (!newName) { alert('Bitte einen Namen angeben.'); return; }
+  if (newName === editingTagName) { closeTagModal(); return; }
+  try {
+    await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
+    closeTagModal();
+    await loadTags();
+    renderTagList();
+    await loadAndRender();
+  } catch (e) {
+    alert('Fehler beim Speichern: ' + e.message);
+  }
+}
+
+async function deleteTagEdit() {
+  if (!editingTagName) return;
+  if (!confirm(`Tag „${editingTagName}" wirklich löschen? Er wird aus allen Buchungen entfernt.`)) return;
+  try {
+    await api('DELETE', `/tags/${encodeURIComponent(editingTagName)}`);
+    closeTagModal();
+    await loadTags();
+    renderTagList();
+    await loadAndRender();
+  } catch (e) {
+    alert('Fehler beim Löschen: ' + e.message);
   }
 }
 

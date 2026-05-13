@@ -26,6 +26,12 @@ class CategoryOut(CategoryBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# -------- Tags --------
+
+class TagRename(BaseModel):
+    new_name: str = Field(min_length=1, max_length=64)
+
+
 # -------- Transactions --------
 # Frontend benutzt das JSON-Feld "desc"; in DB heißt die Spalte "description"
 # (Reserved-Word-Vermeidung). Pydantic-Alias macht beides möglich.

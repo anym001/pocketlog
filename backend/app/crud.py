@@ -219,6 +219,59 @@ def list_tags(db: Session, username: str) -> list[str]:
     return sorted(seen, key=str.casefold)
 
 
+def _tx_with_tag(db: Session, username: str) -> list[models.Transaction]:
+    return list(
+        db.scalars(
+            select(models.Transaction).where(
+                and_(
+                    models.Transaction.username == username,
+                    models.Transaction.tags.is_not(None),
+                )
+            )
+        )
+    )
+
+
+def rename_tag(db: Session, username: str, old_name: str, new_name: str) -> int:
+    old_name = (old_name or "").strip()
+    new_name = (new_name or "").strip()
+    if not old_name or not new_name:
+        raise ValueError("empty_name")
+    if old_name == new_name:
+        return 0
+
+    affected = 0
+    for tx in _tx_with_tag(db, username):
+        if not tx.tags or old_name not in tx.tags:
+            continue
+        new_tags: list[str] = []
+        for t in tx.tags:
+            v = new_name if t == old_name else t
+            if v not in new_tags:
+                new_tags.append(v)
+        tx.tags = new_tags or None
+        affected += 1
+    if affected:
+        db.commit()
+    return affected
+
+
+def delete_tag(db: Session, username: str, name: str) -> int:
+    name = (name or "").strip()
+    if not name:
+        return 0
+    affected = 0
+    for tx in _tx_with_tag(db, username):
+        if not tx.tags or name not in tx.tags:
+            continue
+        new_tags = [t for t in tx.tags if t != name]
+        tx.tags = new_tags or None
+        affected += 1
+    if affected:
+        db.commit()
+    return affected
+
+
 def delete_transaction(db: Session, username: str, tx_id: int) -> bool:
     tx = db.scalar(
         select(models.Transaction).where(

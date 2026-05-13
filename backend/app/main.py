@@ -148,6 +148,21 @@ def get_tags(user: CurrentUser, db: DB):
     return crud.list_tags(db, user)
 
 
+@app.put("/api/tags/{name}")
+def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
+    try:
+        affected = crud.rename_tag(db, user, name, payload.new_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"affected": affected}
+
+
+@app.delete("/api/tags/{name}", status_code=204)
+def remove_tag(name: str, user: CurrentUser, db: DB):
+    crud.delete_tag(db, user, name)
+    return Response(status_code=204)
+
+
 # ---------- CSV-Import ----------
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB
