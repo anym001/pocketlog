@@ -1,0 +1,8 @@
+date;type;amount;description;category;tags
+2026-05-01;out;42.50;Wocheneinkauf;Lebensmittel;wocheneinkauf,supermarkt
+2026-05-03;out;9.99;Spotify Premium;Freizeit;abo
+2026-05-05;in;2500.00;Gehalt April;Gehalt;
+2026-05-08;out;15.30;Bäckerei;Lebensmittel;
+2026-05-10;out;65.00;Tanken;Mobilität;auto
+2026-05-12;out;120.00;Stromrechnung;Wohnen;nebenkosten
+2026-05-14;out;7.80;Mittagspause;Lebensmittel;kantine
