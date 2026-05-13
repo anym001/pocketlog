@@ -686,6 +686,11 @@
   <div class="settings-section">
     <h3>Daten</h3>
     <button class="save-btn" onclick="exportCSV()">📄 Als CSV exportieren</button>
+    <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">📥 Aus CSV importieren</button>
+    <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
+    <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
+    <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
+    <div class="status-msg" id="importStatus"></div>
   </div>
   <div class="settings-section">
     <h3>Kategorien</h3>
@@ -1249,9 +1254,42 @@ async function updateSyncBadge() {
 
 window.addEventListener('online', () => syncNow());
 
-// ── EXPORT ────────────────────────────────────────────────────────────────────
+// ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
 async function exportCSV() {
   window.location.href = API + '/export/csv';
+}
+
+async function importCSV(ev) {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('importStatus');
+  status.textContent = 'Importiere …';
+  status.className = 'status-msg';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res = await fetch(API + '/import/csv', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error('HTTP ' + res.status + ' – ' + txt.slice(0, 200));
+    }
+    const r = await res.json();
+    const parts = [`${r.imported} Buchungen importiert`];
+    if (r.skipped) parts.push(`${r.skipped} übersprungen`);
+    if (r.errors && r.errors.length) {
+      parts.push(`${r.errors.length} Fehler (Details in der Browser-Console)`);
+      console.warn('CSV-Import: Fehlerhafte Zeilen', r.errors);
+    }
+    status.textContent = parts.join(' · ');
+    status.className = 'status-msg ' + (r.imported > 0 ? 'ok' : 'err');
+    await loadCategories();
+    await loadAndRender();
+  } catch (e) {
+    status.textContent = 'Import fehlgeschlagen: ' + e.message;
+    status.className = 'status-msg err';
+  } finally {
+    ev.target.value = '';  // gleichen File-Reimport erlauben
+  }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────

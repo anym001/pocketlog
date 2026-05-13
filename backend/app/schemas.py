@@ -55,3 +55,16 @@ class TransactionOut(BaseModel):
     tags: list[str] | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# -------- Import --------
+
+class ImportRowError(BaseModel):
+    row: int
+    reason: str
+
+
+class ImportResult(BaseModel):
+    imported: int
+    skipped: int
+    errors: list[ImportRowError]

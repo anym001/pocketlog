@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
@@ -127,6 +127,29 @@ def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
     if not crud.delete_transaction(db, user, tx_id):
         raise HTTPException(status_code=404, detail="not found")
     return Response(status_code=204)
+
+
+# ---------- CSV-Import ----------
+
+MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+@app.post("/api/import/csv", response_model=schemas.ImportResult)
+async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
+    raw = await file.read()
+    if len(raw) > MAX_IMPORT_BYTES:
+        raise HTTPException(status_code=413, detail="file too large (>5MB)")
+    if not raw:
+        raise HTTPException(status_code=400, detail="empty file")
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        # Fallback für Excel-Exporte unter Windows
+        try:
+            text = raw.decode("cp1252")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="encoding not utf-8/cp1252")
+    return crud.import_csv(db, user, text)
 
 
 # ---------- CSV-Export ----------

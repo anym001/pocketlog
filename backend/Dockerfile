@@ -20,7 +20,7 @@ COPY backend/migrations ./migrations
 COPY backend/app ./app
 
 # PWA-Files (werden von FastAPI per StaticFiles ausgeliefert)
-COPY frontend/index.html frontend/sw.js frontend/db.js frontend/manifest.webmanifest ./static/
+COPY frontend/index.html frontend/sw.js frontend/db.js frontend/manifest.webmanifest frontend/example-import.csv ./static/
 COPY frontend/icons ./static/icons
 
 EXPOSE 8000
