@@ -54,6 +54,22 @@ def post_category(payload: schemas.CategoryCreate, user: CurrentUser, db: DB):
         raise HTTPException(status_code=409, detail="category exists")
 
 
+@app.put("/api/categories/{category_id}", response_model=schemas.CategoryOut)
+def put_category(
+    category_id: int,
+    payload: schemas.CategoryUpdate,
+    user: CurrentUser,
+    db: DB,
+):
+    try:
+        cat = crud.update_category(db, user, category_id, payload)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="category exists")
+    if cat is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return cat
+
+
 @app.delete("/api/categories/{category_id}", status_code=204)
 def remove_category(category_id: int, user: CurrentUser, db: DB):
     try:
@@ -122,6 +138,28 @@ def put_transaction(
 def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
     if not crud.delete_transaction(db, user, tx_id):
         raise HTTPException(status_code=404, detail="not found")
+    return Response(status_code=204)
+
+
+# ---------- Tags ----------
+
+@app.get("/api/tags", response_model=list[str])
+def get_tags(user: CurrentUser, db: DB):
+    return crud.list_tags(db, user)
+
+
+@app.put("/api/tags/{name}")
+def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
+    try:
+        affected = crud.rename_tag(db, user, name, payload.new_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"affected": affected}
+
+
+@app.delete("/api/tags/{name}", status_code=204)
+def remove_tag(name: str, user: CurrentUser, db: DB):
+    crud.delete_tag(db, user, name)
     return Response(status_code=204)
 
 

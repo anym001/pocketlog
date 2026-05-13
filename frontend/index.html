@@ -129,6 +129,8 @@
   .sync-btn:hover { border-color: var(--accent); color: var(--accent); }
   .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
   .sync-dot.syncing { background: var(--accent); animation: pulse 1s infinite; }
+  .sync-dot.error { background: #d94c3a; }
+  .sync-btn.error { border-color: #d94c3a; color: #d94c3a; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
   /* SUMMARY CARDS */
@@ -487,6 +489,53 @@
     font-size: 13px !important;
     background: none !important;
   }
+  .cat-pill-edit {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .cat-pill-edit:active { transform: scale(0.97); }
+  .color-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .color-swatch {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+  .color-swatch.active { border-color: var(--text); }
+  .color-swatch-custom {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px dashed var(--border);
+    padding: 0; background: var(--bg3);
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .color-swatch-custom input[type=color] {
+    width: 200%; height: 200%;
+    transform: translate(-25%, -25%);
+    border: none; padding: 0; cursor: pointer;
+    background: none;
+  }
+  .tag-suggestions {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  }
+  .tag-suggestions:empty { display: none; }
+  .tag-suggestion {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .tag-suggestion:hover, .tag-suggestion:active {
+    background: var(--bg2);
+    color: var(--text);
+  }
 
   .submit-btn {
     width: 100%;
@@ -701,6 +750,11 @@
       <button class="save-btn" style="width:auto;padding:10px 16px" onclick="addCategory()">+</button>
     </div>
   </div>
+  <div class="settings-section">
+    <h3>Tags</h3>
+    <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+    <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
+  </div>
 </div>
 
 <!-- ADD MODAL -->
@@ -717,7 +771,7 @@
       <input type="number" class="amount-input" id="inputAmount" placeholder="0,00" step="0.01" inputmode="decimal">
     </div>
     <div class="form-group">
-      <label>Beschreibung</label>
+      <label>Beschreibung <span style="color:var(--text3);font-weight:400">(optional)</span></label>
       <input type="text" id="inputDesc" placeholder="z.B. Supermarkt">
     </div>
     <div class="form-group">
@@ -731,11 +785,51 @@
     <div class="form-group">
       <label>Tags (Enter zum Hinzufügen)</label>
       <div class="tags-input-wrap" id="tagsWrap">
-        <input type="text" class="tag-add-input" id="tagInput" placeholder="+ Tag" onkeydown="handleTagInput(event)">
+        <input type="text" class="tag-add-input" id="tagInput" placeholder="+ Tag" list="tagsDatalist" autocomplete="off" onkeydown="handleTagInput(event)">
       </div>
+      <datalist id="tagsDatalist"></datalist>
+      <div class="tag-suggestions" id="tagSuggestions"></div>
     </div>
     <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
     <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+  </div>
+</div>
+
+<!-- TAG EDIT MODAL -->
+<div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Tag bearbeiten</h2>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="tagEditName" maxlength="64">
+    </div>
+    <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
+    <button class="submit-btn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <button class="submit-btn" onclick="closeTagModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
+  </div>
+</div>
+
+<!-- CATEGORY EDIT MODAL -->
+<div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Kategorie bearbeiten</h2>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="catEditName" maxlength="100">
+    </div>
+    <div class="form-group">
+      <label>Icon (Emoji)</label>
+      <input type="text" id="catEditIcon" maxlength="8" style="text-align:center;font-size:24px">
+    </div>
+    <div class="form-group">
+      <label>Farbe</label>
+      <div class="color-swatches" id="catEditColors"></div>
+    </div>
+    <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
+    <button class="submit-btn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <button class="submit-btn" onclick="closeCatModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
   </div>
 </div>
 
@@ -758,8 +852,9 @@ let currentType  = 'out';
 let currentTags  = [];
 let monthChartInst, yearChartInst;
 
-let transactions = [];   // wird per API geladen
-let categories   = [];   // wird per API geladen
+let transactions  = [];   // wird per API geladen
+let categories    = [];   // wird per API geladen
+let availableTags = [];   // distinkte Tags des Users (für Autocomplete/Suggestions)
 
 // ── API HELPER ────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -800,6 +895,7 @@ function switchMainTab(tab, btn) {
     nav.style.display='none'; panels.forEach(p=>p.style.display='none');
     fab.style.display='none'; settings.style.display='block';
     renderCategories();
+    renderTagList();
     loadApiBaseInput();
   } else {
     main.style.display=''; summary.style.display='';
@@ -877,13 +973,16 @@ function renderTransactions(txs) {
     return `<div class="section-title">${label}</div>` + list.map(t => {
       const cat = getCatById(t.category_id);
       const tags = (t.tags||[]).map(tg=>`<span class="tag">${tg}</span>`).join('');
+      const hasDesc = (t.desc||'').trim().length > 0;
+      const title = hasDesc ? t.desc : cat.name;
+      const meta = hasDesc ? `<span>${cat.name}</span>${tags}` : tags;
       return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
           <div class="t-icon" style="background:${cat.color}22">${cat.icon}</div>
           <div class="t-info">
-            <div class="t-title">${t.desc}</div>
-            <div class="t-meta"><span>${cat.name}</span>${tags}</div>
+            <div class="t-title">${title}</div>
+            <div class="t-meta">${meta}</div>
           </div>
           <div class="t-amount ${t.type}">${t.type==='out'?'–':'+'}${fmtCurrency(t.amount)}</div>
         </div>
@@ -963,7 +1062,7 @@ function attachSwipeHandlers(container) {
       e.stopPropagation();
       const id = Number(row.dataset.id);
       const tx = transactions.find(t => t.id === id);
-      const label = tx ? `„${tx.desc}"` : 'die Buchung';
+      const label = tx && tx.desc ? `„${tx.desc}"` : 'die Buchung';
       if (!confirm(`Soll ${label} wirklich gelöscht werden?`)) {
         row.classList.remove('swiped');
         return;
@@ -1089,7 +1188,10 @@ function openModal(tx) {
   catSel.innerHTML = categories.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
   if (tx) catSel.value = tx.category_id;
   setType(tx?.type||'out', document.querySelector('.type-btn.out'));
+  document.getElementById('tagInput').value = '';
   renderTagPills();
+  renderTagsDatalist();
+  renderTagSuggestions();
   document.querySelector('.modal h2').textContent = tx ? 'Buchung bearbeiten' : 'Neue Buchung';
   document.getElementById('deleteBtn').style.display = tx ? 'block' : 'none';
   document.getElementById('modalOverlay').classList.add('open');
@@ -1131,11 +1233,19 @@ function handleTagInput(e) {
   if (e.key==='Enter'||e.key===',') {
     e.preventDefault();
     const val = e.target.value.trim().replace(/,$/,'');
-    if (val && !currentTags.includes(val)) { currentTags.push(val); renderTagPills(); }
+    if (val && !currentTags.includes(val)) {
+      currentTags.push(val);
+      renderTagPills();
+      renderTagSuggestions();
+    }
     e.target.value = '';
   }
 }
-function removeTag(t) { currentTags = currentTags.filter(x=>x!==t); renderTagPills(); }
+function removeTag(t) {
+  currentTags = currentTags.filter(x=>x!==t);
+  renderTagPills();
+  renderTagSuggestions();
+}
 function renderTagPills() {
   const wrap = document.getElementById('tagsWrap');
   const inp  = document.getElementById('tagInput');
@@ -1148,23 +1258,40 @@ async function addTransaction() {
   const desc   = document.getElementById('inputDesc').value.trim();
   const cat    = parseInt(document.getElementById('inputCat').value);
   const date   = document.getElementById('inputDate').value;
-  if (!amount || !desc || !date) { alert('Bitte Betrag, Beschreibung und Datum ausfüllen.'); return; }
+  if (!amount || !date) { alert('Bitte Betrag und Datum ausfüllen.'); return; }
   const body = {amount, desc, category_id: cat||null, date, type:currentType, tags:currentTags};
   const editId = document.getElementById('modalOverlay').dataset.editId;
   const method = editId ? 'PUT' : 'POST';
   const path = editId ? `/transactions/${editId}` : '/transactions';
   try {
     await api(method, path, body);
+    mergeIntoAvailableTags(currentTags);
     closeModal();
     await loadAndRender();
   } catch(e) {
     if (!navigator.onLine && window.PocketLogOutbox) {
       await window.PocketLogOutbox.enqueue({method, path, body});
+      mergeIntoAvailableTags(currentTags);
       closeModal();
       updateSyncBadge();
       return;
     }
     alert('Fehler beim Speichern: ' + e.message);
+  }
+}
+
+function mergeIntoAvailableTags(tags) {
+  if (!Array.isArray(tags) || !tags.length) return;
+  const lower = new Set(availableTags.map(t=>t.toLowerCase()));
+  let changed = false;
+  for (const t of tags) {
+    const v = (t||'').trim();
+    if (v && !lower.has(v.toLowerCase())) { availableTags.push(v); lower.add(v.toLowerCase()); changed = true; }
+  }
+  if (changed) {
+    availableTags.sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+    renderTagsDatalist();
+    renderTagList();
   }
 }
 
@@ -1187,10 +1314,188 @@ async function loadCategories() {
   try { categories = await api('GET', '/categories'); } catch(e) { categories=[]; }
 }
 
+async function loadTags() {
+  try {
+    const tags = await api('GET', '/tags');
+    availableTags = Array.isArray(tags) ? tags : [];
+  } catch(e) {
+    availableTags = [];
+  }
+  renderTagsDatalist();
+  renderTagList();
+}
+
+function renderTagsDatalist() {
+  const dl = document.getElementById('tagsDatalist');
+  if (!dl) return;
+  dl.innerHTML = availableTags.map(t=>`<option value="${t.replace(/"/g,'&quot;')}"></option>`).join('');
+}
+
+function renderTagSuggestions() {
+  const box = document.getElementById('tagSuggestions');
+  if (!box) return;
+  const lower = currentTags.map(x=>x.toLowerCase());
+  const remaining = availableTags.filter(t => !lower.includes(t.toLowerCase())).slice(0, 12);
+  box.innerHTML = remaining.map(t =>
+    `<button type="button" class="tag-suggestion" onclick="addTagFromSuggestion('${t.replace(/'/g,"\\'")}')">+ ${t}</button>`
+  ).join('');
+}
+
+function addTagFromSuggestion(t) {
+  if (!t) return;
+  if (!currentTags.includes(t)) currentTags.push(t);
+  renderTagPills();
+  renderTagSuggestions();
+}
+
 function renderCategories() {
   document.getElementById('catList').innerHTML = categories.map(c=>`
-    <div class="tag-pill">${c.icon} ${c.name}</div>
+    <div class="tag-pill cat-pill-edit" style="border-color:${c.color}66" onclick="openCatModal(${c.id})">${c.icon} ${c.name}</div>
   `).join('');
+}
+
+const CAT_COLOR_PRESETS = ['#c8623a','#6b7aa1','#5a9e7a','#c47ab0','#e0a44a','#9e9b96','#3a7d5c','#8a6a4a','#a45ab0','#6a8a8a'];
+let editingCatId = null;
+let editingCatColor = '#9e9b96';
+
+function openCatModal(id) {
+  const c = categories.find(x => x.id === id);
+  if (!c) return;
+  editingCatId = c.id;
+  editingCatColor = c.color || '#9e9b96';
+  document.getElementById('catEditName').value = c.name || '';
+  document.getElementById('catEditIcon').value = c.icon || '📦';
+  renderCatColorSwatches();
+  document.getElementById('catModalOverlay').classList.add('open');
+}
+
+function renderCatColorSwatches() {
+  const presets = [...CAT_COLOR_PRESETS];
+  if (!presets.includes(editingCatColor)) presets.push(editingCatColor);
+  const box = document.getElementById('catEditColors');
+  box.innerHTML = presets.map(c =>
+    `<button type="button" class="color-swatch${c.toLowerCase()===editingCatColor.toLowerCase()?' active':''}" style="background:${c}" onclick="pickCatColor('${c}')"></button>`
+  ).join('') +
+  `<label class="color-swatch-custom" title="Eigene Farbe">
+     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)">
+   </label>`;
+}
+
+function pickCatColor(c) {
+  editingCatColor = c;
+  renderCatColorSwatches();
+}
+
+function closeCatModal() {
+  document.getElementById('catModalOverlay').classList.remove('open');
+  editingCatId = null;
+}
+function closeCatModalOutside(e) {
+  if (e.target === document.getElementById('catModalOverlay')) closeCatModal();
+}
+
+async function saveCategoryEdit() {
+  if (!editingCatId) return;
+  const name = document.getElementById('catEditName').value.trim();
+  const icon = document.getElementById('catEditIcon').value.trim() || '📦';
+  if (!name) { alert('Bitte einen Namen angeben.'); return; }
+  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { alert('Ungültige Farbe.'); return; }
+  try {
+    await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
+    closeCatModal();
+    await loadCategories();
+    renderCategories();
+    await loadAndRender();
+  } catch (e) {
+    if (e.message && e.message.includes('409')) {
+      alert('Eine Kategorie mit diesem Namen existiert bereits.');
+    } else {
+      alert('Fehler beim Speichern: ' + e.message);
+    }
+  }
+}
+
+async function deleteCategoryEdit() {
+  if (!editingCatId) return;
+  const c = categories.find(x => x.id === editingCatId);
+  if (!confirm(`Kategorie „${c?.name || ''}" wirklich löschen?`)) return;
+  try {
+    await api('DELETE', `/categories/${editingCatId}`);
+    closeCatModal();
+    await loadCategories();
+    renderCategories();
+    await loadAndRender();
+  } catch (e) {
+    if (e.message && e.message.includes('409')) {
+      alert('Kategorie wird noch in Buchungen verwendet und kann nicht gelöscht werden.');
+    } else {
+      alert('Fehler beim Löschen: ' + e.message);
+    }
+  }
+}
+
+// ── TAGS (Einstellungen) ──────────────────────────────────────────────────────
+let editingTagName = null;
+
+function renderTagList() {
+  const box = document.getElementById('tagList');
+  if (!box) return;
+  if (!availableTags.length) {
+    box.innerHTML = '<p style="font-size:13px;color:var(--text3)">Noch keine Tags vorhanden.</p>';
+    return;
+  }
+  box.innerHTML = availableTags.map(t => {
+    const safe = t.replace(/"/g, '&quot;');
+    return `<div class="tag-pill cat-pill-edit" data-tag="${safe}">${t}</div>`;
+  }).join('');
+  box.querySelectorAll('[data-tag]').forEach(el => {
+    el.addEventListener('click', () => openTagModal(el.dataset.tag));
+  });
+}
+
+function openTagModal(name) {
+  editingTagName = name;
+  document.getElementById('tagEditName').value = name;
+  document.getElementById('tagModalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('tagEditName').focus(), 200);
+}
+
+function closeTagModal() {
+  document.getElementById('tagModalOverlay').classList.remove('open');
+  editingTagName = null;
+}
+function closeTagModalOutside(e) {
+  if (e.target === document.getElementById('tagModalOverlay')) closeTagModal();
+}
+
+async function saveTagEdit() {
+  if (!editingTagName) return;
+  const newName = document.getElementById('tagEditName').value.trim();
+  if (!newName) { alert('Bitte einen Namen angeben.'); return; }
+  if (newName === editingTagName) { closeTagModal(); return; }
+  try {
+    await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
+    closeTagModal();
+    await loadTags();
+    renderTagList();
+    await loadAndRender();
+  } catch (e) {
+    alert('Fehler beim Speichern: ' + e.message);
+  }
+}
+
+async function deleteTagEdit() {
+  if (!editingTagName) return;
+  if (!confirm(`Tag „${editingTagName}" wirklich löschen? Er wird aus allen Buchungen entfernt.`)) return;
+  try {
+    await api('DELETE', `/tags/${encodeURIComponent(editingTagName)}`);
+    closeTagModal();
+    await loadTags();
+    renderTagList();
+    await loadAndRender();
+  } catch (e) {
+    alert('Fehler beim Löschen: ' + e.message);
+  }
 }
 
 // ── SYNC (Service-Worker-Outbox) ──────────────────────────────────────────────
@@ -1198,20 +1503,51 @@ function renderCategories() {
 // Outbox (frontend/db.js) und werden bei wieder hergestellter Verbindung
 // vom Service Worker bzw. diesem Aufruf nachgespielt.
 async function syncNow() {
+  const btn = document.getElementById('syncBtn');
+  const dot = document.getElementById('syncDot');
   const label = document.getElementById('syncLabel');
-  if (window.PocketLogOutbox) {
+
+  btn.classList.remove('error');
+  dot.classList.remove('error');
+  dot.classList.add('syncing');
+
+  let flushed = 0;
+  let networkErr = navigator.onLine === false;
+
+  if (!networkErr && window.PocketLogOutbox) {
     try {
-      const flushed = await window.PocketLogOutbox.drain(API);
-      label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
-      if (flushed > 0) await loadAndRender();
+      flushed = await window.PocketLogOutbox.drain(API);
     } catch (e) {
-      label.textContent = '⚠';
-      console.error('Sync fehlgeschlagen:', e);
+      networkErr = true;
+      console.error('Sync (drain) fehlgeschlagen:', e);
     }
-  } else {
-    label.textContent = '✓';
   }
-  setTimeout(updateSyncBadge, 1500);
+
+  if (!networkErr) {
+    try {
+      const r = await fetch(API + '/health', { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    } catch (e) {
+      networkErr = true;
+      console.error('Sync (health) fehlgeschlagen:', e);
+    }
+  }
+
+  const remaining = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+  dot.classList.remove('syncing');
+
+  if (networkErr || remaining > 0) {
+    btn.classList.add('error');
+    dot.classList.add('error');
+    label.textContent = remaining > 0 ? `⚠ ${remaining} offen` : '⚠ offline';
+    setTimeout(updateSyncBadge, 4000);
+    return;
+  }
+
+  label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
+  if (flushed > 0) await loadTags();
+  await loadAndRender();
+  setTimeout(updateSyncBadge, 2000);
 }
 
 function loadApiBaseInput() {
@@ -1246,13 +1582,34 @@ function showApiStatus(msg, kind) {
 }
 
 async function updateSyncBadge() {
+  const btn = document.getElementById('syncBtn');
+  const dot = document.getElementById('syncDot');
   const label = document.getElementById('syncLabel');
-  if (!window.PocketLogOutbox) { label.textContent = 'Sync'; return; }
+  if (!window.PocketLogOutbox) {
+    btn.classList.remove('error'); dot.classList.remove('error');
+    label.textContent = 'Sync';
+    return;
+  }
   const pending = await window.PocketLogOutbox.count();
-  label.textContent = pending > 0 ? `Pending: ${pending}` : 'Sync';
+  if (pending > 0) {
+    label.textContent = `Pending: ${pending}`;
+  } else {
+    btn.classList.remove('error');
+    dot.classList.remove('error');
+    label.textContent = 'Sync';
+  }
 }
 
 window.addEventListener('online', () => syncNow());
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (ev) => {
+    if (ev.data?.type === 'SYNC_DONE') {
+      loadTags();
+      loadAndRender();
+    }
+  });
+}
 
 // ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
 async function exportCSV() {
@@ -1283,6 +1640,7 @@ async function importCSV(ev) {
     status.textContent = parts.join(' · ');
     status.className = 'status-msg ' + (r.imported > 0 ? 'ok' : 'err');
     await loadCategories();
+    await loadTags();
     await loadAndRender();
   } catch (e) {
     status.textContent = 'Import fehlgeschlagen: ' + e.message;
@@ -1299,6 +1657,7 @@ async function init() {
     try { await navigator.serviceWorker.register('/sw.js'); } catch (e) { console.warn('SW registration failed:', e); }
   }
   await loadCategories();
+  await loadTags();
   await loadAndRender();
   updateSyncBadge();
 }

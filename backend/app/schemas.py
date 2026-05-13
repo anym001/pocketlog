@@ -17,9 +17,19 @@ class CategoryCreate(CategoryBase):
     pass
 
 
+class CategoryUpdate(CategoryBase):
+    pass
+
+
 class CategoryOut(CategoryBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+
+# -------- Tags --------
+
+class TagRename(BaseModel):
+    new_name: str = Field(min_length=1, max_length=64)
 
 
 # -------- Transactions --------

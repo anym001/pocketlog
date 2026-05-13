@@ -106,6 +106,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
 
   if (isApi(url)) {
+    // /api/health dient als Online-Probe — niemals aus dem Cache beantworten,
+    // sonst wirkt der Sync-Button selbst im Flugmodus erfolgreich.
+    if (req.method === 'GET' && url.pathname === '/api/health') {
+      event.respondWith(fetch(req));
+      return;
+    }
     if (req.method === 'GET') {
       event.respondWith(networkFirst(req));
     } else {
@@ -121,6 +127,14 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('sync', (event) => {
   if (event.tag === 'pocketlog-outbox') {
-    event.waitUntil(self.PocketLogOutbox.drain('/api'));
+    event.waitUntil(
+      self.PocketLogOutbox.drain('/api').then((flushed) => {
+        if (flushed > 0) {
+          self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+            clients.forEach((c) => c.postMessage({ type: 'SYNC_DONE', flushed }));
+          });
+        }
+      })
+    );
   }
 });

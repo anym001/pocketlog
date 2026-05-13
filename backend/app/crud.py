@@ -73,6 +73,33 @@ def create_category(
     return cat
 
 
+def update_category(
+    db: Session,
+    username: str,
+    category_id: int,
+    payload: schemas.CategoryUpdate,
+) -> models.Category | None:
+    cat = db.scalar(
+        select(models.Category).where(
+            and_(
+                models.Category.id == category_id,
+                models.Category.username == username,
+            )
+        )
+    )
+    if cat is None:
+        return None
+    for k, v in payload.model_dump().items():
+        setattr(cat, k, v)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(cat)
+    return cat
+
+
 def delete_category(db: Session, username: str, category_id: int) -> bool:
     cat = db.scalar(
         select(models.Category).where(
@@ -168,6 +195,81 @@ def update_transaction(
     db.commit()
     db.refresh(tx)
     return tx
+
+
+def list_tags(db: Session, username: str) -> list[str]:
+    rows = db.scalars(
+        select(models.Transaction.tags).where(
+            and_(
+                models.Transaction.username == username,
+                models.Transaction.tags.is_not(None),
+            )
+        )
+    )
+    seen: set[str] = set()
+    for tags in rows:
+        if not tags:
+            continue
+        for t in tags:
+            if not isinstance(t, str):
+                continue
+            t = t.strip()
+            if t:
+                seen.add(t)
+    return sorted(seen, key=str.casefold)
+
+
+def _tx_with_tag(db: Session, username: str) -> list[models.Transaction]:
+    return list(
+        db.scalars(
+            select(models.Transaction).where(
+                and_(
+                    models.Transaction.username == username,
+                    models.Transaction.tags.is_not(None),
+                )
+            )
+        )
+    )
+
+
+def rename_tag(db: Session, username: str, old_name: str, new_name: str) -> int:
+    old_name = (old_name or "").strip()
+    new_name = (new_name or "").strip()
+    if not old_name or not new_name:
+        raise ValueError("empty_name")
+    if old_name == new_name:
+        return 0
+
+    affected = 0
+    for tx in _tx_with_tag(db, username):
+        if not tx.tags or old_name not in tx.tags:
+            continue
+        new_tags: list[str] = []
+        for t in tx.tags:
+            v = new_name if t == old_name else t
+            if v not in new_tags:
+                new_tags.append(v)
+        tx.tags = new_tags or None
+        affected += 1
+    if affected:
+        db.commit()
+    return affected
+
+
+def delete_tag(db: Session, username: str, name: str) -> int:
+    name = (name or "").strip()
+    if not name:
+        return 0
+    affected = 0
+    for tx in _tx_with_tag(db, username):
+        if not tx.tags or name not in tx.tags:
+            continue
+        new_tags = [t for t in tx.tags if t != name]
+        tx.tags = new_tags or None
+        affected += 1
+    if affected:
+        db.commit()
+    return affected
 
 
 def delete_transaction(db: Session, username: str, tx_id: int) -> bool:
