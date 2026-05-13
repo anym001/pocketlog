@@ -487,6 +487,35 @@
     font-size: 13px !important;
     background: none !important;
   }
+  .cat-pill-edit {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .cat-pill-edit:active { transform: scale(0.97); }
+  .color-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .color-swatch {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+  .color-swatch.active { border-color: var(--text); }
+  .color-swatch-custom {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px dashed var(--border);
+    padding: 0; background: var(--bg3);
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .color-swatch-custom input[type=color] {
+    width: 200%; height: 200%;
+    transform: translate(-25%, -25%);
+    border: none; padding: 0; cursor: pointer;
+    background: none;
+  }
   .tag-suggestions {
     display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
   }
@@ -756,6 +785,29 @@
     </div>
     <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
     <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+  </div>
+</div>
+
+<!-- CATEGORY EDIT MODAL -->
+<div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Kategorie bearbeiten</h2>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="catEditName" maxlength="100">
+    </div>
+    <div class="form-group">
+      <label>Icon (Emoji)</label>
+      <input type="text" id="catEditIcon" maxlength="8" style="text-align:center;font-size:24px">
+    </div>
+    <div class="form-group">
+      <label>Farbe</label>
+      <div class="color-swatches" id="catEditColors"></div>
+    </div>
+    <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
+    <button class="submit-btn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <button class="submit-btn" onclick="closeCatModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
   </div>
 </div>
 
@@ -1273,8 +1325,88 @@ function addTagFromSuggestion(t) {
 
 function renderCategories() {
   document.getElementById('catList').innerHTML = categories.map(c=>`
-    <div class="tag-pill">${c.icon} ${c.name}</div>
+    <div class="tag-pill cat-pill-edit" style="border-color:${c.color}66" onclick="openCatModal(${c.id})">${c.icon} ${c.name}</div>
   `).join('');
+}
+
+const CAT_COLOR_PRESETS = ['#c8623a','#6b7aa1','#5a9e7a','#c47ab0','#e0a44a','#9e9b96','#3a7d5c','#8a6a4a','#a45ab0','#6a8a8a'];
+let editingCatId = null;
+let editingCatColor = '#9e9b96';
+
+function openCatModal(id) {
+  const c = categories.find(x => x.id === id);
+  if (!c) return;
+  editingCatId = c.id;
+  editingCatColor = c.color || '#9e9b96';
+  document.getElementById('catEditName').value = c.name || '';
+  document.getElementById('catEditIcon').value = c.icon || '📦';
+  renderCatColorSwatches();
+  document.getElementById('catModalOverlay').classList.add('open');
+}
+
+function renderCatColorSwatches() {
+  const presets = [...CAT_COLOR_PRESETS];
+  if (!presets.includes(editingCatColor)) presets.push(editingCatColor);
+  const box = document.getElementById('catEditColors');
+  box.innerHTML = presets.map(c =>
+    `<button type="button" class="color-swatch${c.toLowerCase()===editingCatColor.toLowerCase()?' active':''}" style="background:${c}" onclick="pickCatColor('${c}')"></button>`
+  ).join('') +
+  `<label class="color-swatch-custom" title="Eigene Farbe">
+     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)">
+   </label>`;
+}
+
+function pickCatColor(c) {
+  editingCatColor = c;
+  renderCatColorSwatches();
+}
+
+function closeCatModal() {
+  document.getElementById('catModalOverlay').classList.remove('open');
+  editingCatId = null;
+}
+function closeCatModalOutside(e) {
+  if (e.target === document.getElementById('catModalOverlay')) closeCatModal();
+}
+
+async function saveCategoryEdit() {
+  if (!editingCatId) return;
+  const name = document.getElementById('catEditName').value.trim();
+  const icon = document.getElementById('catEditIcon').value.trim() || '📦';
+  if (!name) { alert('Bitte einen Namen angeben.'); return; }
+  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { alert('Ungültige Farbe.'); return; }
+  try {
+    await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
+    closeCatModal();
+    await loadCategories();
+    renderCategories();
+    await loadAndRender();
+  } catch (e) {
+    if (e.message && e.message.includes('409')) {
+      alert('Eine Kategorie mit diesem Namen existiert bereits.');
+    } else {
+      alert('Fehler beim Speichern: ' + e.message);
+    }
+  }
+}
+
+async function deleteCategoryEdit() {
+  if (!editingCatId) return;
+  const c = categories.find(x => x.id === editingCatId);
+  if (!confirm(`Kategorie „${c?.name || ''}" wirklich löschen?`)) return;
+  try {
+    await api('DELETE', `/categories/${editingCatId}`);
+    closeCatModal();
+    await loadCategories();
+    renderCategories();
+    await loadAndRender();
+  } catch (e) {
+    if (e.message && e.message.includes('409')) {
+      alert('Kategorie wird noch in Buchungen verwendet und kann nicht gelöscht werden.');
+    } else {
+      alert('Fehler beim Löschen: ' + e.message);
+    }
+  }
 }
 
 // ── SYNC (Service-Worker-Outbox) ──────────────────────────────────────────────

@@ -54,6 +54,22 @@ def post_category(payload: schemas.CategoryCreate, user: CurrentUser, db: DB):
         raise HTTPException(status_code=409, detail="category exists")
 
 
+@app.put("/api/categories/{category_id}", response_model=schemas.CategoryOut)
+def put_category(
+    category_id: int,
+    payload: schemas.CategoryUpdate,
+    user: CurrentUser,
+    db: DB,
+):
+    try:
+        cat = crud.update_category(db, user, category_id, payload)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="category exists")
+    if cat is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return cat
+
+
 @app.delete("/api/categories/{category_id}", status_code=204)
 def remove_category(category_id: int, user: CurrentUser, db: DB):
     try:

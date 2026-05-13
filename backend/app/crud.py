@@ -73,6 +73,33 @@ def create_category(
     return cat
 
 
+def update_category(
+    db: Session,
+    username: str,
+    category_id: int,
+    payload: schemas.CategoryUpdate,
+) -> models.Category | None:
+    cat = db.scalar(
+        select(models.Category).where(
+            and_(
+                models.Category.id == category_id,
+                models.Category.username == username,
+            )
+        )
+    )
+    if cat is None:
+        return None
+    for k, v in payload.model_dump().items():
+        setattr(cat, k, v)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(cat)
+    return cat
+
+
 def delete_category(db: Session, username: str, category_id: int) -> bool:
     cat = db.scalar(
         select(models.Category).where(
