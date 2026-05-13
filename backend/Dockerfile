@@ -10,12 +10,18 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+# Python-Dependencies
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY alembic.ini ./alembic.ini
-COPY migrations ./migrations
-COPY app ./app
+# Backend-Code + Migrationen
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/migrations ./migrations
+COPY backend/app ./app
+
+# PWA-Files (werden von FastAPI per StaticFiles ausgeliefert)
+COPY frontend/index.html frontend/sw.js frontend/db.js frontend/manifest.webmanifest ./static/
+COPY frontend/icons ./static/icons
 
 EXPOSE 8000
 

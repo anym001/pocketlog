@@ -1,10 +1,12 @@
 import csv
 import io
 import os
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -154,3 +156,11 @@ def export_csv(user: CurrentUser, db: DB):
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="pocketlog.csv"'},
     )
+
+
+# ---------- PWA Static Files ----------
+# Liegt im Image unter /app/static (siehe Dockerfile).  Muss als letztes
+# gemountet werden, damit /api/... vorher matcht.
+_static_dir = Path(__file__).resolve().parent.parent / "static"
+if _static_dir.is_dir():
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")

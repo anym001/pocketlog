@@ -2,60 +2,66 @@
 
 ## Architektur-Übersicht
 ```
-iPhone/iPad/Mac (PWA)
+iPhone/iPad/Mac (installierte PWA)
         ↓ HTTPS
      SWAG Proxy          ← pocketlog.deinedomain.de
         ↓
      Authentik           ← Forward Auth, setzt X-Authentik-Username Header
         ↓
   ┌─────────────────────────────────────┐
-  │  nginx (frontend-Container)         │  /          → index.html, sw.js, manifest
-  │  FastAPI (backend-Container) :8000  │  /api/*     → Python API
+  │  FastAPI-Container :8000            │  /          → statische PWA-Files
+  │  (uvicorn, Python 3.12)             │  /api/*     → Python API
   └──────────────────┬──────────────────┘
                      ↓
-               MariaDB 11 :3306
-               DB: pocketlog    User: pocketlog
+            externe MariaDB (vom User selbst betrieben)
+            DB: pocketlog   User: pocketlog
 ```
+
+Ein einzelner Container liefert sowohl die PWA (StaticFiles-Mount in FastAPI)
+als auch die JSON-API aus. MariaDB ist NICHT Teil des Stacks – sie wird vom
+User selbst bereitgestellt (typisch: bestehender MariaDB-Container auf Unraid).
 
 ## Projektstruktur
 ```
 PocketLog/
-├── docker-compose.yml                ← 3 Services: mariadb, backend, frontend
+├── docker-compose.yml                ← optional, ein Service (pocketlog)
 ├── .env / .env.example               ← DB-Credentials, PROXY_NETWORK, TZ, DEV_FAKE_USER
+├── unraid/
+│   └── pocketlog.xml                 ← Community-Apps-Template für die Unraid-GUI
 ├── swag/
-│   └── pocketlog.subdomain.conf      ← SWAG nginx Config mit Authentik Forward Auth
-├── frontend/
-│   ├── Dockerfile                    ← nginx:alpine + Static
-│   ├── nginx.conf                    ← /api → backend:8000, sonst static
+│   └── pocketlog.subdomain.conf      ← SWAG-Snippet, proxy_pass → pocketlog:8000
+├── frontend/                         ← reine Source-Files, werden ins Image kopiert
 │   ├── index.html                    ← PWA (HTML+CSS+JS)
 │   ├── manifest.webmanifest
 │   ├── sw.js                         ← Service Worker (Cache + Outbox)
 │   ├── db.js                         ← IndexedDB-Helper für Outbox
 │   └── icons/                        ← 192/512/maskable + apple-touch-icon
 ├── backend/
-│   ├── Dockerfile
+│   ├── Dockerfile                    ← builds aus Repo-Root, kopiert backend/ und frontend/
 │   ├── requirements.txt
 │   ├── alembic.ini
 │   ├── migrations/
 │   └── app/
-│       ├── main.py                   ← FastAPI Endpoints, get_current_user
+│       ├── main.py                   ← FastAPI Endpoints + StaticFiles-Mount
 │       ├── models.py                 ← SQLAlchemy ORM
 │       ├── schemas.py                ← Pydantic v2
 │       ├── crud.py                   ← username-skopierte Queries
-│       └── database.py               ← MariaDB Engine
-├── data/
-│   └── mariadb/                      ← Volume für MariaDB-Datenfiles
+│       └── database.py               ← MariaDB Engine (pymysql)
 └── CLAUDE.md
 ```
 
+Im fertigen Image landen die PWA-Files unter `/app/static`. FastAPI mountet
+diesen Ordner via `StaticFiles(html=True)` auf `/`, nachdem alle `/api/*`
+Routes registriert sind.
+
 ## Tech Stack
-- **Frontend:** Vanilla HTML/CSS/JS, eine Datei (`frontend/index.html`) + Service Worker
+- **Frontend:** Vanilla HTML/CSS/JS in einer Datei (`frontend/index.html`) + Service Worker
 - **Backend:** FastAPI (Python 3.12), uvicorn auf Port 8000
-- **Datenbank:** MariaDB 11 (InnoDB, utf8mb4)
-- **Auth:** Authentik Forward Auth via SWAG – kein Login in der App
+- **Datenbank:** MariaDB 11 (extern, InnoDB, utf8mb4)
+- **Auth:** Authentik Forward Auth über SWAG – kein Login in der App
 - **Fonts:** DM Serif Display + DM Sans
 - **Charts:** Chart.js 4.4.1 (CDN, im SW gecached)
-- **Migrationen:** Alembic, läuft im Entrypoint des Backend-Containers
+- **Migrationen:** Alembic, läuft im Container-Entrypoint vor uvicorn
 
 ## API Endpoints (FastAPI)
 ```
@@ -85,16 +91,17 @@ UNIQUE (username, name)
 id INT PK AUTO_INCREMENT
 username VARCHAR(150)        -- composite-index mit date
 amount DECIMAL(12,2)
-description VARCHAR(255)
+description VARCHAR(255)     -- im JSON heißt das Feld "desc" (Pydantic-Alias)
 category_id INT FK -> categories.id (ON DELETE RESTRICT)
 date DATE
 type ENUM('in','out')
 tags JSON                    -- Array von Strings
 ```
-Jeder User bekommt beim ersten `GET /api/categories` Default-Kategorien (siehe `crud.ensure_default_categories`).
+Jeder User bekommt beim ersten `GET /api/categories` Default-Kategorien
+(siehe `crud.ensure_default_categories`).
 
 ## Auth-Konzept
-- Authentik schützt die gesamte Domain per Forward Auth
+- Authentik schützt die gesamte Domain per Forward Auth über SWAG
 - Nach Login setzt Authentik den Header `X-Authentik-Username`
 - FastAPI liest den Header in `get_current_user()` (`backend/app/main.py`)
 - Lokales Dev ohne Authentik: ENV `DEV_FAKE_USER=test` setzen → wird als Username genommen
@@ -102,27 +109,33 @@ Jeder User bekommt beim ersten `GET /api/categories` Default-Kategorien (siehe `
 
 ## Frontend API-Aufruf
 ```js
-const API = '/api';   // relativer Pfad, frontend-nginx proxypasst /api → backend:8000
+// Default same-origin; per Settings auf andere Domain umstellbar
+const API_BASE_KEY = 'pocketlog.apiBase';
+let API = (localStorage.getItem(API_BASE_KEY) || '').trim().replace(/\/+$/, '');
+API = API ? API + '/api' : '/api';
 const data = await api('GET', '/transactions?year=2026&month=5');
 ```
 
 ## Offline / PWA
 - `frontend/sw.js`: precached App-Shell, network-first für GET /api/*, Offline-Outbox für POST/PUT/DELETE.
-- `frontend/db.js`: IndexedDB-Wrapper für die Outbox (`enqueue`, `drain`).
-- Sync-Button im UI (`syncNow()`) triggert manuell den Outbox-Flush, sonst läuft Background-Sync.
+- `frontend/db.js`: IndexedDB-Wrapper für die Outbox (`enqueue`, `drain`, `count`).
+- Sync-Button im UI (`syncNow()`) triggert manuell den Outbox-Flush; bei wieder hergestellter Verbindung läuft Background-Sync.
 
-## Deployment (Erststart)
+## Deployment
+
+**Unraid (empfohlen):** Template `unraid/pocketlog.xml` importieren oder ENV-
+Variablen in der "Add Container"-GUI manuell setzen. Image kommt aus
+`ghcr.io/anym001/pocketlog:latest` (oder lokal selbst gebaut).
+
+**docker-compose (lokal / andere Hosts):**
 ```bash
 cp .env.example .env
-# .env ausfüllen (DB_PASSWORD, DB_ROOT_PASSWORD, PROXY_NETWORK)
-
 docker compose up -d --build
-# Backend-Container ruft im Entrypoint `alembic upgrade head` auf
-
-cp swag/pocketlog.subdomain.conf /pfad/zu/swag/config/nginx/proxy-confs/
-docker restart swag
-# In Authentik: Forward-Auth-Provider + Application für pocketlog.<domain> anlegen
 ```
+
+In beiden Fällen `swag/pocketlog.subdomain.conf` nach
+`/swag/config/nginx/proxy-confs/` legen und SWAG neu laden. In Authentik
+einen Forward-Auth-Provider + Application für `pocketlog.<domain>` anlegen.
 
 ## Design-Prinzipien (Frontend)
 - Mobile-first, max-width 430px, safe-area-inset für iPhone
@@ -135,8 +148,9 @@ docker restart swag
 ## Konventionen Backend
 - CRUD-Funktionen immer mit `username` Parameter (Datenisolation)
 - Neue Endpoints: `main.py` + Schema in `schemas.py` + Logik in `crud.py`
-- Pydantic v2 Syntax: `model_config = {"from_attributes": True}`
+- Pydantic v2 Syntax: `model_config = ConfigDict(from_attributes=True, populate_by_name=True)`
 - Schemaänderungen: Alembic-Revision generieren, nicht manuell ALTER TABLE
+- StaticFiles-Mount IMMER zuletzt registrieren, damit `/api/*` vorher matcht
 
 ## Bekannte Einschränkungen / TODO (Backlog)
 - Icons sind Platzhalter, müssen durch echte App-Icons ersetzt werden
@@ -144,3 +158,7 @@ docker restart swag
 - Wiederkehrende Buchungen, Budget-Grenzen pro Kategorie
 - Push-Benachrichtigungen bei Budget-Überschreitung
 - Backup-Job: nächtlicher `mariadb-dump` via Unraid-User-Script
+- Service Worker Background-Sync nutzt aktuell fix `/api` als Basis; bei
+  konfigurierter externer Backend-URL flushed nur die Window-getriggerte
+  `syncNow()` – Hintergrund-Sync bei geschlossenem Tab dann erst beim nächsten
+  Öffnen.

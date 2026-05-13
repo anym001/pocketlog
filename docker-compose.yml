@@ -1,29 +1,17 @@
-services:
-  mariadb:
-    image: mariadb:11
-    container_name: pocketlog-mariadb
-    profiles: ["", "internal-db"]
-    restart: unless-stopped
-    environment:
-      MARIADB_DATABASE: ${DB_NAME}
-      MARIADB_USER: ${DB_USER}
-      MARIADB_PASSWORD: ${DB_PASSWORD}
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      TZ: ${TZ}
-    volumes:
-      - ./data/mariadb:/var/lib/mysql
-    networks:
-      - pocketlog-net
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+# Optional: docker-compose nur als Bequemlichkeit für lokales Testen und für
+# Setups, die compose nutzen. Auf Unraid trägst du die Werte stattdessen in die
+# Container-GUI ein (siehe README + unraid/pocketlog.xml).
+#
+# MariaDB wird NICHT von diesem Stack betrieben — bringe deinen eigenen
+# Container/Server mit und setze DB_HOST in .env entsprechend.
 
-  backend:
-    build: ./backend
-    container_name: pocketlog-backend
+services:
+  pocketlog:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: pocketlog:latest
+    container_name: pocketlog
     restart: unless-stopped
     environment:
       DB_HOST: ${DB_HOST}
@@ -33,29 +21,12 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DEV_FAKE_USER: ${DEV_FAKE_USER}
       TZ: ${TZ}
-    depends_on:
-      mariadb:
-        condition: service_healthy
-        required: false
-    networks:
-      - pocketlog-net
-      - proxy
-
-  frontend:
-    build: ./frontend
-    container_name: pocketlog-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
     ports:
-      - "8080:80"   # lokaler Test ohne SWAG: http://localhost:8080
+      - "8080:8000"   # lokaler Test: http://localhost:8080
     networks:
-      - pocketlog-net
       - proxy
 
 networks:
-  pocketlog-net:
-    driver: bridge
   proxy:
     name: ${PROXY_NETWORK}
     external: true
