@@ -2,13 +2,6 @@
 .env
 .env.local
 
-# Daten-Volumes (Inhalt ignorieren, Struktur per .gitkeep behalten)
-data/*
-!data/.gitkeep
-!data/mariadb/
-data/mariadb/*
-!data/mariadb/.gitkeep
-
 # Python
 __pycache__/
 *.pyc
