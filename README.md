@@ -59,6 +59,27 @@ Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
 - Health: `https://pocketlog.<deinedomain>/api/health`
 - Swagger UI: `https://pocketlog.<deinedomain>/api/docs`
 
+## Image-Builds (GitHub Actions → ghcr.io)
+
+Der Workflow `.github/workflows/build.yml` baut bei jedem Push auf `main` ein
+neues Image und pusht es nach `ghcr.io/<owner>/pocketlog`. Tags:
+
+- `:latest` — letzter Stand von `main`
+- `:sha-<short>` — jeder einzelne Commit, zum Pinnen
+- `:X.Y.Z` / `:X.Y` — bei Git-Tags `vX.Y.Z` (z.B. `git tag v1.0.0 && git push --tags`)
+
+**Einmalig nach dem ersten erfolgreichen Workflow-Run:** GitHub legt das
+Package zunächst mit der Sichtbarkeit des Repos an (also privat, falls dein
+Repo privat ist). Unter
+*GitHub → Profil → Packages → pocketlog → Package settings →
+Change package visibility* auf **Public** stellen. Danach pullt Unraid ohne
+Authentifizierung. Das Repo selbst kann dabei privat bleiben — Package- und
+Repo-Sichtbarkeit sind unabhängig.
+
+Updaten auf Unraid: bestehendes Image im Container-Reiter mit *Force Update*
+neu ziehen, oder dauerhaft per [Watchtower](https://containrrr.dev/watchtower/)
+automatisieren.
+
 ## Endpunkt-URL in der App ändern
 
 Standardmäßig spricht die installierte PWA mit demselben Host, von dem sie
