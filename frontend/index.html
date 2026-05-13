@@ -1203,7 +1203,7 @@ async function syncNow() {
     try {
       const flushed = await window.PocketLogOutbox.drain(API);
       label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
-      if (flushed > 0) await loadAndRender();
+      await loadAndRender();
     } catch (e) {
       label.textContent = '⚠';
       console.error('Sync fehlgeschlagen:', e);
@@ -1253,6 +1253,12 @@ async function updateSyncBadge() {
 }
 
 window.addEventListener('online', () => syncNow());
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (ev) => {
+    if (ev.data?.type === 'SYNC_DONE') loadAndRender();
+  });
+}
 
 // ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
 async function exportCSV() {

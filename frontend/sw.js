@@ -121,6 +121,14 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('sync', (event) => {
   if (event.tag === 'pocketlog-outbox') {
-    event.waitUntil(self.PocketLogOutbox.drain('/api'));
+    event.waitUntil(
+      self.PocketLogOutbox.drain('/api').then((flushed) => {
+        if (flushed > 0) {
+          self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+            clients.forEach((c) => c.postMessage({ type: 'SYNC_DONE', flushed }));
+          });
+        }
+      })
+    );
   }
 });
