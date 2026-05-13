@@ -84,20 +84,3 @@ Server umzieht, trägt unter **Einstellungen → Server → API-Basis-URL** die
 volle Backend-URL ein (z.B. `https://pocketlog.deinedomain.de`). Der Pfad
 `/api` wird automatisch ergänzt; ein Klick auf *Speichern* prüft die
 Erreichbarkeit.
-
-## Mit Claude Code weiterentwickeln
-
-```bash
-npm install -g @anthropic-ai/claude-code     # einmalig
-cd PocketLog
-claude
-```
-
-Beispiele:
-
-```
-"Füge wiederkehrende Buchungen hinzu – monatlich und wöchentlich"
-"Baue eine Budget-Grenze pro Kategorie inkl. Warnung im UI"
-"Implementiere Swipe-to-Delete für Buchungen"
-"Schreibe einen nightly mariadb-dump als Unraid-User-Script"
-```
