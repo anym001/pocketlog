@@ -1233,6 +1233,10 @@
           Import/Export
           <span class="drawer-nav-chevron">›</span>
         </button>
+        <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
+          Darstellung
+          <span class="drawer-nav-chevron">›</span>
+        </button>
       </nav>
     </div>
 
@@ -1287,6 +1291,27 @@
           <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
           <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
           <div class="status-msg" id="importStatus"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 2d: Darstellung -->
+    <div class="drawer-panel" id="dpDisplay" data-state="right">
+      <div class="drawer-sub-head">
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <span class="drawer-sub-title">Darstellung</span>
+      </div>
+      <div class="drawer-section">
+        <h3>Startansicht</h3>
+        <div class="settings-section">
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer">
+            <input type="radio" name="defaultView" value="transactions" onchange="saveDefaultView(this.value)" style="accent-color:var(--accent)">
+            Transaktionen
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer">
+            <input type="radio" name="defaultView" value="categories" onchange="saveDefaultView(this.value)" style="accent-color:var(--accent)">
+            Kategorien
+          </label>
         </div>
       </div>
     </div>
@@ -1489,7 +1514,7 @@ function showPanel(id) {
 }
 
 const _drawerStack = [];
-const _drawerSubs = ['dpSettings', 'dpCats', 'dpTags', 'dpImport'];
+const _drawerSubs = ['dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay'];
 
 function drawerNav(panelId) {
   const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
@@ -1499,6 +1524,7 @@ function drawerNav(panelId) {
   if (panelId === 'dpCats') renderCategories();
   if (panelId === 'dpTags') renderTagList();
   if (panelId === 'dpImport') loadApiBaseInput();
+  if (panelId === 'dpDisplay') syncDefaultViewRadios();
 }
 
 function drawerBack() {
@@ -2290,6 +2316,21 @@ function loadApiBaseInput() {
   document.getElementById('cfg-api').value = localStorage.getItem(API_BASE_KEY) || '';
 }
 
+function saveDefaultView(view) {
+  localStorage.setItem('pocketlog.defaultView', view);
+}
+
+function loadDefaultView() {
+  return localStorage.getItem('pocketlog.defaultView') || 'transactions';
+}
+
+function syncDefaultViewRadios() {
+  const val = loadDefaultView();
+  document.querySelectorAll('input[name="defaultView"]').forEach(r => {
+    r.checked = r.value === val;
+  });
+}
+
 async function saveApiBase() {
   const raw = document.getElementById('cfg-api').value.trim().replace(/\/+$/, '');
   if (raw && !/^https?:\/\//i.test(raw)) {
@@ -2393,6 +2434,7 @@ async function init() {
   if ('serviceWorker' in navigator) {
     try { await navigator.serviceWorker.register('/sw.js'); } catch (e) { console.warn('SW registration failed:', e); }
   }
+  showPanel(loadDefaultView());
   await loadCategories();
   await loadTags();
   await loadAndRender();
