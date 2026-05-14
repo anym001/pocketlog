@@ -71,7 +71,12 @@ PUT    /api/transactions/{id}
 DELETE /api/transactions/{id}
 GET    /api/categories                   ← legt beim 1. Aufruf Default-Kategorien an
 POST   /api/categories
+PUT    /api/categories/{id}
 DELETE /api/categories/{id}              ← nur wenn keine TX referenziert
+GET    /api/tags                         ← alle Tags des Users (distinct, sortiert)
+PUT    /api/tags/{name}                  ← umbenennen in allen Transaktionen
+DELETE /api/tags/{name}                  ← aus allen Transaktionen entfernen
+POST   /api/import/csv                   ← max. 5 MB, UTF-8 oder CP1252
 GET    /api/export/csv
 ```
 → Interaktive Doku unter `/api/docs` (FastAPI Swagger).
@@ -140,20 +145,22 @@ Authentik-Flow-Policy konfiguriert werden).
 ## Design-Prinzipien (Frontend)
 - Mobile-first, max-width 430px, safe-area-inset für iPhone
 - CSS-Variablen für alle Farben – automatischer Light/Dark Mode
-- `--accent: #c8623a` (Ausgaben), `--green: #3a7d5c` (Einnahmen)
+- `--accent: #d96434` (Light) / `#ef8a5a` (Dark) – Ausgaben
+- `--green: #2f8d5e` (Light) / `#5cc28d` (Dark) – Einnahmen
 - `fmtCurrency(n)` für alle Beträge (de-DE Locale)
 - Datum intern: ISO 8601 (YYYY-MM-DD)
 - NIEMALS Inter/Roboto/Arial – DM Serif Display + DM Sans
 
 ## Sprach-Konventionen
 
-- **Code, Kommentare, Workflow-YAML, Skripte:** Englisch
+- **Code, Kommentare, Workflow-YAML, Skripte, Nginx-Configs (`swag/`):** Englisch
 - **Dokumentation (CLAUDE.md, TODO.md, README.md, unraid/pocketlog.xml):** Deutsch
 
 ## Konventionen Backend
 - CRUD-Funktionen immer mit `username` Parameter (Datenisolation)
 - Neue Endpoints: `main.py` + Schema in `schemas.py` + Logik in `crud.py`
-- Pydantic v2 Syntax: `model_config = ConfigDict(from_attributes=True, populate_by_name=True)`
+- `from_attributes=True` auf allen „Out"-Schemas, die via `model_validate()` aus einem ORM-Objekt gebaut werden
+- `populate_by_name=True` nur wenn `Field(alias=…)` oder `Field(serialization_alias=…)` verwendet wird
 - Schemaänderungen: Alembic-Revision generieren, nicht manuell ALTER TABLE
 - StaticFiles-Mount IMMER zuletzt registrieren, damit `/api/*` vorher matcht
 
