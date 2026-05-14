@@ -152,8 +152,13 @@ Authentik-Flow-Policy konfiguriert werden).
 ## Design-Prinzipien (Frontend)
 - Mobile-first, max-width 430px, safe-area-inset für iPhone
 - CSS-Variablen für alle Farben – automatischer Light/Dark Mode
-- `--accent: #d96434` (Light) / `#ef8a5a` (Dark) – Ausgaben
-- `--green: #2f8d5e` (Light) / `#5cc28d` (Dark) – Einnahmen
+- Farbpalette basiert auf [html-effectiveness](https://thariqs.github.io/html-effectiveness/) von Thariq Shihipar:
+  - `--bg-canvas: #FAF9F5` (ivory) / dark: `#0f0e0c`
+  - `--accent: #D97757` (clay) / dark: `#E8926E` – Ausgaben
+  - `--green: #788C5D` (olive) / dark: `#9AB07A` – Einnahmen
+  - `--text: #141413` (slate) / dark: `#F0EEE6`
+  - `--text2: #3D3D3A` / dark: `#B0ADA6`
+  - `--text3: #87867F` / dark: `#87867F`
 - `fmtCurrency(n)` für alle Beträge (de-DE Locale)
 - Datum intern: ISO 8601 (YYYY-MM-DD)
 - NIEMALS Inter/Roboto/Arial – DM Serif Display + DM Sans
@@ -170,6 +175,124 @@ Authentik-Flow-Policy konfiguriert werden).
 - `populate_by_name=True` nur wenn `Field(alias=…)` oder `Field(serialization_alias=…)` verwendet wird
 - Schemaänderungen: Alembic-Revision generieren, nicht manuell ALTER TABLE
 - StaticFiles-Mount IMMER zuletzt registrieren, damit `/api/*` vorher matcht
+
+## Apple Style Guide – UI-Konventionen (Frontend)
+
+Gilt für alle sichtbaren Texte in `frontend/index.html` (deutsche UI). Regeln basieren auf dem [Apple Style Guide](https://help.apple.com/pdf/applestyleguide/en_US/apple-style-guide.pdf) und den [Apple Human Interface Guidelines: Writing](https://developer.apple.com/design/human-interface-guidelines/writing).
+
+### Groß-/Kleinschreibung
+
+Apple unterscheidet strikt zwischen **Title Case** und **Sentence case**:
+
+| UI-Element | Stil |
+|---|---|
+| Navigationstitel, Tab-Labels | Title Case |
+| **Button-Labels (Aktionen)** | **Title Case** |
+| Alert-Button-Labels | Title Case |
+| Menüeinträge | Title Case |
+| Alert-Titel (Überschrift) | Sentence case |
+| Alert-Text (Nachricht) | Sentence case |
+| Formular-Feldlabels | Sentence case |
+| Platzhaltertexte | Sentence case |
+| Hilfetexte / Hinweise | Sentence case |
+| Fehlermeldungen | Sentence case |
+| Checkbox- / Toggle-Labels | Sentence case |
+| Abschnittsüberschriften (Listen) | Sentence case |
+
+**Title Case Regel (Deutsch):** Alle bedeutungstragenden Wörter groß, Artikel/Präpositionen klein – außer am Satzanfang. Substantive in Deutsch ohnehin immer groß.
+
+- **Abkürzungen** CSV, API, URL, WLAN immer in Großbuchstaben.
+- Kein ALL-CAPS in UI-Labels (wirkt aggressiv, schlechte Lesbarkeit).
+- **App-Name:** „PocketLog" – immer genau so, nie „Pocketlog" oder „pocket log".
+
+### Aktions-Buttons
+- Verb-first: „Speichern", „Löschen", „Importieren" – nicht „OK", „Ja", „Nein".
+- „OK" (nicht „Ok" oder „Okay") nur für einfache Bestätigungen ohne Handlungsalternative.
+- Destruktive Aktionen (Löschen) immer mit „Abbrechen"-Button ergänzt, destruktiver Button visuell abgesetzt (bereits: `border:1px solid var(--accent)`).
+- „Abbrechen" beendet Dialog ohne Änderungen; „Schließen" nur wenn nichts geändert werden konnte.
+- Buttons, die einen weiteren Dialog öffnen, enden mit Ellipse: „Importieren…" (Unicode `…`, nicht `...`).
+
+### Ton & Formulierung
+- **Direkt und spezifisch:** „Betrag muss größer als null sein." – nicht „Ungültige Eingabe."
+- **Aktiv statt passiv:** „Buchung löschen" – nicht „Die Buchung wird gelöscht."
+- **Kein „Bitte" / kein „Sorry":** Klingt hohl und umständlich. Stattdessen direkt formulieren.
+- **Keine Vorwürfe:** Nicht „Du hast ein ungültiges Datum eingegeben." → „Das eingegebene Datum ist ungültig."
+- **Zweite Person (du/Sie):** Nutzer direkt ansprechen – „Deine Buchungen", nicht „Die Buchungen".
+- **Präsens bevorzugen:** „Tippe auf +, um eine Buchung hinzuzufügen." – nicht „Durch Tippen wird eine Buchung hinzugefügt."
+- **Keine Füllphrasen:** „Um…" statt „Um…zu" kürzen. Adjektive/Adverbien weglassen wenn sie keinen Informationsgehalt haben.
+- **Keine Ausrufezeichen:** Klingen bevormundend und unaufrichtig.
+- Kontraktionen (Kurzformen) sparsam – erschwerern die Lokalisierung.
+
+### Alerts & Fehlermeldungen
+Struktur: **[Was ist passiert.] [Wie beheben.]**
+
+- Gut: „Der Betrag ist ungültig. Bitte eine Zahl größer als null eingeben."
+- Schlecht: „Fehler.", „Bitte alles ausfüllen."
+- Alert-Titel: ein Satz oder Satzfragment, kein abschließender Punkt wenn Satzfragment.
+- Alert-Text: vollständige Sätze, mit Punkt.
+- Keine technischen Fehlercodes / Stack Traces in nutzer-sichtbaren Meldungen.
+- Kurze Labels (Button-Text, einzelne Labels) **ohne** abschließenden Punkt.
+- Mehrsätzige Hilfetexte und Beschreibungen enden **mit** Punkt.
+
+### Terminologie (Deutsch)
+
+| Verwenden | Nicht verwenden |
+|---|---|
+| Tippen | Klicken (Touch-Kontext) |
+| Auswählen | Klicken (plattformneutral) |
+| Wischen, Ziehen | Swipen, Draggen |
+| Anmelden / Abmelden | Einloggen / Ausloggen / Login |
+| App | Applikation, Anwendung |
+| WLAN | WiFi, W-LAN |
+| E-Mail | Email, eMail |
+| Gerät | Device |
+| Einstellungen | Settings, Optionen (als Menüpunkt) |
+| Buchung | Transaktion (in der UI; im Code weiter `transaction`) |
+| Leere-Zustand-Meldung | „Noch keine Buchungen. Tippe auf + um die erste hinzuzufügen." |
+
+### Zahlen & Währung
+- Alle Beträge via `fmtCurrency(n)` (de-DE Locale): `1.234,56 €`
+- Währungssymbol **nach** der Zahl: `12,50 €` – nicht `€12,50`
+- Negativbeträge: Minuszeichen U+2212 (`−`), kein ASCII-Bindestrich – `Intl.NumberFormat` erledigt dies korrekt.
+- Einheiten mit Leerzeichen: `5 MB`, `100 %` – nicht `5MB`, `100%`
+- Prozent: Leerzeichen vor `%` in Deutsch: `42 %`
+
+### Datum & Zeit
+- Anzeige: `DD.MM.YYYY` oder relative Begriffe „Heute", „Gestern" (bereits umgesetzt).
+- Monatsnamen ausschreiben wenn Platz vorhanden; nur kürzen wenn nötig (Jan, Feb, …).
+- Intern immer ISO 8601: `YYYY-MM-DD`.
+- Niemals Datums- / Zahlenformate hardcoden – immer `Intl.DateTimeFormat` / `Intl.NumberFormat`.
+
+### Satzzeichen & Typografie
+- Anführungszeichen: `„Text"` (deutschen Standard, bereits umgesetzt für Buchungstitel).
+- Ellipse: `…` (U+2026), niemals drei Punkte `...`.
+- Gedankenstrich: `–` (En-Dash, U+2013) für Einschübe in Deutsch; kein `--`.
+- Apostroph: `'` (U+2019), nicht ASCII `'`.
+- Keine doppelten Leerzeichen, kein harter Zeilenumbruch in UI-Labels.
+
+### Touch & Interaktion
+- Mindest-Tippfläche: **44 × 44 pt** für alle interaktiven Elemente.
+- Berührungsaktionen mit „tippen" beschreiben – nicht „klicken" oder „drücken".
+- Swipe-Gesten explizit benennen wenn nötig: „Wische nach links zum Löschen".
+
+### Barrierefreiheit (Accessibility)
+- Alle Icon-only-Buttons **müssen** `aria-label` tragen (bereits umgesetzt: `aria-label="Buchung löschen"`).
+- `aria-label` beschreibt den **Zweck**, nicht das Aussehen: „Buchung löschen" – nicht „Mülleimer-Symbol".
+- Keine Richtungsangaben in UI-Text (`aria-label`): nicht „Button rechts oben" – Screenreader-Nutzer sehen kein Layout.
+- `aria-live="polite"` für Statusänderungen (Sync, Laden).
+- Farbe darf **nicht** das einzige Unterscheidungsmerkmal sein (Einnahmen/Ausgaben: `+`/`–`-Vorzeichen zusätzlich – bereits umgesetzt).
+- Kein „Hier klicken" als Link-/Buttontext – beschreibenden Text verwenden: „CSV-Export herunterladen".
+
+### Offline- & Sync-Zustand
+Spezifisch statt generisch – Benutzer wissen, was gerade passiert:
+
+| Zustand | Text |
+|---|---|
+| Aktiv | „Wird synchronisiert…" |
+| Abgeschlossen | „Gespeichert" |
+| Offline | „Offline – Änderungen werden gespeichert" |
+| Fehler | „Synchronisation fehlgeschlagen – Verbindung prüfen" |
+| Laden | „Buchungen werden geladen…" (nicht nur „Laden…") |
 
 ## Bekannte Einschränkungen / TODO (Backlog)
 

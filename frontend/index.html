@@ -19,49 +19,49 @@
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
   :root {
-    /* Base canvas */
-    --bg-canvas: #f4ede0;
+    /* Base canvas — ivory from html-effectiveness palette */
+    --bg-canvas: #FAF9F5;
 
-    /* Glass materials — light */
-    --glass-thin: rgba(255, 252, 247, 0.42);
-    --glass-regular: rgba(255, 252, 247, 0.62);
-    --glass-thick: rgba(255, 252, 247, 0.78);
-    --glass-chrome: rgba(255, 252, 247, 0.88);
+    /* Glass materials — light (based on ivory/paper) */
+    --glass-thin: rgba(250, 249, 245, 0.45);
+    --glass-regular: rgba(250, 249, 245, 0.65);
+    --glass-thick: rgba(250, 249, 245, 0.82);
+    --glass-chrome: rgba(250, 249, 245, 0.92);
 
-    /* Glass borders & highlights */
-    --hairline: rgba(255, 255, 255, 0.7);
-    --hairline-soft: rgba(255, 255, 255, 0.35);
-    --edge-dark: rgba(60, 35, 20, 0.08);
+    /* Glass borders & highlights — g300-based */
+    --hairline: rgba(209, 207, 197, 0.9);
+    --hairline-soft: rgba(209, 207, 197, 0.55);
+    --edge-dark: rgba(20, 20, 19, 0.07);
 
     /* Shadows */
     --shadow-soft:
       inset 0 0.5px 0 rgba(255, 255, 255, 0.85),
-      inset 0 -0.5px 0 rgba(60, 35, 20, 0.05),
-      0 1px 2px rgba(60, 35, 20, 0.04),
-      0 6px 24px -8px rgba(60, 35, 20, 0.14);
+      inset 0 -0.5px 0 rgba(20, 20, 19, 0.05),
+      0 1px 2px rgba(20, 20, 19, 0.04),
+      0 6px 24px -8px rgba(20, 20, 19, 0.12);
     --shadow-elevated:
       inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
-      inset 0 -0.5px 0 rgba(60, 35, 20, 0.06),
-      0 2px 6px rgba(60, 35, 20, 0.06),
-      0 18px 60px -12px rgba(60, 35, 20, 0.28);
+      inset 0 -0.5px 0 rgba(20, 20, 19, 0.06),
+      0 2px 6px rgba(20, 20, 19, 0.06),
+      0 18px 60px -12px rgba(20, 20, 19, 0.22);
     --shadow-floating:
       inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 4px 16px rgba(60, 35, 20, 0.10),
-      0 28px 80px -16px rgba(60, 35, 20, 0.35);
+      0 4px 16px rgba(20, 20, 19, 0.08),
+      0 28px 80px -16px rgba(20, 20, 19, 0.28);
 
-    /* Text */
-    --text: #1c1814;
-    --text2: #5a544c;
-    --text3: #8b857c;
+    /* Text — slate scale from html-effectiveness */
+    --text: #141413;
+    --text2: #3D3D3A;
+    --text3: #87867F;
 
-    /* Accents */
-    --accent: #d96434;
-    --accent-2: #ec8758;
-    --accent-tint: rgba(217, 100, 52, 0.16);
-    --green: #2f8d5e;
-    --green-2: #4cb085;
-    --green-tint: rgba(47, 141, 94, 0.16);
-    --red: #d94c3a;
+    /* Accents — clay & olive from html-effectiveness */
+    --accent: #D97757;
+    --accent-2: #C4694A;
+    --accent-tint: rgba(217, 119, 87, 0.15);
+    --green: #788C5D;
+    --green-2: #96A87A;
+    --green-tint: rgba(120, 140, 93, 0.15);
+    --red: #C0392B;
     --blue: #2a78d8;
 
     /* Radii (concentric, generous) */
@@ -99,42 +99,44 @@
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg-canvas: #0e0c0a;
+      --bg-canvas: #0f0e0c;
 
-      --glass-thin: rgba(40, 36, 32, 0.42);
-      --glass-regular: rgba(40, 36, 32, 0.58);
-      --glass-thick: rgba(40, 36, 32, 0.78);
-      --glass-chrome: rgba(28, 25, 22, 0.85);
+      --glass-thin: rgba(38, 35, 30, 0.45);
+      --glass-regular: rgba(38, 35, 30, 0.62);
+      --glass-thick: rgba(30, 28, 24, 0.82);
+      --glass-chrome: rgba(22, 20, 17, 0.88);
 
-      --hairline: rgba(255, 240, 220, 0.12);
-      --hairline-soft: rgba(255, 240, 220, 0.06);
+      --hairline: rgba(209, 207, 197, 0.14);
+      --hairline-soft: rgba(209, 207, 197, 0.07);
       --edge-dark: rgba(0, 0, 0, 0.4);
 
       --shadow-soft:
-        inset 0 0.5px 0 rgba(255, 240, 220, 0.10),
+        inset 0 0.5px 0 rgba(209, 207, 197, 0.12),
         inset 0 -0.5px 0 rgba(0, 0, 0, 0.4),
         0 1px 2px rgba(0, 0, 0, 0.5),
         0 6px 24px -8px rgba(0, 0, 0, 0.6);
       --shadow-elevated:
-        inset 0 0.5px 0 rgba(255, 240, 220, 0.14),
+        inset 0 0.5px 0 rgba(209, 207, 197, 0.16),
         inset 0 -0.5px 0 rgba(0, 0, 0, 0.5),
         0 2px 6px rgba(0, 0, 0, 0.4),
         0 18px 60px -12px rgba(0, 0, 0, 0.7);
       --shadow-floating:
-        inset 0 1px 0 rgba(255, 240, 220, 0.16),
+        inset 0 1px 0 rgba(209, 207, 197, 0.18),
         0 4px 16px rgba(0, 0, 0, 0.5),
         0 28px 80px -16px rgba(0, 0, 0, 0.85);
 
-      --text: #f3eee5;
-      --text2: #b3aca0;
-      --text3: #807973;
+      /* Text — inverted slate scale */
+      --text: #F0EEE6;
+      --text2: #B0ADA6;
+      --text3: #87867F;
 
-      --accent: #ef8a5a;
-      --accent-2: #f3a47e;
-      --accent-tint: rgba(239, 138, 90, 0.20);
-      --green: #5cc28d;
-      --green-2: #79d3a3;
-      --green-tint: rgba(92, 194, 141, 0.18);
+      /* Accents — lighter clay & olive for dark backgrounds */
+      --accent: #E8926E;
+      --accent-2: #F0AA88;
+      --accent-tint: rgba(232, 146, 110, 0.20);
+      --green: #9AB07A;
+      --green-2: #B3C895;
+      --green-tint: rgba(154, 176, 122, 0.18);
     }
   }
 
@@ -166,21 +168,21 @@
     pointer-events: none;
     z-index: 0;
     background:
-      radial-gradient(70% 45% at 100% 0%, rgba(217, 100, 52, 0.55), transparent 60%),
-      radial-gradient(75% 50% at 0% 20%, rgba(255, 197, 130, 0.55), transparent 65%),
-      radial-gradient(85% 55% at 50% 100%, rgba(47, 141, 94, 0.32), transparent 65%),
-      radial-gradient(55% 35% at 100% 70%, rgba(42, 120, 216, 0.18), transparent 60%);
-    filter: saturate(115%);
+      radial-gradient(70% 45% at 100% 0%, rgba(217, 119, 87, 0.50), transparent 60%),
+      radial-gradient(75% 50% at 0% 20%, rgba(227, 218, 204, 0.55), transparent 65%),
+      radial-gradient(85% 55% at 50% 100%, rgba(120, 140, 93, 0.28), transparent 65%),
+      radial-gradient(55% 35% at 100% 70%, rgba(42, 120, 216, 0.14), transparent 60%);
+    filter: saturate(110%);
   }
 
   @media (prefers-color-scheme: dark) {
     body::before {
       background:
-        radial-gradient(70% 45% at 100% 0%, rgba(239, 138, 90, 0.32), transparent 60%),
-        radial-gradient(75% 50% at 0% 20%, rgba(180, 90, 60, 0.30), transparent 65%),
-        radial-gradient(85% 55% at 50% 100%, rgba(60, 130, 100, 0.22), transparent 65%),
-        radial-gradient(55% 35% at 100% 70%, rgba(40, 60, 120, 0.30), transparent 65%);
-      filter: saturate(120%);
+        radial-gradient(70% 45% at 100% 0%, rgba(232, 146, 110, 0.30), transparent 60%),
+        radial-gradient(75% 50% at 0% 20%, rgba(196, 105, 74, 0.26), transparent 65%),
+        radial-gradient(85% 55% at 50% 100%, rgba(154, 176, 122, 0.20), transparent 65%),
+        radial-gradient(55% 35% at 100% 70%, rgba(40, 60, 120, 0.26), transparent 65%);
+      filter: saturate(115%);
     }
   }
 
@@ -225,24 +227,10 @@
   .header-top {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: 4px;
     padding-top: 6px;
   }
-  .header h1 {
-    font-family: var(--font-display);
-    font-size: 30px;
-    letter-spacing: -0.015em;
-    color: var(--text);
-    line-height: 1.05;
-  }
-  .header h1 span {
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
   .month-nav {
     display: flex;
     align-items: center;
@@ -415,7 +403,7 @@
   }
 
   /* ====== PANELS ====== */
-  .panel { display: none; padding: 8px 20px 140px; }
+  .panel { display: none; padding: 8px 20px 90px; }
   .panel.active { display: block; }
 
   /* ====== TRANSACTIONS ====== */
@@ -599,7 +587,7 @@
   /* ====== FAB (glass orb) ====== */
   .fab {
     position: fixed;
-    bottom: calc(102px + env(safe-area-inset-bottom));
+    bottom: calc(24px + env(safe-area-inset-bottom));
     right: 20px;
     width: 60px; height: 60px;
     background: linear-gradient(145deg, var(--accent-2), var(--accent));
@@ -631,56 +619,120 @@
   .fab:active { transform: scale(0.92); }
 
   /* ====== BOTTOM NAV (floating liquid glass capsule) ====== */
-  .bottom-nav {
+  .bottom-nav { display: none; }
+
+  /* ====== HAMBURGER ====== */
+  .hamburger-btn {
+    width: 40px; height: 40px;
+    border: none; background: transparent;
+    cursor: pointer;
+    color: var(--text);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px;
+    border-radius: var(--r-sm);
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .hamburger-btn span {
+    display: block;
+    width: 20px; height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    transition: opacity 0.2s;
+  }
+  .hamburger-btn:active { opacity: 0.6; }
+
+  /* ====== DRAWER ====== */
+  .drawer-overlay {
     position: fixed;
-    bottom: calc(14px + env(safe-area-inset-bottom));
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 32px);
-    max-width: 398px;
-    background: var(--glass-thick);
+    inset: 0;
+    z-index: 400;
+    background: rgba(20, 14, 8, 0.35);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: min(300px, 88vw);
+    z-index: 401;
+    background: var(--bg-canvas);
     -webkit-backdrop-filter: var(--blur-thick);
     backdrop-filter: var(--blur-thick);
-    border: 0.5px solid var(--hairline-soft);
-    border-radius: var(--r-pill);
+    border-right: 0.5px solid var(--hairline);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-100%);
+    transition: transform 0.35s var(--ease-spring);
     display: flex;
-    padding: 6px;
-    gap: 4px;
-    z-index: 150;
-    box-shadow: var(--shadow-floating);
-    isolation: isolate;
+    flex-direction: column;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
   }
-  .bottom-nav::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 50%);
-    pointer-events: none;
-    mix-blend-mode: overlay;
+  .drawer.open { transform: translateX(0); box-shadow: var(--shadow-floating); }
+
+  .drawer-head {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--bg-canvas);
+    padding: calc(env(safe-area-inset-top) + 16px) 20px 12px;
+    border-bottom: 0.5px solid var(--hairline-soft);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
-  .bn-item {
-    flex: 1;
-    display: flex; flex-direction: row; align-items: center; justify-content: center;
-    gap: 7px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text2);
-    background: transparent;
-    border: none;
-    font-family: var(--font-body);
-    padding: 10px 14px;
-    border-radius: var(--r-pill);
-    transition: all 0.3s var(--ease-spring);
-    letter-spacing: -0.01em;
-  }
-  .bn-item.active {
+  .drawer-head-title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 400;
     color: var(--text);
-    background: var(--glass-chrome);
-    box-shadow: var(--shadow-soft);
+    letter-spacing: -0.015em;
+    line-height: 1;
   }
-  .bn-icon { font-size: 18px; line-height: 1; }
+  .drawer-head-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .drawer-close-btn {
+    width: 32px; height: 32px;
+    border: none; background: var(--glass-thin);
+    -webkit-backdrop-filter: var(--blur-thin);
+    backdrop-filter: var(--blur-thin);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-pill);
+    transition: opacity 0.2s;
+  }
+  .drawer-close-btn:active { opacity: 0.6; }
+
+  .drawer-section {
+    padding: 20px 20px 0;
+  }
+  .drawer-section + .drawer-section { padding-top: 24px; }
+  .drawer-section-divider {
+    height: 0.5px;
+    background: var(--hairline-soft);
+    margin: 24px 20px 0;
+  }
+  .drawer-section h3 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 12px;
+  }
+
+  .bn-item { display: none; }
+  .bn-icon { display: none; }
 
   /* ====== MODAL ====== */
   .modal-overlay {
@@ -731,6 +783,8 @@
     opacity: 0.4;
     border-radius: var(--r-pill);
     margin: 0 auto 16px;
+    touch-action: none;
+    cursor: grab;
   }
   .modal h2 {
     font-family: var(--font-display);
@@ -1084,19 +1138,73 @@
 </head>
 <body>
 
+<!-- DRAWER OVERLAY -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- DRAWER -->
+<div class="drawer" id="drawer" role="dialog" aria-label="Menü">
+  <div class="drawer-head">
+    <h1 class="drawer-head-title">Pocket<span>Log</span></h1>
+    <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">✕</button>
+  </div>
+
+  <div class="drawer-section">
+    <h3>Kategorien</h3>
+    <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
+      <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:18px;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
+      <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()" aria-label="Kategorie hinzufügen">+</button>
+    </div>
+  </div>
+
+  <div class="drawer-section-divider"></div>
+
+  <div class="drawer-section">
+    <h3>Tags</h3>
+    <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+    <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
+  </div>
+
+  <div class="drawer-section-divider"></div>
+
+  <div class="drawer-section">
+    <h3>Einstellungen</h3>
+    <div class="settings-section" style="margin-bottom:16px">
+      <div class="settings-row">
+        <label>API-Basis-URL</label>
+        <input type="url" id="cfg-api" placeholder="z.B. https://pocketlog.deinedomain.de" />
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
+      <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
+      <div class="status-msg" id="apiStatus"></div>
+    </div>
+    <div class="settings-section">
+      <button class="save-btn" onclick="exportCSV()">Als CSV exportieren</button>
+      <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">Aus CSV importieren…</button>
+      <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
+      <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
+      <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
+      <div class="status-msg" id="importStatus"></div>
+    </div>
+  </div>
+</div>
+
 <!-- HEADER -->
 <div class="header">
   <div class="header-top">
-    <h1>Haus<span>halts</span>buch</h1>
-    <button class="sync-btn" onclick="syncNow()" id="syncBtn">
+    <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
+      <span></span><span></span><span></span>
+    </button>
+    <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
       <span class="sync-dot" id="syncDot"></span>
       <span id="syncLabel">Sync</span>
     </button>
   </div>
   <div class="month-nav">
-    <button onclick="changeMonth(-1)">‹</button>
+    <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">‹</button>
     <span class="month-label" id="monthLabel"></span>
-    <button onclick="changeMonth(1)">›</button>
+    <button onclick="changeMonth(1)" aria-label="Nächster Monat">›</button>
   </div>
 </div>
 
@@ -1137,9 +1245,9 @@
   <div class="chart-container">
     <h3>Jahresverlauf</h3>
     <div class="year-nav">
-      <button onclick="changeYear(-1)">‹</button>
+      <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">‹</button>
       <span id="yearLabel"></span>
-      <button onclick="changeYear(1)">›</button>
+      <button onclick="changeYear(1)" aria-label="Nächstes Jahr">›</button>
     </div>
     <canvas id="yearChart"></canvas>
   </div>
@@ -1150,58 +1258,8 @@
 </div>
 
 <!-- FAB -->
-<button class="fab" onclick="openModal()">+</button>
+<button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
 
-<!-- BOTTOM NAV -->
-<div class="bottom-nav">
-  <button class="bn-item active" onclick="switchMainTab('main',this)">
-    <span class="bn-icon">📒</span>Übersicht
-  </button>
-  <button class="bn-item" onclick="switchMainTab('settings',this)">
-    <span class="bn-icon">⚙️</span>Einstellungen
-  </button>
-</div>
-
-<!-- SETTINGS PANEL (hidden by default) -->
-<div id="mainContent">
-  <!-- main content shown by default -->
-</div>
-<div id="settingsContent" style="display:none; padding: 16px 20px 140px;">
-  <div style="padding-top:8px"></div>
-  <div class="settings-section">
-    <h3>Server</h3>
-    <div class="settings-row">
-      <label>API-Basis-URL</label>
-      <input type="url" id="cfg-api" placeholder="z.B. https://pocketlog.deinedomain.de" />
-    </div>
-    <p style="font-size:12px;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
-    <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
-    <div class="status-msg" id="apiStatus"></div>
-  </div>
-  <div class="settings-section">
-    <h3>Daten</h3>
-    <button class="save-btn" onclick="exportCSV()">📄 Als CSV exportieren</button>
-    <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">📥 Aus CSV importieren</button>
-    <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
-    <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
-    <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
-    <div class="status-msg" id="importStatus"></div>
-  </div>
-  <div class="settings-section">
-    <h3>Kategorien</h3>
-    <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-    <div style="display:flex;gap:8px">
-      <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-      <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:18px;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-      <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()">+</button>
-    </div>
-  </div>
-  <div class="settings-section">
-    <h3>Tags</h3>
-    <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
-    <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
-  </div>
-</div>
 
 <!-- ADD MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
@@ -1326,31 +1384,19 @@ function showPanel(id, btn) {
   if (id === 'charts') renderCharts();
 }
 
-function switchMainTab(tab, btn) {
-  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const main = document.querySelector('.header');
-  const summary = document.querySelector('.summary');
-  const nav = document.querySelector('.nav');
-  const panels = document.querySelectorAll('.panel');
-  const fab = document.querySelector('.fab');
-  const settings = document.getElementById('settingsContent');
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderCategories();
+  renderTagList();
+  loadApiBaseInput();
+}
 
-  if (tab === 'settings') {
-    main.style.display='none'; summary.style.display='none';
-    nav.style.display='none'; panels.forEach(p=>p.style.display='none');
-    fab.style.display='none'; settings.style.display='block';
-    renderCategories();
-    renderTagList();
-    loadApiBaseInput();
-  } else {
-    main.style.display=''; summary.style.display='';
-    nav.style.display=''; panels.forEach(p=>p.style.display='');
-    document.getElementById('panel-transactions').style.display='block';
-    document.getElementById('panel-charts').style.display='none';
-    document.querySelectorAll('.nav-tab')[0].click();
-    fab.style.display=''; settings.style.display='none';
-  }
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 function changeMonth(d) {
@@ -1509,7 +1555,7 @@ function attachSwipeHandlers(container) {
       const id = Number(row.dataset.id);
       const tx = transactions.find(t => t.id === id);
       const label = tx && tx.desc ? `„${tx.desc}"` : 'die Buchung';
-      if (!confirm(`Soll ${label} wirklich gelöscht werden?`)) {
+      if (!confirm(`${label} löschen?`)) {
         row.classList.remove('swiped');
         return;
       }
@@ -1569,8 +1615,8 @@ function renderMonthChart() {
   monthChartInst = new Chart(document.getElementById('monthChart'), {
     type:'bar',
     data: { labels, datasets:[
-      {label:'Ausgaben',data:outData,backgroundColor:'rgba(200,98,58,0.7)',borderRadius:4,borderSkipped:false},
-      {label:'Einnahmen',data:inData,backgroundColor:'rgba(58,125,92,0.7)',borderRadius:4,borderSkipped:false}
+      {label:'Ausgaben',data:outData,backgroundColor:'rgba(217,119,87,0.7)',borderRadius:4,borderSkipped:false},
+      {label:'Einnahmen',data:inData,backgroundColor:'rgba(120,140,93,0.7)',borderRadius:4,borderSkipped:false}
     ]},
     options:{responsive:true,plugins:{legend:{labels:{color:c.text,font:{family:'DM Sans',size:11}}}},
       scales:{x:{ticks:{color:c.text,font:{size:10}},grid:{color:c.grid}},
@@ -1594,8 +1640,8 @@ async function renderYearChart() {
   yearChartInst = new Chart(document.getElementById('yearChart'), {
     type:'line',
     data:{ labels:MONTHS_SHORT, datasets:[
-      {label:'Ausgaben',data:monthly.map(m=>m.out),borderColor:'#c8623a',backgroundColor:'rgba(200,98,58,0.1)',tension:0.4,fill:true,pointRadius:3},
-      {label:'Einnahmen',data:monthly.map(m=>m.in),borderColor:'#3a7d5c',backgroundColor:'rgba(58,125,92,0.1)',tension:0.4,fill:true,pointRadius:3}
+      {label:'Ausgaben',data:monthly.map(m=>m.out),borderColor:'#D97757',backgroundColor:'rgba(217,119,87,0.10)',tension:0.4,fill:true,pointRadius:3},
+      {label:'Einnahmen',data:monthly.map(m=>m.in),borderColor:'#788C5D',backgroundColor:'rgba(120,140,93,0.10)',tension:0.4,fill:true,pointRadius:3}
     ]},
     options:{responsive:true,plugins:{legend:{labels:{color:c.text,font:{family:'DM Sans',size:11}}}},
       scales:{x:{ticks:{color:c.text,font:{size:10}},grid:{color:c.grid}},
@@ -1648,6 +1694,79 @@ function closeModal() { document.getElementById('modalOverlay').classList.remove
 function closeModalOutside(e) { if(e.target===document.getElementById('modalOverlay')) closeModal(); }
 function editTransaction(id) { openModal(transactions.find(t=>t.id===Number(id))); }
 
+function attachDragDismiss(overlayId, closeFn) {
+  const overlay = document.getElementById(overlayId);
+  if (!overlay) return;
+  const modal = overlay.querySelector('.modal');
+  const handle = modal.querySelector('.modal-handle');
+
+  let startY = 0, prevY = 0, prevTime = 0, dy = 0, active = false;
+
+  modal.addEventListener('pointerdown', (e) => {
+    const fromHandle = handle.contains(e.target);
+    const atTop = modal.scrollTop <= 1;
+    if (!fromHandle && !atTop) return;
+    if (e.pointerType === 'mouse') return;
+    startY = e.clientY;
+    prevY = e.clientY;
+    prevTime = Date.now();
+    dy = 0;
+    active = true;
+    modal.style.transition = 'none';
+    try { modal.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+
+  modal.addEventListener('pointermove', (e) => {
+    if (!active) return;
+    const raw = e.clientY - startY;
+    if (raw <= 0) { dy = 0; return; }
+    dy = raw;
+    prevY = e.clientY;
+    prevTime = Date.now();
+    modal.style.transform = `translateY(${dy}px)`;
+    const fade = Math.max(0, 0.35 * (1 - (dy / 240) * 0.85));
+    overlay.style.background = `rgba(20,14,8,${fade.toFixed(3)})`;
+  });
+
+  function finish(e) {
+    if (!active) return;
+    active = false;
+    const elapsed = Date.now() - prevTime + 1;
+    const velocity = ((e?.clientY ?? prevY) - startY) / elapsed * 1000;
+    const dismiss = dy > 110 || velocity > 550;
+
+    if (dismiss) {
+      modal.style.transition = 'transform 0.28s var(--ease-soft)';
+      overlay.style.transition = 'opacity 0.28s ease, background 0.28s ease';
+      modal.style.transform = 'translateY(110%)';
+      overlay.style.opacity = '0';
+      setTimeout(() => {
+        closeFn();
+        modal.style.cssText = '';
+        overlay.style.cssText = overlay.style.cssText.replace(/opacity[^;]*;?/g,'').replace(/background[^;]*;?/g,'').replace(/transition[^;]*;?/g,'');
+        overlay.style.opacity = '';
+        overlay.style.transition = '';
+      }, 270);
+    } else {
+      modal.style.transition = 'transform 0.38s var(--ease-spring)';
+      modal.style.transform = '';
+      overlay.style.background = '';
+      modal.addEventListener('transitionend', () => { modal.style.transition = ''; }, { once: true });
+    }
+    dy = 0;
+  }
+
+  modal.addEventListener('pointerup', finish);
+  modal.addEventListener('pointercancel', () => {
+    if (!active) return;
+    active = false;
+    modal.style.transform = '';
+    modal.style.transition = '';
+    overlay.style.background = '';
+    dy = 0;
+  });
+}
+
 async function deleteCurrentTransaction() {
   const editId = document.getElementById('modalOverlay').dataset.editId;
   if (!editId) return;
@@ -1695,7 +1814,7 @@ function removeTag(t) {
 function renderTagPills() {
   const wrap = document.getElementById('tagsWrap');
   const inp  = document.getElementById('tagInput');
-  wrap.innerHTML = currentTags.map(t=>`<span class="tag-pill">${t}<button onclick="removeTag('${t}')">×</button></span>`).join('');
+  wrap.innerHTML = currentTags.map(t=>`<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}" entfernen">×</button></span>`).join('');
   wrap.appendChild(inp);
 }
 
@@ -1704,7 +1823,7 @@ async function addTransaction() {
   const desc   = document.getElementById('inputDesc').value.trim();
   const cat    = parseInt(document.getElementById('inputCat').value);
   const date   = document.getElementById('inputDate').value;
-  if (!amount || !date) { alert('Bitte Betrag und Datum ausfüllen.'); return; }
+  if (!amount || !date) { alert('Betrag und Datum sind Pflichtfelder.'); return; }
   const body = {amount, desc, category_id: cat||null, date, type:currentType, tags:currentTags};
   const editId = document.getElementById('modalOverlay').dataset.editId;
   const method = editId ? 'PUT' : 'POST';
@@ -1746,14 +1865,14 @@ async function addCategory() {
   const name = document.getElementById('newCatName').value.trim();
   const icon = document.getElementById('newCatIcon').value.trim() || '📦';
   if (!name) return;
-  const colors = ['#c8623a','#6b7aa1','#5a9e7a','#c47ab0','#e0a44a','#9e9b96'];
+  const colors = ['#D97757','#6b7aa1','#788C5D','#c47ab0','#e0a44a','#87867F'];
   try {
     await api('POST', '/categories', {name, icon, color: colors[categories.length%colors.length]});
     document.getElementById('newCatName').value='';
     document.getElementById('newCatIcon').value='';
     await loadCategories();
     renderCategories();
-  } catch(e) { alert('Fehler: ' + e.message); }
+  } catch(e) { alert('Kategorie konnte nicht gespeichert werden. Verbindung prüfen.'); }
 }
 
 async function loadCategories() {
@@ -1800,7 +1919,7 @@ function renderCategories() {
   `).join('');
 }
 
-const CAT_COLOR_PRESETS = ['#c8623a','#6b7aa1','#5a9e7a','#c47ab0','#e0a44a','#9e9b96','#3a7d5c','#8a6a4a','#a45ab0','#6a8a8a'];
+const CAT_COLOR_PRESETS = ['#D97757','#6b7aa1','#788C5D','#c47ab0','#e0a44a','#87867F','#B85C3E','#8a6a4a','#a45ab0','#6a8a8a'];
 let editingCatId = null;
 let editingCatColor = '#9e9b96';
 
@@ -1844,8 +1963,8 @@ async function saveCategoryEdit() {
   if (!editingCatId) return;
   const name = document.getElementById('catEditName').value.trim();
   const icon = document.getElementById('catEditIcon').value.trim() || '📦';
-  if (!name) { alert('Bitte einen Namen angeben.'); return; }
-  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { alert('Ungültige Farbe.'); return; }
+  if (!name) { alert('Name ist ein Pflichtfeld.'); return; }
+  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { alert('Die Farbe ist ungültig. Ein gültiger Hex-Wert wird benötigt, z. B. #D97757.'); return; }
   try {
     await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
     closeCatModal();
@@ -1917,7 +2036,7 @@ function closeTagModalOutside(e) {
 async function saveTagEdit() {
   if (!editingTagName) return;
   const newName = document.getElementById('tagEditName').value.trim();
-  if (!newName) { alert('Bitte einen Namen angeben.'); return; }
+  if (!newName) { alert('Name ist ein Pflichtfeld.'); return; }
   if (newName === editingTagName) { closeTagModal(); return; }
   try {
     await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
@@ -1985,12 +2104,12 @@ async function syncNow() {
   if (networkErr || remaining > 0) {
     btn.classList.add('error');
     dot.classList.add('error');
-    label.textContent = remaining > 0 ? `⚠ ${remaining} offen` : '⚠ offline';
+    label.textContent = remaining > 0 ? `⚠ ${remaining} ausstehend` : '⚠ Offline';
     setTimeout(updateSyncBadge, 4000);
     return;
   }
 
-  label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
+  label.textContent = 'Gespeichert';
   if (flushed > 0) await loadTags();
   await loadAndRender();
   setTimeout(updateSyncBadge, 2000);
@@ -2038,7 +2157,7 @@ async function updateSyncBadge() {
   }
   const pending = await window.PocketLogOutbox.count();
   if (pending > 0) {
-    label.textContent = `Pending: ${pending}`;
+    label.textContent = `${pending} ausstehend`;
   } else {
     btn.classList.remove('error');
     dot.classList.remove('error');
@@ -2047,6 +2166,7 @@ async function updateSyncBadge() {
 }
 
 window.addEventListener('online', () => syncNow());
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (ev) => {
@@ -2066,7 +2186,7 @@ async function importCSV(ev) {
   const file = ev.target.files && ev.target.files[0];
   if (!file) return;
   const status = document.getElementById('importStatus');
-  status.textContent = 'Importiere …';
+  status.textContent = 'Wird importiert…';
   status.className = 'status-msg';
   const fd = new FormData();
   fd.append('file', file);
@@ -2089,7 +2209,7 @@ async function importCSV(ev) {
     await loadTags();
     await loadAndRender();
   } catch (e) {
-    status.textContent = 'Import fehlgeschlagen: ' + e.message;
+    status.textContent = 'Import fehlgeschlagen – Verbindung prüfen.';
     status.className = 'status-msg err';
   } finally {
     ev.target.value = '';  // gleichen File-Reimport erlauben
@@ -2106,6 +2226,9 @@ async function init() {
   await loadTags();
   await loadAndRender();
   updateSyncBadge();
+  attachDragDismiss('modalOverlay', closeModal);
+  attachDragDismiss('tagModalOverlay', closeTagModal);
+  attachDragDismiss('catModalOverlay', closeCatModal);
 }
 init();
 </script>
