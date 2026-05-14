@@ -357,6 +357,34 @@
   .panel { display: none; padding: 8px 20px 90px; }
   .panel.active { display: block; }
 
+  /* ====== CATEGORY VIEW ====== */
+  .cat-view-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 0.5px solid var(--hairline-soft);
+  }
+  .cat-view-row:last-child { border-bottom: none; }
+  .cat-view-icon {
+    font-size: 22px;
+    width: 32px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .cat-view-name {
+    flex: 1;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .cat-view-amount {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .cat-view-amount.negative { color: var(--accent); }
+  .cat-view-amount.positive { color: var(--green); }
+
   /* ====== TRANSACTIONS ====== */
   .section-title {
     font-size: 11px;
@@ -1320,6 +1348,11 @@
     <h3>Kategorien</h3>
     <div id="catBreakdown"></div>
   </div>
+</div>
+
+<!-- CATEGORIES PANEL -->
+<div class="panel" id="panel-categories">
+  <div id="categoryViewList"></div>
 </div>
 
 <!-- FAB -->
