@@ -9,7 +9,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/anym001/PocketLog/issues</Support>
   <Project>https://github.com/anym001/PocketLog</Project>
-  <Overview>Haushaltsbuch als Progressive Web App. FastAPI-Backend + statische PWA in einem Image. Authentifizierung wird per Authentik Forward Auth (z.B. via SWAG) davor erledigt — die App selbst hat keinen Login. Daten werden in einer externen MariaDB gespeichert, die du selbst betreibst.</Overview>
+  <Overview>Haushaltsbuch als Progressive Web App. FastAPI-Backend + statische PWA in einem Image. Authentifizierung läuft über Authentik (Forward Auth via SWAG, im HTTP-Basic-Auth-Modus) — Authentik validiert die Credentials, die App selbst hat keinen Login. Daten werden in einer externen MariaDB gespeichert, die du selbst betreibst.</Overview>
   <Category>Productivity: Tools:</Category>
   <WebUI>http://[IP]:[PORT:8000]/</WebUI>
   <ExtraParams/>
@@ -18,7 +18,7 @@
   <DateInstalled/>
   <DonateText/>
   <DonateLink/>
-  <Description>Haushaltsbuch als PWA für iPhone, iPad und Mac. Speichert Buchungen, Kategorien und Tags in einer eigenen MariaDB. Multi-User über X-Authentik-Username Header (Forward Auth).</Description>
+  <Description>Haushaltsbuch als PWA für iPhone, iPad und Mac. Speichert Buchungen, Kategorien und Tags in einer eigenen MariaDB. Multi-User über Authentik (HTTP Basic Auth via Forward Auth Proxy) — Credentials werden von Authentik validiert, der User-Name wird per X-Authentik-Username Header an die App durchgereicht.</Description>
 
   <!-- WebUI auf 8080 mappen (frei wählbar) -->
   <Config Name="WebUI Port" Target="8000" Default="8080" Mode="tcp" Description="HTTP-Port. Wenn PocketLog hinter SWAG/Authentik läuft, nicht öffentlich exponieren." Type="Port" Display="always" Required="true" Mask="false">8080</Config>

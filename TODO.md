@@ -17,7 +17,9 @@ Einmalige Schritte, danach kann der Abschnitt raus.
 - [ ] **SWAG + Authentik verdrahten.** `swag/pocketlog.subdomain.conf` nach
   `/swag/config/nginx/proxy-confs/` kopieren, SWAG neu laden. In Authentik
   einen Forward-Auth-Provider + Application für `pocketlog.<deinedomain>`
-  anlegen und dem Outpost zuweisen.
+  anlegen und dem Outpost zuweisen. Im Proxy-Provider unter *Advanced
+  protocol settings* die Option **"HTTP Basic authentication"** aktivieren,
+  danach den Outpost neu deployen.
 
 ## Features
 
@@ -36,17 +38,15 @@ Einmalige Schritte, danach kann der Abschnitt raus.
 
 ## Security
 
-- **Header-Trust-Modell härten.** Das Backend vertraut aktuell blind jedem
-  `X-Authentik-Username`-Header. Wer Direktzugriff auf den Backend-Port
-  hat (LAN, fehlkonfigurierte Port-Freigabe, fehlende Netzwerk-Isolation),
-  kann jeden beliebigen User imitieren.
-  Empfohlener nächster Schritt: ein Shared-Secret zwischen SWAG und Backend —
-  SWAG injiziert einen zusätzlichen Header `X-Auth-Secret: <random>`, Backend
-  prüft ihn gegen eine ENV-Variable und antwortet sonst 401.
-  Alternativen: mTLS zwischen beiden Containern, signierte JWTs aus Authentik
+- **Backend-Port niemals außerhalb des SWAG-Netzwerks exponieren.** Der
+  `X-Authentik-Username`-Header wird vom Backend ungeprüft als Identität
+  übernommen — die Validierung passiert vorgelagert im Authentik-Outpost
+  (HTTP-Basic-Auth-Modus). Solange der Backend-Port nur über SWAG erreichbar
+  ist, kann der Header nicht gefälscht werden. Auf direkter LAN-Erreichbarkeit
+  bleibt das Risiko bestehen.
+  Weitergehende Härtung (falls je nötig): Shared-Secret-Header zwischen SWAG
+  und Backend, mTLS zwischen den Containern, oder signierte JWTs aus Authentik
   (OIDC statt Forward Auth).
-  Bis das umgesetzt ist: Backend-Port niemals außerhalb des SWAG-Netzwerks
-  exponieren.
 
 ## Nice-to-haves
 

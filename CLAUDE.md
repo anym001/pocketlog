@@ -3,11 +3,11 @@
 ## Architektur-Übersicht
 ```
 iPhone/iPad/Mac (installierte PWA)
-        ↓ HTTPS
+        ↓ HTTPS  (Browser sendet Authorization: Basic ...)
      SWAG Proxy          ← pocketlog.deinedomain.de
         ↓
-     Authentik           ← Forward Auth, setzt X-Authentik-Username Header
-        ↓
+     Authentik           ← Forward Auth im HTTP-Basic-Auth-Modus:
+        ↓                  validiert Credentials, setzt X-Authentik-Username
   ┌─────────────────────────────────────┐
   │  FastAPI-Container :8000            │  /          → statische PWA-Files
   │  (uvicorn, Python 3.12)             │  /api/*     → Python API
@@ -56,7 +56,7 @@ Routes registriert sind.
 - **Frontend:** Vanilla HTML/CSS/JS in einer Datei (`frontend/index.html`) + Service Worker
 - **Backend:** FastAPI (Python 3.12), uvicorn auf Port 8000
 - **Datenbank:** MariaDB 11 (extern, InnoDB, utf8mb4)
-- **Auth:** Authentik Forward Auth über SWAG – kein Login in der App
+- **Auth:** Authentik Forward Auth über SWAG im HTTP-Basic-Auth-Modus – kein Login in der App
 - **Fonts:** DM Serif Display + DM Sans
 - **Charts:** Chart.js 4.4.1 (CDN, im SW gecached)
 - **Migrationen:** Alembic, läuft im Container-Entrypoint vor uvicorn
@@ -100,7 +100,9 @@ Jeder User bekommt beim ersten `GET /api/categories` Default-Kategorien
 
 ## Auth-Konzept
 - Authentik schützt die gesamte Domain per Forward Auth über SWAG
-- Nach Login setzt Authentik den Header `X-Authentik-Username`
+- Im Authentik-Proxy-Provider ist **"HTTP Basic authentication"** aktiviert: der Browser zeigt den nativen Basic-Auth-Dialog, Authentik validiert die Credentials gegen seine User-DB
+- Nach erfolgreicher Validierung setzt Authentik den Header `X-Authentik-Username`
+- SWAG strippt den `Authorization`-Header vor dem proxy_pass an den Backend-Container (`swag/pocketlog.subdomain.conf`), damit Credentials das Backend nie erreichen
 - FastAPI liest den Header in `get_current_user()` (`backend/app/main.py`); fehlt der Header → 401
 - Lokales Testen ohne Authentik: Header manuell mitschicken, z.B. `curl -H "X-Authentik-Username: test" http://localhost:8080/api/health`
 - Alle DB-Queries filtern nach `username` – Multi-User-fähig ohne extra Login-Code
@@ -126,7 +128,9 @@ Template `unraid/pocketlog.xml` in Unraid importieren oder ENV-Variablen in der
 `ghcr.io/anym001/pocketlog:latest` (oder lokal selbst gebaut). Anschließend
 `swag/pocketlog.subdomain.conf` nach `/swag/config/nginx/proxy-confs/` legen,
 SWAG neu laden, und in Authentik einen Forward-Auth-Provider + Application für
-`pocketlog.<domain>` anlegen.
+`pocketlog.<domain>` anlegen. Im Proxy-Provider die Option **"HTTP Basic
+authentication"** aktivieren (Advanced protocol settings) und den Outpost neu
+deployen.
 
 ## Design-Prinzipien (Frontend)
 - Mobile-first, max-width 430px, safe-area-inset für iPhone
