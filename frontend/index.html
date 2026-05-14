@@ -325,7 +325,6 @@
     mix-blend-mode: overlay;
   }
   .summary-card > * { position: relative; z-index: 2; }
-  .summary-card.full { grid-column: 1/-1; }
   .summary-card .label {
     font-size: 11px;
     text-transform: uppercase;
@@ -353,58 +352,38 @@
     background-clip: text;
     color: transparent;
   }
-  .balance-bar {
-    height: 5px;
-    border-radius: var(--r-pill);
-    background: var(--hairline-soft);
-    margin-top: 12px;
-    overflow: hidden;
-    box-shadow: inset 0 0 0 0.5px var(--edge-dark);
-  }
-  .balance-bar-fill {
-    height: 100%;
-    border-radius: var(--r-pill);
-    background: linear-gradient(90deg, var(--green), var(--accent));
-    transition: width 0.8s var(--ease-spring);
-    box-shadow: 0 0 10px rgba(217, 100, 52, 0.4);
-  }
-
-  /* ====== NAV TABS (segmented control) ====== */
-  .nav {
-    display: flex;
-    padding: 4px;
-    gap: 2px;
-    margin: 6px 20px 12px;
-    background: var(--glass-thin);
-    -webkit-backdrop-filter: var(--blur-thin);
-    backdrop-filter: var(--blur-thin);
-    border: 0.5px solid var(--hairline-soft);
-    border-radius: var(--r-pill);
-    box-shadow: inset 0 0.5px 0 var(--hairline);
-  }
-  .nav-tab {
-    flex: 1;
-    padding: 9px 14px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text2);
-    cursor: pointer;
-    border-radius: var(--r-pill);
-    transition: all 0.3s var(--ease-spring);
-    font-family: var(--font-body);
-    background: transparent;
-    border: none;
-    letter-spacing: -0.01em;
-  }
-  .nav-tab.active {
-    color: var(--text);
-    background: var(--glass-thick);
-    box-shadow: var(--shadow-soft);
-  }
 
   /* ====== PANELS ====== */
-  .panel { display: none; padding: 8px 20px 90px; }
+  .panel { display: none; padding: 8px 20px 32px; }
   .panel.active { display: block; }
+
+  /* ====== CATEGORY VIEW ====== */
+  .cat-view-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 0.5px solid var(--hairline-soft);
+  }
+  .cat-view-row:last-child { border-bottom: none; }
+  .cat-view-icon {
+    font-size: 22px;
+    width: 32px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .cat-view-name {
+    flex: 1;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .cat-view-amount {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .cat-view-amount.negative { color: var(--accent); }
+  .cat-view-amount.positive { color: var(--green); }
 
   /* ====== TRANSACTIONS ====== */
   .section-title {
@@ -665,15 +644,31 @@
     -webkit-backdrop-filter: var(--blur-thick);
     backdrop-filter: var(--blur-thick);
     border-right: 0.5px solid var(--hairline);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
     transform: translateX(-100%);
     transition: transform 0.35s var(--ease-spring);
     display: flex;
     flex-direction: column;
-    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
   }
   .drawer.open { transform: translateX(0); box-shadow: var(--shadow-floating); }
+  .drawer-content {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .drawer-panel {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transition: transform 0.32s var(--ease-spring), opacity 0.22s ease;
+    will-change: transform;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+  }
+  .drawer-panel[data-state="active"] { transform: translateX(0); opacity: 1; pointer-events: auto; }
+  .drawer-panel[data-state="left"]   { transform: translateX(-28%); opacity: 0; pointer-events: none; }
+  .drawer-panel[data-state="right"]  { transform: translateX(100%); opacity: 0; pointer-events: none; }
 
   .drawer-head {
     position: sticky; top: 0; z-index: 1;
@@ -729,6 +724,56 @@
     text-transform: uppercase;
     color: var(--text3);
     margin-bottom: 12px;
+  }
+  .drawer-nav { margin-top: 8px; }
+  .drawer-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 15px 20px;
+    background: none;
+    border: none;
+    border-bottom: 0.5px solid var(--hairline-soft);
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .drawer-nav-item:first-child { border-top: 0.5px solid var(--hairline-soft); }
+  .drawer-nav-item:active { background: var(--glass-thin); }
+  .drawer-nav-item.active { color: var(--accent); font-weight: 600; }
+  .drawer-nav-chevron { color: var(--text3); font-size: 20px; line-height: 1; font-weight: 300; }
+  .drawer-sub-head {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--bg-canvas);
+    padding: 0 20px;
+    border-bottom: 0.5px solid var(--hairline-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .drawer-back-btn {
+    position: absolute; left: 12px;
+    border: none; background: none;
+    color: var(--accent);
+    font-family: var(--font-body);
+    font-size: 15px;
+    cursor: pointer;
+    padding: 8px;
+    display: flex; align-items: center; gap: 2px;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
+  }
+  .drawer-back-btn:active { opacity: 0.6; }
+  .drawer-sub-title {
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
   }
 
   .bn-item { display: none; }
@@ -1148,45 +1193,129 @@
     <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">✕</button>
   </div>
 
-  <div class="drawer-section">
-    <h3>Kategorien</h3>
-    <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-    <div style="display:flex;gap:8px">
-      <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-      <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:18px;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-      <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()" aria-label="Kategorie hinzufügen">+</button>
+  <div class="drawer-content">
+
+    <!-- Panel 0: Hauptmenü -->
+    <div class="drawer-panel" id="dpMain" data-state="active">
+      <nav class="drawer-nav">
+        <button class="drawer-nav-item" data-panel="categories" onclick="showPanel('categories')">
+          Kategorien
+        </button>
+        <button class="drawer-nav-item" data-panel="transactions" onclick="showPanel('transactions')">
+          Transaktionen
+        </button>
+        <button class="drawer-nav-item" data-panel="charts" onclick="showPanel('charts')">
+          Auswertungen
+        </button>
+        <button class="drawer-nav-item" onclick="drawerNav('dpSettings')">
+          Einstellungen
+          <span class="drawer-nav-chevron">›</span>
+        </button>
+      </nav>
     </div>
-  </div>
 
-  <div class="drawer-section-divider"></div>
-
-  <div class="drawer-section">
-    <h3>Tags</h3>
-    <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
-    <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
-  </div>
-
-  <div class="drawer-section-divider"></div>
-
-  <div class="drawer-section">
-    <h3>Einstellungen</h3>
-    <div class="settings-section" style="margin-bottom:16px">
-      <div class="settings-row">
-        <label>API-Basis-URL</label>
-        <input type="url" id="cfg-api" placeholder="z.B. https://pocketlog.deinedomain.de" />
+    <!-- Panel 1: Einstellungen -->
+    <div class="drawer-panel" id="dpSettings" data-state="right">
+      <div class="drawer-sub-head">
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">‹ Menü</button>
+        <span class="drawer-sub-title">Einstellungen</span>
       </div>
-      <p style="font-size:12px;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
-      <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
-      <div class="status-msg" id="apiStatus"></div>
+      <nav class="drawer-nav">
+        <button class="drawer-nav-item" onclick="drawerNav('dpCats')">
+          Kategorien
+          <span class="drawer-nav-chevron">›</span>
+        </button>
+        <button class="drawer-nav-item" onclick="drawerNav('dpTags')">
+          Tags
+          <span class="drawer-nav-chevron">›</span>
+        </button>
+        <button class="drawer-nav-item" onclick="drawerNav('dpImport')">
+          Import/Export
+          <span class="drawer-nav-chevron">›</span>
+        </button>
+        <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
+          Darstellung
+          <span class="drawer-nav-chevron">›</span>
+        </button>
+      </nav>
     </div>
-    <div class="settings-section">
-      <button class="save-btn" onclick="exportCSV()">Als CSV exportieren</button>
-      <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">Aus CSV importieren…</button>
-      <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
-      <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
-      <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
-      <div class="status-msg" id="importStatus"></div>
+
+    <!-- Panel 2a: Kategorien -->
+    <div class="drawer-panel" id="dpCats" data-state="right">
+      <div class="drawer-sub-head">
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <span class="drawer-sub-title">Kategorien</span>
+      </div>
+      <div class="drawer-section">
+        <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
+          <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:18px;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
+          <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()" aria-label="Kategorie hinzufügen">+</button>
+        </div>
+      </div>
     </div>
+
+    <!-- Panel 2b: Tags -->
+    <div class="drawer-panel" id="dpTags" data-state="right">
+      <div class="drawer-sub-head">
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <span class="drawer-sub-title">Tags</span>
+      </div>
+      <div class="drawer-section">
+        <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+        <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
+      </div>
+    </div>
+
+    <!-- Panel 2c: Import/Export -->
+    <div class="drawer-panel" id="dpImport" data-state="right">
+      <div class="drawer-sub-head">
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <span class="drawer-sub-title">Import/Export</span>
+      </div>
+      <div class="drawer-section">
+        <div class="settings-section" style="margin-bottom:16px">
+          <div class="settings-row">
+            <label>API-Basis-URL</label>
+            <input type="url" id="cfg-api" placeholder="z.B. https://pocketlog.deinedomain.de" />
+          </div>
+          <p style="font-size:12px;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
+          <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
+          <div class="status-msg" id="apiStatus"></div>
+        </div>
+        <div class="settings-section">
+          <button class="save-btn" onclick="exportCSV()">Als CSV exportieren</button>
+          <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">Aus CSV importieren…</button>
+          <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
+          <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
+          <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
+          <div class="status-msg" id="importStatus"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 2d: Darstellung -->
+    <div class="drawer-panel" id="dpDisplay" data-state="right">
+      <div class="drawer-sub-head">
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <span class="drawer-sub-title">Darstellung</span>
+      </div>
+      <div class="drawer-section">
+        <h3>Startansicht</h3>
+        <div class="settings-section">
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer">
+            <input type="radio" name="defaultView" value="transactions" onchange="saveDefaultView(this.value)" style="accent-color:var(--accent)">
+            Transaktionen
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer">
+            <input type="radio" name="defaultView" value="categories" onchange="saveDefaultView(this.value)" style="accent-color:var(--accent)">
+            Kategorien
+          </label>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1218,17 +1347,6 @@
     <div class="label">Einnahmen</div>
     <div class="amount positive" id="totalIn">€0,00</div>
   </div>
-  <div class="summary-card full">
-    <div class="label">Bilanz</div>
-    <div class="amount" id="balance">€0,00</div>
-    <div class="balance-bar"><div class="balance-bar-fill" id="balanceBar" style="width:50%"></div></div>
-  </div>
-</div>
-
-<!-- NAV TABS -->
-<div class="nav">
-  <button class="nav-tab active" onclick="showPanel('transactions',this)">Buchungen</button>
-  <button class="nav-tab" onclick="showPanel('charts',this)">Auswertung</button>
 </div>
 
 <!-- TRANSACTIONS PANEL -->
@@ -1255,6 +1373,11 @@
     <h3>Kategorien</h3>
     <div id="catBreakdown"></div>
   </div>
+</div>
+
+<!-- CATEGORIES PANEL -->
+<div class="panel" id="panel-categories">
+  <div id="categoryViewList"></div>
 </div>
 
 <!-- FAB -->
@@ -1376,27 +1499,59 @@ const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August',
 const MONTHS_SHORT = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
-function showPanel(id, btn) {
+let _activePanel = 'transactions';
+
+function showPanel(id) {
+  _activePanel = id;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
-  btn.classList.add('active');
+  document.querySelectorAll('.drawer-nav-item[data-panel]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.panel === id);
+  });
   if (id === 'charts') renderCharts();
+  if (id === 'categories') renderCategoryView();
+  closeDrawer();
+}
+
+const _drawerStack = [];
+const _drawerSubs = ['dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay'];
+
+function drawerNav(panelId) {
+  const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
+  document.getElementById(current).dataset.state = 'left';
+  document.getElementById(panelId).dataset.state = 'active';
+  _drawerStack.push(panelId);
+  if (panelId === 'dpCats') renderCategories();
+  if (panelId === 'dpTags') renderTagList();
+  if (panelId === 'dpImport') loadApiBaseInput();
+  if (panelId === 'dpDisplay') syncDefaultViewRadios();
+}
+
+function drawerBack() {
+  if (!_drawerStack.length) return;
+  const current = _drawerStack.pop();
+  const prev = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
+  document.getElementById(current).dataset.state = 'right';
+  document.getElementById(prev).dataset.state = 'active';
+}
+
+function _drawerResetPanels() {
+  document.getElementById('dpMain').dataset.state = 'active';
+  _drawerSubs.forEach(id => { document.getElementById(id).dataset.state = 'right'; });
+  _drawerStack.length = 0;
 }
 
 function openDrawer() {
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-  renderCategories();
-  renderTagList();
-  loadApiBaseInput();
 }
 
 function closeDrawer() {
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  setTimeout(_drawerResetPanels, 380);
 }
 
 function changeMonth(d) {
@@ -1428,14 +1583,10 @@ function renderAll() {
   document.getElementById('monthLabel').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
   const out = transactions.filter(t=>t.type==='out').reduce((a,t)=>a+t.amount,0);
   const inc = transactions.filter(t=>t.type==='in').reduce((a,t)=>a+t.amount,0);
-  const bal = inc - out;
   document.getElementById('totalOut').textContent = fmtCurrency(out);
   document.getElementById('totalIn').textContent  = fmtCurrency(inc);
-  document.getElementById('balance').textContent  = fmtCurrency(bal);
-  document.getElementById('balance').className    = 'amount ' + (bal>=0?'positive':'negative');
-  const pct = inc > 0 ? Math.min(100, (out/inc)*100) : (out>0?100:0);
-  document.getElementById('balanceBar').style.width = pct + '%';
   renderTransactions(transactions);
+  if (_activePanel === 'categories') renderCategoryView();
 }
 
 function getCatById(id) { return categories.find(c=>c.id===Number(id)) || {name:'Sonstiges',icon:'📦',color:'#9e9b96'}; }
@@ -1482,6 +1633,40 @@ function renderTransactions(txs) {
     }).join('');
   }).join('');
   attachSwipeHandlers(el);
+}
+
+function renderCategoryView() {
+  const el = document.getElementById('categoryViewList');
+  if (!el) return;
+
+  if (!transactions.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong> um eine hinzuzufügen.</p></div>`;
+    return;
+  }
+
+  // Net amount per category
+  const totals = {};
+  transactions.forEach(t => {
+    const key = t.category_id ?? 0;
+    if (!totals[key]) totals[key] = 0;
+    totals[key] += t.type === 'out' ? -t.amount : t.amount;
+  });
+
+  // Get categories with transactions, sort alphabetically
+  const rows = Object.entries(totals)
+    .map(([catId, net]) => {
+      const cat = getCatById(Number(catId));
+      return { name: cat.name, icon: cat.icon, net };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+  el.innerHTML = rows.map(r => `
+    <div class="cat-view-row">
+      <span class="cat-view-icon">${r.icon}</span>
+      <span class="cat-view-name">${r.name}</span>
+      <span class="cat-view-amount ${r.net >= 0 ? 'positive' : 'negative'}">${fmtCurrency(r.net)}</span>
+    </div>
+  `).join('');
 }
 
 // ── SWIPE-TO-DELETE ───────────────────────────────────────────────────────────
@@ -1701,24 +1886,34 @@ function attachDragDismiss(overlayId, closeFn) {
   const handle = modal.querySelector('.modal-handle');
 
   let startY = 0, prevY = 0, prevTime = 0, dy = 0, active = false;
+  let intentDecided = false, fromHandle = false, startScrollTop = 0;
 
   modal.addEventListener('pointerdown', (e) => {
-    const fromHandle = handle.contains(e.target);
-    const atTop = modal.scrollTop <= 1;
-    if (!fromHandle && !atTop) return;
     if (e.pointerType === 'mouse') return;
     startY = e.clientY;
     prevY = e.clientY;
     prevTime = Date.now();
     dy = 0;
-    active = true;
-    modal.style.transition = 'none';
-    try { modal.setPointerCapture(e.pointerId); } catch (_) {}
+    active = false;
+    intentDecided = false;
+    fromHandle = handle.contains(e.target);
+    startScrollTop = modal.scrollTop;
   });
 
   modal.addEventListener('pointermove', (e) => {
-    if (!active) return;
+    if (intentDecided && !active) return;
     const raw = e.clientY - startY;
+    if (!intentDecided) {
+      if (Math.abs(raw) < 8) return;
+      intentDecided = true;
+      if (raw > 0 && (fromHandle || startScrollTop <= 1)) {
+        active = true;
+        modal.style.transition = 'none';
+        try { modal.setPointerCapture(e.pointerId); } catch (_) {}
+      } else {
+        return;
+      }
+    }
     if (raw <= 0) { dy = 0; return; }
     dy = raw;
     prevY = e.clientY;
@@ -2119,6 +2314,21 @@ function loadApiBaseInput() {
   document.getElementById('cfg-api').value = localStorage.getItem(API_BASE_KEY) || '';
 }
 
+function saveDefaultView(view) {
+  localStorage.setItem('pocketlog.defaultView', view);
+}
+
+function loadDefaultView() {
+  return localStorage.getItem('pocketlog.defaultView') || 'transactions';
+}
+
+function syncDefaultViewRadios() {
+  const val = loadDefaultView();
+  document.querySelectorAll('input[name="defaultView"]').forEach(r => {
+    r.checked = r.value === val;
+  });
+}
+
 async function saveApiBase() {
   const raw = document.getElementById('cfg-api').value.trim().replace(/\/+$/, '');
   if (raw && !/^https?:\/\//i.test(raw)) {
@@ -2225,6 +2435,7 @@ async function init() {
   await loadCategories();
   await loadTags();
   await loadAndRender();
+  showPanel(loadDefaultView());
   updateSyncBadge();
   attachDragDismiss('modalOverlay', closeModal);
   attachDragDismiss('tagModalOverlay', closeTagModal);
