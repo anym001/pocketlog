@@ -573,22 +573,79 @@
   .cat-bar { height: 5px; border-radius: var(--r-pill); transition: width 0.7s var(--ease-spring); }
   .cat-amount { font-family: var(--font-display); font-size: 16px; color: var(--accent); letter-spacing: -0.02em; }
 
+  /* ====== BOTTOM BAR (search + FAB) ====== */
+  .bottom-bar {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(calc(430px - 32px), calc(100vw - 32px));
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 200;
+  }
+  .search-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 50px;
+    padding: 0 16px;
+    background: var(--glass-chrome);
+    -webkit-backdrop-filter: var(--blur-regular);
+    backdrop-filter: var(--blur-regular);
+    border: 0.5px solid var(--hairline-soft);
+    border-radius: var(--r-pill);
+    box-shadow:
+      inset 0 0.5px 0 var(--hairline),
+      0 4px 16px rgba(20,20,19,0.10),
+      0 16px 40px -8px rgba(20,20,19,0.18);
+  }
+  .search-icon {
+    color: var(--text3);
+    font-size: 15px;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .search-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text);
+    min-width: 0;
+  }
+  .search-input::placeholder { color: var(--text3); }
+  .search-clear {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    margin: -4px;
+    display: none;
+    line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .search-clear.visible { display: block; }
+
   /* ====== FAB (glass orb) ====== */
   .fab {
-    position: fixed;
-    bottom: calc(24px + env(safe-area-inset-bottom));
-    right: 20px;
-    width: 60px; height: 60px;
+    width: 50px; height: 50px;
+    flex-shrink: 0;
     background: linear-gradient(145deg, var(--accent-2), var(--accent));
-    border-radius: 22px;
+    border-radius: 18px;
     border: 0.5px solid rgba(255,255,255,0.35);
     color: white;
-    font-size: 30px;
+    font-size: 26px;
     font-weight: 300;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: transform 0.25s var(--ease-bounce);
-    z-index: 200;
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.4),
       inset 0 -1px 0 rgba(0,0,0,0.1),
@@ -596,16 +653,18 @@
       0 20px 40px -8px rgba(217, 100, 52, 0.55);
     overflow: hidden;
     isolation: isolate;
+    position: relative;
   }
   .fab::before {
     content: '';
     position: absolute;
     inset: 1px;
-    border-radius: 21px;
+    border-radius: 17px;
     background: linear-gradient(170deg, rgba(255,255,255,0.4) 0%, transparent 50%);
     pointer-events: none;
   }
   .fab:active { transform: scale(0.92); }
+  .fab.search-exit { font-size: 22px; font-weight: 400; }
 
   /* ====== BOTTOM NAV (floating liquid glass capsule) ====== */
   .bottom-nav { display: none; }
@@ -769,17 +828,26 @@
   }
   .drawer-back-btn {
     position: absolute; left: 12px;
-    border: none; background: none;
-    color: var(--accent);
-    font-family: var(--font-body);
-    font-size: 15px;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--glass-thin);
+    -webkit-backdrop-filter: var(--blur-thin);
+    backdrop-filter: var(--blur-thin);
+    box-shadow: inset 0 0.5px 0 var(--hairline);
+    color: var(--text2);
+    font-size: 20px;
+    font-weight: 600;
     cursor: pointer;
-    padding: 8px;
-    display: flex; align-items: center; gap: 2px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s var(--ease-spring);
     -webkit-tap-highlight-color: transparent;
-    min-height: 44px;
   }
-  .drawer-back-btn:active { opacity: 0.6; }
+  .drawer-back-btn:hover, .drawer-back-btn:active {
+    background: var(--glass-thick);
+    color: var(--text);
+    transform: scale(0.94);
+  }
   .drawer-sub-title {
     font-family: var(--font-body);
     font-size: 16px;
@@ -1216,6 +1284,10 @@
     border-color: var(--hairline-soft) !important;
     box-shadow: inset 0 0.5px 0 var(--hairline);
   }
+  #tagList > * {
+    font-size: 15px;
+    padding: 10px 16px;
+  }
 
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
@@ -1260,7 +1332,7 @@
     <!-- Panel 1: Einstellungen -->
     <div class="drawer-panel" id="dpSettings" data-state="right">
       <div class="drawer-sub-head">
-        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">‹ Menü</button>
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">‹</button>
         <span class="drawer-sub-title">Einstellungen</span>
       </div>
       <nav class="drawer-nav">
@@ -1286,7 +1358,7 @@
     <!-- Panel 2a: Kategorien -->
     <div class="drawer-panel" id="dpCats" data-state="right">
       <div class="drawer-sub-head">
-        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹</button>
         <span class="drawer-sub-title">Kategorien</span>
       </div>
       <div class="drawer-section">
@@ -1302,7 +1374,7 @@
     <!-- Panel 2b: Tags -->
     <div class="drawer-panel" id="dpTags" data-state="right">
       <div class="drawer-sub-head">
-        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹</button>
         <span class="drawer-sub-title">Tags</span>
       </div>
       <div class="drawer-section">
@@ -1314,7 +1386,7 @@
     <!-- Panel 2c: Import/Export -->
     <div class="drawer-panel" id="dpImport" data-state="right">
       <div class="drawer-sub-head">
-        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹</button>
         <span class="drawer-sub-title">Import/Export</span>
       </div>
       <div class="drawer-section">
@@ -1341,7 +1413,7 @@
     <!-- Panel 2d: Darstellung -->
     <div class="drawer-panel" id="dpDisplay" data-state="right">
       <div class="drawer-sub-head">
-        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹ Einstellungen</button>
+        <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück zu Einstellungen">‹</button>
         <span class="drawer-sub-title">Darstellung</span>
       </div>
       <div class="drawer-section">
@@ -1397,6 +1469,11 @@
   <div id="transactionList"></div>
 </div>
 
+<!-- SEARCH PANEL -->
+<div class="panel" id="panel-search">
+  <div id="searchResultsList"></div>
+</div>
+
 <!-- CHARTS PANEL -->
 <div class="panel" id="panel-charts">
   <div class="chart-container">
@@ -1423,8 +1500,16 @@
   <div id="categoryViewList"></div>
 </div>
 
-<!-- FAB -->
-<button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
+<!-- BOTTOM BAR -->
+<div class="bottom-bar">
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input class="search-input" id="searchInput" type="search" placeholder="Suchen…"
+           oninput="onSearch(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="search-clear" id="searchClear" onclick="clearSearch()" aria-label="Suche löschen">✕</button>
+  </div>
+  <button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
+</div>
 
 
 <!-- ADD MODAL -->
@@ -1545,8 +1630,25 @@ const MONTHS_SHORT = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Ok
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
 let _activePanel = 'transactions';
+let _searchQuery = '';
+let _allTransactions = null;
+
+function _resetSearch() {
+  _searchQuery = '';
+  _allTransactions = null;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchClear').classList.remove('visible');
+  const fab = document.querySelector('.fab');
+  if (fab) {
+    fab.textContent = '+';
+    fab.classList.remove('search-exit');
+    fab.setAttribute('aria-label', 'Neue Buchung');
+    fab.onclick = openModal;
+  }
+}
 
 function showPanel(id) {
+  if (_searchQuery) _resetSearch();
   _activePanel = id;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
@@ -1625,6 +1727,15 @@ async function loadAndRender() {
     transactions = [];
   }
   renderAll();
+  if (_searchQuery) {
+    try {
+      const all = await api('GET', '/transactions');
+      _allTransactions = all.map(normalizeTx);
+    } catch(e) {
+      _allTransactions = [];
+    }
+    applySearch();
+  }
 }
 
 function renderAll() {
@@ -1633,8 +1744,65 @@ function renderAll() {
   const inc = transactions.filter(t=>t.type==='in').reduce((a,t)=>a+t.amount,0);
   document.getElementById('totalOut').textContent = fmtCurrency(out);
   document.getElementById('totalIn').textContent  = fmtCurrency(inc);
-  renderTransactions(transactions);
+  applySearch();
   if (_activePanel === 'categories') renderCategoryView();
+}
+
+function applySearch() {
+  const q = _searchQuery;
+  if (!q) { renderTransactions(transactions); return; }
+  const pool = _allTransactions ?? transactions;
+  const filtered = pool.filter(t => {
+    if ((t.desc || '').toLowerCase().includes(q)) return true;
+    const cat = getCatById(t.category_id);
+    if (cat.name.toLowerCase().includes(q)) return true;
+    if (t.tags && t.tags.some(tag => tag.toLowerCase().includes(q))) return true;
+    return false;
+  });
+  renderTransactions(filtered, document.getElementById('searchResultsList'));
+}
+
+async function _setSearchPanelActive(active) {
+  const fab = document.querySelector('.fab');
+  if (active) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-search').classList.add('active');
+    fab.textContent = '✕';
+    fab.classList.add('search-exit');
+    fab.setAttribute('aria-label', 'Suche beenden');
+    fab.onclick = clearSearch;
+    // Load all transactions for global search
+    try {
+      const raw = await api('GET', '/transactions');
+      _allTransactions = raw.map(normalizeTx);
+    } catch(e) {
+      _allTransactions = [];
+    }
+    applySearch();
+  } else {
+    _allTransactions = null;
+    document.getElementById('panel-search').classList.remove('active');
+    document.getElementById('panel-' + _activePanel).classList.add('active');
+    fab.textContent = '+';
+    fab.classList.remove('search-exit');
+    fab.setAttribute('aria-label', 'Neue Buchung');
+    fab.onclick = openModal;
+  }
+}
+
+async function onSearch(val) {
+  const wasEmpty = !_searchQuery;
+  _searchQuery = val.trim().toLowerCase();
+  document.getElementById('searchClear').classList.toggle('visible', val.length > 0);
+  if (_searchQuery && wasEmpty) await _setSearchPanelActive(true);
+  else if (!_searchQuery && !wasEmpty) _setSearchPanelActive(false);
+  else applySearch();
+}
+
+function clearSearch() {
+  const wasActive = !!_searchQuery;
+  _resetSearch();
+  if (wasActive) _setSearchPanelActive(false);
 }
 
 function getCatById(id) { return categories.find(c=>c.id===Number(id)) || {name:'Sonstiges',icon:'📦',color:'#9e9b96'}; }
@@ -1646,10 +1814,11 @@ function getMonthTxs() {
   });
 }
 
-function renderTransactions(txs) {
-  const el = document.getElementById('transactionList');
+function renderTransactions(txs, el = document.getElementById('transactionList')) {
   if (!txs.length) {
-    el.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong> um eine hinzuzufügen.</p></div>`;
+    el.innerHTML = _searchQuery
+      ? `<div class="empty-state"><div class="icon">🔍</div><p>Keine Treffer für „${_searchQuery}".</p></div>`
+      : `<div class="empty-state"><div class="icon">📭</div><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong> um eine hinzuzufügen.</p></div>`;
     return;
   }
   // Group by date
