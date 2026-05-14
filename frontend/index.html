@@ -1441,12 +1441,18 @@ const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August',
 const MONTHS_SHORT = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
-function showPanel(id, btn) {
+let _activePanel = 'transactions';
+
+function showPanel(id) {
+  _activePanel = id;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
-  btn.classList.add('active');
+  document.querySelectorAll('.drawer-nav-item[data-panel]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.panel === id);
+  });
   if (id === 'charts') renderCharts();
+  if (id === 'categories') renderCategoryView();
+  closeDrawer();
 }
 
 const _drawerStack = [];
