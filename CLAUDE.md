@@ -159,7 +159,8 @@ Authentik-Flow-Policy konfiguriert werden).
 ## Konventionen Backend
 - CRUD-Funktionen immer mit `username` Parameter (Datenisolation)
 - Neue Endpoints: `main.py` + Schema in `schemas.py` + Logik in `crud.py`
-- Pydantic v2 Syntax: `model_config = ConfigDict(from_attributes=True, populate_by_name=True)`
+- `from_attributes=True` auf allen „Out"-Schemas, die via `model_validate()` aus einem ORM-Objekt gebaut werden
+- `populate_by_name=True` nur wenn `Field(alias=…)` oder `Field(serialization_alias=…)` verwendet wird
 - Schemaänderungen: Alembic-Revision generieren, nicht manuell ALTER TABLE
 - StaticFiles-Mount IMMER zuletzt registrieren, damit `/api/*` vorher matcht
 
