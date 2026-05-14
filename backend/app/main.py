@@ -1,5 +1,8 @@
 import csv
+import hmac
 import io
+import logging
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -12,6 +15,19 @@ from sqlalchemy.orm import Session
 from . import crud, schemas
 from .database import get_db
 
+logger = logging.getLogger("uvicorn.error")
+
+# Shared Secret zwischen SWAG und Backend. Wenn gesetzt, muss jeder Request
+# den passenden X-Auth-Secret-Header tragen – sonst 401. Schützt gegen
+# Direktzugriffe auf Port 8000 mit gefälschtem X-Authentik-Username.
+AUTH_SECRET = os.environ.get("AUTH_SECRET", "").strip()
+if not AUTH_SECRET:
+    logger.warning(
+        "AUTH_SECRET ist nicht gesetzt – das Backend vertraut blind dem "
+        "X-Authentik-Username-Header. Port 8000 darf in dem Fall nur über "
+        "SWAG erreichbar sein."
+    )
+
 app = FastAPI(
     title="PocketLog API",
     docs_url="/api/docs",
@@ -22,7 +38,10 @@ app = FastAPI(
 
 def get_current_user(
     x_authentik_username: Annotated[str | None, Header()] = None,
+    x_auth_secret: Annotated[str | None, Header()] = None,
 ) -> str:
+    if AUTH_SECRET and not (x_auth_secret and hmac.compare_digest(x_auth_secret, AUTH_SECRET)):
+        raise HTTPException(status_code=401, detail="invalid auth secret")
     if not x_authentik_username:
         raise HTTPException(status_code=401, detail="missing X-Authentik-Username header")
     return x_authentik_username

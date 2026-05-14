@@ -15,11 +15,13 @@ Einmalige Schritte, danach kann der Abschnitt raus.
   kopieren. Anschließend *Apps → Add Container → Template: pocketlog* wählen,
   Felder (DB_HOST, DB_PASSWORD, Netzwerk) prüfen und *Apply*.
 - [ ] **SWAG + Authentik verdrahten.** `swag/pocketlog.subdomain.conf` nach
-  `/swag/config/nginx/proxy-confs/` kopieren, SWAG neu laden. In Authentik
-  einen Forward-Auth-Provider + Application für `pocketlog.<deinedomain>`
-  anlegen und dem Outpost zuweisen. Im Proxy-Provider unter *Advanced
-  protocol settings* die Option **"HTTP Basic authentication"** aktivieren,
-  danach den Outpost neu deployen.
+  `/swag/config/nginx/proxy-confs/` kopieren. Vorher den Platzhalter beim
+  `proxy_set_header X-Auth-Secret` durch ein zufälliges Token ersetzen
+  (`openssl rand -hex 32`) und denselben Wert als `AUTH_SECRET`-ENV im
+  PocketLog-Container hinterlegen. SWAG neu laden. In Authentik einen
+  Forward-Auth-Provider + Application für `pocketlog.<deinedomain>` anlegen
+  und dem Outpost zuweisen. MFA bei Bedarf in der Authentik-Flow-Policy
+  aktivieren.
 
 ## Features
 
@@ -38,15 +40,15 @@ Einmalige Schritte, danach kann der Abschnitt raus.
 
 ## Security
 
-- **Backend-Port niemals außerhalb des SWAG-Netzwerks exponieren.** Der
-  `X-Authentik-Username`-Header wird vom Backend ungeprüft als Identität
-  übernommen — die Validierung passiert vorgelagert im Authentik-Outpost
-  (HTTP-Basic-Auth-Modus). Solange der Backend-Port nur über SWAG erreichbar
-  ist, kann der Header nicht gefälscht werden. Auf direkter LAN-Erreichbarkeit
-  bleibt das Risiko bestehen.
-  Weitergehende Härtung (falls je nötig): Shared-Secret-Header zwischen SWAG
-  und Backend, mTLS zwischen den Containern, oder signierte JWTs aus Authentik
-  (OIDC statt Forward Auth).
+- **Backend-Port nicht direkt exponieren.** Der `X-Authentik-Username`-Header
+  wird vom Backend als Identität übernommen — die Validierung läuft
+  vorgelagert über die Authentik-Session (inkl. MFA). Zusätzlich prüft das
+  Backend ein Shared Secret (`AUTH_SECRET` ENV, von SWAG via
+  `X-Auth-Secret`-Header injiziert) per `hmac.compare_digest`. Solange das
+  Secret gesetzt ist, scheitern Direktzugriffe auf Port 8000 mit gefälschten
+  Headern. Trotzdem: Port 8000 nicht öffentlich erreichbar machen.
+  Weitergehende Härtung (falls je nötig): mTLS zwischen den Containern oder
+  signierte JWTs aus Authentik (OIDC statt Forward Auth).
 
 ## Nice-to-haves
 
