@@ -792,6 +792,8 @@
     opacity: 0.4;
     border-radius: var(--r-pill);
     margin: 0 auto 16px;
+    touch-action: none;
+    cursor: grab;
   }
   .modal h2 {
     font-family: var(--font-display);
@@ -1203,7 +1205,7 @@
     <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
       <span></span><span></span><span></span>
     </button>
-    <h1>Haus<span>halts</span>buch</h1>
+    <h1>Pocket<span>Log</span></h1>
     <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
       <span class="sync-dot" id="syncDot"></span>
       <span id="syncLabel">Sync</span>
@@ -1702,6 +1704,79 @@ function closeModal() { document.getElementById('modalOverlay').classList.remove
 function closeModalOutside(e) { if(e.target===document.getElementById('modalOverlay')) closeModal(); }
 function editTransaction(id) { openModal(transactions.find(t=>t.id===Number(id))); }
 
+function attachDragDismiss(overlayId, closeFn) {
+  const overlay = document.getElementById(overlayId);
+  if (!overlay) return;
+  const modal = overlay.querySelector('.modal');
+  const handle = modal.querySelector('.modal-handle');
+
+  let startY = 0, prevY = 0, prevTime = 0, dy = 0, active = false;
+
+  modal.addEventListener('pointerdown', (e) => {
+    const fromHandle = handle.contains(e.target);
+    const atTop = modal.scrollTop <= 1;
+    if (!fromHandle && !atTop) return;
+    if (e.pointerType === 'mouse') return;
+    startY = e.clientY;
+    prevY = e.clientY;
+    prevTime = Date.now();
+    dy = 0;
+    active = true;
+    modal.style.transition = 'none';
+    try { modal.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+
+  modal.addEventListener('pointermove', (e) => {
+    if (!active) return;
+    const raw = e.clientY - startY;
+    if (raw <= 0) { dy = 0; return; }
+    dy = raw;
+    prevY = e.clientY;
+    prevTime = Date.now();
+    modal.style.transform = `translateY(${dy}px)`;
+    const fade = Math.max(0, 0.35 * (1 - (dy / 240) * 0.85));
+    overlay.style.background = `rgba(20,14,8,${fade.toFixed(3)})`;
+  });
+
+  function finish(e) {
+    if (!active) return;
+    active = false;
+    const elapsed = Date.now() - prevTime + 1;
+    const velocity = ((e?.clientY ?? prevY) - startY) / elapsed * 1000;
+    const dismiss = dy > 110 || velocity > 550;
+
+    if (dismiss) {
+      modal.style.transition = 'transform 0.28s var(--ease-soft)';
+      overlay.style.transition = 'opacity 0.28s ease, background 0.28s ease';
+      modal.style.transform = 'translateY(110%)';
+      overlay.style.opacity = '0';
+      setTimeout(() => {
+        closeFn();
+        modal.style.cssText = '';
+        overlay.style.cssText = overlay.style.cssText.replace(/opacity[^;]*;?/g,'').replace(/background[^;]*;?/g,'').replace(/transition[^;]*;?/g,'');
+        overlay.style.opacity = '';
+        overlay.style.transition = '';
+      }, 270);
+    } else {
+      modal.style.transition = 'transform 0.38s var(--ease-spring)';
+      modal.style.transform = '';
+      overlay.style.background = '';
+      modal.addEventListener('transitionend', () => { modal.style.transition = ''; }, { once: true });
+    }
+    dy = 0;
+  }
+
+  modal.addEventListener('pointerup', finish);
+  modal.addEventListener('pointercancel', () => {
+    if (!active) return;
+    active = false;
+    modal.style.transform = '';
+    modal.style.transition = '';
+    overlay.style.background = '';
+    dy = 0;
+  });
+}
+
 async function deleteCurrentTransaction() {
   const editId = document.getElementById('modalOverlay').dataset.editId;
   if (!editId) return;
@@ -2161,6 +2236,9 @@ async function init() {
   await loadTags();
   await loadAndRender();
   updateSyncBadge();
+  attachDragDismiss('modalOverlay', closeModal);
+  attachDragDismiss('tagModalOverlay', closeTagModal);
+  attachDragDismiss('catModalOverlay', closeCatModal);
 }
 init();
 </script>
