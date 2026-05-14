@@ -1090,15 +1090,15 @@
 <div class="header">
   <div class="header-top">
     <h1>Haus<span>halts</span>buch</h1>
-    <button class="sync-btn" onclick="syncNow()" id="syncBtn">
+    <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
       <span class="sync-dot" id="syncDot"></span>
       <span id="syncLabel">Sync</span>
     </button>
   </div>
   <div class="month-nav">
-    <button onclick="changeMonth(-1)">‹</button>
+    <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">‹</button>
     <span class="month-label" id="monthLabel"></span>
-    <button onclick="changeMonth(1)">›</button>
+    <button onclick="changeMonth(1)" aria-label="Nächster Monat">›</button>
   </div>
 </div>
 
@@ -1139,9 +1139,9 @@
   <div class="chart-container">
     <h3>Jahresverlauf</h3>
     <div class="year-nav">
-      <button onclick="changeYear(-1)">‹</button>
+      <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">‹</button>
       <span id="yearLabel"></span>
-      <button onclick="changeYear(1)">›</button>
+      <button onclick="changeYear(1)" aria-label="Nächstes Jahr">›</button>
     </div>
     <canvas id="yearChart"></canvas>
   </div>
@@ -1152,7 +1152,7 @@
 </div>
 
 <!-- FAB -->
-<button class="fab" onclick="openModal()">+</button>
+<button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
 
 <!-- BOTTOM NAV -->
 <div class="bottom-nav">
@@ -1183,7 +1183,7 @@
   <div class="settings-section">
     <h3>Daten</h3>
     <button class="save-btn" onclick="exportCSV()">📄 Als CSV exportieren</button>
-    <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">📥 Aus CSV importieren</button>
+    <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">📥 Aus CSV importieren…</button>
     <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
     <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
     <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
@@ -1195,7 +1195,7 @@
     <div style="display:flex;gap:8px">
       <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
       <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:18px;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-      <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()">+</button>
+      <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()" aria-label="Kategorie hinzufügen">+</button>
     </div>
   </div>
   <div class="settings-section">
@@ -1511,7 +1511,7 @@ function attachSwipeHandlers(container) {
       const id = Number(row.dataset.id);
       const tx = transactions.find(t => t.id === id);
       const label = tx && tx.desc ? `„${tx.desc}"` : 'die Buchung';
-      if (!confirm(`Soll ${label} wirklich gelöscht werden?`)) {
+      if (!confirm(`${label} löschen?`)) {
         row.classList.remove('swiped');
         return;
       }
@@ -1697,7 +1697,7 @@ function removeTag(t) {
 function renderTagPills() {
   const wrap = document.getElementById('tagsWrap');
   const inp  = document.getElementById('tagInput');
-  wrap.innerHTML = currentTags.map(t=>`<span class="tag-pill">${t}<button onclick="removeTag('${t}')">×</button></span>`).join('');
+  wrap.innerHTML = currentTags.map(t=>`<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}" entfernen">×</button></span>`).join('');
   wrap.appendChild(inp);
 }
 
@@ -1706,7 +1706,7 @@ async function addTransaction() {
   const desc   = document.getElementById('inputDesc').value.trim();
   const cat    = parseInt(document.getElementById('inputCat').value);
   const date   = document.getElementById('inputDate').value;
-  if (!amount || !date) { alert('Bitte Betrag und Datum ausfüllen.'); return; }
+  if (!amount || !date) { alert('Betrag und Datum sind Pflichtfelder.'); return; }
   const body = {amount, desc, category_id: cat||null, date, type:currentType, tags:currentTags};
   const editId = document.getElementById('modalOverlay').dataset.editId;
   const method = editId ? 'PUT' : 'POST';
@@ -1755,7 +1755,7 @@ async function addCategory() {
     document.getElementById('newCatIcon').value='';
     await loadCategories();
     renderCategories();
-  } catch(e) { alert('Fehler: ' + e.message); }
+  } catch(e) { alert('Kategorie konnte nicht gespeichert werden. Verbindung prüfen.'); }
 }
 
 async function loadCategories() {
@@ -1846,8 +1846,8 @@ async function saveCategoryEdit() {
   if (!editingCatId) return;
   const name = document.getElementById('catEditName').value.trim();
   const icon = document.getElementById('catEditIcon').value.trim() || '📦';
-  if (!name) { alert('Bitte einen Namen angeben.'); return; }
-  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { alert('Ungültige Farbe.'); return; }
+  if (!name) { alert('Name ist ein Pflichtfeld.'); return; }
+  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { alert('Die Farbe ist ungültig. Ein gültiger Hex-Wert wird benötigt, z. B. #D97757.'); return; }
   try {
     await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
     closeCatModal();
@@ -1919,7 +1919,7 @@ function closeTagModalOutside(e) {
 async function saveTagEdit() {
   if (!editingTagName) return;
   const newName = document.getElementById('tagEditName').value.trim();
-  if (!newName) { alert('Bitte einen Namen angeben.'); return; }
+  if (!newName) { alert('Name ist ein Pflichtfeld.'); return; }
   if (newName === editingTagName) { closeTagModal(); return; }
   try {
     await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
@@ -1987,12 +1987,12 @@ async function syncNow() {
   if (networkErr || remaining > 0) {
     btn.classList.add('error');
     dot.classList.add('error');
-    label.textContent = remaining > 0 ? `⚠ ${remaining} offen` : '⚠ offline';
+    label.textContent = remaining > 0 ? `⚠ ${remaining} ausstehend` : '⚠ Offline';
     setTimeout(updateSyncBadge, 4000);
     return;
   }
 
-  label.textContent = flushed > 0 ? `✓ ${flushed}` : '✓';
+  label.textContent = 'Gespeichert';
   if (flushed > 0) await loadTags();
   await loadAndRender();
   setTimeout(updateSyncBadge, 2000);
@@ -2040,7 +2040,7 @@ async function updateSyncBadge() {
   }
   const pending = await window.PocketLogOutbox.count();
   if (pending > 0) {
-    label.textContent = `Pending: ${pending}`;
+    label.textContent = `${pending} ausstehend`;
   } else {
     btn.classList.remove('error');
     dot.classList.remove('error');
@@ -2068,7 +2068,7 @@ async function importCSV(ev) {
   const file = ev.target.files && ev.target.files[0];
   if (!file) return;
   const status = document.getElementById('importStatus');
-  status.textContent = 'Importiere …';
+  status.textContent = 'Wird importiert…';
   status.className = 'status-msg';
   const fd = new FormData();
   fd.append('file', file);
@@ -2091,7 +2091,7 @@ async function importCSV(ev) {
     await loadTags();
     await loadAndRender();
   } catch (e) {
-    status.textContent = 'Import fehlgeschlagen: ' + e.message;
+    status.textContent = 'Import fehlgeschlagen – Verbindung prüfen.';
     status.className = 'status-msg err';
   } finally {
     ev.target.value = '';  // gleichen File-Reimport erlauben
