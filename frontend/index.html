@@ -1611,6 +1611,40 @@ function renderTransactions(txs) {
   attachSwipeHandlers(el);
 }
 
+function renderCategoryView() {
+  const el = document.getElementById('categoryViewList');
+  if (!el) return;
+
+  if (!transactions.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong> um eine hinzuzufügen.</p></div>`;
+    return;
+  }
+
+  // Net amount per category
+  const totals = {};
+  transactions.forEach(t => {
+    const key = t.category_id ?? 0;
+    if (!totals[key]) totals[key] = 0;
+    totals[key] += t.type === 'out' ? -t.amount : t.amount;
+  });
+
+  // Get categories with transactions, sort alphabetically
+  const rows = Object.entries(totals)
+    .map(([catId, net]) => {
+      const cat = getCatById(Number(catId));
+      return { name: cat.name, icon: cat.icon, net };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+  el.innerHTML = rows.map(r => `
+    <div class="cat-view-row">
+      <span class="cat-view-icon">${r.icon}</span>
+      <span class="cat-view-name">${r.name}</span>
+      <span class="cat-view-amount ${r.net >= 0 ? 'positive' : 'negative'}">${fmtCurrency(r.net)}</span>
+    </div>
+  `).join('');
+}
+
 // ── SWIPE-TO-DELETE ───────────────────────────────────────────────────────────
 const SWIPE_ACTION_WIDTH = 88;
 const SWIPE_OPEN_THRESHOLD = 40;   // Pixel, ab denen die Action offen einrastet
