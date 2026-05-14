@@ -83,25 +83,31 @@ GET    /api/export/csv
 
 ## Datenbankschema (MariaDB)
 ```sql
+-- users
+id INT PK AUTO_INCREMENT
+username VARCHAR(150) UNIQUE   -- gespiegelter Authentik-Username
+
 -- categories
 id INT PK AUTO_INCREMENT
-username VARCHAR(150) INDEX
+user_id INT FK -> users.id (ON DELETE CASCADE) INDEX
 name VARCHAR(100)
-icon VARCHAR(8)              -- Emoji (mb4)
-color CHAR(7)                -- #RRGGBB
-UNIQUE (username, name)
+icon VARCHAR(8)                -- Emoji (mb4)
+color CHAR(7)                  -- #RRGGBB
+UNIQUE (user_id, name)
 
 -- transactions
 id INT PK AUTO_INCREMENT
-username VARCHAR(150)        -- composite-index mit date
+user_id INT FK -> users.id (ON DELETE CASCADE)  -- composite-index mit date
 amount DECIMAL(12,2)
-description VARCHAR(255)     -- im JSON heißt das Feld "desc" (Pydantic-Alias)
+description VARCHAR(255)       -- im JSON heißt das Feld "desc" (Pydantic-Alias)
 category_id INT FK -> categories.id (ON DELETE RESTRICT)
 date DATE
 type ENUM('in','out')
-tags JSON                    -- Array von Strings
+tags JSON                      -- Array von Strings
 ```
-Jeder User bekommt beim ersten `GET /api/categories` Default-Kategorien
+Beim ersten Request eines Users legt `crud.get_or_create_user` automatisch
+einen Eintrag in `users` an (Lookup über `X-Authentik-Username`). Beim ersten
+`GET /api/categories` werden Default-Kategorien angelegt
 (siehe `crud.ensure_default_categories`).
 
 ## Auth-Konzept
@@ -111,9 +117,10 @@ Jeder User bekommt beim ersten `GET /api/categories` Default-Kategorien
 - FastAPI prüft in `get_current_user()` (`backend/app/main.py`):
   1. Wenn `AUTH_SECRET`-ENV gesetzt: `X-Auth-Secret` muss matchen (timing-safe via `hmac.compare_digest`), sonst 401
   2. `X-Authentik-Username` muss vorhanden sein, sonst 401
+  3. Lookup oder Lazy-Insert in `users`; gibt das `User`-ORM-Objekt zurück
 - `AUTH_SECRET`-ENV leer/ungesetzt: Backend warnt beim Start und überspringt den Check (Port 8000 darf dann nur intern erreichbar sein)
 - Lokales Testen ohne Authentik/SWAG: beide Header manuell mitschicken, z.B. `curl -H "X-Authentik-Username: test" -H "X-Auth-Secret: <token>" http://localhost:8080/api/health`
-- Alle DB-Queries filtern nach `username` – Multi-User-fähig ohne extra Login-Code
+- Alle DB-Queries filtern nach `user_id` – Multi-User-fähig ohne extra Login-Code
 
 ## Frontend API-Aufruf
 ```js
@@ -157,7 +164,7 @@ Authentik-Flow-Policy konfiguriert werden).
 - **Dokumentation (CLAUDE.md, TODO.md, README.md, unraid/pocketlog.xml):** Deutsch
 
 ## Konventionen Backend
-- CRUD-Funktionen immer mit `username` Parameter (Datenisolation)
+- CRUD-Funktionen immer mit `user_id: int` Parameter (Datenisolation); im Endpoint `user.id` aus der `CurrentUser`-Dep übergeben
 - Neue Endpoints: `main.py` + Schema in `schemas.py` + Logik in `crud.py`
 - `from_attributes=True` auf allen „Out"-Schemas, die via `model_validate()` aus einem ORM-Objekt gebaut werden
 - `populate_by_name=True` nur wenn `Field(alias=…)` oder `Field(serialization_alias=…)` verwendet wird

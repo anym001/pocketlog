@@ -18,32 +18,54 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
 
-class Category(Base):
-    __tablename__ = "categories"
+class User(Base):
+    __tablename__ = "users"
     __table_args__ = (
-        UniqueConstraint("username", "name", name="uq_categories_user_name"),
-        Index("ix_categories_username", "username"),
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(150), nullable=False)
+    username: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
+
+    categories: Mapped[list["Category"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    transactions: Mapped[list["Transaction"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_categories_user_name"),
+        Index("ix_categories_user_id", "user_id"),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     icon: Mapped[str] = mapped_column(String(8), nullable=False, default="📦")
     color: Mapped[str] = mapped_column(CHAR(7), nullable=False, default="#9e9b96")
 
+    user: Mapped[User] = relationship(back_populates="categories")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
 
 
 class Transaction(Base):
     __tablename__ = "transactions"
     __table_args__ = (
-        Index("ix_transactions_user_date", "username", "date"),
+        Index("ix_transactions_user_date", "user_id", "date"),
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(150), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     amount: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)
     description: Mapped[str] = mapped_column("description", String(255), nullable=False, default="")
     category_id: Mapped[int] = mapped_column(
@@ -53,4 +75,5 @@ class Transaction(Base):
     type: Mapped[str] = mapped_column(Enum("in", "out", name="tx_type"), nullable=False)
     tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
+    user: Mapped[User] = relationship(back_populates="transactions")
     category: Mapped[Category] = relationship(back_populates="transactions")

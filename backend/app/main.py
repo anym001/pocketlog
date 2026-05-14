@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import crud, schemas
+from . import crud, models, schemas
 from .database import get_db
 
 logger = logging.getLogger("uvicorn.error")
@@ -37,17 +37,18 @@ app = FastAPI(
 
 
 def get_current_user(
+    db: Annotated[Session, Depends(get_db)],
     x_authentik_username: Annotated[str | None, Header()] = None,
     x_auth_secret: Annotated[str | None, Header()] = None,
-) -> str:
+) -> models.User:
     if AUTH_SECRET and not (x_auth_secret and hmac.compare_digest(x_auth_secret, AUTH_SECRET)):
         raise HTTPException(status_code=401, detail="invalid auth secret")
     if not x_authentik_username:
         raise HTTPException(status_code=401, detail="missing X-Authentik-Username header")
-    return x_authentik_username
+    return crud.get_or_create_user(db, x_authentik_username)
 
 
-CurrentUser = Annotated[str, Depends(get_current_user)]
+CurrentUser = Annotated[models.User, Depends(get_current_user)]
 DB = Annotated[Session, Depends(get_db)]
 
 
@@ -65,7 +66,7 @@ def version() -> dict:
 
 @app.get("/api/categories", response_model=list[schemas.CategoryOut])
 def get_categories(user: CurrentUser, db: DB):
-    return crud.list_categories(db, user)
+    return crud.list_categories(db, user.id)
 
 
 @app.post(
@@ -73,7 +74,7 @@ def get_categories(user: CurrentUser, db: DB):
 )
 def post_category(payload: schemas.CategoryCreate, user: CurrentUser, db: DB):
     try:
-        return crud.create_category(db, user, payload)
+        return crud.create_category(db, user.id, payload)
     except IntegrityError:
         raise HTTPException(status_code=409, detail="category exists")
 
@@ -86,7 +87,7 @@ def put_category(
     db: DB,
 ):
     try:
-        cat = crud.update_category(db, user, category_id, payload)
+        cat = crud.update_category(db, user.id, category_id, payload)
     except IntegrityError:
         raise HTTPException(status_code=409, detail="category exists")
     if cat is None:
@@ -97,7 +98,7 @@ def put_category(
 @app.delete("/api/categories/{category_id}", status_code=204)
 def remove_category(category_id: int, user: CurrentUser, db: DB):
     try:
-        ok = crud.delete_category(db, user, category_id)
+        ok = crud.delete_category(db, user.id, category_id)
     except ValueError as e:
         if str(e) == "category_in_use":
             raise HTTPException(status_code=409, detail="category in use")
@@ -121,8 +122,8 @@ def get_transactions(
     month: int | None = Query(default=None, ge=1, le=12),
 ):
     if year is None:
-        return crud.list_all_transactions(db, user)
-    return crud.list_transactions(db, user, year, month)
+        return crud.list_all_transactions(db, user.id)
+    return crud.list_transactions(db, user.id, year, month)
 
 
 @app.post(
@@ -133,7 +134,7 @@ def get_transactions(
 )
 def post_transaction(payload: schemas.TransactionCreate, user: CurrentUser, db: DB):
     try:
-        return crud.create_transaction(db, user, payload)
+        return crud.create_transaction(db, user.id, payload)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -150,7 +151,7 @@ def put_transaction(
     db: DB,
 ):
     try:
-        tx = crud.update_transaction(db, user, tx_id, payload)
+        tx = crud.update_transaction(db, user.id, tx_id, payload)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if tx is None:
@@ -160,7 +161,7 @@ def put_transaction(
 
 @app.delete("/api/transactions/{tx_id}", status_code=204)
 def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
-    if not crud.delete_transaction(db, user, tx_id):
+    if not crud.delete_transaction(db, user.id, tx_id):
         raise HTTPException(status_code=404, detail="not found")
     return Response(status_code=204)
 
@@ -169,13 +170,13 @@ def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
 
 @app.get("/api/tags", response_model=list[str])
 def get_tags(user: CurrentUser, db: DB):
-    return crud.list_tags(db, user)
+    return crud.list_tags(db, user.id)
 
 
 @app.put("/api/tags/{name}")
 def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
     try:
-        affected = crud.rename_tag(db, user, name, payload.new_name)
+        affected = crud.rename_tag(db, user.id, name, payload.new_name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"affected": affected}
@@ -183,7 +184,7 @@ def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
 
 @app.delete("/api/tags/{name}", status_code=204)
 def remove_tag(name: str, user: CurrentUser, db: DB):
-    crud.delete_tag(db, user, name)
+    crud.delete_tag(db, user.id, name)
     return Response(status_code=204)
 
 
@@ -207,15 +208,15 @@ async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
             text = raw.decode("cp1252")
         except UnicodeDecodeError:
             raise HTTPException(status_code=400, detail="encoding not utf-8/cp1252")
-    return crud.import_csv(db, user, text)
+    return crud.import_csv(db, user.id, text)
 
 
 # ---------- CSV-Export ----------
 
 @app.get("/api/export/csv")
 def export_csv(user: CurrentUser, db: DB):
-    txs = crud.list_all_transactions(db, user)
-    categories = {c.id: c.name for c in crud.list_categories(db, user)}
+    txs = crud.list_all_transactions(db, user.id)
+    categories = {c.id: c.name for c in crud.list_categories(db, user.id)}
 
     buf = io.StringIO()
     writer = csv.writer(buf, delimiter=";")
