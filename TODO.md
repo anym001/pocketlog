@@ -15,9 +15,13 @@ Einmalige Schritte, danach kann der Abschnitt raus.
   kopieren. Anschließend *Apps → Add Container → Template: pocketlog* wählen,
   Felder (DB_HOST, DB_PASSWORD, Netzwerk) prüfen und *Apply*.
 - [ ] **SWAG + Authentik verdrahten.** `swag/pocketlog.subdomain.conf` nach
-  `/swag/config/nginx/proxy-confs/` kopieren, SWAG neu laden. In Authentik
-  einen Forward-Auth-Provider + Application für `pocketlog.<deinedomain>`
-  anlegen und dem Outpost zuweisen.
+  `/swag/config/nginx/proxy-confs/` kopieren. Vorher den Platzhalter beim
+  `proxy_set_header X-Auth-Secret` durch ein zufälliges Token ersetzen
+  (`openssl rand -hex 32`) und denselben Wert als `AUTH_SECRET`-ENV im
+  PocketLog-Container hinterlegen. SWAG neu laden. In Authentik einen
+  Forward-Auth-Provider + Application für `pocketlog.<deinedomain>` anlegen
+  und dem Outpost zuweisen. MFA bei Bedarf in der Authentik-Flow-Policy
+  aktivieren.
 
 ## Features
 
@@ -36,17 +40,15 @@ Einmalige Schritte, danach kann der Abschnitt raus.
 
 ## Security
 
-- **Header-Trust-Modell härten.** Das Backend vertraut aktuell blind jedem
-  `X-Authentik-Username`-Header. Wer Direktzugriff auf den Backend-Port
-  hat (LAN, fehlkonfigurierte Port-Freigabe, fehlende Netzwerk-Isolation),
-  kann jeden beliebigen User imitieren.
-  Empfohlener nächster Schritt: ein Shared-Secret zwischen SWAG und Backend —
-  SWAG injiziert einen zusätzlichen Header `X-Auth-Secret: <random>`, Backend
-  prüft ihn gegen eine ENV-Variable und antwortet sonst 401.
-  Alternativen: mTLS zwischen beiden Containern, signierte JWTs aus Authentik
-  (OIDC statt Forward Auth).
-  Bis das umgesetzt ist: Backend-Port niemals außerhalb des SWAG-Netzwerks
-  exponieren.
+- **Backend-Port nicht direkt exponieren.** Der `X-Authentik-Username`-Header
+  wird vom Backend als Identität übernommen — die Validierung läuft
+  vorgelagert über die Authentik-Session (inkl. MFA). Zusätzlich prüft das
+  Backend ein Shared Secret (`AUTH_SECRET` ENV, von SWAG via
+  `X-Auth-Secret`-Header injiziert) per `hmac.compare_digest`. Solange das
+  Secret gesetzt ist, scheitern Direktzugriffe auf Port 8000 mit gefälschten
+  Headern. Trotzdem: Port 8000 nicht öffentlich erreichbar machen.
+  Weitergehende Härtung (falls je nötig): mTLS zwischen den Containern oder
+  signierte JWTs aus Authentik (OIDC statt Forward Auth).
 
 ## Nice-to-haves
 
@@ -60,7 +62,3 @@ Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
   Authentik, also kein Uptime-Check von außen ohne Token. Bei Bedarf in SWAG
   einen Location-Block für `/api/health` ohne `authentik-location.conf`
   anlegen.
-- **Versions-Tags / Release-Prozess dokumentieren.** Der Workflow unterstützt
-  `vX.Y.Z`-Tags (→ Image-Tags `X.Y.Z` und `X.Y`), aber README/CLAUDE.md
-  erwähnen keinen Release-Workflow. Solange nur `:latest` deployt wird,
-  irrelevant.

@@ -9,7 +9,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/anym001/PocketLog/issues</Support>
   <Project>https://github.com/anym001/PocketLog</Project>
-  <Overview>Haushaltsbuch als Progressive Web App. FastAPI-Backend + statische PWA in einem Image. Authentifizierung wird per Authentik Forward Auth (z.B. via SWAG) davor erledigt — die App selbst hat keinen Login. Daten werden in einer externen MariaDB gespeichert, die du selbst betreibst.</Overview>
+  <Overview>Haushaltsbuch als Progressive Web App. FastAPI-Backend + statische PWA in einem Image. Authentifizierung wird per Authentik Forward Auth (z.B. via SWAG) davor erledigt — die App selbst hat keinen Login. MFA wird von Authentik abgewickelt. Daten werden in einer externen MariaDB gespeichert, die du selbst betreibst.</Overview>
   <Category>Productivity: Tools:</Category>
   <WebUI>http://[IP]:[PORT:8000]/</WebUI>
   <ExtraParams/>
@@ -18,7 +18,7 @@
   <DateInstalled/>
   <DonateText/>
   <DonateLink/>
-  <Description>Haushaltsbuch als PWA für iPhone, iPad und Mac. Speichert Buchungen, Kategorien und Tags in einer eigenen MariaDB. Multi-User über X-Authentik-Username Header (Forward Auth).</Description>
+  <Description>Haushaltsbuch als PWA für iPhone, iPad und Mac. Speichert Buchungen, Kategorien und Tags in einer eigenen MariaDB. Multi-User über Authentik Forward Auth: Authentik authentifiziert (Passwort + MFA), setzt X-Authentik-Username. Zusätzlich prüft das Backend einen Shared Secret (AUTH_SECRET), den SWAG injiziert — schützt gegen Direktzugriffe auf Port 8000 mit gefälschten Headern.</Description>
 
   <!-- WebUI auf 8080 mappen (frei wählbar) -->
   <Config Name="WebUI Port" Target="8000" Default="8080" Mode="tcp" Description="HTTP-Port. Wenn PocketLog hinter SWAG/Authentik läuft, nicht öffentlich exponieren." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
@@ -29,6 +29,9 @@
   <Config Name="DB_NAME" Target="DB_NAME" Default="pocketlog" Mode="" Description="Datenbankname. Muss vorab existieren." Type="Variable" Display="always" Required="true" Mask="false">pocketlog</Config>
   <Config Name="DB_USER" Target="DB_USER" Default="pocketlog" Mode="" Description="DB-User mit Rechten auf DB_NAME." Type="Variable" Display="always" Required="true" Mask="false">pocketlog</Config>
   <Config Name="DB_PASSWORD" Target="DB_PASSWORD" Default="" Mode="" Description="Passwort des DB-Users." Type="Variable" Display="always" Required="true" Mask="true"/>
+
+  <!-- Shared Secret zwischen SWAG und Backend -->
+  <Config Name="AUTH_SECRET" Target="AUTH_SECRET" Default="" Mode="" Description="Geheimes Token (z.B. openssl rand -hex 32). Identisch zu proxy_set_header X-Auth-Secret in swag/pocketlog.subdomain.conf setzen. Leer lassen = Check deaktiviert (Port 8000 muss dann zwingend intern bleiben)." Type="Variable" Display="always" Required="false" Mask="true"/>
 
   <Config Name="TZ" Target="TZ" Default="Europe/Berlin" Mode="" Description="Zeitzone." Type="Variable" Display="advanced" Required="false" Mask="false">Europe/Berlin</Config>
 </Container>

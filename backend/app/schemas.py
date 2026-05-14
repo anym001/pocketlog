@@ -33,8 +33,8 @@ class TagRename(BaseModel):
 
 
 # -------- Transactions --------
-# Frontend benutzt das JSON-Feld "desc"; in DB heißt die Spalte "description"
-# (Reserved-Word-Vermeidung). Pydantic-Alias macht beides möglich.
+# The frontend uses the JSON field "desc"; the DB column is "description"
+# (avoids reserved-word conflicts). The Pydantic alias accepts both.
 
 class TransactionIn(BaseModel):
     amount: Decimal = Field(gt=0, decimal_places=2, max_digits=12)

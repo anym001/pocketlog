@@ -1,5 +1,8 @@
 import csv
+import hmac
 import io
+import logging
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -12,6 +15,19 @@ from sqlalchemy.orm import Session
 from . import crud, schemas
 from .database import get_db
 
+logger = logging.getLogger("uvicorn.error")
+
+# Shared secret between SWAG and the backend. When set, every request must
+# carry a matching X-Auth-Secret header (401 otherwise). Guards against direct
+# access to port 8000 with a forged X-Authentik-Username header.
+AUTH_SECRET = os.environ.get("AUTH_SECRET", "").strip()
+if not AUTH_SECRET:
+    logger.warning(
+        "AUTH_SECRET is not set – the backend blindly trusts the "
+        "X-Authentik-Username header. Port 8000 must only be reachable "
+        "through SWAG in this configuration."
+    )
+
 app = FastAPI(
     title="PocketLog API",
     docs_url="/api/docs",
@@ -22,7 +38,10 @@ app = FastAPI(
 
 def get_current_user(
     x_authentik_username: Annotated[str | None, Header()] = None,
+    x_auth_secret: Annotated[str | None, Header()] = None,
 ) -> str:
+    if AUTH_SECRET and not (x_auth_secret and hmac.compare_digest(x_auth_secret, AUTH_SECRET)):
+        raise HTTPException(status_code=401, detail="invalid auth secret")
     if not x_authentik_username:
         raise HTTPException(status_code=401, detail="missing X-Authentik-Username header")
     return x_authentik_username
@@ -35,6 +54,11 @@ DB = Annotated[Session, Depends(get_db)]
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/version")
+def version() -> dict:
+    return {"version": os.environ.get("APP_VERSION", "dev")}
 
 
 # ---------- Categories ----------
@@ -178,7 +202,7 @@ async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
-        # Fallback für Excel-Exporte unter Windows
+        # Fallback for Excel exports on Windows
         try:
             text = raw.decode("cp1252")
         except UnicodeDecodeError:
@@ -216,8 +240,8 @@ def export_csv(user: CurrentUser, db: DB):
 
 
 # ---------- PWA Static Files ----------
-# Liegt im Image unter /app/static (siehe Dockerfile).  Muss als letztes
-# gemountet werden, damit /api/... vorher matcht.
+# Located at /app/static in the image (see Dockerfile). Must be mounted last
+# so that /api/* routes take precedence.
 _static_dir = Path(__file__).resolve().parent.parent / "static"
 if _static_dir.is_dir():
     app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")

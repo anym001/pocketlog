@@ -5,8 +5,8 @@
 iPhone/iPad/Mac (installierte PWA)
         ↓ HTTPS
      SWAG Proxy          ← pocketlog.deinedomain.de
-        ↓
-     Authentik           ← Forward Auth, setzt X-Authentik-Username Header
+        ↓                  injiziert X-Auth-Secret in jeden Backend-Request
+     Authentik           ← Forward Auth + MFA, setzt X-Authentik-Username
         ↓
   ┌─────────────────────────────────────┐
   │  FastAPI-Container :8000            │  /          → statische PWA-Files
@@ -56,7 +56,7 @@ Routes registriert sind.
 - **Frontend:** Vanilla HTML/CSS/JS in einer Datei (`frontend/index.html`) + Service Worker
 - **Backend:** FastAPI (Python 3.12), uvicorn auf Port 8000
 - **Datenbank:** MariaDB 11 (extern, InnoDB, utf8mb4)
-- **Auth:** Authentik Forward Auth über SWAG – kein Login in der App
+- **Auth:** Authentik Forward Auth (Standard-Flow inkl. MFA) + Shared-Secret-Header zwischen SWAG und Backend
 - **Fonts:** DM Serif Display + DM Sans
 - **Charts:** Chart.js 4.4.1 (CDN, im SW gecached)
 - **Migrationen:** Alembic, läuft im Container-Entrypoint vor uvicorn
@@ -64,6 +64,7 @@ Routes registriert sind.
 ## API Endpoints (FastAPI)
 ```
 GET    /api/health
+GET    /api/version                      ← liefert {"version": "X.Y.Z"}, kein Auth
 GET    /api/transactions?year=&month=    ← month optional → ganzes Jahr
 POST   /api/transactions
 PUT    /api/transactions/{id}
@@ -99,10 +100,14 @@ Jeder User bekommt beim ersten `GET /api/categories` Default-Kategorien
 (siehe `crud.ensure_default_categories`).
 
 ## Auth-Konzept
-- Authentik schützt die gesamte Domain per Forward Auth über SWAG
-- Nach Login setzt Authentik den Header `X-Authentik-Username`
-- FastAPI liest den Header in `get_current_user()` (`backend/app/main.py`); fehlt der Header → 401
-- Lokales Testen ohne Authentik: Header manuell mitschicken, z.B. `curl -H "X-Authentik-Username: test" http://localhost:8080/api/health`
+- Authentik schützt die gesamte Domain per Forward Auth über SWAG (Standard-Redirect-Flow, MFA von Authentik abgewickelt)
+- Nach erfolgreicher Session setzt Authentik den Header `X-Authentik-Username`
+- SWAG injiziert zusätzlich einen statischen Header `X-Auth-Secret: <token>` in jeden Backend-Request (`swag/pocketlog.subdomain.conf`)
+- FastAPI prüft in `get_current_user()` (`backend/app/main.py`):
+  1. Wenn `AUTH_SECRET`-ENV gesetzt: `X-Auth-Secret` muss matchen (timing-safe via `hmac.compare_digest`), sonst 401
+  2. `X-Authentik-Username` muss vorhanden sein, sonst 401
+- `AUTH_SECRET`-ENV leer/ungesetzt: Backend warnt beim Start und überspringt den Check (Port 8000 darf dann nur intern erreichbar sein)
+- Lokales Testen ohne Authentik/SWAG: beide Header manuell mitschicken, z.B. `curl -H "X-Authentik-Username: test" -H "X-Auth-Secret: <token>" http://localhost:8080/api/health`
 - Alle DB-Queries filtern nach `username` – Multi-User-fähig ohne extra Login-Code
 
 ## Frontend API-Aufruf
@@ -124,9 +129,13 @@ const data = await api('GET', '/transactions?year=2026&month=5');
 Template `unraid/pocketlog.xml` in Unraid importieren oder ENV-Variablen in der
 "Add Container"-GUI manuell setzen. Image kommt aus
 `ghcr.io/anym001/pocketlog:latest` (oder lokal selbst gebaut). Anschließend
-`swag/pocketlog.subdomain.conf` nach `/swag/config/nginx/proxy-confs/` legen,
-SWAG neu laden, und in Authentik einen Forward-Auth-Provider + Application für
-`pocketlog.<domain>` anlegen.
+`swag/pocketlog.subdomain.conf` nach `/swag/config/nginx/proxy-confs/` legen.
+Vor dem ersten SWAG-Reload: in der Config den Platzhalter beim
+`proxy_set_header X-Auth-Secret` durch ein langes zufälliges Token ersetzen
+(`openssl rand -hex 32`) und denselben Wert als `AUTH_SECRET`-ENV im PocketLog-
+Container setzen. In Authentik einen Forward-Auth-Provider + Application für
+`pocketlog.<domain>` anlegen und dem Outpost zuweisen (MFA kann normal über die
+Authentik-Flow-Policy konfiguriert werden).
 
 ## Design-Prinzipien (Frontend)
 - Mobile-first, max-width 430px, safe-area-inset für iPhone
@@ -135,6 +144,11 @@ SWAG neu laden, und in Authentik einen Forward-Auth-Provider + Application für
 - `fmtCurrency(n)` für alle Beträge (de-DE Locale)
 - Datum intern: ISO 8601 (YYYY-MM-DD)
 - NIEMALS Inter/Roboto/Arial – DM Serif Display + DM Sans
+
+## Sprach-Konventionen
+
+- **Code, Kommentare, Workflow-YAML, Skripte:** Englisch
+- **Dokumentation (CLAUDE.md, TODO.md, README.md, unraid/pocketlog.xml):** Deutsch
 
 ## Konventionen Backend
 - CRUD-Funktionen immer mit `username` Parameter (Datenisolation)

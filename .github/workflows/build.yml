@@ -1,25 +1,48 @@
 name: Build and publish image
 
-# Baut das PocketLog-Image und pusht es nach GitHub Container Registry.
-# Bei jedem Push auf main → ghcr.io/<owner>/pocketlog:latest
-# Bei Git-Tags vX.Y.Z      → :X.Y.Z und :X.Y
+# On every push to main:
+#   1. Auto-increment patch version (v0.1.0 → v0.1.1)
+#   2. Create git tag + GitHub release
+#   3. Build and push Docker image to ghcr.io (:latest + :X.Y.Z)
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate next version
+        id: version
+        run: |
+          LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          if [ -z "$LATEST" ]; then
+            NEW_TAG="v0.1.0"
+          else
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+            NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+          echo "new_tag=${NEW_TAG}"         >> $GITHUB_OUTPUT
+          echo "version=${NEW_TAG#v}"       >> $GITHUB_OUTPUT
+          echo "previous_tag=${LATEST:--}"  >> $GITHUB_OUTPUT
+
+      - name: Create git tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.new_tag }}
+          git push origin ${{ steps.version.outputs.new_tag }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -37,9 +60,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/pocketlog
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+            type=raw,value=${{ steps.version.outputs.version }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -50,5 +72,14 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.new_tag }}
+          name: ${{ steps.version.outputs.new_tag }}
+          generate_release_notes: true
