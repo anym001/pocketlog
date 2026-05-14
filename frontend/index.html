@@ -1586,9 +1586,7 @@ function renderAll() {
   document.getElementById('totalOut').textContent = fmtCurrency(out);
   document.getElementById('totalIn').textContent  = fmtCurrency(inc);
   renderTransactions(transactions);
-  if (document.getElementById('panel-categories')?.classList.contains('active')) {
-    renderCategoryView();
-  }
+  if (_activePanel === 'categories') renderCategoryView();
 }
 
 function getCatById(id) { return categories.find(c=>c.id===Number(id)) || {name:'Sonstiges',icon:'📦',color:'#9e9b96'}; }
@@ -2434,10 +2432,10 @@ async function init() {
   if ('serviceWorker' in navigator) {
     try { await navigator.serviceWorker.register('/sw.js'); } catch (e) { console.warn('SW registration failed:', e); }
   }
-  showPanel(loadDefaultView());
   await loadCategories();
   await loadTags();
   await loadAndRender();
+  showPanel(loadDefaultView());
   updateSyncBadge();
   attachDragDismiss('modalOverlay', closeModal);
   attachDragDismiss('tagModalOverlay', closeTagModal);
