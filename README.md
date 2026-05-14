@@ -55,7 +55,16 @@ Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
 | ENV `DB_NAME` | `pocketlog` |
 | ENV `DB_USER` | `pocketlog` |
 | ENV `DB_PASSWORD` | dein Passwort |
+| ENV `AUTH_SECRET` | gleiches Token wie in `pocketlog.subdomain.conf` (s. SWAG-Setup) |
 | ENV `TZ` | `Europe/Berlin` |
+
+## Funktionsumfang
+
+- **Transaktionen** – Einnahmen & Ausgaben mit Datum, Betrag, Kategorie, Tags
+- **Kategorien** – frei definierbar (Name, Emoji, Farbe); beim ersten Aufruf werden Standardkategorien angelegt
+- **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen über die Einstellungen
+- **CSV-Import / -Export** – Import aus anderen Tools (UTF-8 oder CP1252, max. 5 MB); Export aller Transaktionen als Semikolon-CSV
+- **Offline-Fähigkeit** – Service Worker cached die App-Shell, POST/PUT/DELETE landen in einer Outbox und werden beim nächsten Online-Sein automatisch gesendet
 
 ## API testen
 
@@ -65,10 +74,12 @@ Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
 ## Image-Builds (GitHub Actions → ghcr.io)
 
 Der Workflow `.github/workflows/build.yml` baut bei jedem Push auf `main` ein
-neues Image und pusht es nach `ghcr.io/<owner>/pocketlog`. Tags:
+neues Image und pusht es nach `ghcr.io/<owner>/pocketlog`. Die Patch-Version
+wird dabei automatisch hochgezählt und ein GitHub-Release erstellt — kein
+manuelles Tagging nötig. Tags:
 
 - `:latest` — letzter Stand von `main`
-- `:X.Y.Z` / `:X.Y` — bei Git-Tags `vX.Y.Z` (z.B. `git tag v1.0.0 && git push --tags`)
+- `:X.Y.Z` — automatisch gesetzt vom Workflow (z.B. `v0.1.4`)
 
 **Einmalig nach dem ersten erfolgreichen Workflow-Run:** GitHub legt das
 Package zunächst mit der Sichtbarkeit des Repos an (also privat, falls dein

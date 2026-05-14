@@ -30,6 +30,7 @@ Einmalige Schritte, danach kann der Abschnitt raus.
 - Wiederkehrende Buchungen (monatlich, wöchentlich).
 - Budget-Grenzen pro Kategorie inkl. Warnung im UI.
 - Push-Benachrichtigungen bei Budget-Überschreitung.
+- Statistik-/Diagrammansichten über mehrere Monate / das gesamte Jahr.
 
 ## PWA / Offline
 
