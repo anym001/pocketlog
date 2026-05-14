@@ -716,6 +716,7 @@
   }
   .drawer-nav-item:first-child { border-top: 0.5px solid var(--hairline-soft); }
   .drawer-nav-item:active { background: var(--glass-thin); }
+  .drawer-nav-item.active { color: var(--accent); font-weight: 600; }
   .drawer-nav-chevron { color: var(--text3); font-size: 20px; line-height: 1; font-weight: 300; }
   .drawer-sub-head {
     position: sticky; top: 0; z-index: 1;
@@ -1169,6 +1170,15 @@
     <!-- Panel 0: Hauptmenü -->
     <div class="drawer-panel" id="dpMain" data-state="active">
       <nav class="drawer-nav">
+        <button class="drawer-nav-item" data-panel="categories" onclick="showPanel('categories')">
+          Kategorien
+        </button>
+        <button class="drawer-nav-item" data-panel="transactions" onclick="showPanel('transactions')">
+          Transaktionen
+        </button>
+        <button class="drawer-nav-item" data-panel="charts" onclick="showPanel('charts')">
+          Auswertungen
+        </button>
         <button class="drawer-nav-item" onclick="drawerNav('dpSettings')">
           Einstellungen
           <span class="drawer-nav-chevron">›</span>
