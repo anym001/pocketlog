@@ -20,49 +20,70 @@ DEFAULT_CATEGORIES: list[dict] = [
 ]
 
 
+# ---------- Users ----------
+
+def get_or_create_user(db: Session, username: str) -> models.User:
+    user = db.scalar(select(models.User).where(models.User.username == username))
+    if user is not None:
+        return user
+    user = models.User(username=username)
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Concurrent insert from a parallel request — fetch the winner.
+        db.rollback()
+        user = db.scalar(select(models.User).where(models.User.username == username))
+        if user is None:
+            raise
+    else:
+        db.refresh(user)
+    return user
+
+
 # ---------- Categories ----------
 
-def ensure_default_categories(db: Session, username: str) -> None:
+def ensure_default_categories(db: Session, user_id: int) -> None:
     existing = db.scalar(
-        select(models.Category).where(models.Category.username == username).limit(1)
+        select(models.Category).where(models.Category.user_id == user_id).limit(1)
     )
     if existing is not None:
         return
     for c in DEFAULT_CATEGORIES:
-        db.add(models.Category(username=username, **c))
+        db.add(models.Category(user_id=user_id, **c))
     db.commit()
 
 
-def list_categories(db: Session, username: str) -> list[models.Category]:
-    ensure_default_categories(db, username)
+def list_categories(db: Session, user_id: int) -> list[models.Category]:
+    ensure_default_categories(db, user_id)
     return list(
         db.scalars(
             select(models.Category)
-            .where(models.Category.username == username)
+            .where(models.Category.user_id == user_id)
             .order_by(models.Category.id)
         )
     )
 
 
-def get_or_create_category(db: Session, username: str, name: str) -> models.Category:
+def get_or_create_category(db: Session, user_id: int, name: str) -> models.Category:
     name = (name or "").strip() or "Sonstiges"
     cat = db.scalar(
         select(models.Category).where(
-            and_(models.Category.username == username, models.Category.name == name)
+            and_(models.Category.user_id == user_id, models.Category.name == name)
         )
     )
     if cat is not None:
         return cat
-    cat = models.Category(username=username, name=name[:100], icon="📦", color="#9e9b96")
+    cat = models.Category(user_id=user_id, name=name[:100], icon="📦", color="#9e9b96")
     db.add(cat)
     db.flush()
     return cat
 
 
 def create_category(
-    db: Session, username: str, payload: schemas.CategoryCreate
+    db: Session, user_id: int, payload: schemas.CategoryCreate
 ) -> models.Category:
-    cat = models.Category(username=username, **payload.model_dump())
+    cat = models.Category(user_id=user_id, **payload.model_dump())
     db.add(cat)
     try:
         db.commit()
@@ -75,7 +96,7 @@ def create_category(
 
 def update_category(
     db: Session,
-    username: str,
+    user_id: int,
     category_id: int,
     payload: schemas.CategoryUpdate,
 ) -> models.Category | None:
@@ -83,7 +104,7 @@ def update_category(
         select(models.Category).where(
             and_(
                 models.Category.id == category_id,
-                models.Category.username == username,
+                models.Category.user_id == user_id,
             )
         )
     )
@@ -100,12 +121,12 @@ def update_category(
     return cat
 
 
-def delete_category(db: Session, username: str, category_id: int) -> bool:
+def delete_category(db: Session, user_id: int, category_id: int) -> bool:
     cat = db.scalar(
         select(models.Category).where(
             and_(
                 models.Category.id == category_id,
-                models.Category.username == username,
+                models.Category.user_id == user_id,
             )
         )
     )
@@ -126,11 +147,11 @@ def delete_category(db: Session, username: str, category_id: int) -> bool:
 # ---------- Transactions ----------
 
 def list_transactions(
-    db: Session, username: str, year: int, month: int | None = None
+    db: Session, user_id: int, year: int, month: int | None = None
 ) -> list[models.Transaction]:
     q = select(models.Transaction).where(
         and_(
-            models.Transaction.username == username,
+            models.Transaction.user_id == user_id,
             extract("year", models.Transaction.date) == year,
         )
     )
@@ -140,22 +161,22 @@ def list_transactions(
     return list(db.scalars(q))
 
 
-def list_all_transactions(db: Session, username: str) -> list[models.Transaction]:
+def list_all_transactions(db: Session, user_id: int) -> list[models.Transaction]:
     q = (
         select(models.Transaction)
-        .where(models.Transaction.username == username)
+        .where(models.Transaction.user_id == user_id)
         .order_by(models.Transaction.date.desc(), models.Transaction.id.desc())
     )
     return list(db.scalars(q))
 
 
-def _check_category_owned(db: Session, username: str, category_id: int) -> bool:
+def _check_category_owned(db: Session, user_id: int, category_id: int) -> bool:
     return (
         db.scalar(
             select(models.Category.id).where(
                 and_(
                     models.Category.id == category_id,
-                    models.Category.username == username,
+                    models.Category.user_id == user_id,
                 )
             )
         )
@@ -164,11 +185,11 @@ def _check_category_owned(db: Session, username: str, category_id: int) -> bool:
 
 
 def create_transaction(
-    db: Session, username: str, payload: schemas.TransactionCreate
+    db: Session, user_id: int, payload: schemas.TransactionCreate
 ) -> models.Transaction:
-    if not _check_category_owned(db, username, payload.category_id):
+    if not _check_category_owned(db, user_id, payload.category_id):
         raise ValueError("unknown_category")
-    tx = models.Transaction(username=username, **payload.model_dump(by_alias=False))
+    tx = models.Transaction(user_id=user_id, **payload.model_dump(by_alias=False))
     db.add(tx)
     db.commit()
     db.refresh(tx)
@@ -176,19 +197,19 @@ def create_transaction(
 
 
 def update_transaction(
-    db: Session, username: str, tx_id: int, payload: schemas.TransactionUpdate
+    db: Session, user_id: int, tx_id: int, payload: schemas.TransactionUpdate
 ) -> models.Transaction | None:
     tx = db.scalar(
         select(models.Transaction).where(
             and_(
                 models.Transaction.id == tx_id,
-                models.Transaction.username == username,
+                models.Transaction.user_id == user_id,
             )
         )
     )
     if tx is None:
         return None
-    if not _check_category_owned(db, username, payload.category_id):
+    if not _check_category_owned(db, user_id, payload.category_id):
         raise ValueError("unknown_category")
     for k, v in payload.model_dump(by_alias=False).items():
         setattr(tx, k, v)
@@ -197,11 +218,11 @@ def update_transaction(
     return tx
 
 
-def list_tags(db: Session, username: str) -> list[str]:
+def list_tags(db: Session, user_id: int) -> list[str]:
     rows = db.scalars(
         select(models.Transaction.tags).where(
             and_(
-                models.Transaction.username == username,
+                models.Transaction.user_id == user_id,
                 models.Transaction.tags.is_not(None),
             )
         )
@@ -219,12 +240,12 @@ def list_tags(db: Session, username: str) -> list[str]:
     return sorted(seen, key=str.casefold)
 
 
-def _tx_with_tag(db: Session, username: str) -> list[models.Transaction]:
+def _tx_with_tag(db: Session, user_id: int) -> list[models.Transaction]:
     return list(
         db.scalars(
             select(models.Transaction).where(
                 and_(
-                    models.Transaction.username == username,
+                    models.Transaction.user_id == user_id,
                     models.Transaction.tags.is_not(None),
                 )
             )
@@ -232,7 +253,7 @@ def _tx_with_tag(db: Session, username: str) -> list[models.Transaction]:
     )
 
 
-def rename_tag(db: Session, username: str, old_name: str, new_name: str) -> int:
+def rename_tag(db: Session, user_id: int, old_name: str, new_name: str) -> int:
     old_name = (old_name or "").strip()
     new_name = (new_name or "").strip()
     if not old_name or not new_name:
@@ -241,7 +262,7 @@ def rename_tag(db: Session, username: str, old_name: str, new_name: str) -> int:
         return 0
 
     affected = 0
-    for tx in _tx_with_tag(db, username):
+    for tx in _tx_with_tag(db, user_id):
         if not tx.tags or old_name not in tx.tags:
             continue
         new_tags: list[str] = []
@@ -256,12 +277,12 @@ def rename_tag(db: Session, username: str, old_name: str, new_name: str) -> int:
     return affected
 
 
-def delete_tag(db: Session, username: str, name: str) -> int:
+def delete_tag(db: Session, user_id: int, name: str) -> int:
     name = (name or "").strip()
     if not name:
         return 0
     affected = 0
-    for tx in _tx_with_tag(db, username):
+    for tx in _tx_with_tag(db, user_id):
         if not tx.tags or name not in tx.tags:
             continue
         new_tags = [t for t in tx.tags if t != name]
@@ -272,12 +293,12 @@ def delete_tag(db: Session, username: str, name: str) -> int:
     return affected
 
 
-def delete_transaction(db: Session, username: str, tx_id: int) -> bool:
+def delete_transaction(db: Session, user_id: int, tx_id: int) -> bool:
     tx = db.scalar(
         select(models.Transaction).where(
             and_(
                 models.Transaction.id == tx_id,
-                models.Transaction.username == username,
+                models.Transaction.user_id == user_id,
             )
         )
     )
@@ -330,7 +351,7 @@ def _parse_amount(s: str) -> Decimal:
         raise ValueError(f"Betrag nicht erkennbar: {s!r}")
 
 
-def _build_transaction(row: dict, db: Session, username: str) -> models.Transaction | None:
+def _build_transaction(row: dict, db: Session, user_id: int) -> models.Transaction | None:
     r = {_norm_key(k): (v or "").strip() for k, v in row.items() if k is not None}
     if not r:
         return None
@@ -362,13 +383,13 @@ def _build_transaction(row: dict, db: Session, username: str) -> models.Transact
 
     desc = (r.get("description") or r.get("desc") or "").strip()[:255]
 
-    cat = get_or_create_category(db, username, r.get("category") or "Sonstiges")
+    cat = get_or_create_category(db, user_id, r.get("category") or "Sonstiges")
 
     tags_raw = r.get("tags") or ""
     tags = [t.strip() for t in tags_raw.split(",") if t.strip()] or None
 
     return models.Transaction(
-        username=username,
+        user_id=user_id,
         amount=amount,
         description=desc,
         category_id=cat.id,
@@ -378,7 +399,7 @@ def _build_transaction(row: dict, db: Session, username: str) -> models.Transact
     )
 
 
-def import_csv(db: Session, username: str, text: str) -> dict:
+def import_csv(db: Session, user_id: int, text: str) -> dict:
     # Auto-detect delimiter (; , \t)
     sample = text[:4096]
     try:
@@ -398,7 +419,7 @@ def import_csv(db: Session, username: str, text: str) -> dict:
 
     for idx, row in enumerate(reader, start=2):
         try:
-            tx = _build_transaction(row, db, username)
+            tx = _build_transaction(row, db, user_id)
             if tx is None:
                 skipped += 1
                 continue
