@@ -2,6 +2,10 @@
 .env
 .env.local
 
+# Lokale Tool-Konfiguration
+.claude/settings.local.json
+.superpowers/
+
 # Python
 __pycache__/
 *.pyc
