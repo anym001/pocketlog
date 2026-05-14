@@ -353,21 +353,6 @@
     background-clip: text;
     color: transparent;
   }
-  .balance-bar {
-    height: 5px;
-    border-radius: var(--r-pill);
-    background: var(--hairline-soft);
-    margin-top: 12px;
-    overflow: hidden;
-    box-shadow: inset 0 0 0 0.5px var(--edge-dark);
-  }
-  .balance-bar-fill {
-    height: 100%;
-    border-radius: var(--r-pill);
-    background: linear-gradient(90deg, var(--green), var(--accent));
-    transition: width 0.8s var(--ease-spring);
-    box-shadow: 0 0 10px rgba(217, 100, 52, 0.4);
-  }
 
   /* ====== PANELS ====== */
   .panel { display: none; padding: 8px 20px 90px; }
@@ -1300,11 +1285,6 @@
     <div class="label">Einnahmen</div>
     <div class="amount positive" id="totalIn">€0,00</div>
   </div>
-  <div class="summary-card full">
-    <div class="label">Bilanz</div>
-    <div class="amount" id="balance">€0,00</div>
-    <div class="balance-bar"><div class="balance-bar-fill" id="balanceBar" style="width:50%"></div></div>
-  </div>
 </div>
 
 <!-- TRANSACTIONS PANEL -->
@@ -1529,14 +1509,12 @@ function renderAll() {
   document.getElementById('monthLabel').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
   const out = transactions.filter(t=>t.type==='out').reduce((a,t)=>a+t.amount,0);
   const inc = transactions.filter(t=>t.type==='in').reduce((a,t)=>a+t.amount,0);
-  const bal = inc - out;
   document.getElementById('totalOut').textContent = fmtCurrency(out);
   document.getElementById('totalIn').textContent  = fmtCurrency(inc);
-  document.getElementById('balance').textContent  = fmtCurrency(bal);
-  document.getElementById('balance').className    = 'amount ' + (bal>=0?'positive':'negative');
-  const pct = inc > 0 ? Math.min(100, (out/inc)*100) : (out>0?100:0);
-  document.getElementById('balanceBar').style.width = pct + '%';
   renderTransactions(transactions);
+  if (document.getElementById('panel-categories')?.classList.contains('active')) {
+    renderCategoryView();
+  }
 }
 
 function getCatById(id) { return categories.find(c=>c.id===Number(id)) || {name:'Sonstiges',icon:'📦',color:'#9e9b96'}; }
