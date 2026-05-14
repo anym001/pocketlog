@@ -225,28 +225,12 @@
     box-shadow: 0 0.5px 0 var(--hairline) inset, 0 8px 24px -20px rgba(60,35,20,0.25);
   }
   .header-top {
-    display: grid;
-    grid-template-columns: 40px 1fr 40px;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 8px;
     margin-bottom: 4px;
     padding-top: 6px;
   }
-  .header h1 {
-    font-family: var(--font-display);
-    font-size: 22px;
-    letter-spacing: -0.012em;
-    color: var(--text);
-    line-height: 1.05;
-    text-align: center;
-  }
-  .header h1 span {
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
   .month-nav {
     display: flex;
     align-items: center;
@@ -703,10 +687,17 @@
   }
   .drawer-head-title {
     font-family: var(--font-display);
-    font-size: 18px;
+    font-size: 24px;
     font-weight: 400;
     color: var(--text);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+    line-height: 1;
+  }
+  .drawer-head-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .drawer-close-btn {
     width: 32px; height: 32px;
@@ -1153,7 +1144,7 @@
 <!-- DRAWER -->
 <div class="drawer" id="drawer" role="dialog" aria-label="Menü">
   <div class="drawer-head">
-    <span class="drawer-head-title">PocketLog</span>
+    <h1 class="drawer-head-title">Pocket<span>Log</span></h1>
     <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">✕</button>
   </div>
 
@@ -1205,7 +1196,6 @@
     <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
       <span></span><span></span><span></span>
     </button>
-    <h1>Pocket<span>Log</span></h1>
     <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
       <span class="sync-dot" id="syncDot"></span>
       <span id="syncLabel">Sync</span>
