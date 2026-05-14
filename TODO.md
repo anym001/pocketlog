@@ -3,26 +3,6 @@
 Bewusst zurückgestellte Punkte. Keine feste Reihenfolge — wer einen Eintrag
 anfasst, ihn hier bitte gleich streichen.
 
-## Erstinbetriebnahme nach dem ersten Merge auf `main`
-
-Einmalige Schritte, danach kann der Abschnitt raus.
-
-- [ ] **GitHub-Package auf Public stellen.** GitHub → Profil → *Packages* →
-  `pocketlog` → *Package settings* → *Change visibility* → **Public**. Erst
-  danach kann Unraid `ghcr.io/anym001/pocketlog:latest` ohne Login pullen.
-- [ ] **Container auf Unraid anlegen.** `unraid/pocketlog.xml` aus dem Repo
-  herunterladen und nach `/boot/config/plugins/dockerMan/templates-user/`
-  kopieren. Anschließend *Apps → Add Container → Template: pocketlog* wählen,
-  Felder (DB_HOST, DB_PASSWORD, Netzwerk) prüfen und *Apply*.
-- [ ] **SWAG + Authentik verdrahten.** `swag/pocketlog.subdomain.conf` nach
-  `/swag/config/nginx/proxy-confs/` kopieren. Vorher den Platzhalter beim
-  `proxy_set_header X-Auth-Secret` durch ein zufälliges Token ersetzen
-  (`openssl rand -hex 32`) und denselben Wert als `AUTH_SECRET`-ENV im
-  PocketLog-Container hinterlegen. SWAG neu laden. In Authentik einen
-  Forward-Auth-Provider + Application für `pocketlog.<deinedomain>` anlegen
-  und dem Outpost zuweisen. MFA bei Bedarf in der Authentik-Flow-Policy
-  aktivieren.
-
 ## Features
 
 - Echte App-Icons. Die aktuellen sind farbige Platzhalter, generiert mit einem
