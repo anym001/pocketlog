@@ -153,7 +153,7 @@ Authentik-Flow-Policy konfiguriert werden).
 
 ## Sprach-Konventionen
 
-- **Code, Kommentare, Workflow-YAML, Skripte:** Englisch
+- **Code, Kommentare, Workflow-YAML, Skripte, Nginx-Configs (`swag/`):** Englisch
 - **Dokumentation (CLAUDE.md, TODO.md, README.md, unraid/pocketlog.xml):** Deutsch
 
 ## Konventionen Backend
