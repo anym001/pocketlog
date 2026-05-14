@@ -225,18 +225,20 @@
     box-shadow: 0 0.5px 0 var(--hairline) inset, 0 8px 24px -20px rgba(60,35,20,0.25);
   }
   .header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 4px;
     padding-top: 6px;
   }
   .header h1 {
     font-family: var(--font-display);
-    font-size: 30px;
-    letter-spacing: -0.015em;
+    font-size: 22px;
+    letter-spacing: -0.012em;
     color: var(--text);
     line-height: 1.05;
+    text-align: center;
   }
   .header h1 span {
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -417,7 +419,7 @@
   }
 
   /* ====== PANELS ====== */
-  .panel { display: none; padding: 8px 20px 140px; }
+  .panel { display: none; padding: 8px 20px 90px; }
   .panel.active { display: block; }
 
   /* ====== TRANSACTIONS ====== */
@@ -601,7 +603,7 @@
   /* ====== FAB (glass orb) ====== */
   .fab {
     position: fixed;
-    bottom: calc(102px + env(safe-area-inset-bottom));
+    bottom: calc(24px + env(safe-area-inset-bottom));
     right: 20px;
     width: 60px; height: 60px;
     background: linear-gradient(145deg, var(--accent-2), var(--accent));
@@ -633,56 +635,113 @@
   .fab:active { transform: scale(0.92); }
 
   /* ====== BOTTOM NAV (floating liquid glass capsule) ====== */
-  .bottom-nav {
+  .bottom-nav { display: none; }
+
+  /* ====== HAMBURGER ====== */
+  .hamburger-btn {
+    width: 40px; height: 40px;
+    border: none; background: transparent;
+    cursor: pointer;
+    color: var(--text);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px;
+    border-radius: var(--r-sm);
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .hamburger-btn span {
+    display: block;
+    width: 20px; height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    transition: opacity 0.2s;
+  }
+  .hamburger-btn:active { opacity: 0.6; }
+
+  /* ====== DRAWER ====== */
+  .drawer-overlay {
     position: fixed;
-    bottom: calc(14px + env(safe-area-inset-bottom));
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 32px);
-    max-width: 398px;
-    background: var(--glass-thick);
+    inset: 0;
+    z-index: 400;
+    background: rgba(20, 14, 8, 0.35);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: min(300px, 88vw);
+    z-index: 401;
+    background: var(--bg-canvas);
     -webkit-backdrop-filter: var(--blur-thick);
     backdrop-filter: var(--blur-thick);
-    border: 0.5px solid var(--hairline-soft);
-    border-radius: var(--r-pill);
+    border-right: 0.5px solid var(--hairline);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-100%);
+    transition: transform 0.35s var(--ease-spring);
     display: flex;
-    padding: 6px;
-    gap: 4px;
-    z-index: 150;
-    box-shadow: var(--shadow-floating);
-    isolation: isolate;
+    flex-direction: column;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
   }
-  .bottom-nav::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 50%);
-    pointer-events: none;
-    mix-blend-mode: overlay;
+  .drawer.open { transform: translateX(0); box-shadow: var(--shadow-floating); }
+
+  .drawer-head {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--bg-canvas);
+    padding: calc(env(safe-area-inset-top) + 16px) 20px 12px;
+    border-bottom: 0.5px solid var(--hairline-soft);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
-  .bn-item {
-    flex: 1;
-    display: flex; flex-direction: row; align-items: center; justify-content: center;
-    gap: 7px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text2);
-    background: transparent;
-    border: none;
-    font-family: var(--font-body);
-    padding: 10px 14px;
-    border-radius: var(--r-pill);
-    transition: all 0.3s var(--ease-spring);
+  .drawer-head-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--text);
     letter-spacing: -0.01em;
   }
-  .bn-item.active {
-    color: var(--text);
-    background: var(--glass-chrome);
-    box-shadow: var(--shadow-soft);
+  .drawer-close-btn {
+    width: 32px; height: 32px;
+    border: none; background: var(--glass-thin);
+    -webkit-backdrop-filter: var(--blur-thin);
+    backdrop-filter: var(--blur-thin);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-pill);
+    transition: opacity 0.2s;
   }
-  .bn-icon { font-size: 18px; line-height: 1; }
+  .drawer-close-btn:active { opacity: 0.6; }
+
+  .drawer-section {
+    padding: 20px 20px 0;
+  }
+  .drawer-section + .drawer-section { padding-top: 24px; }
+  .drawer-section-divider {
+    height: 0.5px;
+    background: var(--hairline-soft);
+    margin: 24px 20px 0;
+  }
+  .drawer-section h3 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 12px;
+  }
+
+  .bn-item { display: none; }
+  .bn-icon { display: none; }
 
   /* ====== MODAL ====== */
   .modal-overlay {
@@ -1086,9 +1145,64 @@
 </head>
 <body>
 
+<!-- DRAWER OVERLAY -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- DRAWER -->
+<div class="drawer" id="drawer" role="dialog" aria-label="Menü">
+  <div class="drawer-head">
+    <span class="drawer-head-title">PocketLog</span>
+    <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">✕</button>
+  </div>
+
+  <div class="drawer-section">
+    <h3>Kategorien</h3>
+    <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
+      <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:18px;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
+      <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()" aria-label="Kategorie hinzufügen">+</button>
+    </div>
+  </div>
+
+  <div class="drawer-section-divider"></div>
+
+  <div class="drawer-section">
+    <h3>Tags</h3>
+    <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+    <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
+  </div>
+
+  <div class="drawer-section-divider"></div>
+
+  <div class="drawer-section">
+    <h3>Einstellungen</h3>
+    <div class="settings-section" style="margin-bottom:16px">
+      <div class="settings-row">
+        <label>API-Basis-URL</label>
+        <input type="url" id="cfg-api" placeholder="z.B. https://pocketlog.deinedomain.de" />
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
+      <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
+      <div class="status-msg" id="apiStatus"></div>
+    </div>
+    <div class="settings-section">
+      <button class="save-btn" onclick="exportCSV()">Als CSV exportieren</button>
+      <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">Aus CSV importieren…</button>
+      <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
+      <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
+      <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
+      <div class="status-msg" id="importStatus"></div>
+    </div>
+  </div>
+</div>
+
 <!-- HEADER -->
 <div class="header">
   <div class="header-top">
+    <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
+      <span></span><span></span><span></span>
+    </button>
     <h1>Haus<span>halts</span>buch</h1>
     <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
       <span class="sync-dot" id="syncDot"></span>
@@ -1154,56 +1268,6 @@
 <!-- FAB -->
 <button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
 
-<!-- BOTTOM NAV -->
-<div class="bottom-nav">
-  <button class="bn-item active" onclick="switchMainTab('main',this)">
-    <span class="bn-icon">📒</span>Übersicht
-  </button>
-  <button class="bn-item" onclick="switchMainTab('settings',this)">
-    <span class="bn-icon">⚙️</span>Einstellungen
-  </button>
-</div>
-
-<!-- SETTINGS PANEL (hidden by default) -->
-<div id="mainContent">
-  <!-- main content shown by default -->
-</div>
-<div id="settingsContent" style="display:none; padding: 16px 20px 140px;">
-  <div style="padding-top:8px"></div>
-  <div class="settings-section">
-    <h3>Server</h3>
-    <div class="settings-row">
-      <label>API-Basis-URL</label>
-      <input type="url" id="cfg-api" placeholder="z.B. https://pocketlog.deinedomain.de" />
-    </div>
-    <p style="font-size:12px;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
-    <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
-    <div class="status-msg" id="apiStatus"></div>
-  </div>
-  <div class="settings-section">
-    <h3>Daten</h3>
-    <button class="save-btn" onclick="exportCSV()">📄 Als CSV exportieren</button>
-    <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">📥 Aus CSV importieren…</button>
-    <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
-    <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
-    <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
-    <div class="status-msg" id="importStatus"></div>
-  </div>
-  <div class="settings-section">
-    <h3>Kategorien</h3>
-    <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-    <div style="display:flex;gap:8px">
-      <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-      <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:18px;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-      <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()" aria-label="Kategorie hinzufügen">+</button>
-    </div>
-  </div>
-  <div class="settings-section">
-    <h3>Tags</h3>
-    <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
-    <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
-  </div>
-</div>
 
 <!-- ADD MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
@@ -1328,31 +1392,19 @@ function showPanel(id, btn) {
   if (id === 'charts') renderCharts();
 }
 
-function switchMainTab(tab, btn) {
-  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const main = document.querySelector('.header');
-  const summary = document.querySelector('.summary');
-  const nav = document.querySelector('.nav');
-  const panels = document.querySelectorAll('.panel');
-  const fab = document.querySelector('.fab');
-  const settings = document.getElementById('settingsContent');
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderCategories();
+  renderTagList();
+  loadApiBaseInput();
+}
 
-  if (tab === 'settings') {
-    main.style.display='none'; summary.style.display='none';
-    nav.style.display='none'; panels.forEach(p=>p.style.display='none');
-    fab.style.display='none'; settings.style.display='block';
-    renderCategories();
-    renderTagList();
-    loadApiBaseInput();
-  } else {
-    main.style.display=''; summary.style.display='';
-    nav.style.display=''; panels.forEach(p=>p.style.display='');
-    document.getElementById('panel-transactions').style.display='block';
-    document.getElementById('panel-charts').style.display='none';
-    document.querySelectorAll('.nav-tab')[0].click();
-    fab.style.display=''; settings.style.display='none';
-  }
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 function changeMonth(d) {
@@ -2049,6 +2101,7 @@ async function updateSyncBadge() {
 }
 
 window.addEventListener('online', () => syncNow());
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (ev) => {
