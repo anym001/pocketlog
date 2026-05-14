@@ -145,8 +145,13 @@ Authentik-Flow-Policy konfiguriert werden).
 ## Design-Prinzipien (Frontend)
 - Mobile-first, max-width 430px, safe-area-inset für iPhone
 - CSS-Variablen für alle Farben – automatischer Light/Dark Mode
-- `--accent: #d96434` (Light) / `#ef8a5a` (Dark) – Ausgaben
-- `--green: #2f8d5e` (Light) / `#5cc28d` (Dark) – Einnahmen
+- Farbpalette basiert auf [html-effectiveness](https://thariqs.github.io/html-effectiveness/) von Thariq Shihipar:
+  - `--bg-canvas: #FAF9F5` (ivory) / dark: `#0f0e0c`
+  - `--accent: #D97757` (clay) / dark: `#E8926E` – Ausgaben
+  - `--green: #788C5D` (olive) / dark: `#9AB07A` – Einnahmen
+  - `--text: #141413` (slate) / dark: `#F0EEE6`
+  - `--text2: #3D3D3A` / dark: `#B0ADA6`
+  - `--text3: #87867F` / dark: `#87867F`
 - `fmtCurrency(n)` für alle Beträge (de-DE Locale)
 - Datum intern: ISO 8601 (YYYY-MM-DD)
 - NIEMALS Inter/Roboto/Arial – DM Serif Display + DM Sans

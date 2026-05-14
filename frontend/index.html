@@ -19,49 +19,49 @@
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
   :root {
-    /* Base canvas */
-    --bg-canvas: #f4ede0;
+    /* Base canvas — ivory from html-effectiveness palette */
+    --bg-canvas: #FAF9F5;
 
-    /* Glass materials — light */
-    --glass-thin: rgba(255, 252, 247, 0.42);
-    --glass-regular: rgba(255, 252, 247, 0.62);
-    --glass-thick: rgba(255, 252, 247, 0.78);
-    --glass-chrome: rgba(255, 252, 247, 0.88);
+    /* Glass materials — light (based on ivory/paper) */
+    --glass-thin: rgba(250, 249, 245, 0.45);
+    --glass-regular: rgba(250, 249, 245, 0.65);
+    --glass-thick: rgba(250, 249, 245, 0.82);
+    --glass-chrome: rgba(250, 249, 245, 0.92);
 
-    /* Glass borders & highlights */
-    --hairline: rgba(255, 255, 255, 0.7);
-    --hairline-soft: rgba(255, 255, 255, 0.35);
-    --edge-dark: rgba(60, 35, 20, 0.08);
+    /* Glass borders & highlights — g300-based */
+    --hairline: rgba(209, 207, 197, 0.9);
+    --hairline-soft: rgba(209, 207, 197, 0.55);
+    --edge-dark: rgba(20, 20, 19, 0.07);
 
     /* Shadows */
     --shadow-soft:
       inset 0 0.5px 0 rgba(255, 255, 255, 0.85),
-      inset 0 -0.5px 0 rgba(60, 35, 20, 0.05),
-      0 1px 2px rgba(60, 35, 20, 0.04),
-      0 6px 24px -8px rgba(60, 35, 20, 0.14);
+      inset 0 -0.5px 0 rgba(20, 20, 19, 0.05),
+      0 1px 2px rgba(20, 20, 19, 0.04),
+      0 6px 24px -8px rgba(20, 20, 19, 0.12);
     --shadow-elevated:
       inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
-      inset 0 -0.5px 0 rgba(60, 35, 20, 0.06),
-      0 2px 6px rgba(60, 35, 20, 0.06),
-      0 18px 60px -12px rgba(60, 35, 20, 0.28);
+      inset 0 -0.5px 0 rgba(20, 20, 19, 0.06),
+      0 2px 6px rgba(20, 20, 19, 0.06),
+      0 18px 60px -12px rgba(20, 20, 19, 0.22);
     --shadow-floating:
       inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 4px 16px rgba(60, 35, 20, 0.10),
-      0 28px 80px -16px rgba(60, 35, 20, 0.35);
+      0 4px 16px rgba(20, 20, 19, 0.08),
+      0 28px 80px -16px rgba(20, 20, 19, 0.28);
 
-    /* Text */
-    --text: #1c1814;
-    --text2: #5a544c;
-    --text3: #8b857c;
+    /* Text — slate scale from html-effectiveness */
+    --text: #141413;
+    --text2: #3D3D3A;
+    --text3: #87867F;
 
-    /* Accents */
-    --accent: #d96434;
-    --accent-2: #ec8758;
-    --accent-tint: rgba(217, 100, 52, 0.16);
-    --green: #2f8d5e;
-    --green-2: #4cb085;
-    --green-tint: rgba(47, 141, 94, 0.16);
-    --red: #d94c3a;
+    /* Accents — clay & olive from html-effectiveness */
+    --accent: #D97757;
+    --accent-2: #C4694A;
+    --accent-tint: rgba(217, 119, 87, 0.15);
+    --green: #788C5D;
+    --green-2: #96A87A;
+    --green-tint: rgba(120, 140, 93, 0.15);
+    --red: #C0392B;
     --blue: #2a78d8;
 
     /* Radii (concentric, generous) */
@@ -99,42 +99,44 @@
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg-canvas: #0e0c0a;
+      --bg-canvas: #0f0e0c;
 
-      --glass-thin: rgba(40, 36, 32, 0.42);
-      --glass-regular: rgba(40, 36, 32, 0.58);
-      --glass-thick: rgba(40, 36, 32, 0.78);
-      --glass-chrome: rgba(28, 25, 22, 0.85);
+      --glass-thin: rgba(38, 35, 30, 0.45);
+      --glass-regular: rgba(38, 35, 30, 0.62);
+      --glass-thick: rgba(30, 28, 24, 0.82);
+      --glass-chrome: rgba(22, 20, 17, 0.88);
 
-      --hairline: rgba(255, 240, 220, 0.12);
-      --hairline-soft: rgba(255, 240, 220, 0.06);
+      --hairline: rgba(209, 207, 197, 0.14);
+      --hairline-soft: rgba(209, 207, 197, 0.07);
       --edge-dark: rgba(0, 0, 0, 0.4);
 
       --shadow-soft:
-        inset 0 0.5px 0 rgba(255, 240, 220, 0.10),
+        inset 0 0.5px 0 rgba(209, 207, 197, 0.12),
         inset 0 -0.5px 0 rgba(0, 0, 0, 0.4),
         0 1px 2px rgba(0, 0, 0, 0.5),
         0 6px 24px -8px rgba(0, 0, 0, 0.6);
       --shadow-elevated:
-        inset 0 0.5px 0 rgba(255, 240, 220, 0.14),
+        inset 0 0.5px 0 rgba(209, 207, 197, 0.16),
         inset 0 -0.5px 0 rgba(0, 0, 0, 0.5),
         0 2px 6px rgba(0, 0, 0, 0.4),
         0 18px 60px -12px rgba(0, 0, 0, 0.7);
       --shadow-floating:
-        inset 0 1px 0 rgba(255, 240, 220, 0.16),
+        inset 0 1px 0 rgba(209, 207, 197, 0.18),
         0 4px 16px rgba(0, 0, 0, 0.5),
         0 28px 80px -16px rgba(0, 0, 0, 0.85);
 
-      --text: #f3eee5;
-      --text2: #b3aca0;
-      --text3: #807973;
+      /* Text — inverted slate scale */
+      --text: #F0EEE6;
+      --text2: #B0ADA6;
+      --text3: #87867F;
 
-      --accent: #ef8a5a;
-      --accent-2: #f3a47e;
-      --accent-tint: rgba(239, 138, 90, 0.20);
-      --green: #5cc28d;
-      --green-2: #79d3a3;
-      --green-tint: rgba(92, 194, 141, 0.18);
+      /* Accents — lighter clay & olive for dark backgrounds */
+      --accent: #E8926E;
+      --accent-2: #F0AA88;
+      --accent-tint: rgba(232, 146, 110, 0.20);
+      --green: #9AB07A;
+      --green-2: #B3C895;
+      --green-tint: rgba(154, 176, 122, 0.18);
     }
   }
 
@@ -166,21 +168,21 @@
     pointer-events: none;
     z-index: 0;
     background:
-      radial-gradient(70% 45% at 100% 0%, rgba(217, 100, 52, 0.55), transparent 60%),
-      radial-gradient(75% 50% at 0% 20%, rgba(255, 197, 130, 0.55), transparent 65%),
-      radial-gradient(85% 55% at 50% 100%, rgba(47, 141, 94, 0.32), transparent 65%),
-      radial-gradient(55% 35% at 100% 70%, rgba(42, 120, 216, 0.18), transparent 60%);
-    filter: saturate(115%);
+      radial-gradient(70% 45% at 100% 0%, rgba(217, 119, 87, 0.50), transparent 60%),
+      radial-gradient(75% 50% at 0% 20%, rgba(227, 218, 204, 0.55), transparent 65%),
+      radial-gradient(85% 55% at 50% 100%, rgba(120, 140, 93, 0.28), transparent 65%),
+      radial-gradient(55% 35% at 100% 70%, rgba(42, 120, 216, 0.14), transparent 60%);
+    filter: saturate(110%);
   }
 
   @media (prefers-color-scheme: dark) {
     body::before {
       background:
-        radial-gradient(70% 45% at 100% 0%, rgba(239, 138, 90, 0.32), transparent 60%),
-        radial-gradient(75% 50% at 0% 20%, rgba(180, 90, 60, 0.30), transparent 65%),
-        radial-gradient(85% 55% at 50% 100%, rgba(60, 130, 100, 0.22), transparent 65%),
-        radial-gradient(55% 35% at 100% 70%, rgba(40, 60, 120, 0.30), transparent 65%);
-      filter: saturate(120%);
+        radial-gradient(70% 45% at 100% 0%, rgba(232, 146, 110, 0.30), transparent 60%),
+        radial-gradient(75% 50% at 0% 20%, rgba(196, 105, 74, 0.26), transparent 65%),
+        radial-gradient(85% 55% at 50% 100%, rgba(154, 176, 122, 0.20), transparent 65%),
+        radial-gradient(55% 35% at 100% 70%, rgba(40, 60, 120, 0.26), transparent 65%);
+      filter: saturate(115%);
     }
   }
 
@@ -1569,8 +1571,8 @@ function renderMonthChart() {
   monthChartInst = new Chart(document.getElementById('monthChart'), {
     type:'bar',
     data: { labels, datasets:[
-      {label:'Ausgaben',data:outData,backgroundColor:'rgba(200,98,58,0.7)',borderRadius:4,borderSkipped:false},
-      {label:'Einnahmen',data:inData,backgroundColor:'rgba(58,125,92,0.7)',borderRadius:4,borderSkipped:false}
+      {label:'Ausgaben',data:outData,backgroundColor:'rgba(217,119,87,0.7)',borderRadius:4,borderSkipped:false},
+      {label:'Einnahmen',data:inData,backgroundColor:'rgba(120,140,93,0.7)',borderRadius:4,borderSkipped:false}
     ]},
     options:{responsive:true,plugins:{legend:{labels:{color:c.text,font:{family:'DM Sans',size:11}}}},
       scales:{x:{ticks:{color:c.text,font:{size:10}},grid:{color:c.grid}},
@@ -1594,8 +1596,8 @@ async function renderYearChart() {
   yearChartInst = new Chart(document.getElementById('yearChart'), {
     type:'line',
     data:{ labels:MONTHS_SHORT, datasets:[
-      {label:'Ausgaben',data:monthly.map(m=>m.out),borderColor:'#c8623a',backgroundColor:'rgba(200,98,58,0.1)',tension:0.4,fill:true,pointRadius:3},
-      {label:'Einnahmen',data:monthly.map(m=>m.in),borderColor:'#3a7d5c',backgroundColor:'rgba(58,125,92,0.1)',tension:0.4,fill:true,pointRadius:3}
+      {label:'Ausgaben',data:monthly.map(m=>m.out),borderColor:'#D97757',backgroundColor:'rgba(217,119,87,0.10)',tension:0.4,fill:true,pointRadius:3},
+      {label:'Einnahmen',data:monthly.map(m=>m.in),borderColor:'#788C5D',backgroundColor:'rgba(120,140,93,0.10)',tension:0.4,fill:true,pointRadius:3}
     ]},
     options:{responsive:true,plugins:{legend:{labels:{color:c.text,font:{family:'DM Sans',size:11}}}},
       scales:{x:{ticks:{color:c.text,font:{size:10}},grid:{color:c.grid}},
@@ -1746,7 +1748,7 @@ async function addCategory() {
   const name = document.getElementById('newCatName').value.trim();
   const icon = document.getElementById('newCatIcon').value.trim() || '📦';
   if (!name) return;
-  const colors = ['#c8623a','#6b7aa1','#5a9e7a','#c47ab0','#e0a44a','#9e9b96'];
+  const colors = ['#D97757','#6b7aa1','#788C5D','#c47ab0','#e0a44a','#87867F'];
   try {
     await api('POST', '/categories', {name, icon, color: colors[categories.length%colors.length]});
     document.getElementById('newCatName').value='';
@@ -1800,7 +1802,7 @@ function renderCategories() {
   `).join('');
 }
 
-const CAT_COLOR_PRESETS = ['#c8623a','#6b7aa1','#5a9e7a','#c47ab0','#e0a44a','#9e9b96','#3a7d5c','#8a6a4a','#a45ab0','#6a8a8a'];
+const CAT_COLOR_PRESETS = ['#D97757','#6b7aa1','#788C5D','#c47ab0','#e0a44a','#87867F','#B85C3E','#8a6a4a','#a45ab0','#6a8a8a'];
 let editingCatId = null;
 let editingCatColor = '#9e9b96';
 
