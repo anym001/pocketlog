@@ -56,6 +56,11 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/version")
+def version() -> dict:
+    return {"version": os.environ.get("APP_VERSION", "dev")}
+
+
 # ---------- Categories ----------
 
 @app.get("/api/categories", response_model=list[schemas.CategoryOut])

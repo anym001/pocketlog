@@ -64,6 +64,7 @@ Routes registriert sind.
 ## API Endpoints (FastAPI)
 ```
 GET    /api/health
+GET    /api/version                      ← liefert {"version": "X.Y.Z"}, kein Auth
 GET    /api/transactions?year=&month=    ← month optional → ganzes Jahr
 POST   /api/transactions
 PUT    /api/transactions/{id}

@@ -62,7 +62,3 @@ Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
   Authentik, also kein Uptime-Check von außen ohne Token. Bei Bedarf in SWAG
   einen Location-Block für `/api/health` ohne `authentik-location.conf`
   anlegen.
-- **Versions-Tags / Release-Prozess dokumentieren.** Der Workflow unterstützt
-  `vX.Y.Z`-Tags (→ Image-Tags `X.Y.Z` und `X.Y`), aber README/CLAUDE.md
-  erwähnen keinen Release-Workflow. Solange nur `:latest` deployt wird,
-  irrelevant.
