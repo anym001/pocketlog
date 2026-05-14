@@ -19,18 +19,6 @@ anfasst, ihn hier bitte gleich streichen.
   `syncNow()` — Hintergrund-Sync bei geschlossenem Tab erst beim nächsten
   Öffnen.
 
-## Security
-
-- **Backend-Port nicht direkt exponieren.** Der `X-Authentik-Username`-Header
-  wird vom Backend als Identität übernommen — die Validierung läuft
-  vorgelagert über die Authentik-Session (inkl. MFA). Zusätzlich prüft das
-  Backend ein Shared Secret (`AUTH_SECRET` ENV, von SWAG via
-  `X-Auth-Secret`-Header injiziert) per `hmac.compare_digest`. Solange das
-  Secret gesetzt ist, scheitern Direktzugriffe auf Port 8000 mit gefälschten
-  Headern. Trotzdem: Port 8000 nicht öffentlich erreichbar machen.
-  Weitergehende Härtung (falls je nötig): mTLS zwischen den Containern oder
-  signierte JWTs aus Authentik (OIDC statt Forward Auth).
-
 ## Nice-to-haves
 
 Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
