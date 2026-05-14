@@ -17,15 +17,15 @@ from .database import get_db
 
 logger = logging.getLogger("uvicorn.error")
 
-# Shared Secret zwischen SWAG und Backend. Wenn gesetzt, muss jeder Request
-# den passenden X-Auth-Secret-Header tragen – sonst 401. Schützt gegen
-# Direktzugriffe auf Port 8000 mit gefälschtem X-Authentik-Username.
+# Shared secret between SWAG and the backend. When set, every request must
+# carry a matching X-Auth-Secret header (401 otherwise). Guards against direct
+# access to port 8000 with a forged X-Authentik-Username header.
 AUTH_SECRET = os.environ.get("AUTH_SECRET", "").strip()
 if not AUTH_SECRET:
     logger.warning(
-        "AUTH_SECRET ist nicht gesetzt – das Backend vertraut blind dem "
-        "X-Authentik-Username-Header. Port 8000 darf in dem Fall nur über "
-        "SWAG erreichbar sein."
+        "AUTH_SECRET is not set – the backend blindly trusts the "
+        "X-Authentik-Username header. Port 8000 must only be reachable "
+        "through SWAG in this configuration."
     )
 
 app = FastAPI(
@@ -202,7 +202,7 @@ async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
-        # Fallback für Excel-Exporte unter Windows
+        # Fallback for Excel exports on Windows
         try:
             text = raw.decode("cp1252")
         except UnicodeDecodeError:
@@ -240,8 +240,8 @@ def export_csv(user: CurrentUser, db: DB):
 
 
 # ---------- PWA Static Files ----------
-# Liegt im Image unter /app/static (siehe Dockerfile).  Muss als letztes
-# gemountet werden, damit /api/... vorher matcht.
+# Located at /app/static in the image (see Dockerfile). Must be mounted last
+# so that /api/* routes take precedence.
 _static_dir = Path(__file__).resolve().parent.parent / "static"
 if _static_dir.is_dir():
     app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")

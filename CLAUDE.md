@@ -145,6 +145,11 @@ Authentik-Flow-Policy konfiguriert werden).
 - Datum intern: ISO 8601 (YYYY-MM-DD)
 - NIEMALS Inter/Roboto/Arial – DM Serif Display + DM Sans
 
+## Sprach-Konventionen
+
+- **Code, Kommentare, Workflow-YAML, Skripte:** Englisch
+- **Dokumentation (CLAUDE.md, TODO.md, README.md, unraid/pocketlog.xml):** Deutsch
+
 ## Konventionen Backend
 - CRUD-Funktionen immer mit `username` Parameter (Datenisolation)
 - Neue Endpoints: `main.py` + Schema in `schemas.py` + Logik in `crud.py`

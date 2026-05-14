@@ -314,10 +314,10 @@ def _parse_date(s: str) -> date_type:
 
 
 def _parse_amount(s: str) -> Decimal:
-    # Akzeptiert "42.50", "42,50", "1.234,56", "1,234.56"
+    # Accepts "42.50", "42,50", "1.234,56", "1,234.56"
     t = s.strip().replace("€", "").replace(" ", "")
     if "," in t and "." in t:
-        # Letztes Symbol gewinnt als Dezimaltrenner
+        # The last separator wins as decimal point
         if t.rfind(",") > t.rfind("."):
             t = t.replace(".", "").replace(",", ".")
         else:
@@ -335,7 +335,7 @@ def _build_transaction(row: dict, db: Session, username: str) -> models.Transact
     if not r:
         return None
     if not any(r.values()):
-        return None  # leere Zeile überspringen
+        return None  # skip empty rows
 
     if not r.get("amount"):
         raise ValueError("Spalte 'amount' fehlt oder leer")
@@ -348,7 +348,7 @@ def _build_transaction(row: dict, db: Session, username: str) -> models.Transact
     type_raw = _norm_key(r.get("type"))
     tx_type = _TYPE_ALIASES.get(type_raw)
     if tx_type is None:
-        # aus Vorzeichen ableiten
+        # derive type from sign
         if amount < 0:
             tx_type = "out"
         elif amount > 0:
@@ -379,7 +379,7 @@ def _build_transaction(row: dict, db: Session, username: str) -> models.Transact
 
 
 def import_csv(db: Session, username: str, text: str) -> dict:
-    # Trennzeichen automatisch erkennen (; , \t)
+    # Auto-detect delimiter (; , \t)
     sample = text[:4096]
     try:
         dialect = csv.Sniffer().sniff(sample, delimiters=";,\t|")
