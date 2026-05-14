@@ -164,6 +164,77 @@ Authentik-Flow-Policy konfiguriert werden).
 - Schemaänderungen: Alembic-Revision generieren, nicht manuell ALTER TABLE
 - StaticFiles-Mount IMMER zuletzt registrieren, damit `/api/*` vorher matcht
 
+## Apple Style Guide – UI-Konventionen (Frontend)
+
+Gilt für alle sichtbaren Texte in `frontend/index.html` (deutsche UI). Regeln orientieren sich am [Apple Style Guide](https://help.apple.com/pdf/applestyleguide/en_US/apple-style-guide.pdf).
+
+### Groß-/Kleinschreibung
+- **Deutsche UI-Texte:** Grammatik-regeln gelten – Substantive immer groß, Satzanfang groß.
+- **Buttons / Labels:** Erster Buchstabe des ersten Wortes groß, Rest nach Grammatik (Sentence case). Keine Titelschreibung (kein „Neue Buchung Hinzufügen").
+- **Abkürzungen** wie CSV, API, URL, WLAN immer in Großbuchstaben.
+- **App-Name:** „PocketLog" – immer genau so, nie „Pocketlog" oder „pocket log".
+
+### Aktions-Buttons
+- Buttons beschreiben die **Aktion**, nicht den Zustand: „Speichern", „Löschen", „Importieren" – nicht „OK", „Ja", „Nein".
+- Destruktive Aktionen (Löschen) sind **immer** durch einen „Abbrechen"-Button ergänzt.
+- „Abbrechen" beendet einen Dialog ohne Änderungen. „Schließen" nur wenn nichts geändert werden konnte.
+- Buttons, die einen weiteren Dialog öffnen, enden mit Ellipse: „Importieren…" (Unicode `…`, nicht `...`).
+
+### Alerts & Bestätigungsdialoge
+- Formulierung klar und handlungsorientiert: **Was passiert**, nicht nur was schiefging.
+  - Gut: „Soll „Supermarkt" wirklich gelöscht werden? Diese Aktion kann nicht rückgängig gemacht werden."
+  - Vermeiden: „Fehler.", „Bitte ausfüllen."
+- Keine technischen Fehlercodes in nutzer-sichtbaren Meldungen (`e.message` direkt anzeigen ist ok für Debug, aber nicht als primäre Botschaft).
+- Einfache Beschriftungen (Button-Text, kurze Labels) **ohne** abschließenden Punkt.
+- Mehrsätzige Hinweistexte (Hilfetexte, Beschreibungen) enden **mit** Punkt.
+
+### Terminologie (Deutsch)
+| Verwenden | Nicht verwenden |
+|---|---|
+| tippen | klicken (für Touch-Interaktionen) |
+| Anmelden / Abmelden | Einloggen / Ausloggen / Login |
+| App | Applikation, Anwendung |
+| WLAN | WiFi, W-LAN |
+| E-Mail | Email, eMail |
+| Gerät | Device |
+| Einstellungen | Settings, Optionen (als Menüpunkt) |
+| Buchung | Transaktion (in der UI; im Code weiter `transaction`) |
+
+### Zahlen & Währung
+- Alle Beträge via `fmtCurrency(n)` formatieren – de-DE Locale (Komma als Dezimaltrennzeichen, Punkt als Tausendertrennzeichen): `1.234,56 €`
+- Währungssymbol **nach** der Zahl mit Leerzeichen: `12,50 €` – nicht `€12,50`
+- Einheiten immer mit Leerzeichen vor der Einheit: `5 MB`, `100 %` – nicht `5MB`, `100%`
+- Prozent: `100 %` (Leerzeichen vor `%` in Deutsch)
+
+### Datum & Zeit
+- Anzeige: deutsches Format `DD.MM.YYYY` oder relative Begriffe „Heute", „Gestern" für aktuelle Daten (bereits umgesetzt).
+- Monatsnamen ausschreiben wenn Platz vorhanden; nur kürzen wenn nötig (Jan, Feb, …).
+- Intern immer ISO 8601: `YYYY-MM-DD`.
+
+### Satzzeichen & Typografie
+- Typografische Anführungszeichen: `„Text"` (unten/oben, bereits umgesetzt für Buchungstitel).
+- Ellipse: `…` (U+2026), niemals drei einzelne Punkte `...`.
+- Gedankenstrich: `–` (En-Dash, U+2013) in deutschen Texten für Einschübe; `—` (Em-Dash) nicht verwenden.
+- Apostroph: `'` (U+2019), nicht `'` (ASCII).
+- Keine doppelten Leerzeichen, kein harter Zeilenumbruch in UI-Labels.
+
+### Touch & Interaktion
+- Mindest-Tippfläche: **44 × 44 pt** für alle interaktiven Elemente (Buttons, Links).
+- Berührungsaktionen mit „tippen" beschreiben, nicht „klicken" oder „drücken".
+- Swipe-Gesten explizit benennen wenn nötig: „Wische nach links zum Löschen".
+
+### Barrierefreiheit (Accessibility)
+- Alle Icon-only-Buttons **müssen** `aria-label` haben (z. B. `aria-label="Buchung löschen"` – bereits umgesetzt).
+- Farbe darf **nicht** das einzige Unterscheidungsmerkmal sein (Einnahmen/Ausgaben: zusätzlich `+`/`–`-Vorzeichen – bereits umgesetzt).
+- Statusänderungen (Sync, Laden) via `aria-live="polite"` ankündigen.
+
+### Offline- & Sync-Zustand
+- Sync-Status klar und kurz kommunizieren:
+  - Aktiv: „Synchronisiert…"
+  - Abgeschlossen: „Gespeichert"
+  - Offline: „Offline – Änderungen werden gespeichert"
+  - Fehler: „Synchronisation fehlgeschlagen – Bitte Verbindung prüfen"
+
 ## Bekannte Einschränkungen / TODO (Backlog)
 
 Siehe [`TODO.md`](TODO.md) für offene Punkte (Features, PWA-Limits, Security).
