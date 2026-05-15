@@ -1452,8 +1452,8 @@
   /* ====== YEAR NAV ====== */
   .year-nav {
     display: flex; align-items: center; justify-content: center;
-    gap: 8px; margin-bottom: 18px;
-    padding: 3px;
+    gap: var(--space-8); margin-bottom: var(--space-18);
+    padding: var(--space-3);
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
@@ -1493,7 +1493,7 @@
   }
   #tagList > * {
     font-size: var(--fs-callout);
-    padding: 10px 16px;
+    padding: var(--space-10) var(--space-16);
   }
 
   /* ====== TOASTS ====== */
@@ -1507,7 +1507,7 @@
     pointer-events: none;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-8);
   }
   .toast {
     background: var(--glass-chrome);
@@ -1515,7 +1515,7 @@
     backdrop-filter: var(--blur-thick);
     border: var(--border-hairline-strong);
     border-radius: var(--r-lg);
-    padding: 12px 16px;
+    padding: var(--space-12) var(--space-16);
     font-size: var(--fs-footnote);
     line-height: 1.4;
     color: var(--text);
@@ -1532,7 +1532,7 @@
   .confirm-msg { font-size: var(--fs-footnote); color: var(--text2); line-height: 1.5; margin: 0 0 20px; }
   .confirm-modal {
     max-width: 360px;
-    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    padding-bottom: max(var(--space-20), env(safe-area-inset-bottom));
     border-radius: var(--r-xl);
     border-bottom: var(--border-hairline);
   }
