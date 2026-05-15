@@ -1800,15 +1800,16 @@
 <!-- TAG EDIT MODAL -->
 <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
   <div class="modal">
-    <div class="modal-handle"></div>
-    <h2>Tag bearbeiten</h2>
+    <div class="modal-header">
+      <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">‹</button>
+      <h2>Tag bearbeiten</h2>
+    </div>
     <div class="form-group">
       <label>Name</label>
       <input type="text" id="tagEditName" maxlength="64">
     </div>
     <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
     <button class="submit-btn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
-    <button class="submit-btn" onclick="closeTagModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
   </div>
 </div>
 
