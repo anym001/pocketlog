@@ -938,7 +938,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: calc(env(safe-area-inset-top) + 44px);
+    min-height: calc(env(safe-area-inset-top) + 60px);
   }
   .drawer-back-btn {
     position: absolute;
@@ -1590,11 +1590,7 @@
       </div>
       <div class="drawer-section">
         <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:0.875rem;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-          <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:1.125rem;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-          <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()" aria-label="Kategorie hinzufügen">+</button>
-        </div>
+        <button class="save-btn" onclick="openCatModal()">Kategorie hinzufügen</button>
       </div>
     </div>
 
@@ -1816,11 +1812,11 @@
   </div>
 </div>
 
-<!-- CATEGORY EDIT MODAL -->
+<!-- CATEGORY ADD/EDIT MODAL -->
 <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
   <div class="modal">
     <div class="modal-handle"></div>
-    <h2>Kategorie bearbeiten</h2>
+    <h2 id="catModalTitle">Kategorie bearbeiten</h2>
     <div class="form-group">
       <label>Name</label>
       <input type="text" id="catEditName" maxlength="100">
@@ -1834,7 +1830,7 @@
       <div class="color-swatches" id="catEditColors"></div>
     </div>
     <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
-    <button class="submit-btn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <button class="submit-btn" id="catDeleteBtn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
     <button class="submit-btn" onclick="closeCatModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
   </div>
 </div>
@@ -2603,19 +2599,7 @@ function mergeIntoAvailableTags(tags) {
 }
 
 // ── CATEGORIES ────────────────────────────────────────────────────────────────
-async function addCategory() {
-  const name = document.getElementById('newCatName').value.trim();
-  const icon = document.getElementById('newCatIcon').value.trim() || '📦';
-  if (!name) return;
-  const colors = ['#D97757','#6b7aa1','#788C5D','#c47ab0','#e0a44a','#87867F'];
-  try {
-    await api('POST', '/categories', {name, icon, color: colors[categories.length%colors.length]});
-    document.getElementById('newCatName').value='';
-    document.getElementById('newCatIcon').value='';
-    await loadCategories();
-    renderCategories();
-  } catch(e) { toast('Kategorie konnte nicht gespeichert werden. Verbindung prüfen.', 'error'); }
-}
+const CAT_CREATE_COLORS = ['#D97757','#6b7aa1','#788C5D','#c47ab0','#e0a44a','#87867F'];
 
 async function loadCategories() {
   try { categories = await api('GET', '/categories'); } catch(e) { categories=[]; }
@@ -2666,15 +2650,29 @@ let editingCatId = null;
 let editingCatColor = '#9e9b96';
 
 function openCatModal(id) {
-  const c = categories.find(x => x.id === id);
-  if (!c) return;
-  editingCatId = c.id;
-  editingCatColor = c.color || '#9e9b96';
-  document.getElementById('catEditName').value = c.name || '';
-  document.getElementById('catEditIcon').value = c.icon || '📦';
+  const deleteBtn = document.getElementById('catDeleteBtn');
+  const title = document.getElementById('catModalTitle');
+  if (id) {
+    const c = categories.find(x => x.id === id);
+    if (!c) return;
+    editingCatId = c.id;
+    editingCatColor = c.color || '#9e9b96';
+    document.getElementById('catEditName').value = c.name || '';
+    document.getElementById('catEditIcon').value = c.icon || '📦';
+    title.textContent = 'Kategorie bearbeiten';
+    deleteBtn.style.display = '';
+  } else {
+    editingCatId = null;
+    editingCatColor = CAT_CREATE_COLORS[categories.length % CAT_CREATE_COLORS.length];
+    document.getElementById('catEditName').value = '';
+    document.getElementById('catEditIcon').value = '📦';
+    title.textContent = 'Neue Kategorie';
+    deleteBtn.style.display = 'none';
+  }
   renderCatColorSwatches();
   document.getElementById('catModalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('catEditName').focus(), 200);
 }
 
 function renderCatColorSwatches() {
@@ -2704,13 +2702,16 @@ function closeCatModalOutside(e) {
 }
 
 async function saveCategoryEdit() {
-  if (!editingCatId) return;
   const name = document.getElementById('catEditName').value.trim();
   const icon = document.getElementById('catEditIcon').value.trim() || '📦';
   if (!name) { toast('Name ist ein Pflichtfeld.', 'error'); return; }
   if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { toast('Die Farbe ist ungültig. Ein gültiger Hex-Wert wird benötigt, z. B. #D97757.', 'error'); return; }
   try {
-    await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
+    if (editingCatId) {
+      await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
+    } else {
+      await api('POST', '/categories', { name, icon, color: editingCatColor });
+    }
     closeCatModal();
     await loadCategories();
     renderCategories();
