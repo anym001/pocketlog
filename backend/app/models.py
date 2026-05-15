@@ -33,6 +33,9 @@ class User(Base):
     transactions: Mapped[list["Transaction"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    tags: Mapped[list["Tag"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Category(Base):
@@ -53,6 +56,23 @@ class Category(Base):
 
     user: Mapped[User] = relationship(back_populates="categories")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_tags_user_name"),
+        Index("ix_tags_user_id", "user_id"),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="tags")
 
 
 class Transaction(Base):

@@ -28,6 +28,10 @@ class CategoryOut(CategoryBase):
 
 # -------- Tags --------
 
+class TagCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+
+
 class TagRename(BaseModel):
     new_name: str = Field(min_length=1, max_length=64)
 

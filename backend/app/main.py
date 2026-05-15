@@ -173,12 +173,25 @@ def get_tags(user: CurrentUser, db: DB):
     return crud.list_tags(db, user.id)
 
 
+@app.post("/api/tags", status_code=201)
+def post_tag(payload: schemas.TagCreate, user: CurrentUser, db: DB):
+    try:
+        tag = crud.create_tag(db, user.id, payload.name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="tag exists")
+    return {"name": tag.name}
+
+
 @app.put("/api/tags/{name}")
 def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
     try:
         affected = crud.rename_tag(db, user.id, name, payload.new_name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="tag exists")
     return {"affected": affected}
 
 

@@ -1601,8 +1601,9 @@
         <span class="drawer-sub-title">Tags</span>
       </div>
       <div class="drawer-section">
-        <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
-        <p style="font-size:0.75rem;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
+        <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+        <button class="save-btn" onclick="openTagModal()">Tag erstellen</button>
+        <p style="font-size:0.75rem;color:var(--text3);line-height:1.5;margin-top:12px">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
       </div>
     </div>
 
@@ -1797,19 +1798,19 @@
   </div>
 </div>
 
-<!-- TAG EDIT MODAL -->
+<!-- TAG ADD/EDIT MODAL -->
 <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
   <div class="modal">
     <div class="modal-header">
       <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">‹</button>
-      <h2>Tag bearbeiten</h2>
+      <h2 id="tagModalTitle">Tag bearbeiten</h2>
     </div>
     <div class="form-group">
       <label>Name</label>
       <input type="text" id="tagEditName" maxlength="64">
     </div>
     <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
-    <button class="submit-btn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <button class="submit-btn" id="tagDeleteBtn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
   </div>
 </div>
 
@@ -2770,8 +2771,19 @@ function renderTagList() {
 }
 
 function openTagModal(name) {
-  editingTagName = name;
-  document.getElementById('tagEditName').value = name;
+  const deleteBtn = document.getElementById('tagDeleteBtn');
+  const title = document.getElementById('tagModalTitle');
+  if (name) {
+    editingTagName = name;
+    document.getElementById('tagEditName').value = name;
+    title.textContent = 'Tag bearbeiten';
+    deleteBtn.style.display = '';
+  } else {
+    editingTagName = null;
+    document.getElementById('tagEditName').value = '';
+    title.textContent = 'Neuer Tag';
+    deleteBtn.style.display = 'none';
+  }
   document.getElementById('tagModalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   setTimeout(()=>document.getElementById('tagEditName').focus(), 200);
@@ -2787,18 +2799,25 @@ function closeTagModalOutside(e) {
 }
 
 async function saveTagEdit() {
-  if (!editingTagName) return;
   const newName = document.getElementById('tagEditName').value.trim();
   if (!newName) { toast('Name ist ein Pflichtfeld.', 'error'); return; }
-  if (newName === editingTagName) { closeTagModal(); return; }
+  if (editingTagName && newName === editingTagName) { closeTagModal(); return; }
   try {
-    await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
+    if (editingTagName) {
+      await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
+    } else {
+      await api('POST', '/tags', { name: newName });
+    }
     closeTagModal();
     await loadTags();
     renderTagList();
     await loadAndRender();
   } catch (e) {
-    toast('Fehler beim Speichern: ' + e.message, 'error');
+    if (e.message && e.message.includes('409')) {
+      toast('Ein Tag mit diesem Namen existiert bereits.', 'error');
+    } else {
+      toast('Fehler beim Speichern: ' + e.message, 'error');
+    }
   }
 }
 
