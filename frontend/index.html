@@ -995,7 +995,7 @@
     border: 0.5px solid var(--hairline-soft);
     border-bottom: 0;
     border-radius: var(--r-xl) var(--r-xl) 0 0;
-    padding: 14px 22px max(20px, env(safe-area-inset-bottom));
+    padding: 14px 22px 0;
     width: 100%;
     max-width: 430px;
     animation: slideUp 0.45s var(--ease-spring);
@@ -1003,7 +1003,8 @@
     position: relative;
     isolation: isolate;
     max-height: calc(100dvh - env(safe-area-inset-top) - 12px);
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
   .modal::before {
     content: '';
@@ -1062,6 +1063,24 @@
     background: var(--glass-thick);
     color: var(--text);
     transform: scale(0.94);
+  }
+
+  .modal-body {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0 -22px;
+    padding: 0 22px 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .modal-body::-webkit-scrollbar { display: none; }
+  .modal-footer {
+    flex: 0 0 auto;
+    margin: 8px -22px 0;
+    padding: 4px 22px max(20px, env(safe-area-inset-bottom));
+    border-top: 0.5px solid var(--hairline-soft);
   }
 
   .type-toggle {
@@ -1435,7 +1454,7 @@
 
   /* ====== CONFIRM DIALOG ====== */
   .confirm-msg { font-size: 0.875rem; color: var(--text2); line-height: 1.5; margin: 0 0 20px; }
-  .confirm-modal { max-width: 360px; padding-top: 22px; }
+  .confirm-modal { max-width: 360px; padding: 22px 22px max(20px, env(safe-area-inset-bottom)); }
   .confirm-modal h2 { font-size: 1.25rem; margin-bottom: 12px; }
   .confirm-cancel {
     width: 100%; margin-top: 8px;
@@ -1766,36 +1785,40 @@
       <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">‹</button>
       <h2>Neue Buchung</h2>
     </div>
-    <div class="type-toggle">
-      <button class="type-btn active out" onclick="setType('out',this)">Ausgabe</button>
-      <button class="type-btn in" onclick="setType('in',this)">Einnahme</button>
-    </div>
-    <div class="form-group">
-      <label>Betrag (€)</label>
-      <input type="number" class="amount-input" id="inputAmount" placeholder="0,00" step="0.01" inputmode="decimal">
-    </div>
-    <div class="form-group">
-      <label>Beschreibung <span style="color:var(--text3);font-weight:400">(optional)</span></label>
-      <input type="text" id="inputDesc" placeholder="z.B. Supermarkt">
-    </div>
-    <div class="form-group">
-      <label>Kategorie</label>
-      <select id="inputCat"></select>
-    </div>
-    <div class="form-group">
-      <label>Datum</label>
-      <input type="date" id="inputDate">
-    </div>
-    <div class="form-group">
-      <label>Tags (Enter zum Hinzufügen)</label>
-      <div class="tags-input-wrap" id="tagsWrap">
-        <input type="text" class="tag-add-input" id="tagInput" placeholder="+ Tag" list="tagsDatalist" autocomplete="off" onkeydown="handleTagInput(event)">
+    <div class="modal-body">
+      <div class="type-toggle">
+        <button class="type-btn active out" onclick="setType('out',this)">Ausgabe</button>
+        <button class="type-btn in" onclick="setType('in',this)">Einnahme</button>
       </div>
-      <datalist id="tagsDatalist"></datalist>
-      <div class="tag-suggestions" id="tagSuggestions"></div>
+      <div class="form-group">
+        <label>Betrag (€)</label>
+        <input type="number" class="amount-input" id="inputAmount" placeholder="0,00" step="0.01" inputmode="decimal">
+      </div>
+      <div class="form-group">
+        <label>Beschreibung <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <input type="text" id="inputDesc" placeholder="z.B. Supermarkt">
+      </div>
+      <div class="form-group">
+        <label>Kategorie</label>
+        <select id="inputCat"></select>
+      </div>
+      <div class="form-group">
+        <label>Datum</label>
+        <input type="date" id="inputDate">
+      </div>
+      <div class="form-group">
+        <label>Tags (Enter zum Hinzufügen)</label>
+        <div class="tags-input-wrap" id="tagsWrap">
+          <input type="text" class="tag-add-input" id="tagInput" placeholder="+ Tag" list="tagsDatalist" autocomplete="off" onkeydown="handleTagInput(event)">
+        </div>
+        <datalist id="tagsDatalist"></datalist>
+        <div class="tag-suggestions" id="tagSuggestions"></div>
+      </div>
     </div>
-    <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
-    <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <div class="modal-footer">
+      <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
+      <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    </div>
   </div>
 </div>
 
@@ -1807,12 +1830,16 @@
       <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">‹</button>
       <h2 id="tagModalTitle">Tag bearbeiten</h2>
     </div>
-    <div class="form-group">
-      <label>Name</label>
-      <input type="text" id="tagEditName" maxlength="64">
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="tagEditName" maxlength="64">
+      </div>
     </div>
-    <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
-    <button class="submit-btn" id="tagDeleteBtn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <div class="modal-footer">
+      <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
+      <button class="submit-btn" id="tagDeleteBtn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    </div>
   </div>
 </div>
 
@@ -1824,20 +1851,24 @@
       <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">‹</button>
       <h2 id="catModalTitle">Kategorie bearbeiten</h2>
     </div>
-    <div class="form-group">
-      <label>Name</label>
-      <input type="text" id="catEditName" maxlength="100">
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="catEditName" maxlength="100">
+      </div>
+      <div class="form-group">
+        <label>Icon (Emoji)</label>
+        <input type="text" id="catEditIcon" maxlength="8" style="text-align:center;font-size:1.5rem">
+      </div>
+      <div class="form-group">
+        <label>Farbe</label>
+        <div class="color-swatches" id="catEditColors"></div>
+      </div>
     </div>
-    <div class="form-group">
-      <label>Icon (Emoji)</label>
-      <input type="text" id="catEditIcon" maxlength="8" style="text-align:center;font-size:1.5rem">
+    <div class="modal-footer">
+      <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
+      <button class="submit-btn" id="catDeleteBtn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
     </div>
-    <div class="form-group">
-      <label>Farbe</label>
-      <div class="color-swatches" id="catEditColors"></div>
-    </div>
-    <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
-    <button class="submit-btn" id="catDeleteBtn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
   </div>
 </div>
 
@@ -2433,9 +2464,11 @@ function attachDragDismiss(overlayId, closeFn) {
   if (!overlay) return;
   const modal = overlay.querySelector('.modal');
   const handle = modal.querySelector('.modal-handle');
+  const body = modal.querySelector('.modal-body');
+  const header = modal.querySelector('.modal-header');
 
   let startY = 0, prevY = 0, prevTime = 0, dy = 0, active = false;
-  let intentDecided = false, fromHandle = false, startScrollTop = 0;
+  let intentDecided = false, fromChrome = false, startScrollTop = 0;
 
   modal.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse') return;
@@ -2445,8 +2478,10 @@ function attachDragDismiss(overlayId, closeFn) {
     dy = 0;
     active = false;
     intentDecided = false;
-    fromHandle = handle ? handle.contains(e.target) : false;
-    startScrollTop = modal.scrollTop;
+    fromChrome =
+      (handle && handle.contains(e.target)) ||
+      (header && header.contains(e.target));
+    startScrollTop = body ? body.scrollTop : modal.scrollTop;
   });
 
   modal.addEventListener('pointermove', (e) => {
@@ -2455,7 +2490,7 @@ function attachDragDismiss(overlayId, closeFn) {
     if (!intentDecided) {
       if (Math.abs(raw) < 8) return;
       intentDecided = true;
-      if (raw > 0 && (fromHandle || startScrollTop <= 1)) {
+      if (raw > 0 && (fromChrome || startScrollTop <= 1)) {
         active = true;
         modal.style.transition = 'none';
         try { modal.setPointerCapture(e.pointerId); } catch (_) {}
