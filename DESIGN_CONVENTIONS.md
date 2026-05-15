@@ -148,6 +148,24 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
   `var(--fs-callout)`. Globale Änderung: nur den Wert der CSS-Variable
   in `:root` anpassen, dann gilt sie überall.
 
+- **Weitere zentrale Tokens** (`frontend/index.html` `:root`):
+
+  | Bereich        | Variable                       | Wert / Verwendung |
+  |---|---|---|
+  | Z-Layer        | `--z-toolbar`                  | `100` (Sticky-Header) |
+  |                | `--z-floating`                 | `200` (Bottom-Bar) |
+  |                | `--z-drawer-backdrop`          | `400` (Drawer-Dimmer) |
+  |                | `--z-drawer`                   | `401` (Drawer-Panel) |
+  |                | `--z-modal`                    | `500` (Sheet/Modal) |
+  |                | `--z-toast`                    | `800` (Toast / System) |
+  | Animation      | `--dur-fast`                   | `0.15s` (Tap-Feedback) |
+  |                | `--dur-base`                   | `0.2s` (Default) |
+  |                | `--dur-medium`                 | `0.25s` (Chrome-Buttons) |
+  |                | `--dur-slow`                   | `0.3s` (Panel / Overlay) |
+  | Focus          | `--focus-ring`                 | `0 0 0 3px var(--accent-tint)` |
+  | Border         | `--border-hairline`            | `0.5px solid var(--hairline-soft)` |
+  |                | `--border-hairline-strong`     | `0.5px solid var(--hairline)` |
+
 - **Line Height:** `1.25` für DM Serif Display, `1.4` für DM Sans Body.
 - **Letter Spacing:** Standard belassen; nicht künstlich aufweiten.
 - **Zahlentabellen:** `font-variant-numeric: tabular-nums` für Spalten mit
