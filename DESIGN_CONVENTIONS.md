@@ -65,7 +65,12 @@ Referenz: [HIG: Layout](https://developer.apple.com/design/human-interface-guide
 
 - **Container:** zentriert, `max-width: 430px`, horizontale Innenränder `16px`.
 - **Vertikales Spacing-Raster:** `4 / 8 / 12 / 16 / 24 / 32` (Vielfache von 4).
-  Spacing-Werte außerhalb dieser Skala vermeiden.
+  Spacing-Werte außerhalb dieser Skala vermeiden. Quelle der Wahrheit sind die
+  CSS-Variablen `--space-N` in `frontend/index.html` `:root`, wobei `N` der
+  Px-Wert ist. Aktuell sind auch Halbschritte (`--space-3`, `--space-5`,
+  `--space-6`, `--space-7`, `--space-11`, `--space-13`, `--space-15`,
+  `--space-18`, `--space-22`, `--space-26`) als Übergangs-Tokens definiert und
+  werden in einer späteren Konsolidierung auf die 4-px-Skala zusammengezogen.
 - **Safe Area:** `env(safe-area-inset-*)` für oberen Status-Bar-Bereich, Notch /
   Dynamic Island und Home-Indikator. Fixed-Bottom-Elemente bekommen
   `padding-bottom: max(16px, env(safe-area-inset-bottom))`.
