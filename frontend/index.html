@@ -1454,22 +1454,8 @@
 
   /* ====== CONFIRM DIALOG ====== */
   .confirm-msg { font-size: 0.875rem; color: var(--text2); line-height: 1.5; margin: 0 0 20px; }
-  .confirm-modal { max-width: 360px; padding: 22px 22px max(20px, env(safe-area-inset-bottom)); }
-  .confirm-modal h2 { font-size: 1.25rem; margin-bottom: 12px; }
-  .confirm-cancel {
-    width: 100%; margin-top: 8px;
-    background: transparent;
-    color: var(--text2);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-md);
-    padding: 14px;
-    font-family: var(--font-body);
-    font-size: 0.9375rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s var(--ease-soft);
-  }
-  .confirm-cancel:hover, .confirm-cancel:active { background: var(--glass-thin); }
+  .confirm-modal { max-width: 360px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .confirm-modal h2 { font-size: 1.25rem; }
 
   /* ====== MATERIAL FALLBACKS ====== */
   /* When the browser cannot blur, or the user prefers reduced transparency,
@@ -1927,7 +1913,7 @@ function toast(message, type = 'info') {
   }, dwell);
 }
 
-function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', cancelLabel = 'Abbrechen', destructive = true }) {
+function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', destructive = true }) {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay open';
@@ -1939,10 +1925,21 @@ function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', canc
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-labelledby', 'confirmTitle');
 
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+
+    const back = document.createElement('button');
+    back.className = 'modal-cancel-btn';
+    back.type = 'button';
+    back.setAttribute('aria-label', 'Schließen');
+    back.textContent = '‹';
+    header.appendChild(back);
+
     const h = document.createElement('h2');
     h.id = 'confirmTitle';
     h.textContent = title;
-    modal.appendChild(h);
+    header.appendChild(h);
+    modal.appendChild(header);
 
     if (message) {
       const p = document.createElement('p');
@@ -1958,12 +1955,6 @@ function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', canc
     if (destructive) yes.style.cssText = 'background:transparent;color:var(--accent);border:1px solid var(--accent)';
     modal.appendChild(yes);
 
-    const no = document.createElement('button');
-    no.className = 'confirm-cancel';
-    no.type = 'button';
-    no.textContent = cancelLabel;
-    modal.appendChild(no);
-
     overlay.appendChild(modal);
 
     const close = (result) => {
@@ -1975,8 +1966,8 @@ function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', canc
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
     yes.addEventListener('click', () => close(true));
-    no.addEventListener('click', () => close(false));
-    setTimeout(() => no.focus(), 50);
+    back.addEventListener('click', () => close(false));
+    setTimeout(() => back.focus(), 50);
   });
 }
 
