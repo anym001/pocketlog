@@ -467,7 +467,7 @@
   }
 
   /* ====== PANELS ====== */
-  .panel { display: none; padding: 8px 20px calc(96px + env(safe-area-inset-bottom)); }
+  .panel { display: none; padding: 8px 20px calc(66px + max(16px, env(safe-area-inset-bottom))); }
   .panel.active { display: block; }
 
   /* ====== SEARCH MODE ====== */
@@ -699,7 +699,7 @@
   /* ====== BOTTOM BAR (search + FAB) ====== */
   .bottom-bar {
     position: fixed;
-    bottom: calc(16px + env(safe-area-inset-bottom));
+    bottom: max(16px, env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
     width: min(calc(430px - 32px), calc(100vw - 32px));
@@ -1005,7 +1005,7 @@
     border: 0.5px solid var(--hairline-soft);
     border-bottom: 0;
     border-radius: var(--r-xl) var(--r-xl) 0 0;
-    padding: 14px 22px calc(28px + env(safe-area-inset-bottom));
+    padding: 14px 22px max(20px, env(safe-area-inset-bottom));
     width: 100%;
     max-width: 430px;
     animation: slideUp 0.45s var(--ease-spring);
