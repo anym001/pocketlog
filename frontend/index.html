@@ -1454,7 +1454,12 @@
 
   /* ====== CONFIRM DIALOG ====== */
   .confirm-msg { font-size: 0.875rem; color: var(--text2); line-height: 1.5; margin: 0 0 20px; }
-  .confirm-modal { max-width: 360px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .confirm-modal {
+    max-width: 360px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    border-radius: var(--r-xl);
+    border-bottom: 0.5px solid var(--hairline-soft);
+  }
   .confirm-modal h2 { font-size: 1.25rem; }
 
   /* ====== MATERIAL FALLBACKS ====== */
@@ -2302,7 +2307,7 @@ function attachSwipeHandlers(container) {
       e.stopPropagation();
       const id = Number(row.dataset.id);
       const tx = transactions.find(t => t.id === id);
-      const label = tx && tx.desc ? `„${tx.desc}“` : 'die Buchung';
+      const label = tx && tx.desc ? `„${tx.desc}“` : 'Buchung';
       const ok = await confirmAction({ title: `${label} löschen?`, confirmLabel: 'Löschen' });
       if (!ok) {
         row.classList.remove('swiped');
