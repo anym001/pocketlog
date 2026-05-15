@@ -1071,7 +1071,7 @@
     border: var(--border-hairline);
     border-bottom: 0;
     border-radius: var(--r-xl) var(--r-xl) 0 0;
-    padding: 14px 22px 0;
+    padding: var(--space-14) var(--space-22) 0;
     width: 100%;
     max-width: 430px;
     animation: slideUp 0.45s var(--ease-spring);
@@ -1099,14 +1099,14 @@
     background: var(--text3);
     opacity: 0.4;
     border-radius: var(--r-pill);
-    margin: 0 auto 16px;
+    margin: 0 auto var(--space-16);
     touch-action: none;
     cursor: grab;
   }
   .modal h2 {
     font-family: var(--font-display);
     font-size: var(--fs-title);
-    margin-bottom: 20px;
+    margin-bottom: var(--space-20);
     letter-spacing: -0.02em;
   }
   .modal-header {
@@ -1114,7 +1114,7 @@
     align-items: center;
     justify-content: center;
     position: relative;
-    margin-bottom: 20px;
+    margin-bottom: var(--space-20);
   }
   .modal-header h2 { margin-bottom: 0; }
   .modal-cancel-btn {
@@ -1145,8 +1145,8 @@
     flex: 0 1 auto;
     min-height: 0;
     overflow-y: auto;
-    margin: 0 -22px;
-    padding: 0 22px 4px;
+    margin: 0 -var(--space-22);
+    padding: 0 var(--space-22) var(--space-4);
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
@@ -1154,8 +1154,8 @@
   .modal-body::-webkit-scrollbar { display: none; }
   .modal-footer {
     flex: 0 0 auto;
-    margin: 8px -22px 0;
-    padding: 4px 22px max(20px, env(safe-area-inset-bottom));
+    margin: var(--space-8) -var(--space-22) 0;
+    padding: var(--space-4) var(--space-22) max(var(--space-20), env(safe-area-inset-bottom));
     border-top: var(--border-hairline);
   }
 
@@ -1166,14 +1166,14 @@
     backdrop-filter: var(--blur-thin);
     border: var(--border-hairline);
     border-radius: var(--r-pill);
-    padding: 4px;
-    margin-bottom: 22px;
-    gap: 4px;
+    padding: var(--space-4);
+    margin-bottom: var(--space-22);
+    gap: var(--space-4);
     box-shadow: inset 0 0.5px 0 var(--hairline);
   }
   .type-btn {
     flex: 1;
-    padding: 11px;
+    padding: var(--space-11);
     min-height: 44px;
     border: none;
     border-radius: var(--r-pill);
@@ -1207,8 +1207,8 @@
     font-size: var(--fs-caption);
     color: var(--text3);
     font-weight: 600;
-    margin-bottom: 7px;
-    padding-left: 4px;
+    margin-bottom: var(--space-7);
+    padding-left: var(--space-4);
   }
   .form-group input, .form-group select {
     width: 100%;
@@ -1217,7 +1217,7 @@
     backdrop-filter: var(--blur-thin);
     border: var(--border-hairline);
     border-radius: var(--r-md);
-    padding: 14px 16px;
+    padding: var(--space-14) var(--space-16);
     font-size: var(--fs-body);
     font-family: var(--font-body);
     color: var(--text);
@@ -1235,12 +1235,12 @@
     font-size: var(--fs-title);
     text-align: center;
     letter-spacing: -0.02em;
-    padding: 12px 16px;
+    padding: var(--space-12) var(--space-16);
   }
 
   .tags-input-wrap {
     display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-    padding: 8px 10px;
+    padding: var(--space-8) var(--space-10);
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
@@ -1254,7 +1254,7 @@
     backdrop-filter: blur(10px);
     border: var(--border-hairline);
     border-radius: var(--r-pill);
-    padding: 5px 11px;
+    padding: var(--space-5) var(--space-11);
     font-size: var(--fs-micro);
     font-weight: 500;
     display: flex; align-items: center; gap: 5px;
@@ -1264,7 +1264,7 @@
 
   .tag-add-input {
     border: none !important;
-    padding: 5px 0 !important;
+    padding: var(--space-5) 0 !important;
     width: 80px !important;
     font-size: var(--fs-caption) !important;
     background: none !important;
@@ -1318,7 +1318,7 @@
     background: transparent;
     border: 1px dashed var(--text3);
     border-radius: var(--r-pill);
-    padding: 10px 14px;
+    padding: var(--space-10) var(--space-14);
     font-size: var(--fs-micro);
     font-weight: 500;
     color: var(--text2);
@@ -1339,12 +1339,12 @@
     color: white;
     border: 0.5px solid rgba(255,255,255,0.25);
     border-radius: var(--r-md);
-    padding: 16px;
+    padding: var(--space-16);
     font-size: var(--fs-body);
     font-weight: 700;
     font-family: var(--font-body);
     cursor: pointer;
-    margin-top: 10px;
+    margin-top: var(--space-10);
     transition: transform var(--dur-base) var(--ease-spring);
     letter-spacing: -0.01em;
     box-shadow:
