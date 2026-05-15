@@ -480,10 +480,10 @@
 
   /* ====== SUMMARY CARDS ====== */
   .summary {
-    padding: 10px 20px 8px;
+    padding: var(--space-10) var(--space-20) var(--space-8);
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: var(--space-10);
     isolation: isolate;
     flex-shrink: 0;
   }
@@ -494,14 +494,14 @@
     backdrop-filter: var(--blur-regular);
     border: var(--border-hairline);
     border-radius: var(--r-md);
-    padding: 10px 14px;
+    padding: var(--space-10) var(--space-14);
     box-shadow: var(--shadow-soft);
     overflow: hidden;
     isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--space-8);
   }
   /* Specular sheen on every glass card */
   .summary-card::before {
