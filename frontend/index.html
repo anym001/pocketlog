@@ -2440,7 +2440,7 @@ function attachDragDismiss(overlayId, closeFn) {
     dy = 0;
     active = false;
     intentDecided = false;
-    fromHandle = handle.contains(e.target);
+    fromHandle = handle ? handle.contains(e.target) : false;
     startScrollTop = modal.scrollTop;
   });
 
@@ -3029,6 +3029,8 @@ async function init() {
   await loadAndRender();
   showPanel(loadDefaultView());
   updateSyncBadge();
+  attachDragDismiss('modalOverlay', closeModal);
+  attachDragDismiss('catModalOverlay', closeCatModal);
   attachDragDismiss('tagModalOverlay', closeTagModal);
 }
 init();
