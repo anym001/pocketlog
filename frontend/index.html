@@ -139,7 +139,6 @@
        Schritt zusammengezogen. */
     --space-2:  2px;
     --space-4:  4px;
-    --space-6:  6px;
     --space-7:  7px;
     --space-8:  8px;
     --space-10: 10px;
@@ -410,7 +409,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: var(--space-4);
-    padding-top: var(--space-6);
+    padding-top: var(--space-8);
   }
   .month-nav {
     display: flex;
@@ -466,7 +465,7 @@
     color: var(--text2);
     cursor: pointer;
     transition: all var(--dur-base) var(--ease-spring);
-    display: flex; align-items: center; gap: var(--space-6);
+    display: flex; align-items: center; gap: var(--space-8);
     box-shadow: inset 0 0.5px 0 var(--hairline);
   }
   .sync-btn:hover, .sync-btn:active { color: var(--accent); transform: scale(0.96); }
@@ -688,7 +687,7 @@
     font-size: var(--fs-micro);
     color: var(--text3);
     margin-top: var(--space-4);
-    display: flex; gap: var(--space-6); align-items: center; flex-wrap: wrap;
+    display: flex; gap: var(--space-8); align-items: center; flex-wrap: wrap;
   }
   .tag {
     background: var(--glass-thin);
@@ -762,7 +761,7 @@
   }
   .cat-info { flex: 1; }
   .cat-name { font-size: var(--fs-footnote); font-weight: 600; letter-spacing: -0.01em; }
-  .cat-bar-wrap { height: 5px; background: var(--hairline-soft); border-radius: var(--r-pill); margin-top: var(--space-6); overflow: hidden; }
+  .cat-bar-wrap { height: 5px; background: var(--hairline-soft); border-radius: var(--r-pill); margin-top: var(--space-8); overflow: hidden; }
   .cat-bar { height: 5px; border-radius: var(--r-pill); transition: width 0.7s var(--ease-spring); }
   .cat-amount { font-family: var(--font-display); font-size: var(--fs-body); color: var(--accent); letter-spacing: -0.02em; }
 
@@ -1237,7 +1236,7 @@
   }
 
   .tags-input-wrap {
-    display: flex; flex-wrap: wrap; gap: var(--space-6); align-items: center;
+    display: flex; flex-wrap: wrap; gap: var(--space-8); align-items: center;
     padding: var(--space-8) var(--space-10);
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
@@ -1309,7 +1308,7 @@
   }
 
   .tag-suggestions {
-    display: flex; flex-wrap: wrap; gap: var(--space-6); margin-top: var(--space-10);
+    display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-10);
   }
   .tag-suggestions:empty { display: none; }
   .tag-suggestion {
