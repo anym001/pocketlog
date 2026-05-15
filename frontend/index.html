@@ -89,6 +89,49 @@
     --font-display: 'DM Serif Display', serif;
     --font-body: 'DM Sans', sans-serif;
 
+    /* Type scale — DESIGN_CONVENTIONS.md §Typografie.
+       Change a value here once and the whole app follows. */
+    --fs-display:   2.25rem;   /* 36px – Saldo / Hero */
+    --fs-title:     1.5rem;    /* 24px – Modal-/Screen-Titel */
+    --fs-title-sm:  1.25rem;   /* 20px – kompakter Titel (Panel-Header, Confirm) */
+    --fs-headline:  1.125rem;  /* 18px – Card-Überschrift */
+    --fs-body:      1rem;      /* 16px – Fließtext, Form-Inputs */
+    --fs-callout:   0.9375rem; /* 15px – Buttons, sekundäre Labels */
+    --fs-footnote:  0.875rem;  /* 14px – sekundärer Body */
+    --fs-caption:   0.8125rem; /* 13px – Meta, Hinweise */
+    --fs-micro:     0.75rem;   /* 12px – kleinste Marker, Tag-Pills */
+
+    /* Button tokens — chrome icons share a single source of truth.
+       FAB and chrome buttons can be re-sized centrally here. */
+    --btn-chrome-size: 44px;   /* Hamburger / Modal-Back / Drawer-Close */
+    --btn-fab-size:    50px;   /* FAB + Search-Bar Höhe */
+    --btn-icon-size:   1.25rem;/* Glyph in Chrome-Buttons (‹ ✕ ⌕ …) */
+
+    /* Layering — semantic z-index tiers. Intra-component stacks
+       (cards, transactions, modals' inner gradient) keep literal 1/2. */
+    --z-toolbar:         100;  /* Header */
+    --z-floating:        200;  /* Bottom-Bar (Search + FAB) */
+    --z-drawer-backdrop: 400;  /* Drawer-Overlay (Dimmer) */
+    --z-drawer:          401;  /* Drawer-Panel über seinem Backdrop */
+    --z-modal:           500;  /* Modal-Overlay + Inhalt */
+    --z-toast:           800;  /* Toasts / System-Meldungen */
+
+    /* Motion durations — common timings only. Odd values (0.22, 0.28,
+       0.35, 0.45 …) bleiben literal, weil sie zu spezifischen
+       Animationen gehören. */
+    --dur-fast:    var(--dur-fast);
+    --dur-base:    var(--dur-base);
+    --dur-medium:  var(--dur-medium);
+    --dur-slow:    var(--dur-slow);
+
+    /* Focus ring — gleiches Aussehen für alle fokussierten Inputs/Buttons. */
+    --focus-ring: var(--focus-ring);
+
+    /* Border shortcuts — 0.5px Hairlines sind Standard, 1px nur für
+       destruktive Akzent-Outlines. Farbe weiter über --hairline*. */
+    --border-hairline:        var(--border-hairline);
+    --border-hairline-strong: var(--border-hairline-strong);
+
     /* Motion */
     --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
     --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -331,11 +374,11 @@
     position: sticky;
     top: 0;
     padding: max(env(safe-area-inset-top), 14px) 20px 14px;
-    z-index: 100;
+    z-index: var(--z-toolbar);
     background: var(--glass-chrome);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
-    border-bottom: 0.5px solid var(--hairline);
+    border-bottom: var(--border-hairline-strong);
     box-shadow: 0 0.5px 0 rgba(255,255,255,0.6) inset, 0 2px 10px rgba(60,35,20,0.10), 0 8px 28px -16px rgba(60,35,20,0.20);
   }
   .header-top {
@@ -354,7 +397,7 @@
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-pill);
     width: fit-content;
     box-shadow: inset 0 0.5px 0 var(--hairline);
@@ -362,14 +405,14 @@
   .month-nav button {
     background: transparent;
     border: none;
-    width: 44px; height: 44px;
+    width: var(--btn-chrome-size); height: var(--btn-chrome-size);
     border-radius: 50%;
     cursor: pointer;
     color: var(--text2);
-    font-size: 1.25rem;
+    font-size: var(--btn-icon-size);
     font-weight: 600;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.25s var(--ease-spring);
+    transition: all var(--dur-medium) var(--ease-spring);
   }
   .month-nav button:hover, .month-nav button:active {
     background: var(--glass-thick);
@@ -377,7 +420,7 @@
     transform: scale(0.94);
   }
   .month-label {
-    font-size: 0.875rem;
+    font-size: var(--fs-footnote);
     font-weight: 600;
     color: var(--text);
     min-width: 124px;
@@ -389,16 +432,16 @@
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-pill);
-    height: 44px;
+    height: var(--btn-chrome-size);
     padding: 0 14px;
-    font-size: 0.8125rem;
+    font-size: var(--fs-caption);
     font-weight: 500;
     font-family: var(--font-body);
     color: var(--text2);
     cursor: pointer;
-    transition: all 0.2s var(--ease-spring);
+    transition: all var(--dur-base) var(--ease-spring);
     display: flex; align-items: center; gap: 6px;
     box-shadow: inset 0 0.5px 0 var(--hairline);
   }
@@ -423,7 +466,7 @@
     background: var(--glass-regular);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-md);
     padding: 10px 14px;
     box-shadow: var(--shadow-soft);
@@ -447,14 +490,14 @@
   }
   .summary-card > * { position: relative; z-index: 2; }
   .summary-card .label {
-    font-size: 0.75rem;
+    font-size: var(--fs-micro);
     color: var(--text3);
     font-weight: 600;
     flex-shrink: 0;
   }
   .summary-card .amount {
     font-family: var(--font-display);
-    font-size: 1.25rem;
+    font-size: var(--fs-title-sm);
     color: var(--text);
     line-height: 1;
     letter-spacing: -0.02em;
@@ -480,7 +523,7 @@
   /* ====== SEARCH MODE ====== */
   .month-nav,
   .summary {
-    transition: opacity 0.2s var(--ease-soft), max-height 0.25s var(--ease-soft), padding 0.25s var(--ease-soft), margin 0.25s var(--ease-soft);
+    transition: opacity var(--dur-base) var(--ease-soft), max-height var(--dur-medium) var(--ease-soft), padding var(--dur-medium) var(--ease-soft), margin var(--dur-medium) var(--ease-soft);
     max-height: 300px;
     overflow: hidden;
   }
@@ -500,9 +543,9 @@
     align-items: center;
     gap: 12px;
     padding: 14px 0;
-    border-bottom: 0.5px solid var(--hairline-soft);
+    border-bottom: var(--border-hairline);
     cursor: pointer;
-    transition: opacity 0.15s ease;
+    transition: opacity var(--dur-fast) ease;
   }
   .cat-view-row:last-child { border-bottom: none; }
   .cat-view-row:active { opacity: 0.55; }
@@ -514,11 +557,11 @@
   }
   .cat-view-name {
     flex: 1;
-    font-size: 0.9375rem;
+    font-size: var(--fs-callout);
     color: var(--text);
   }
   .cat-view-amount {
-    font-size: 0.9375rem;
+    font-size: var(--fs-callout);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
@@ -527,7 +570,7 @@
 
   /* ====== TRANSACTIONS ====== */
   .section-title {
-    font-size: 0.8125rem;
+    font-size: var(--fs-caption);
     color: var(--text3);
     font-weight: 600;
     margin: 18px 4px 8px;
@@ -544,7 +587,7 @@
     z-index: 2;
     touch-action: pan-y;
     will-change: transform;
-    transition: transform 0.3s var(--ease-spring);
+    transition: transform var(--dur-slow) var(--ease-spring);
   }
   .tx-row.dragging .transaction { transition: none; }
   .tx-row.swiped .transaction { transform: translateX(-92px); }
@@ -556,7 +599,7 @@
     background: linear-gradient(135deg, var(--red), #ec6b5b);
     color: #fff;
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: var(--fs-footnote);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -574,14 +617,14 @@
     background: var(--glass-regular);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-md);
     padding: 13px 14px;
     display: flex;
     align-items: center;
     gap: 13px;
     box-shadow: var(--shadow-soft);
-    transition: transform 0.15s var(--ease-spring);
+    transition: transform var(--dur-fast) var(--ease-spring);
     overflow: hidden;
     isolation: isolate;
   }
@@ -602,14 +645,14 @@
     width: 42px; height: 42px;
     border-radius: var(--r-sm);
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.25rem;
+    font-size: var(--btn-icon-size);
     flex-shrink: 0;
     box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.6), inset 0 -0.5px 0 rgba(0,0,0,0.04);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
   }
   .t-info { flex: 1; min-width: 0; }
   .t-title {
-    font-size: 0.9375rem;
+    font-size: var(--fs-callout);
     font-weight: 600;
     color: var(--text);
     white-space: nowrap;
@@ -618,7 +661,7 @@
     letter-spacing: -0.01em;
   }
   .t-meta {
-    font-size: 0.75rem;
+    font-size: var(--fs-micro);
     color: var(--text3);
     margin-top: 3px;
     display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
@@ -627,16 +670,16 @@
     background: var(--glass-thin);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-xs);
     padding: 2px 7px;
-    font-size: 0.6875rem;
+    font-size: var(--fs-micro);
     font-weight: 500;
     color: var(--text2);
   }
   .t-amount {
     font-family: var(--font-display);
-    font-size: 1.125rem;
+    font-size: var(--fs-headline);
     font-weight: 400;
     flex-shrink: 0;
     letter-spacing: -0.02em;
@@ -650,7 +693,7 @@
     background: var(--glass-regular);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-lg);
     padding: 20px 18px;
     margin-bottom: 14px;
@@ -670,7 +713,7 @@
   }
   .chart-container > * { position: relative; z-index: 2; }
   .chart-container h3 {
-    font-size: 0.875rem;
+    font-size: var(--fs-footnote);
     color: var(--text3);
     margin-bottom: 14px;
     font-weight: 600;
@@ -691,13 +734,13 @@
     font-size: 1.0625rem;
     flex-shrink: 0;
     box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.6);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
   }
   .cat-info { flex: 1; }
-  .cat-name { font-size: 0.875rem; font-weight: 600; letter-spacing: -0.01em; }
+  .cat-name { font-size: var(--fs-footnote); font-weight: 600; letter-spacing: -0.01em; }
   .cat-bar-wrap { height: 5px; background: var(--hairline-soft); border-radius: var(--r-pill); margin-top: 6px; overflow: hidden; }
   .cat-bar { height: 5px; border-radius: var(--r-pill); transition: width 0.7s var(--ease-spring); }
-  .cat-amount { font-family: var(--font-display); font-size: 1rem; color: var(--accent); letter-spacing: -0.02em; }
+  .cat-amount { font-family: var(--font-display); font-size: var(--fs-body); color: var(--accent); letter-spacing: -0.02em; }
 
   /* ====== BOTTOM BAR (search + FAB) ====== */
   .bottom-bar {
@@ -709,19 +752,19 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    z-index: 200;
+    z-index: var(--z-floating);
   }
   .search-wrap {
     flex: 1;
     display: flex;
     align-items: center;
     gap: 8px;
-    height: 50px;
+    height: var(--btn-fab-size);
     padding: 0 16px;
     background: var(--glass-regular);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-pill);
     box-shadow:
       inset 0 0.5px 0 var(--hairline),
@@ -730,7 +773,7 @@
   }
   .search-icon {
     color: var(--text3);
-    font-size: 0.9375rem;
+    font-size: var(--btn-icon-size);
     flex-shrink: 0;
     line-height: 1;
   }
@@ -740,29 +783,29 @@
     border: none;
     outline: none;
     font-family: var(--font-body);
-    font-size: 0.9375rem;
+    font-size: var(--fs-callout);
     color: var(--text);
     min-width: 0;
   }
   .search-input::placeholder { color: var(--text3); }
-  .search-wrap:focus-within { border-color: var(--accent); box-shadow: inset 0 0.5px 0 var(--hairline), 0 0 0 3px var(--accent-tint); }
+  .search-wrap:focus-within { border-color: var(--accent); box-shadow: inset 0 0.5px 0 var(--hairline), var(--focus-ring); }
   .search-form { display: contents; }
 
   /* ====== FAB (liquid glass) ====== */
   .fab {
-    width: 50px; height: 50px;
+    width: var(--btn-fab-size); height: var(--btn-fab-size);
     flex-shrink: 0;
     background: var(--glass-regular);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
     border-radius: 18px;
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     color: var(--text);
     font-size: 1.625rem;
     font-weight: 300;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: transform 0.25s var(--ease-bounce);
+    transition: transform var(--dur-medium) var(--ease-bounce);
     box-shadow:
       inset 0 0.5px 0 var(--hairline),
       0 2px 8px rgba(20,20,19,0.06),
@@ -787,7 +830,7 @@
 
   /* ====== HAMBURGER ====== */
   .hamburger-btn {
-    width: 44px; height: 44px;
+    width: var(--btn-chrome-size); height: var(--btn-chrome-size);
     border: none; background: transparent;
     cursor: pointer;
     color: var(--text);
@@ -802,7 +845,7 @@
     width: 20px; height: 2px;
     background: currentColor;
     border-radius: 1px;
-    transition: opacity 0.2s;
+    transition: opacity var(--dur-base);
   }
   .hamburger-btn:active { opacity: 0.6; }
 
@@ -810,13 +853,13 @@
   .drawer-overlay {
     position: fixed;
     inset: 0;
-    z-index: 400;
+    z-index: var(--z-drawer-backdrop);
     background: rgba(20, 14, 8, 0.35);
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity var(--dur-slow) ease;
   }
   .drawer-overlay.open { opacity: 1; pointer-events: auto; }
 
@@ -824,11 +867,11 @@
     position: fixed;
     top: 0; left: 0; bottom: 0;
     width: min(300px, 88vw);
-    z-index: 401;
+    z-index: var(--z-drawer);
     background: var(--bg-canvas);
     -webkit-backdrop-filter: var(--blur-thick);
     backdrop-filter: var(--blur-thick);
-    border-right: 0.5px solid var(--hairline);
+    border-right: var(--border-hairline-strong);
     overflow: hidden;
     transform: translateX(-100%);
     transition: transform 0.35s var(--ease-spring);
@@ -860,7 +903,7 @@
     position: sticky; top: 0; z-index: 1;
     background: var(--bg-canvas);
     padding: calc(env(safe-area-inset-top) + 16px) 20px 12px;
-    border-bottom: 0.5px solid var(--hairline-soft);
+    border-bottom: var(--border-hairline);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -868,7 +911,7 @@
   }
   .drawer-head-title {
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: var(--fs-title);
     font-weight: 400;
     color: var(--text);
     letter-spacing: -0.015em;
@@ -881,18 +924,25 @@
     color: transparent;
   }
   .drawer-close-btn {
-    width: 44px; height: 44px;
+    width: var(--btn-chrome-size); height: var(--btn-chrome-size);
     border: none; background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
+    box-shadow: inset 0 0.5px 0 var(--hairline);
     cursor: pointer;
     color: var(--text2);
-    font-size: 1.125rem;
+    font-size: var(--btn-icon-size);
+    font-weight: 600;
     display: flex; align-items: center; justify-content: center;
-    border-radius: var(--r-pill);
-    transition: opacity 0.2s;
+    border-radius: 50%;
+    transition: all var(--dur-medium) var(--ease-spring);
+    -webkit-tap-highlight-color: transparent;
   }
-  .drawer-close-btn:active { opacity: 0.6; }
+  .drawer-close-btn:hover, .drawer-close-btn:active {
+    background: var(--glass-thick);
+    color: var(--text);
+    transform: scale(0.94);
+  }
 
   .drawer-section {
     padding: 20px 20px 0;
@@ -904,7 +954,7 @@
     margin: 24px 20px 0;
   }
   .drawer-section h3 {
-    font-size: 0.8125rem;
+    font-size: var(--fs-caption);
     font-weight: 600;
     color: var(--text3);
     margin-bottom: 12px;
@@ -918,23 +968,23 @@
     padding: 15px 20px;
     background: none;
     border: none;
-    border-bottom: 0.5px solid var(--hairline-soft);
+    border-bottom: var(--border-hairline);
     font-family: var(--font-body);
-    font-size: 1rem;
+    font-size: var(--fs-body);
     color: var(--text);
     cursor: pointer;
     text-align: left;
-    transition: background 0.15s;
+    transition: background var(--dur-fast);
   }
-  .drawer-nav-item:first-child { border-top: 0.5px solid var(--hairline-soft); }
+  .drawer-nav-item:first-child { border-top: var(--border-hairline); }
   .drawer-nav-item:active { background: var(--glass-thin); }
   .drawer-nav-item.active { color: var(--accent); font-weight: 600; }
-  .drawer-nav-chevron { color: var(--text3); font-size: 1.25rem; line-height: 1; font-weight: 300; }
+  .drawer-nav-chevron { color: var(--text3); font-size: var(--btn-icon-size); line-height: 1; font-weight: 300; }
   .drawer-sub-head {
     position: sticky; top: 0; z-index: 1;
     background: var(--bg-canvas);
     padding: calc(env(safe-area-inset-top) + 8px) 20px 8px;
-    border-bottom: 0.5px solid var(--hairline-soft);
+    border-bottom: var(--border-hairline);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -944,7 +994,7 @@
     position: absolute;
     left: 12px;
     top: calc(env(safe-area-inset-top) + 8px);
-    width: 44px; height: 44px;
+    width: var(--btn-chrome-size); height: var(--btn-chrome-size);
     border-radius: 50%;
     border: none;
     background: var(--glass-thin);
@@ -952,11 +1002,11 @@
     backdrop-filter: var(--blur-thin);
     box-shadow: inset 0 0.5px 0 var(--hairline);
     color: var(--text2);
-    font-size: 1.25rem;
+    font-size: var(--btn-icon-size);
     font-weight: 600;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.25s var(--ease-spring);
+    transition: all var(--dur-medium) var(--ease-spring);
     -webkit-tap-highlight-color: transparent;
   }
   .drawer-back-btn:hover, .drawer-back-btn:active {
@@ -966,7 +1016,7 @@
   }
   .drawer-sub-title {
     font-family: var(--font-body);
-    font-size: 1rem;
+    font-size: var(--fs-body);
     font-weight: 600;
     color: var(--text);
   }
@@ -981,21 +1031,21 @@
     background: rgba(20, 14, 8, 0.35);
     -webkit-backdrop-filter: blur(8px) saturate(140%);
     backdrop-filter: blur(8px) saturate(140%);
-    z-index: 500;
+    z-index: var(--z-modal);
     align-items: flex-end;
     justify-content: center;
   }
-  .modal-overlay.open { display: flex; animation: overlay-in 0.3s var(--ease-soft); }
+  .modal-overlay.open { display: flex; animation: overlay-in var(--dur-slow) var(--ease-soft); }
   @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
 
   .modal {
     background: var(--glass-chrome);
     -webkit-backdrop-filter: var(--blur-thick);
     backdrop-filter: var(--blur-thick);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-bottom: 0;
     border-radius: var(--r-xl) var(--r-xl) 0 0;
-    padding: 14px 22px max(20px, env(safe-area-inset-bottom));
+    padding: 14px 22px 0;
     width: 100%;
     max-width: 430px;
     animation: slideUp 0.45s var(--ease-spring);
@@ -1003,7 +1053,8 @@
     position: relative;
     isolation: isolate;
     max-height: calc(100dvh - env(safe-area-inset-top) - 12px);
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
   .modal::before {
     content: '';
@@ -1028,7 +1079,7 @@
   }
   .modal h2 {
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: var(--fs-title);
     margin-bottom: 20px;
     letter-spacing: -0.02em;
   }
@@ -1043,7 +1094,7 @@
   .modal-cancel-btn {
     position: absolute;
     left: 0;
-    width: 44px; height: 44px;
+    width: var(--btn-chrome-size); height: var(--btn-chrome-size);
     border-radius: 50%;
     border: none;
     background: var(--glass-thin);
@@ -1051,11 +1102,11 @@
     backdrop-filter: var(--blur-thin);
     box-shadow: inset 0 0.5px 0 var(--hairline);
     color: var(--text2);
-    font-size: 1.25rem;
+    font-size: var(--btn-icon-size);
     font-weight: 600;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.25s var(--ease-spring);
+    transition: all var(--dur-medium) var(--ease-spring);
     -webkit-tap-highlight-color: transparent;
   }
   .modal-cancel-btn:hover, .modal-cancel-btn:active {
@@ -1064,12 +1115,30 @@
     transform: scale(0.94);
   }
 
+  .modal-body {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0 -22px;
+    padding: 0 22px 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .modal-body::-webkit-scrollbar { display: none; }
+  .modal-footer {
+    flex: 0 0 auto;
+    margin: 8px -22px 0;
+    padding: 4px 22px max(20px, env(safe-area-inset-bottom));
+    border-top: var(--border-hairline);
+  }
+
   .type-toggle {
     display: flex;
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-pill);
     padding: 4px;
     margin-bottom: 22px;
@@ -1083,10 +1152,10 @@
     border: none;
     border-radius: var(--r-pill);
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: var(--fs-footnote);
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s var(--ease-spring);
+    transition: all var(--dur-slow) var(--ease-spring);
     background: transparent;
     color: var(--text3);
     letter-spacing: -0.01em;
@@ -1109,7 +1178,7 @@
   .form-group { margin-bottom: 16px; }
   .form-group label {
     display: block;
-    font-size: 0.8125rem;
+    font-size: var(--fs-caption);
     color: var(--text3);
     font-weight: 600;
     margin-bottom: 7px;
@@ -1120,27 +1189,27 @@
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-md);
     padding: 14px 16px;
-    font-size: 1rem;
+    font-size: var(--fs-body);
     font-family: var(--font-body);
     color: var(--text);
     outline: none;
-    transition: all 0.2s var(--ease-spring);
+    transition: all var(--dur-base) var(--ease-spring);
     -webkit-appearance: none;
     box-shadow: inset 0 0.5px 0 var(--hairline-soft);
   }
   .form-group input:focus, .form-group select:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-tint), inset 0 0.5px 0 var(--hairline);
+    box-shadow: var(--focus-ring), inset 0 0.5px 0 var(--hairline);
   }
   .form-group input.amount-input {
     font-family: var(--font-display);
-    font-size: 2rem;
+    font-size: var(--fs-title);
     text-align: center;
     letter-spacing: -0.02em;
-    padding: 18px 16px;
+    padding: 12px 16px;
   }
 
   .tags-input-wrap {
@@ -1149,7 +1218,7 @@
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-md);
     min-height: 48px;
   }
@@ -1157,21 +1226,21 @@
     background: var(--glass-thick);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-pill);
     padding: 5px 11px;
-    font-size: 0.75rem;
+    font-size: var(--fs-micro);
     font-weight: 500;
     display: flex; align-items: center; gap: 5px;
     box-shadow: inset 0 0.5px 0 var(--hairline);
   }
-  .tag-pill button { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 0.875rem; padding: 8px; margin: -8px; line-height: 1; }
+  .tag-pill button { background: none; border: none; cursor: pointer; color: var(--text3); font-size: var(--fs-footnote); padding: 8px; margin: -8px; line-height: 1; }
 
   .tag-add-input {
     border: none !important;
     padding: 5px 0 !important;
     width: 80px !important;
-    font-size: 0.8125rem !important;
+    font-size: var(--fs-caption) !important;
     background: none !important;
     box-shadow: none !important;
     -webkit-backdrop-filter: none !important;
@@ -1183,24 +1252,24 @@
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
-    transition: transform 0.15s var(--ease-spring);
+    transition: transform var(--dur-fast) var(--ease-spring);
   }
   .cat-pill-edit:active { transform: scale(0.94); }
 
   .color-swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .color-swatch {
-    width: 44px; height: 44px;
+    width: var(--btn-chrome-size); height: var(--btn-chrome-size);
     border-radius: 50%;
     border: 2.5px solid transparent;
     cursor: pointer;
     padding: 0;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 2px 6px rgba(0,0,0,0.08);
-    transition: transform 0.2s var(--ease-bounce);
+    transition: transform var(--dur-base) var(--ease-bounce);
   }
   .color-swatch:active { transform: scale(0.9); }
   .color-swatch.active { border-color: var(--text); transform: scale(1.08); }
   .color-swatch-custom {
-    width: 44px; height: 44px;
+    width: var(--btn-chrome-size); height: var(--btn-chrome-size);
     border-radius: 50%;
     border: 1.5px dashed var(--text3);
     padding: 0;
@@ -1224,12 +1293,12 @@
     border: 1px dashed var(--text3);
     border-radius: var(--r-pill);
     padding: 10px 14px;
-    font-size: 0.75rem;
+    font-size: var(--fs-micro);
     font-weight: 500;
     color: var(--text2);
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.2s var(--ease-spring);
+    transition: all var(--dur-base) var(--ease-spring);
   }
   .tag-suggestion:hover, .tag-suggestion:active {
     background: var(--glass-thick);
@@ -1245,12 +1314,12 @@
     border: 0.5px solid rgba(255,255,255,0.25);
     border-radius: var(--r-md);
     padding: 16px;
-    font-size: 1rem;
+    font-size: var(--fs-body);
     font-weight: 700;
     font-family: var(--font-body);
     cursor: pointer;
     margin-top: 10px;
-    transition: transform 0.2s var(--ease-spring);
+    transition: transform var(--dur-base) var(--ease-spring);
     letter-spacing: -0.01em;
     box-shadow:
       inset 0 0.5px 0 rgba(255,255,255,0.45),
@@ -1269,7 +1338,7 @@
   /* ====== SETTINGS ====== */
   .settings-section { margin-bottom: 26px; }
   .settings-section h3 {
-    font-size: 0.8125rem;
+    font-size: var(--fs-caption);
     color: var(--text3);
     font-weight: 600;
     margin-bottom: 10px;
@@ -1279,7 +1348,7 @@
     background: var(--glass-regular);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-md);
     padding: 14px 16px;
     margin-bottom: 8px;
@@ -1289,20 +1358,20 @@
     gap: 12px;
     box-shadow: var(--shadow-soft);
   }
-  .settings-row label { font-size: 0.875rem; font-weight: 600; letter-spacing: -0.01em; }
+  .settings-row label { font-size: var(--fs-footnote); font-weight: 600; letter-spacing: -0.01em; }
   .settings-row input {
     background: var(--glass-thin);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-sm);
     padding: 8px 12px;
-    font-size: 0.875rem;
+    font-size: var(--fs-footnote);
     font-family: var(--font-body);
     color: var(--text);
     width: 200px;
     outline: none;
-    transition: all 0.2s var(--ease-spring);
+    transition: all var(--dur-base) var(--ease-spring);
   }
-  .settings-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
+  .settings-row input:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
   .settings-row input[type=password] { letter-spacing: 2px; }
 
   .save-btn {
@@ -1310,15 +1379,15 @@
     background: var(--glass-regular);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-md);
     padding: 14px;
-    font-size: 0.875rem;
+    font-size: var(--fs-footnote);
     font-weight: 600;
     font-family: var(--font-body);
     color: var(--text);
     cursor: pointer;
-    transition: all 0.2s var(--ease-spring);
+    transition: all var(--dur-base) var(--ease-spring);
     margin-top: 4px;
     box-shadow: var(--shadow-soft);
     letter-spacing: -0.01em;
@@ -1336,7 +1405,7 @@
   .save-btn.primary:hover { color: white; }
 
   .status-msg {
-    font-size: 0.75rem;
+    font-size: var(--fs-micro);
     text-align: center;
     margin-top: 8px;
     min-height: 16px;
@@ -1352,7 +1421,7 @@
     color: var(--text3);
   }
   .empty-state .icon { font-size: 3.25rem; margin-bottom: 14px; opacity: 0.75; }
-  .empty-state p { font-size: 0.875rem; line-height: 1.6; }
+  .empty-state p { font-size: var(--fs-footnote); line-height: 1.6; }
 
   /* ====== YEAR NAV ====== */
   .year-nav {
@@ -1362,7 +1431,7 @@
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
-    border: 0.5px solid var(--hairline-soft);
+    border: var(--border-hairline);
     border-radius: var(--r-pill);
     width: fit-content;
     margin-left: auto;
@@ -1372,17 +1441,17 @@
   .year-nav button {
     background: transparent;
     border: none;
-    border-radius: 50%; width: 44px; height: 44px;
-    cursor: pointer; color: var(--text2); font-size: 0.875rem; font-weight: 600;
+    border-radius: 50%; width: var(--btn-chrome-size); height: var(--btn-chrome-size);
+    cursor: pointer; color: var(--text2); font-size: var(--fs-footnote); font-weight: 600;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s var(--ease-spring);
+    transition: all var(--dur-base) var(--ease-spring);
   }
   .year-nav button:hover, .year-nav button:active {
     background: var(--glass-thick);
     color: var(--text);
     transform: scale(0.94);
   }
-  .year-nav span { font-size: 0.875rem; font-weight: 600; min-width: 52px; text-align: center; letter-spacing: -0.01em; }
+  .year-nav span { font-size: var(--fs-footnote); font-weight: 600; min-width: 52px; text-align: center; letter-spacing: -0.01em; }
 
   /* iOS-style hidden scrollbar inside modal */
   .modal::-webkit-scrollbar { display: none; }
@@ -1397,7 +1466,7 @@
     box-shadow: inset 0 0.5px 0 var(--hairline);
   }
   #tagList > * {
-    font-size: 0.9375rem;
+    font-size: var(--fs-callout);
     padding: 10px 16px;
   }
 
@@ -1408,7 +1477,7 @@
     left: 16px; right: 16px;
     margin: 0 auto;
     max-width: 430px;
-    z-index: 800;
+    z-index: var(--z-toast);
     pointer-events: none;
     display: flex;
     flex-direction: column;
@@ -1418,10 +1487,10 @@
     background: var(--glass-chrome);
     -webkit-backdrop-filter: var(--blur-thick);
     backdrop-filter: var(--blur-thick);
-    border: 0.5px solid var(--hairline);
+    border: var(--border-hairline-strong);
     border-radius: var(--r-lg);
     padding: 12px 16px;
-    font-size: 0.875rem;
+    font-size: var(--fs-footnote);
     line-height: 1.4;
     color: var(--text);
     box-shadow: 0 2px 8px rgba(20,20,19,0.08), 0 12px 28px -8px rgba(20,20,19,0.18);
@@ -1434,23 +1503,14 @@
   @keyframes toast-out { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-12px); opacity: 0; } }
 
   /* ====== CONFIRM DIALOG ====== */
-  .confirm-msg { font-size: 0.875rem; color: var(--text2); line-height: 1.5; margin: 0 0 20px; }
-  .confirm-modal { max-width: 360px; padding-top: 22px; }
-  .confirm-modal h2 { font-size: 1.25rem; margin-bottom: 12px; }
-  .confirm-cancel {
-    width: 100%; margin-top: 8px;
-    background: transparent;
-    color: var(--text2);
-    border: 1px solid var(--hairline);
-    border-radius: var(--r-md);
-    padding: 14px;
-    font-family: var(--font-body);
-    font-size: 0.9375rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s var(--ease-soft);
+  .confirm-msg { font-size: var(--fs-footnote); color: var(--text2); line-height: 1.5; margin: 0 0 20px; }
+  .confirm-modal {
+    max-width: 360px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    border-radius: var(--r-xl);
+    border-bottom: var(--border-hairline);
   }
-  .confirm-cancel:hover, .confirm-cancel:active { background: var(--glass-thin); }
+  .confirm-modal h2 { font-size: var(--fs-title-sm); }
 
   /* ====== MATERIAL FALLBACKS ====== */
   /* When the browser cannot blur, or the user prefers reduced transparency,
@@ -1603,7 +1663,7 @@
       <div class="drawer-section">
         <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
         <button class="save-btn" onclick="openTagModal()">Tag erstellen</button>
-        <p style="font-size:0.75rem;color:var(--text3);line-height:1.5;margin-top:12px">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
+        <p style="font-size:var(--fs-micro);color:var(--text3);line-height:1.5;margin-top:12px">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
       </div>
     </div>
 
@@ -1619,7 +1679,7 @@
             <label>API-Basis-URL</label>
             <input type="url" id="cfg-api" placeholder="z.B. https://pocketlog.deinedomain.de" />
           </div>
-          <p style="font-size:0.75rem;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
+          <p style="font-size:var(--fs-micro);color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
           <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
           <div class="status-msg" id="apiStatus"></div>
         </div>
@@ -1628,7 +1688,7 @@
           <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">Aus CSV importieren…</button>
           <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
           <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
-          <p style="font-size:0.75rem;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
+          <p style="font-size:var(--fs-micro);color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
           <div class="status-msg" id="importStatus"></div>
         </div>
       </div>
@@ -1758,83 +1818,98 @@
 </div>
 
 
-<!-- ADD MODAL -->
+<!-- TRANSACTION ADD/EDIT MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
   <div class="modal">
+    <div class="modal-handle" aria-hidden="true"></div>
     <div class="modal-header">
       <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">‹</button>
       <h2>Neue Buchung</h2>
     </div>
-    <div class="type-toggle">
-      <button class="type-btn active out" onclick="setType('out',this)">Ausgabe</button>
-      <button class="type-btn in" onclick="setType('in',this)">Einnahme</button>
-    </div>
-    <div class="form-group">
-      <label>Betrag (€)</label>
-      <input type="number" class="amount-input" id="inputAmount" placeholder="0,00" step="0.01" inputmode="decimal">
-    </div>
-    <div class="form-group">
-      <label>Beschreibung <span style="color:var(--text3);font-weight:400">(optional)</span></label>
-      <input type="text" id="inputDesc" placeholder="z.B. Supermarkt">
-    </div>
-    <div class="form-group">
-      <label>Kategorie</label>
-      <select id="inputCat"></select>
-    </div>
-    <div class="form-group">
-      <label>Datum</label>
-      <input type="date" id="inputDate">
-    </div>
-    <div class="form-group">
-      <label>Tags (Enter zum Hinzufügen)</label>
-      <div class="tags-input-wrap" id="tagsWrap">
-        <input type="text" class="tag-add-input" id="tagInput" placeholder="+ Tag" list="tagsDatalist" autocomplete="off" onkeydown="handleTagInput(event)">
+    <div class="modal-body">
+      <div class="type-toggle">
+        <button class="type-btn active out" onclick="setType('out',this)">Ausgabe</button>
+        <button class="type-btn in" onclick="setType('in',this)">Einnahme</button>
       </div>
-      <datalist id="tagsDatalist"></datalist>
-      <div class="tag-suggestions" id="tagSuggestions"></div>
+      <div class="form-group">
+        <label>Betrag (€)</label>
+        <input type="number" class="amount-input" id="inputAmount" placeholder="0,00" step="0.01" inputmode="decimal">
+      </div>
+      <div class="form-group">
+        <label>Beschreibung <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <input type="text" id="inputDesc" placeholder="z.B. Supermarkt">
+      </div>
+      <div class="form-group">
+        <label>Kategorie</label>
+        <select id="inputCat"></select>
+      </div>
+      <div class="form-group">
+        <label>Datum</label>
+        <input type="date" id="inputDate">
+      </div>
+      <div class="form-group">
+        <label>Tags (Enter zum Hinzufügen)</label>
+        <div class="tags-input-wrap" id="tagsWrap">
+          <input type="text" class="tag-add-input" id="tagInput" placeholder="+ Tag" list="tagsDatalist" autocomplete="off" onkeydown="handleTagInput(event)">
+        </div>
+        <datalist id="tagsDatalist"></datalist>
+        <div class="tag-suggestions" id="tagSuggestions"></div>
+      </div>
     </div>
-    <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
-    <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <div class="modal-footer">
+      <button class="submit-btn" id="submitBtn" onclick="addTransaction()">Ausgabe speichern</button>
+      <button class="submit-btn" id="deleteBtn" onclick="deleteCurrentTransaction()" style="display:none;margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    </div>
   </div>
 </div>
 
 <!-- TAG ADD/EDIT MODAL -->
 <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
   <div class="modal">
+    <div class="modal-handle" aria-hidden="true"></div>
     <div class="modal-header">
       <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">‹</button>
       <h2 id="tagModalTitle">Tag bearbeiten</h2>
     </div>
-    <div class="form-group">
-      <label>Name</label>
-      <input type="text" id="tagEditName" maxlength="64">
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="tagEditName" maxlength="64">
+      </div>
     </div>
-    <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
-    <button class="submit-btn" id="tagDeleteBtn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    <div class="modal-footer">
+      <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
+      <button class="submit-btn" id="tagDeleteBtn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
+    </div>
   </div>
 </div>
 
 <!-- CATEGORY ADD/EDIT MODAL -->
 <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
   <div class="modal">
+    <div class="modal-handle" aria-hidden="true"></div>
     <div class="modal-header">
       <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">‹</button>
       <h2 id="catModalTitle">Kategorie bearbeiten</h2>
     </div>
-    <div class="form-group">
-      <label>Name</label>
-      <input type="text" id="catEditName" maxlength="100">
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="catEditName" maxlength="100">
+      </div>
+      <div class="form-group">
+        <label>Icon (Emoji)</label>
+        <input type="text" id="catEditIcon" maxlength="8" style="text-align:center;font-size:var(--fs-title)">
+      </div>
+      <div class="form-group">
+        <label>Farbe</label>
+        <div class="color-swatches" id="catEditColors"></div>
+      </div>
     </div>
-    <div class="form-group">
-      <label>Icon (Emoji)</label>
-      <input type="text" id="catEditIcon" maxlength="8" style="text-align:center;font-size:1.5rem">
+    <div class="modal-footer">
+      <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
+      <button class="submit-btn" id="catDeleteBtn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
     </div>
-    <div class="form-group">
-      <label>Farbe</label>
-      <div class="color-swatches" id="catEditColors"></div>
-    </div>
-    <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
-    <button class="submit-btn" id="catDeleteBtn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
   </div>
 </div>
 
@@ -1893,7 +1968,7 @@ function toast(message, type = 'info') {
   }, dwell);
 }
 
-function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', cancelLabel = 'Abbrechen', destructive = true }) {
+function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', destructive = true }) {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay open';
@@ -1905,10 +1980,21 @@ function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', canc
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-labelledby', 'confirmTitle');
 
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+
+    const back = document.createElement('button');
+    back.className = 'modal-cancel-btn';
+    back.type = 'button';
+    back.setAttribute('aria-label', 'Schließen');
+    back.textContent = '‹';
+    header.appendChild(back);
+
     const h = document.createElement('h2');
     h.id = 'confirmTitle';
     h.textContent = title;
-    modal.appendChild(h);
+    header.appendChild(h);
+    modal.appendChild(header);
 
     if (message) {
       const p = document.createElement('p');
@@ -1924,12 +2010,6 @@ function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', canc
     if (destructive) yes.style.cssText = 'background:transparent;color:var(--accent);border:1px solid var(--accent)';
     modal.appendChild(yes);
 
-    const no = document.createElement('button');
-    no.className = 'confirm-cancel';
-    no.type = 'button';
-    no.textContent = cancelLabel;
-    modal.appendChild(no);
-
     overlay.appendChild(modal);
 
     const close = (result) => {
@@ -1941,8 +2021,8 @@ function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', canc
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
     yes.addEventListener('click', () => close(true));
-    no.addEventListener('click', () => close(false));
-    setTimeout(() => no.focus(), 50);
+    back.addEventListener('click', () => close(false));
+    setTimeout(() => back.focus(), 50);
   });
 }
 
@@ -2276,9 +2356,7 @@ function attachSwipeHandlers(container) {
     action.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = Number(row.dataset.id);
-      const tx = transactions.find(t => t.id === id);
-      const label = tx && tx.desc ? `„${tx.desc}“` : 'die Buchung';
-      const ok = await confirmAction({ title: `${label} löschen?`, confirmLabel: 'Löschen' });
+      const ok = await confirmAction({ title: 'Buchung wirklich löschen?', confirmLabel: 'Löschen' });
       if (!ok) {
         row.classList.remove('swiped');
         return;
@@ -2380,7 +2458,7 @@ function renderCatBreakdown() {
   const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
   const max = sorted[0]?.[1] || 1;
   const el = document.getElementById('catBreakdown');
-  if (!sorted.length) { el.innerHTML='<p style="color:var(--text3);font-size:0.8125rem;text-align:center;padding:16px">Keine Ausgaben in diesem Monat</p>'; return; }
+  if (!sorted.length) { el.innerHTML='<p style="color:var(--text3);font-size:var(--fs-caption);text-align:center;padding:16px">Keine Ausgaben in diesem Monat</p>'; return; }
   el.innerHTML = sorted.map(([catId, amt]) => {
     const cat = getCatById(parseInt(catId));
     return `<div class="cat-row">
@@ -2430,9 +2508,11 @@ function attachDragDismiss(overlayId, closeFn) {
   if (!overlay) return;
   const modal = overlay.querySelector('.modal');
   const handle = modal.querySelector('.modal-handle');
+  const body = modal.querySelector('.modal-body');
+  const header = modal.querySelector('.modal-header');
 
   let startY = 0, prevY = 0, prevTime = 0, dy = 0, active = false;
-  let intentDecided = false, fromHandle = false, startScrollTop = 0;
+  let intentDecided = false, fromChrome = false, startScrollTop = 0;
 
   modal.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse') return;
@@ -2442,8 +2522,10 @@ function attachDragDismiss(overlayId, closeFn) {
     dy = 0;
     active = false;
     intentDecided = false;
-    fromHandle = handle ? handle.contains(e.target) : false;
-    startScrollTop = modal.scrollTop;
+    fromChrome =
+      (handle && handle.contains(e.target)) ||
+      (header && header.contains(e.target));
+    startScrollTop = body ? body.scrollTop : modal.scrollTop;
   });
 
   modal.addEventListener('pointermove', (e) => {
@@ -2452,7 +2534,7 @@ function attachDragDismiss(overlayId, closeFn) {
     if (!intentDecided) {
       if (Math.abs(raw) < 8) return;
       intentDecided = true;
-      if (raw > 0 && (fromHandle || startScrollTop <= 1)) {
+      if (raw > 0 && (fromChrome || startScrollTop <= 1)) {
         active = true;
         modal.style.transition = 'none';
         try { modal.setPointerCapture(e.pointerId); } catch (_) {}
@@ -2730,9 +2812,8 @@ async function saveCategoryEdit() {
 
 async function deleteCategoryEdit() {
   if (!editingCatId) return;
-  const c = categories.find(x => x.id === editingCatId);
   const ok = await confirmAction({
-    title: `Kategorie „${c?.name || ''}“ wirklich löschen?`,
+    title: 'Kategorie wirklich löschen?',
     confirmLabel: 'Löschen'
   });
   if (!ok) return;
@@ -2758,7 +2839,7 @@ function renderTagList() {
   const box = document.getElementById('tagList');
   if (!box) return;
   if (!availableTags.length) {
-    box.innerHTML = '<p style="font-size:0.8125rem;color:var(--text3)">Noch keine Tags vorhanden.</p>';
+    box.innerHTML = '<p style="font-size:var(--fs-caption);color:var(--text3)">Noch keine Tags vorhanden.</p>';
     return;
   }
   box.innerHTML = availableTags.map(t => {
@@ -2824,7 +2905,7 @@ async function saveTagEdit() {
 async function deleteTagEdit() {
   if (!editingTagName) return;
   const ok = await confirmAction({
-    title: `Tag „${editingTagName}“ wirklich löschen?`,
+    title: 'Tag wirklich löschen?',
     message: 'Der Tag wird aus allen Buchungen entfernt.',
     confirmLabel: 'Löschen'
   });

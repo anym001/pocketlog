@@ -120,16 +120,51 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
 - **Schriftarten:** **DM Serif Display** (Beträge, große Überschriften)
   und **DM Sans** (alles andere). **Niemals** Inter, Roboto, Helvetica,
   Arial oder System-Font-Stacks.
-- **Skala (rem-basiert, 1 rem = 16 px):**
+- **Skala (rem-basiert, 1 rem = 16 px). Quelle der Wahrheit sind die
+  CSS-Custom-Properties in `frontend/index.html` `:root`:**
 
-  | Token | Verwendung | Größe |
+  | Token      | CSS-Variable      | Verwendung                           | Größe |
+  |---|---|---|---|
+  | `display`  | `--fs-display`    | Saldo-Anzeige                        | `2.25rem` (36 px), DM Serif Display |
+  | `title`    | `--fs-title`      | Bildschirm-/Modal-Titel              | `1.5rem` (24 px), DM Serif Display |
+  | `title-sm` | `--fs-title-sm`   | kompakter Titel, Stat-Zahl           | `1.25rem` (20 px) |
+  | `headline` | `--fs-headline`   | Card-Überschrift                     | `1.125rem` (18 px), DM Sans 600 |
+  | `body`     | `--fs-body`       | Fließtext, Form-Inputs               | `1rem` (16 px), DM Sans 400 |
+  | `callout`  | `--fs-callout`    | sekundäre Buttons, Labels            | `0.9375rem` (15 px), DM Sans 500 |
+  | `footnote` | `--fs-footnote`   | sekundärer Body, kleine Überschriften| `0.875rem` (14 px), DM Sans 400 |
+  | `caption`  | `--fs-caption`    | Metadaten, Hinweise                  | `0.8125rem` (13 px), DM Sans 400 |
+  | `micro`    | `--fs-micro`      | Tag-Pills, kleinste Marker           | `0.75rem` (12 px), DM Sans 500 |
+
+- **Button-Tokens** (`frontend/index.html` `:root`):
+
+  | Variable            | Verwendung                                             | Wert      |
   |---|---|---|
-  | `display` | Saldo-Anzeige | `2.25rem` (36 px), DM Serif Display |
-  | `title` | Bildschirmtitel | `1.5rem` (24 px), DM Serif Display |
-  | `headline` | Card-Überschrift | `1.125rem` (18 px), DM Sans 600 |
-  | `body` | Fließtext | `1rem` (16 px), DM Sans 400 |
-  | `callout` | Buttons, Labels | `0.9375rem` (15 px), DM Sans 500 |
-  | `caption` | Metadaten | `0.8125rem` (13 px), DM Sans 400 |
+  | `--btn-chrome-size` | Hamburger, Modal-Back, Drawer-Close, Sync, Color-Swatch| `44px`    |
+  | `--btn-fab-size`    | FAB, Search-Bar Höhe                                   | `50px`    |
+  | `--btn-icon-size`   | Glyph in Chrome-Buttons (`‹ ✕ ⌕ …`)                    | `1.25rem` |
+
+- **Einzelne Stelle anpassen:** Im CSS-Block der jeweiligen Klasse den
+  Token-Aufruf überschreiben, z. B. `font-size: 1rem` lokal statt
+  `var(--fs-callout)`. Globale Änderung: nur den Wert der CSS-Variable
+  in `:root` anpassen, dann gilt sie überall.
+
+- **Weitere zentrale Tokens** (`frontend/index.html` `:root`):
+
+  | Bereich        | Variable                       | Wert / Verwendung |
+  |---|---|---|
+  | Z-Layer        | `--z-toolbar`                  | `100` (Sticky-Header) |
+  |                | `--z-floating`                 | `200` (Bottom-Bar) |
+  |                | `--z-drawer-backdrop`          | `400` (Drawer-Dimmer) |
+  |                | `--z-drawer`                   | `401` (Drawer-Panel) |
+  |                | `--z-modal`                    | `500` (Sheet/Modal) |
+  |                | `--z-toast`                    | `800` (Toast / System) |
+  | Animation      | `--dur-fast`                   | `0.15s` (Tap-Feedback) |
+  |                | `--dur-base`                   | `0.2s` (Default) |
+  |                | `--dur-medium`                 | `0.25s` (Chrome-Buttons) |
+  |                | `--dur-slow`                   | `0.3s` (Panel / Overlay) |
+  | Focus          | `--focus-ring`                 | `0 0 0 3px var(--accent-tint)` |
+  | Border         | `--border-hairline`            | `0.5px solid var(--hairline-soft)` |
+  |                | `--border-hairline-strong`     | `0.5px solid var(--hairline)` |
 
 - **Line Height:** `1.25` für DM Serif Display, `1.4` für DM Sans Body.
 - **Letter Spacing:** Standard belassen; nicht künstlich aufweiten.

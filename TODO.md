@@ -31,3 +31,10 @@ Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
   Authentik, also kein Uptime-Check von außen ohne Token. Bei Bedarf in SWAG
   einen Location-Block für `/api/health` ohne `authentik-location.conf`
   anlegen.
+- **Icon-Größen in Tokens überführen.** Aktuell sitzen `cat-view-icon`
+  (`1.375rem`), `cat-icon` (`1.0625rem`), `t-icon`
+  (`var(--btn-icon-size)`), `fab` (`1.625rem`), `fab.search-exit`
+  (`1.375rem`) und `empty-state .icon` (`3.25rem`) als Literale im CSS.
+  Sinnvoll wären z. B. `--icon-sm` / `--icon-md` / `--icon-lg` /
+  `--icon-illustration`, damit Emoji- und Symbol-Größen genauso zentral
+  steuerbar werden wie die Text-Skala in `DESIGN_CONVENTIONS.md`.
