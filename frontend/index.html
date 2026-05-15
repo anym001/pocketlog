@@ -150,14 +150,12 @@
   body {
     font-family: var(--font-body);
     color: var(--text);
-    height: 100dvh;
+    min-height: 100dvh;
     max-width: 430px;
     margin: 0 auto;
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
     background: transparent;
-    display: flex;
-    flex-direction: column;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -219,8 +217,9 @@
 
   /* ====== HEADER ====== */
   .header {
+    position: sticky;
+    top: 0;
     padding: max(env(safe-area-inset-top), 14px) 20px 14px;
-    flex-shrink: 0;
     z-index: 100;
     background: var(--glass-chrome);
     -webkit-backdrop-filter: var(--blur-regular);
@@ -361,8 +360,8 @@
   }
 
   /* ====== PANELS ====== */
-  .panel { display: none; padding: 8px 20px 32px; }
-  .panel.active { display: block; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .panel { display: none; padding: 8px 20px calc(96px + env(safe-area-inset-bottom)); }
+  .panel.active { display: block; }
 
   /* ====== CATEGORY VIEW ====== */
   .cat-view-row {
@@ -819,15 +818,17 @@
   .drawer-sub-head {
     position: sticky; top: 0; z-index: 1;
     background: var(--bg-canvas);
-    padding: 0 20px;
+    padding: calc(env(safe-area-inset-top) + 8px) 20px 8px;
     border-bottom: 0.5px solid var(--hairline-soft);
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
+    min-height: calc(env(safe-area-inset-top) + 44px);
   }
   .drawer-back-btn {
-    position: absolute; left: 12px;
+    position: absolute;
+    left: 12px;
+    top: calc(env(safe-area-inset-top) + 8px);
     width: 44px; height: 44px;
     border-radius: 50%;
     border: none;
@@ -886,7 +887,7 @@
     box-shadow: var(--shadow-floating);
     position: relative;
     isolation: isolate;
-    max-height: 92vh;
+    max-height: calc(100dvh - env(safe-area-inset-top) - 12px);
     overflow-y: auto;
   }
   .modal::before {
@@ -2091,10 +2092,14 @@ function openModal(tx) {
   document.querySelector('.modal h2').textContent = tx ? 'Buchung bearbeiten' : 'Neue Buchung';
   document.getElementById('deleteBtn').style.display = tx ? 'block' : 'none';
   document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
   setTimeout(()=>document.getElementById('inputAmount').focus(),300);
   document.getElementById('modalOverlay').dataset.editId = tx?.id || '';
 }
-function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
 function closeModalOutside(e) { if(e.target===document.getElementById('modalOverlay')) closeModal(); }
 function editTransaction(id) { openModal(transactions.find(t=>t.id===Number(id))); }
 
@@ -2346,6 +2351,7 @@ function openCatModal(id) {
   document.getElementById('catEditIcon').value = c.icon || '📦';
   renderCatColorSwatches();
   document.getElementById('catModalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
 
 function renderCatColorSwatches() {
@@ -2367,6 +2373,7 @@ function pickCatColor(c) {
 
 function closeCatModal() {
   document.getElementById('catModalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
   editingCatId = null;
 }
 function closeCatModalOutside(e) {
@@ -2436,11 +2443,13 @@ function openTagModal(name) {
   editingTagName = name;
   document.getElementById('tagEditName').value = name;
   document.getElementById('tagModalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
   setTimeout(()=>document.getElementById('tagEditName').focus(), 200);
 }
 
 function closeTagModal() {
   document.getElementById('tagModalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
   editingTagName = null;
 }
 function closeTagModalOutside(e) {
