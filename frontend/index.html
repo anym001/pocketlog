@@ -2306,9 +2306,7 @@ function attachSwipeHandlers(container) {
     action.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = Number(row.dataset.id);
-      const tx = transactions.find(t => t.id === id);
-      const label = tx && tx.desc ? `„${tx.desc}“` : 'Buchung';
-      const ok = await confirmAction({ title: `${label} löschen?`, confirmLabel: 'Löschen' });
+      const ok = await confirmAction({ title: 'Buchung wirklich löschen?', confirmLabel: 'Löschen' });
       if (!ok) {
         row.classList.remove('swiped');
         return;
@@ -2764,9 +2762,8 @@ async function saveCategoryEdit() {
 
 async function deleteCategoryEdit() {
   if (!editingCatId) return;
-  const c = categories.find(x => x.id === editingCatId);
   const ok = await confirmAction({
-    title: `Kategorie „${c?.name || ''}“ wirklich löschen?`,
+    title: 'Kategorie wirklich löschen?',
     confirmLabel: 'Löschen'
   });
   if (!ok) return;
@@ -2858,7 +2855,7 @@ async function saveTagEdit() {
 async function deleteTagEdit() {
   if (!editingTagName) return;
   const ok = await confirmAction({
-    title: `Tag „${editingTagName}“ wirklich löschen?`,
+    title: 'Tag wirklich löschen?',
     message: 'Der Tag wird aus allen Buchungen entfernt.',
     confirmLabel: 'Löschen'
   });
