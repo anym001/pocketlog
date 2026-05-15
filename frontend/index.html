@@ -567,8 +567,8 @@
   .cat-view-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 0;
+    gap: var(--space-12);
+    padding: var(--space-14) 0;
     border-bottom: var(--border-hairline);
     cursor: pointer;
     transition: opacity var(--dur-fast) ease;
@@ -599,13 +599,13 @@
     font-size: var(--fs-caption);
     color: var(--text3);
     font-weight: 600;
-    margin: 18px 4px 8px;
+    margin: var(--space-18) var(--space-4) var(--space-8);
   }
   .tx-row {
     position: relative;
     overflow: hidden;
     border-radius: var(--r-md);
-    margin-bottom: 8px;
+    margin-bottom: var(--space-8);
   }
   .tx-row .transaction {
     margin-bottom: 0;
@@ -645,10 +645,10 @@
     backdrop-filter: var(--blur-regular);
     border: var(--border-hairline);
     border-radius: var(--r-md);
-    padding: 13px 14px;
+    padding: var(--space-13) var(--space-14);
     display: flex;
     align-items: center;
-    gap: 13px;
+    gap: var(--space-13);
     box-shadow: var(--shadow-soft);
     transition: transform var(--dur-fast) var(--ease-spring);
     overflow: hidden;
@@ -689,7 +689,7 @@
   .t-meta {
     font-size: var(--fs-micro);
     color: var(--text3);
-    margin-top: 3px;
+    margin-top: var(--space-3);
     display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
   }
   .tag {
@@ -698,7 +698,7 @@
     backdrop-filter: blur(10px);
     border: var(--border-hairline);
     border-radius: var(--r-xs);
-    padding: 2px 7px;
+    padding: var(--space-2) var(--space-7);
     font-size: var(--fs-micro);
     font-weight: 500;
     color: var(--text2);
