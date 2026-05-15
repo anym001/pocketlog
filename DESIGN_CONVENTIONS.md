@@ -342,10 +342,15 @@ Bottom-Bar** (Primäraktionen). Mehr braucht eine Single-Page-PWA nicht.
 
 Referenz: [HIG: Search Fields](https://developer.apple.com/design/human-interface-guidelines/search-fields).
 
-Aktuell hat PocketLog keine globale Suche; sobald eine kommt, gelten:
+PocketLog hat eine Suche in der Bottom-Bar (`#searchInput` links neben dem
+FAB). Es gelten:
 
-- **Platzierung:** Oben auf dem Screen, unter der Top-Bar – nicht in der
-  Bottom-Bar.
+- **Platzierung:** Bewusst unten in der Bottom-Bar, abweichend von Apples
+  Standard-Empfehlung „oben unter der Top-Bar". Begründung: Daumenreichweite
+  auf großen Smartphones, räumliche Nähe zur Primäraktion (FAB im selben
+  Floating-Strip) und konsistent zum Trend von Safari 15+ (URL-Bar unten).
+  Im aktiven Such-Fokus (`body.searching`) werden Month-Nav und
+  Summary-Cards ausgeblendet, damit die Trefferliste maximalen Platz bekommt.
 - **Markup:** `<input type="search">`, damit iOS-Safari automatisch das
   Lupensymbol, „Clear"-Button und die richtige Tastatur rendert.
 - **Platzhalter:** Sentence case, beschreibend und konkret –
