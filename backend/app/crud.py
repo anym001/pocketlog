@@ -219,6 +219,17 @@ def update_transaction(
 
 
 def list_tags(db: Session, user_id: int) -> list[str]:
+    # Standalone (declared) tags from the tags table — these win on casing
+    # when both a standalone entry and a tx-derived entry exist for the
+    # same case-folded key.
+    by_key: dict[str, str] = {}
+    for name in db.scalars(
+        select(models.Tag.name).where(models.Tag.user_id == user_id)
+    ):
+        name = (name or "").strip()
+        if name:
+            by_key[name.casefold()] = name
+
     rows = db.scalars(
         select(models.Transaction.tags).where(
             and_(
@@ -227,7 +238,6 @@ def list_tags(db: Session, user_id: int) -> list[str]:
             )
         )
     )
-    seen: set[str] = set()
     for tags in rows:
         if not tags:
             continue
@@ -235,9 +245,25 @@ def list_tags(db: Session, user_id: int) -> list[str]:
             if not isinstance(t, str):
                 continue
             t = t.strip()
-            if t:
-                seen.add(t)
-    return sorted(seen, key=str.casefold)
+            if not t:
+                continue
+            by_key.setdefault(t.casefold(), t)
+    return sorted(by_key.values(), key=str.casefold)
+
+
+def create_tag(db: Session, user_id: int, name: str) -> models.Tag:
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("empty_name")
+    tag = models.Tag(user_id=user_id, name=name[:64])
+    db.add(tag)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(tag)
+    return tag
 
 
 def _tx_with_tag(db: Session, user_id: int) -> list[models.Transaction]:
@@ -253,6 +279,16 @@ def _tx_with_tag(db: Session, user_id: int) -> list[models.Transaction]:
     )
 
 
+def _get_standalone_tag(
+    db: Session, user_id: int, name: str
+) -> models.Tag | None:
+    return db.scalar(
+        select(models.Tag).where(
+            and_(models.Tag.user_id == user_id, models.Tag.name == name)
+        )
+    )
+
+
 def rename_tag(db: Session, user_id: int, old_name: str, new_name: str) -> int:
     old_name = (old_name or "").strip()
     new_name = (new_name or "").strip()
@@ -260,6 +296,16 @@ def rename_tag(db: Session, user_id: int, old_name: str, new_name: str) -> int:
         raise ValueError("empty_name")
     if old_name == new_name:
         return 0
+
+    # Update the standalone Tag entry if one exists. If a Tag with the
+    # target name is already present, drop the old row (the target wins).
+    old_tag = _get_standalone_tag(db, user_id, old_name)
+    if old_tag is not None:
+        existing = _get_standalone_tag(db, user_id, new_name)
+        if existing is not None and existing.id != old_tag.id:
+            db.delete(old_tag)
+        else:
+            old_tag.name = new_name[:64]
 
     affected = 0
     for tx in _tx_with_tag(db, user_id):
@@ -272,8 +318,12 @@ def rename_tag(db: Session, user_id: int, old_name: str, new_name: str) -> int:
                 new_tags.append(v)
         tx.tags = new_tags or None
         affected += 1
-    if affected:
+
+    try:
         db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
     return affected
 
 
@@ -281,6 +331,11 @@ def delete_tag(db: Session, user_id: int, name: str) -> int:
     name = (name or "").strip()
     if not name:
         return 0
+
+    tag = _get_standalone_tag(db, user_id, name)
+    if tag is not None:
+        db.delete(tag)
+
     affected = 0
     for tx in _tx_with_tag(db, user_id):
         if not tx.tags or name not in tx.tags:
@@ -288,8 +343,8 @@ def delete_tag(db: Session, user_id: int, name: str) -> int:
         new_tags = [t for t in tx.tags if t != name]
         tx.tags = new_tags or None
         affected += 1
-    if affected:
-        db.commit()
+
+    db.commit()
     return affected
 
 

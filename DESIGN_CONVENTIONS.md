@@ -370,36 +370,40 @@ und den [HIG: Writing](https://developer.apple.com/design/human-interface-guidel
 
 ### Groß-/Kleinschreibung
 
-Apple unterscheidet strikt zwischen **Title Case** und **Sentence case**:
+Alle sichtbaren deutschen UI-Texte folgen **deutscher Rechtschreibung
+(Sentence case):** Am Satzanfang großgeschrieben, Substantive groß, alles
+andere klein. Verben, Adjektive, Adverbien und Präpositionen werden
+**nicht** zusätzlich großgeschrieben – auch nicht in Buttons oder
+Bildschirmtiteln. Das weicht bewusst vom englischen „Title Case" ab und
+folgt Apples deutscher UI-Praxis sowie der Duden-Konvention.
 
-| UI-Element | Stil |
+| UI-Element | Beispiel |
 |---|---|
-| Navigationstitel, Tab-Labels | Title Case |
-| **Button-Labels (Aktionen)** | **Title Case** |
-| Alert-Button-Labels | Title Case |
-| Menüeinträge | Title Case |
-| Alert-Titel (Überschrift) | Sentence case |
-| Alert-Text (Nachricht) | Sentence case |
-| Formular-Feldlabels | Sentence case |
-| Platzhaltertexte | Sentence case |
-| Hilfetexte / Hinweise | Sentence case |
-| Fehlermeldungen | Sentence case |
-| Checkbox- / Toggle-Labels | Sentence case |
-| Abschnittsüberschriften (Listen) | Sentence case |
+| Buttons (Aktionen) | „Ausgabe speichern", „Als CSV exportieren", „Aus CSV importieren…" |
+| Bildschirmtitel | „Buchung bearbeiten", „Neue Buchung" |
+| Tab-Labels / Drawer-Einträge | „Transaktionen", „Auswertungen", „Einstellungen" |
+| Abschnittsüberschriften | „Erscheinungsbild", „Startansicht", „Allgemein" |
+| Alert-Titel | „Buchung wirklich löschen?" |
+| Alert-Text / Fehlermeldungen | „Betrag und Datum sind Pflichtfelder." |
+| Formular-Feldlabels | „Betrag (€)", „Beschreibung (optional)" |
+| Platzhaltertexte | „Buchungen durchsuchen", „z. B. Supermarkt" |
+| Checkbox- / Toggle-Labels | „System", „Hell", „Dunkel" |
 
-**Title Case Regel (Deutsch):** Alle bedeutungstragenden Wörter groß,
-Artikel/Präpositionen klein – außer am Satzanfang. Substantive in Deutsch
-ohnehin immer groß.
+Sonderfälle:
 
-- **Abkürzungen** CSV, API, URL, WLAN immer in Großbuchstaben.
-- Kein ALL-CAPS in UI-Labels (wirkt aggressiv, schlechte Lesbarkeit).
-- **App-Name:** „PocketLog" – immer genau so, nie „Pocketlog" oder „pocket log".
+- **Abkürzungen** in Großbuchstaben behalten: CSV, API, URL, WLAN, PWA,
+  MFA, ID, PDF.
+- **Eigennamen / Markennamen** wie geschrieben übernehmen.
+- **App-Name:** „PocketLog" – immer genau so, nie „Pocketlog" oder
+  „pocket log".
+- **Kein ALL-CAPS** in UI-Labels (`text-transform: uppercase` ist
+  verboten – wirkt aggressiv, schlechte Lesbarkeit).
+- **„OK"** (nicht „Ok" oder „Okay") nur für einfache Bestätigungen ohne
+  Handlungsalternative; sonst Verb-Button bevorzugen.
 
 ### Aktions-Buttons
 
 - Verb-first: „Speichern", „Löschen", „Importieren" – nicht „OK", „Ja", „Nein".
-- „OK" (nicht „Ok" oder „Okay") nur für einfache Bestätigungen ohne
-  Handlungsalternative.
 - Destruktive Aktionen (Löschen) immer mit „Abbrechen"-Button ergänzt,
   destruktiver Button visuell abgesetzt (bereits:
   `border:1px solid var(--accent)`).

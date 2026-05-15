@@ -86,8 +86,8 @@
     --radius-sm: var(--r-md);
 
     /* Fonts */
-    --font-display: 'DM Serif Display', 'New York', serif;
-    --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'DM Sans', sans-serif;
 
     /* Motion */
     --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
@@ -317,6 +317,15 @@
 
   body > * { position: relative; z-index: 1; }
 
+  /* Visually hidden — for screen-reader-only labels */
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0);
+    white-space: nowrap; border: 0;
+  }
+
   /* ====== HEADER ====== */
   .header {
     position: sticky;
@@ -353,11 +362,11 @@
   .month-nav button {
     background: transparent;
     border: none;
-    width: 38px; height: 38px;
+    width: 44px; height: 44px;
     border-radius: 50%;
     cursor: pointer;
     color: var(--text2);
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 600;
     display: flex; align-items: center; justify-content: center;
     transition: all 0.25s var(--ease-spring);
@@ -368,7 +377,7 @@
     transform: scale(0.94);
   }
   .month-label {
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
     color: var(--text);
     min-width: 124px;
@@ -384,7 +393,7 @@
     border-radius: var(--r-pill);
     height: 44px;
     padding: 0 14px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     font-family: var(--font-body);
     color: var(--text2);
@@ -438,16 +447,14 @@
   }
   .summary-card > * { position: relative; z-index: 2; }
   .summary-card .label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-size: 0.75rem;
     color: var(--text3);
-    font-weight: 700;
+    font-weight: 600;
     flex-shrink: 0;
   }
   .summary-card .amount {
     font-family: var(--font-display);
-    font-size: 20px;
+    font-size: 1.25rem;
     color: var(--text);
     line-height: 1;
     letter-spacing: -0.02em;
@@ -467,7 +474,7 @@
   }
 
   /* ====== PANELS ====== */
-  .panel { display: none; padding: 8px 20px calc(96px + env(safe-area-inset-bottom)); }
+  .panel { display: none; padding: 8px 20px calc(66px + max(16px, env(safe-area-inset-bottom))); }
   .panel.active { display: block; }
 
   /* ====== SEARCH MODE ====== */
@@ -500,18 +507,18 @@
   .cat-view-row:last-child { border-bottom: none; }
   .cat-view-row:active { opacity: 0.55; }
   .cat-view-icon {
-    font-size: 22px;
+    font-size: 1.375rem;
     width: 32px;
     text-align: center;
     flex-shrink: 0;
   }
   .cat-view-name {
     flex: 1;
-    font-size: 15px;
+    font-size: 0.9375rem;
     color: var(--text);
   }
   .cat-view-amount {
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
@@ -520,11 +527,9 @@
 
   /* ====== TRANSACTIONS ====== */
   .section-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 0.8125rem;
     color: var(--text3);
-    font-weight: 700;
+    font-weight: 600;
     margin: 18px 4px 8px;
   }
   .tx-row {
@@ -551,7 +556,7 @@
     background: linear-gradient(135deg, var(--red), #ec6b5b);
     color: #fff;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 0.875rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -597,14 +602,14 @@
     width: 42px; height: 42px;
     border-radius: var(--r-sm);
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
+    font-size: 1.25rem;
     flex-shrink: 0;
     box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.6), inset 0 -0.5px 0 rgba(0,0,0,0.04);
     border: 0.5px solid var(--hairline-soft);
   }
   .t-info { flex: 1; min-width: 0; }
   .t-title {
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: var(--text);
     white-space: nowrap;
@@ -613,7 +618,7 @@
     letter-spacing: -0.01em;
   }
   .t-meta {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--text3);
     margin-top: 3px;
     display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
@@ -625,13 +630,13 @@
     border: 0.5px solid var(--hairline-soft);
     border-radius: var(--r-xs);
     padding: 2px 7px;
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 500;
     color: var(--text2);
   }
   .t-amount {
     font-family: var(--font-display);
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 400;
     flex-shrink: 0;
     letter-spacing: -0.02em;
@@ -665,12 +670,10 @@
   }
   .chart-container > * { position: relative; z-index: 2; }
   .chart-container h3 {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 0.875rem;
     color: var(--text3);
     margin-bottom: 14px;
-    font-weight: 700;
+    font-weight: 600;
   }
   canvas { max-height: 220px; }
 
@@ -685,21 +688,21 @@
     width: 38px; height: 38px;
     border-radius: var(--r-sm);
     display: flex; align-items: center; justify-content: center;
-    font-size: 17px;
+    font-size: 1.0625rem;
     flex-shrink: 0;
     box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.6);
     border: 0.5px solid var(--hairline-soft);
   }
   .cat-info { flex: 1; }
-  .cat-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .cat-name { font-size: 0.875rem; font-weight: 600; letter-spacing: -0.01em; }
   .cat-bar-wrap { height: 5px; background: var(--hairline-soft); border-radius: var(--r-pill); margin-top: 6px; overflow: hidden; }
   .cat-bar { height: 5px; border-radius: var(--r-pill); transition: width 0.7s var(--ease-spring); }
-  .cat-amount { font-family: var(--font-display); font-size: 16px; color: var(--accent); letter-spacing: -0.02em; }
+  .cat-amount { font-family: var(--font-display); font-size: 1rem; color: var(--accent); letter-spacing: -0.02em; }
 
   /* ====== BOTTOM BAR (search + FAB) ====== */
   .bottom-bar {
     position: fixed;
-    bottom: calc(16px + env(safe-area-inset-bottom));
+    bottom: max(16px, env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
     width: min(calc(430px - 32px), calc(100vw - 32px));
@@ -727,7 +730,7 @@
   }
   .search-icon {
     color: var(--text3);
-    font-size: 15px;
+    font-size: 0.9375rem;
     flex-shrink: 0;
     line-height: 1;
   }
@@ -737,24 +740,13 @@
     border: none;
     outline: none;
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: 0.9375rem;
     color: var(--text);
     min-width: 0;
   }
   .search-input::placeholder { color: var(--text3); }
-  .search-clear {
-    background: none;
-    border: none;
-    color: var(--text3);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 4px;
-    margin: -4px;
-    display: none;
-    line-height: 1;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .search-clear.visible { display: block; }
+  .search-wrap:focus-within { border-color: var(--accent); box-shadow: inset 0 0.5px 0 var(--hairline), 0 0 0 3px var(--accent-tint); }
+  .search-form { display: contents; }
 
   /* ====== FAB (liquid glass) ====== */
   .fab {
@@ -766,7 +758,7 @@
     border-radius: 18px;
     border: 0.5px solid var(--hairline-soft);
     color: var(--text);
-    font-size: 26px;
+    font-size: 1.625rem;
     font-weight: 300;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -788,7 +780,7 @@
     pointer-events: none;
   }
   .fab:active { transform: scale(0.92); }
-  .fab.search-exit { font-size: 22px; font-weight: 400; }
+  .fab.search-exit { font-size: 1.375rem; font-weight: 400; }
 
   /* ====== BOTTOM NAV (floating liquid glass capsule) ====== */
   .bottom-nav { display: none; }
@@ -876,7 +868,7 @@
   }
   .drawer-head-title {
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: 1.5rem;
     font-weight: 400;
     color: var(--text);
     letter-spacing: -0.015em;
@@ -895,7 +887,7 @@
     backdrop-filter: var(--blur-thin);
     cursor: pointer;
     color: var(--text2);
-    font-size: 18px;
+    font-size: 1.125rem;
     display: flex; align-items: center; justify-content: center;
     border-radius: var(--r-pill);
     transition: opacity 0.2s;
@@ -912,10 +904,8 @@
     margin: 24px 20px 0;
   }
   .drawer-section h3 {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 0.8125rem;
+    font-weight: 600;
     color: var(--text3);
     margin-bottom: 12px;
   }
@@ -930,7 +920,7 @@
     border: none;
     border-bottom: 0.5px solid var(--hairline-soft);
     font-family: var(--font-body);
-    font-size: 16px;
+    font-size: 1rem;
     color: var(--text);
     cursor: pointer;
     text-align: left;
@@ -939,7 +929,7 @@
   .drawer-nav-item:first-child { border-top: 0.5px solid var(--hairline-soft); }
   .drawer-nav-item:active { background: var(--glass-thin); }
   .drawer-nav-item.active { color: var(--accent); font-weight: 600; }
-  .drawer-nav-chevron { color: var(--text3); font-size: 20px; line-height: 1; font-weight: 300; }
+  .drawer-nav-chevron { color: var(--text3); font-size: 1.25rem; line-height: 1; font-weight: 300; }
   .drawer-sub-head {
     position: sticky; top: 0; z-index: 1;
     background: var(--bg-canvas);
@@ -948,7 +938,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: calc(env(safe-area-inset-top) + 44px);
+    min-height: calc(env(safe-area-inset-top) + 60px);
   }
   .drawer-back-btn {
     position: absolute;
@@ -962,7 +952,7 @@
     backdrop-filter: var(--blur-thin);
     box-shadow: inset 0 0.5px 0 var(--hairline);
     color: var(--text2);
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 600;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -976,7 +966,7 @@
   }
   .drawer-sub-title {
     font-family: var(--font-body);
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--text);
   }
@@ -1005,7 +995,7 @@
     border: 0.5px solid var(--hairline-soft);
     border-bottom: 0;
     border-radius: var(--r-xl) var(--r-xl) 0 0;
-    padding: 14px 22px calc(28px + env(safe-area-inset-bottom));
+    padding: 14px 22px max(20px, env(safe-area-inset-bottom));
     width: 100%;
     max-width: 430px;
     animation: slideUp 0.45s var(--ease-spring);
@@ -1038,7 +1028,7 @@
   }
   .modal h2 {
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: 1.5rem;
     margin-bottom: 20px;
     letter-spacing: -0.02em;
   }
@@ -1061,7 +1051,7 @@
     backdrop-filter: var(--blur-thin);
     box-shadow: inset 0 0.5px 0 var(--hairline);
     color: var(--text2);
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 600;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -1093,7 +1083,7 @@
     border: none;
     border-radius: var(--r-pill);
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s var(--ease-spring);
@@ -1119,11 +1109,9 @@
   .form-group { margin-bottom: 16px; }
   .form-group label {
     display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 0.8125rem;
     color: var(--text3);
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 7px;
     padding-left: 4px;
   }
@@ -1135,7 +1123,7 @@
     border: 0.5px solid var(--hairline-soft);
     border-radius: var(--r-md);
     padding: 14px 16px;
-    font-size: 16px;
+    font-size: 1rem;
     font-family: var(--font-body);
     color: var(--text);
     outline: none;
@@ -1149,7 +1137,7 @@
   }
   .form-group input.amount-input {
     font-family: var(--font-display);
-    font-size: 32px;
+    font-size: 2rem;
     text-align: center;
     letter-spacing: -0.02em;
     padding: 18px 16px;
@@ -1172,18 +1160,18 @@
     border: 0.5px solid var(--hairline-soft);
     border-radius: var(--r-pill);
     padding: 5px 11px;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 500;
     display: flex; align-items: center; gap: 5px;
     box-shadow: inset 0 0.5px 0 var(--hairline);
   }
-  .tag-pill button { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; padding: 8px; margin: -8px; line-height: 1; }
+  .tag-pill button { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 0.875rem; padding: 8px; margin: -8px; line-height: 1; }
 
   .tag-add-input {
     border: none !important;
     padding: 5px 0 !important;
     width: 80px !important;
-    font-size: 13px !important;
+    font-size: 0.8125rem !important;
     background: none !important;
     box-shadow: none !important;
     -webkit-backdrop-filter: none !important;
@@ -1236,7 +1224,7 @@
     border: 1px dashed var(--text3);
     border-radius: var(--r-pill);
     padding: 10px 14px;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 500;
     color: var(--text2);
     cursor: pointer;
@@ -1257,7 +1245,7 @@
     border: 0.5px solid rgba(255,255,255,0.25);
     border-radius: var(--r-md);
     padding: 16px;
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 700;
     font-family: var(--font-body);
     cursor: pointer;
@@ -1281,11 +1269,9 @@
   /* ====== SETTINGS ====== */
   .settings-section { margin-bottom: 26px; }
   .settings-section h3 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 0.8125rem;
     color: var(--text3);
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 10px;
     padding-left: 4px;
   }
@@ -1303,13 +1289,13 @@
     gap: 12px;
     box-shadow: var(--shadow-soft);
   }
-  .settings-row label { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .settings-row label { font-size: 0.875rem; font-weight: 600; letter-spacing: -0.01em; }
   .settings-row input {
     background: var(--glass-thin);
     border: 0.5px solid var(--hairline-soft);
     border-radius: var(--r-sm);
     padding: 8px 12px;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-family: var(--font-body);
     color: var(--text);
     width: 200px;
@@ -1327,7 +1313,7 @@
     border: 0.5px solid var(--hairline-soft);
     border-radius: var(--r-md);
     padding: 14px;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
     font-family: var(--font-body);
     color: var(--text);
@@ -1350,7 +1336,7 @@
   .save-btn.primary:hover { color: white; }
 
   .status-msg {
-    font-size: 12px;
+    font-size: 0.75rem;
     text-align: center;
     margin-top: 8px;
     min-height: 16px;
@@ -1365,8 +1351,8 @@
     padding: 56px 24px;
     color: var(--text3);
   }
-  .empty-state .icon { font-size: 52px; margin-bottom: 14px; opacity: 0.75; }
-  .empty-state p { font-size: 14px; line-height: 1.6; }
+  .empty-state .icon { font-size: 3.25rem; margin-bottom: 14px; opacity: 0.75; }
+  .empty-state p { font-size: 0.875rem; line-height: 1.6; }
 
   /* ====== YEAR NAV ====== */
   .year-nav {
@@ -1386,8 +1372,8 @@
   .year-nav button {
     background: transparent;
     border: none;
-    border-radius: 50%; width: 38px; height: 38px;
-    cursor: pointer; color: var(--text2); font-size: 14px; font-weight: 600;
+    border-radius: 50%; width: 44px; height: 44px;
+    cursor: pointer; color: var(--text2); font-size: 0.875rem; font-weight: 600;
     display: flex; align-items: center; justify-content: center;
     transition: all 0.2s var(--ease-spring);
   }
@@ -1396,7 +1382,7 @@
     color: var(--text);
     transform: scale(0.94);
   }
-  .year-nav span { font-size: 14px; font-weight: 600; min-width: 52px; text-align: center; letter-spacing: -0.01em; }
+  .year-nav span { font-size: 0.875rem; font-weight: 600; min-width: 52px; text-align: center; letter-spacing: -0.01em; }
 
   /* iOS-style hidden scrollbar inside modal */
   .modal::-webkit-scrollbar { display: none; }
@@ -1411,8 +1397,120 @@
     box-shadow: inset 0 0.5px 0 var(--hairline);
   }
   #tagList > * {
-    font-size: 15px;
+    font-size: 0.9375rem;
     padding: 10px 16px;
+  }
+
+  /* ====== TOASTS ====== */
+  .toast-host {
+    position: fixed;
+    top: max(env(safe-area-inset-top), 14px);
+    left: 16px; right: 16px;
+    margin: 0 auto;
+    max-width: 430px;
+    z-index: 800;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: var(--glass-chrome);
+    -webkit-backdrop-filter: var(--blur-thick);
+    backdrop-filter: var(--blur-thick);
+    border: 0.5px solid var(--hairline);
+    border-radius: var(--r-lg);
+    padding: 12px 16px;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--text);
+    box-shadow: 0 2px 8px rgba(20,20,19,0.08), 0 12px 28px -8px rgba(20,20,19,0.18);
+    pointer-events: auto;
+    animation: toast-in 0.28s var(--ease-spring);
+  }
+  .toast.error { border-color: var(--accent); }
+  .toast.leaving { animation: toast-out 0.22s var(--ease-soft) forwards; }
+  @keyframes toast-in { from { transform: translateY(-16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes toast-out { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-12px); opacity: 0; } }
+
+  /* ====== CONFIRM DIALOG ====== */
+  .confirm-msg { font-size: 0.875rem; color: var(--text2); line-height: 1.5; margin: 0 0 20px; }
+  .confirm-modal { max-width: 360px; padding-top: 22px; }
+  .confirm-modal h2 { font-size: 1.25rem; margin-bottom: 12px; }
+  .confirm-cancel {
+    width: 100%; margin-top: 8px;
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    padding: 14px;
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s var(--ease-soft);
+  }
+  .confirm-cancel:hover, .confirm-cancel:active { background: var(--glass-thin); }
+
+  /* ====== MATERIAL FALLBACKS ====== */
+  /* When the browser cannot blur, or the user prefers reduced transparency,
+     fall back to nearly-opaque canvas tints (DESIGN_CONVENTIONS §5). */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root {
+      --glass-thin: rgba(250, 249, 245, 0.92);
+      --glass-regular: rgba(250, 249, 245, 0.95);
+      --glass-thick: rgba(250, 249, 245, 0.98);
+      --glass-chrome: rgba(250, 249, 245, 1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --glass-thin: rgba(38, 35, 30, 0.92);
+        --glass-regular: rgba(38, 35, 30, 0.95);
+        --glass-thick: rgba(30, 28, 24, 0.98);
+        --glass-chrome: rgba(22, 20, 17, 1);
+      }
+    }
+    html[data-theme="dark"] {
+      --glass-thin: rgba(38, 35, 30, 0.92);
+      --glass-regular: rgba(38, 35, 30, 0.95);
+      --glass-thick: rgba(30, 28, 24, 0.98);
+      --glass-chrome: rgba(22, 20, 17, 1);
+    }
+    html[data-theme="light"] {
+      --glass-thin: rgba(250, 249, 245, 0.92);
+      --glass-regular: rgba(250, 249, 245, 0.95);
+      --glass-thick: rgba(250, 249, 245, 0.98);
+      --glass-chrome: rgba(250, 249, 245, 1);
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    :root {
+      --glass-thin: rgba(250, 249, 245, 0.92);
+      --glass-regular: rgba(250, 249, 245, 0.95);
+      --glass-thick: rgba(250, 249, 245, 0.98);
+      --glass-chrome: rgba(250, 249, 245, 1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --glass-thin: rgba(38, 35, 30, 0.92);
+        --glass-regular: rgba(38, 35, 30, 0.95);
+        --glass-thick: rgba(30, 28, 24, 0.98);
+        --glass-chrome: rgba(22, 20, 17, 1);
+      }
+    }
+    html[data-theme="dark"] {
+      --glass-thin: rgba(38, 35, 30, 0.92);
+      --glass-regular: rgba(38, 35, 30, 0.95);
+      --glass-thick: rgba(30, 28, 24, 0.98);
+      --glass-chrome: rgba(22, 20, 17, 1);
+    }
+    html[data-theme="light"] {
+      --glass-thin: rgba(250, 249, 245, 0.92);
+      --glass-regular: rgba(250, 249, 245, 0.95);
+      --glass-thick: rgba(250, 249, 245, 0.98);
+      --glass-chrome: rgba(250, 249, 245, 1);
+    }
+    body::after { display: none; }
   }
 
   /* Reduced motion */
@@ -1423,6 +1521,9 @@
   </style>
 </head>
 <body>
+
+<!-- TOAST HOST -->
+<div class="toast-host" id="toastHost" aria-live="polite"></div>
 
 <!-- DRAWER OVERLAY -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
@@ -1489,11 +1590,7 @@
       </div>
       <div class="drawer-section">
         <div id="catList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="newCatName" placeholder="Name" style="flex:1;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-          <input type="text" id="newCatIcon" placeholder="🏠" style="width:56px;background:var(--glass-thin);-webkit-backdrop-filter:var(--blur-thin);backdrop-filter:var(--blur-thin);border:0.5px solid var(--hairline-soft);border-radius:var(--r-md);padding:12px;font-size:18px;text-align:center;outline:none;box-shadow:inset 0 0.5px 0 var(--hairline-soft)">
-          <button class="save-btn" style="width:auto;padding:12px 18px" onclick="addCategory()" aria-label="Kategorie hinzufügen">+</button>
-        </div>
+        <button class="save-btn" onclick="openCatModal()">Kategorie hinzufügen</button>
       </div>
     </div>
 
@@ -1504,8 +1601,9 @@
         <span class="drawer-sub-title">Tags</span>
       </div>
       <div class="drawer-section">
-        <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
-        <p style="font-size:12px;color:var(--text3);line-height:1.5">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
+        <div id="tagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+        <button class="save-btn" onclick="openTagModal()">Tag erstellen</button>
+        <p style="font-size:0.75rem;color:var(--text3);line-height:1.5;margin-top:12px">Tippe einen Tag an, um ihn umzubenennen oder zu löschen. Änderungen wirken sich auf alle Buchungen aus, die diesen Tag verwenden.</p>
       </div>
     </div>
 
@@ -1521,7 +1619,7 @@
             <label>API-Basis-URL</label>
             <input type="url" id="cfg-api" placeholder="z.B. https://pocketlog.deinedomain.de" />
           </div>
-          <p style="font-size:12px;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
+          <p style="font-size:0.75rem;color:var(--text3);margin:-4px 0 12px">Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix <code>/api</code> wird automatisch ergänzt.</p>
           <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
           <div class="status-msg" id="apiStatus"></div>
         </div>
@@ -1530,7 +1628,7 @@
           <button class="save-btn" style="margin-top:8px" onclick="document.getElementById('importFile').click()">Aus CSV importieren…</button>
           <input type="file" id="importFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="importCSV(event)">
           <a class="save-btn" style="margin-top:8px;text-decoration:none;display:block;text-align:center;line-height:1.4" href="/example-import.csv" download>Beispieldatei herunterladen</a>
-          <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
+          <p style="font-size:0.75rem;color:var(--text3);margin-top:8px;line-height:1.5">Spalten: <code>date;type;amount;description;category;tags</code>. <code>type</code> = <code>in</code>/<code>out</code> oder Einnahme/Ausgabe. Datum als <code>YYYY-MM-DD</code> oder <code>DD.MM.YYYY</code>. Unbekannte Kategorien werden automatisch angelegt.</p>
           <div class="status-msg" id="importStatus"></div>
         </div>
       </div>
@@ -1600,11 +1698,11 @@
 <div class="summary">
   <div class="summary-card">
     <div class="label">Ausgaben</div>
-    <div class="amount negative" id="totalOut">€0,00</div>
+    <div class="amount negative" id="totalOut">0,00 €</div>
   </div>
   <div class="summary-card">
     <div class="label">Einnahmen</div>
-    <div class="amount positive" id="totalIn">€0,00</div>
+    <div class="amount positive" id="totalIn">0,00 €</div>
   </div>
 </div>
 
@@ -1646,12 +1744,16 @@
 
 <!-- BOTTOM BAR -->
 <div class="bottom-bar">
-  <div class="search-wrap">
-    <span class="search-icon">⌕</span>
-    <input class="search-input" id="searchInput" type="search" placeholder="Suchen…"
-           oninput="onSearch(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
-    <button class="search-clear" id="searchClear" onclick="clearSearch()" aria-label="Suche löschen">✕</button>
-  </div>
+  <form class="search-form" role="search" onsubmit="event.preventDefault()">
+    <label for="searchInput" class="visually-hidden">Buchungen durchsuchen</label>
+    <div class="search-wrap">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <input class="search-input" id="searchInput" type="search" placeholder="Buchungen durchsuchen"
+             oninput="onSearch(this.value)"
+             enterkeyhint="search" inputmode="search"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+  </form>
   <button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
 </div>
 
@@ -1696,41 +1798,43 @@
   </div>
 </div>
 
-<!-- TAG EDIT MODAL -->
+<!-- TAG ADD/EDIT MODAL -->
 <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
   <div class="modal">
-    <div class="modal-handle"></div>
-    <h2>Tag bearbeiten</h2>
+    <div class="modal-header">
+      <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">‹</button>
+      <h2 id="tagModalTitle">Tag bearbeiten</h2>
+    </div>
     <div class="form-group">
       <label>Name</label>
       <input type="text" id="tagEditName" maxlength="64">
     </div>
     <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
-    <button class="submit-btn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
-    <button class="submit-btn" onclick="closeTagModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
+    <button class="submit-btn" id="tagDeleteBtn" onclick="deleteTagEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
   </div>
 </div>
 
-<!-- CATEGORY EDIT MODAL -->
+<!-- CATEGORY ADD/EDIT MODAL -->
 <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
   <div class="modal">
-    <div class="modal-handle"></div>
-    <h2>Kategorie bearbeiten</h2>
+    <div class="modal-header">
+      <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">‹</button>
+      <h2 id="catModalTitle">Kategorie bearbeiten</h2>
+    </div>
     <div class="form-group">
       <label>Name</label>
       <input type="text" id="catEditName" maxlength="100">
     </div>
     <div class="form-group">
       <label>Icon (Emoji)</label>
-      <input type="text" id="catEditIcon" maxlength="8" style="text-align:center;font-size:24px">
+      <input type="text" id="catEditIcon" maxlength="8" style="text-align:center;font-size:1.5rem">
     </div>
     <div class="form-group">
       <label>Farbe</label>
       <div class="color-swatches" id="catEditColors"></div>
     </div>
     <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
-    <button class="submit-btn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
-    <button class="submit-btn" onclick="closeCatModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
+    <button class="submit-btn" id="catDeleteBtn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
   </div>
 </div>
 
@@ -1769,8 +1873,78 @@ async function api(method, path, body) {
 
 // ── FORMATTING ────────────────────────────────────────────────────────────────
 const fmtCurrency = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
+const fmtSignedCurrency = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',signDisplay:'always'}).format(n);
 const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const MONTHS_SHORT = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+// ── TOAST + CONFIRM (replaces native alert/confirm) ──────────────────────────
+function toast(message, type = 'info') {
+  const host = document.getElementById('toastHost');
+  if (!host) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (type === 'error' ? ' error' : '');
+  el.textContent = message;
+  if (type === 'error') el.setAttribute('role', 'alert');
+  host.appendChild(el);
+  const dwell = type === 'error' ? 5000 : 3200;
+  setTimeout(() => {
+    el.classList.add('leaving');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }, dwell);
+}
+
+function confirmAction({ title, message = '', confirmLabel = 'Bestätigen', cancelLabel = 'Abbrechen', destructive = true }) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    overlay.style.alignItems = 'center';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal confirm-modal';
+    modal.setAttribute('role', 'alertdialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'confirmTitle');
+
+    const h = document.createElement('h2');
+    h.id = 'confirmTitle';
+    h.textContent = title;
+    modal.appendChild(h);
+
+    if (message) {
+      const p = document.createElement('p');
+      p.className = 'confirm-msg';
+      p.textContent = message;
+      modal.appendChild(p);
+    }
+
+    const yes = document.createElement('button');
+    yes.className = 'submit-btn confirm-yes';
+    yes.type = 'button';
+    yes.textContent = confirmLabel;
+    if (destructive) yes.style.cssText = 'background:transparent;color:var(--accent);border:1px solid var(--accent)';
+    modal.appendChild(yes);
+
+    const no = document.createElement('button');
+    no.className = 'confirm-cancel';
+    no.type = 'button';
+    no.textContent = cancelLabel;
+    modal.appendChild(no);
+
+    overlay.appendChild(modal);
+
+    const close = (result) => {
+      overlay.remove();
+      document.body.style.overflow = '';
+      resolve(result);
+    };
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+    yes.addEventListener('click', () => close(true));
+    no.addEventListener('click', () => close(false));
+    setTimeout(() => no.focus(), 50);
+  });
+}
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
 let _activePanel = 'transactions';
@@ -1782,7 +1956,6 @@ function _resetSearch() {
   _allTransactions = null;
   document.body.classList.remove('searching');
   document.getElementById('searchInput').value = '';
-  document.getElementById('searchClear').classList.remove('visible');
   const fab = document.querySelector('.fab');
   if (fab) {
     fab.textContent = '+';
@@ -1940,7 +2113,6 @@ async function _setSearchPanelActive(active) {
 async function onSearch(val) {
   const wasEmpty = !_searchQuery;
   _searchQuery = val.trim().toLowerCase();
-  document.getElementById('searchClear').classList.toggle('visible', val.length > 0);
   if (_searchQuery && wasEmpty) await _setSearchPanelActive(true);
   else if (!_searchQuery && !wasEmpty) _setSearchPanelActive(false);
   else applySearch();
@@ -1964,7 +2136,7 @@ function getMonthTxs() {
 function renderTransactions(txs, el = document.getElementById('transactionList')) {
   if (!txs.length) {
     el.innerHTML = _searchQuery
-      ? `<div class="empty-state"><div class="icon">🔍</div><p>Keine Treffer für „${_searchQuery}".</p></div>`
+      ? `<div class="empty-state"><div class="icon">🔍</div><p>Keine Buchungen passen zu „${_searchQuery}“.<br>Andere Schreibweise versuchen.</p></div>`
       : `<div class="empty-state"><div class="icon">📭</div><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong> um eine hinzuzufügen.</p></div>`;
     return;
   }
@@ -1991,7 +2163,7 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
             <div class="t-title">${title}</div>
             <div class="t-meta">${meta}</div>
           </div>
-          <div class="t-amount ${t.type}">${t.type==='out'?'–':'+'}${fmtCurrency(t.amount)}</div>
+          <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type==='out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
         </div>
       </div>`;
     }).join('');
@@ -2105,8 +2277,9 @@ function attachSwipeHandlers(container) {
       e.stopPropagation();
       const id = Number(row.dataset.id);
       const tx = transactions.find(t => t.id === id);
-      const label = tx && tx.desc ? `„${tx.desc}"` : 'die Buchung';
-      if (!confirm(`${label} löschen?`)) {
+      const label = tx && tx.desc ? `„${tx.desc}“` : 'die Buchung';
+      const ok = await confirmAction({ title: `${label} löschen?`, confirmLabel: 'Löschen' });
+      if (!ok) {
         row.classList.remove('swiped');
         return;
       }
@@ -2123,7 +2296,7 @@ function attachSwipeHandlers(container) {
           updateSyncBadge();
           return;
         }
-        alert('Fehler beim Löschen: ' + err.message);
+        toast('Fehler beim Löschen: ' + err.message, 'error');
         row.classList.remove('swiped');
       }
     });
@@ -2207,7 +2380,7 @@ function renderCatBreakdown() {
   const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
   const max = sorted[0]?.[1] || 1;
   const el = document.getElementById('catBreakdown');
-  if (!sorted.length) { el.innerHTML='<p style="color:var(--text3);font-size:13px;text-align:center;padding:16px">Keine Ausgaben in diesem Monat</p>'; return; }
+  if (!sorted.length) { el.innerHTML='<p style="color:var(--text3);font-size:0.8125rem;text-align:center;padding:16px">Keine Ausgaben in diesem Monat</p>'; return; }
   el.innerHTML = sorted.map(([catId, amt]) => {
     const cat = getCatById(parseInt(catId));
     return `<div class="cat-row">
@@ -2216,7 +2389,7 @@ function renderCatBreakdown() {
         <div class="cat-name">${cat.name}</div>
         <div class="cat-bar-wrap"><div class="cat-bar" style="width:${(amt/max)*100}%;background:${cat.color}"></div></div>
       </div>
-      <div class="cat-amount">–${fmtCurrency(amt)}</div>
+      <div class="cat-amount">${fmtCurrency(-Math.abs(amt))}</div>
     </div>`;
   }).join('');
 }
@@ -2269,7 +2442,7 @@ function attachDragDismiss(overlayId, closeFn) {
     dy = 0;
     active = false;
     intentDecided = false;
-    fromHandle = handle.contains(e.target);
+    fromHandle = handle ? handle.contains(e.target) : false;
     startScrollTop = modal.scrollTop;
   });
 
@@ -2338,7 +2511,7 @@ function attachDragDismiss(overlayId, closeFn) {
 async function deleteCurrentTransaction() {
   const editId = document.getElementById('modalOverlay').dataset.editId;
   if (!editId) return;
-  if (!confirm('Buchung wirklich löschen?')) return;
+  if (!await confirmAction({ title: 'Buchung wirklich löschen?', confirmLabel: 'Löschen' })) return;
   try {
     await api('DELETE', `/transactions/${editId}`);
     closeModal();
@@ -2350,7 +2523,7 @@ async function deleteCurrentTransaction() {
       updateSyncBadge();
       return;
     }
-    alert('Fehler beim Löschen: ' + e.message);
+    toast('Fehler beim Löschen: ' + e.message, 'error');
   }
 }
 
@@ -2382,7 +2555,7 @@ function removeTag(t) {
 function renderTagPills() {
   const wrap = document.getElementById('tagsWrap');
   const inp  = document.getElementById('tagInput');
-  wrap.innerHTML = currentTags.map(t=>`<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}" entfernen">×</button></span>`).join('');
+  wrap.innerHTML = currentTags.map(t=>`<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}“ entfernen">×</button></span>`).join('');
   wrap.appendChild(inp);
 }
 
@@ -2391,7 +2564,7 @@ async function addTransaction() {
   const desc   = document.getElementById('inputDesc').value.trim();
   const cat    = parseInt(document.getElementById('inputCat').value);
   const date   = document.getElementById('inputDate').value;
-  if (!amount || !date) { alert('Betrag und Datum sind Pflichtfelder.'); return; }
+  if (!amount || !date) { toast('Betrag und Datum sind Pflichtfelder.', 'error'); return; }
   const body = {amount, desc, category_id: cat||null, date, type:currentType, tags:currentTags};
   const editId = document.getElementById('modalOverlay').dataset.editId;
   const method = editId ? 'PUT' : 'POST';
@@ -2409,7 +2582,7 @@ async function addTransaction() {
       updateSyncBadge();
       return;
     }
-    alert('Fehler beim Speichern: ' + e.message);
+    toast('Fehler beim Speichern: ' + e.message, 'error');
   }
 }
 
@@ -2429,19 +2602,7 @@ function mergeIntoAvailableTags(tags) {
 }
 
 // ── CATEGORIES ────────────────────────────────────────────────────────────────
-async function addCategory() {
-  const name = document.getElementById('newCatName').value.trim();
-  const icon = document.getElementById('newCatIcon').value.trim() || '📦';
-  if (!name) return;
-  const colors = ['#D97757','#6b7aa1','#788C5D','#c47ab0','#e0a44a','#87867F'];
-  try {
-    await api('POST', '/categories', {name, icon, color: colors[categories.length%colors.length]});
-    document.getElementById('newCatName').value='';
-    document.getElementById('newCatIcon').value='';
-    await loadCategories();
-    renderCategories();
-  } catch(e) { alert('Kategorie konnte nicht gespeichert werden. Verbindung prüfen.'); }
-}
+const CAT_CREATE_COLORS = ['#D97757','#6b7aa1','#788C5D','#c47ab0','#e0a44a','#87867F'];
 
 async function loadCategories() {
   try { categories = await api('GET', '/categories'); } catch(e) { categories=[]; }
@@ -2492,15 +2653,29 @@ let editingCatId = null;
 let editingCatColor = '#9e9b96';
 
 function openCatModal(id) {
-  const c = categories.find(x => x.id === id);
-  if (!c) return;
-  editingCatId = c.id;
-  editingCatColor = c.color || '#9e9b96';
-  document.getElementById('catEditName').value = c.name || '';
-  document.getElementById('catEditIcon').value = c.icon || '📦';
+  const deleteBtn = document.getElementById('catDeleteBtn');
+  const title = document.getElementById('catModalTitle');
+  if (id) {
+    const c = categories.find(x => x.id === id);
+    if (!c) return;
+    editingCatId = c.id;
+    editingCatColor = c.color || '#9e9b96';
+    document.getElementById('catEditName').value = c.name || '';
+    document.getElementById('catEditIcon').value = c.icon || '📦';
+    title.textContent = 'Kategorie bearbeiten';
+    deleteBtn.style.display = '';
+  } else {
+    editingCatId = null;
+    editingCatColor = CAT_CREATE_COLORS[categories.length % CAT_CREATE_COLORS.length];
+    document.getElementById('catEditName').value = '';
+    document.getElementById('catEditIcon').value = '📦';
+    title.textContent = 'Neue Kategorie';
+    deleteBtn.style.display = 'none';
+  }
   renderCatColorSwatches();
   document.getElementById('catModalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('catEditName').focus(), 200);
 }
 
 function renderCatColorSwatches() {
@@ -2530,22 +2705,25 @@ function closeCatModalOutside(e) {
 }
 
 async function saveCategoryEdit() {
-  if (!editingCatId) return;
   const name = document.getElementById('catEditName').value.trim();
   const icon = document.getElementById('catEditIcon').value.trim() || '📦';
-  if (!name) { alert('Name ist ein Pflichtfeld.'); return; }
-  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { alert('Die Farbe ist ungültig. Ein gültiger Hex-Wert wird benötigt, z. B. #D97757.'); return; }
+  if (!name) { toast('Name ist ein Pflichtfeld.', 'error'); return; }
+  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) { toast('Die Farbe ist ungültig. Ein gültiger Hex-Wert wird benötigt, z. B. #D97757.', 'error'); return; }
   try {
-    await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
+    if (editingCatId) {
+      await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
+    } else {
+      await api('POST', '/categories', { name, icon, color: editingCatColor });
+    }
     closeCatModal();
     await loadCategories();
     renderCategories();
     await loadAndRender();
   } catch (e) {
     if (e.message && e.message.includes('409')) {
-      alert('Eine Kategorie mit diesem Namen existiert bereits.');
+      toast('Eine Kategorie mit diesem Namen existiert bereits.', 'error');
     } else {
-      alert('Fehler beim Speichern: ' + e.message);
+      toast('Fehler beim Speichern: ' + e.message, 'error');
     }
   }
 }
@@ -2553,7 +2731,11 @@ async function saveCategoryEdit() {
 async function deleteCategoryEdit() {
   if (!editingCatId) return;
   const c = categories.find(x => x.id === editingCatId);
-  if (!confirm(`Kategorie „${c?.name || ''}" wirklich löschen?`)) return;
+  const ok = await confirmAction({
+    title: `Kategorie „${c?.name || ''}“ wirklich löschen?`,
+    confirmLabel: 'Löschen'
+  });
+  if (!ok) return;
   try {
     await api('DELETE', `/categories/${editingCatId}`);
     closeCatModal();
@@ -2562,9 +2744,9 @@ async function deleteCategoryEdit() {
     await loadAndRender();
   } catch (e) {
     if (e.message && e.message.includes('409')) {
-      alert('Kategorie wird noch in Buchungen verwendet und kann nicht gelöscht werden.');
+      toast('Kategorie wird noch in Buchungen verwendet und kann nicht gelöscht werden.', 'error');
     } else {
-      alert('Fehler beim Löschen: ' + e.message);
+      toast('Fehler beim Löschen: ' + e.message, 'error');
     }
   }
 }
@@ -2576,7 +2758,7 @@ function renderTagList() {
   const box = document.getElementById('tagList');
   if (!box) return;
   if (!availableTags.length) {
-    box.innerHTML = '<p style="font-size:13px;color:var(--text3)">Noch keine Tags vorhanden.</p>';
+    box.innerHTML = '<p style="font-size:0.8125rem;color:var(--text3)">Noch keine Tags vorhanden.</p>';
     return;
   }
   box.innerHTML = availableTags.map(t => {
@@ -2589,8 +2771,19 @@ function renderTagList() {
 }
 
 function openTagModal(name) {
-  editingTagName = name;
-  document.getElementById('tagEditName').value = name;
+  const deleteBtn = document.getElementById('tagDeleteBtn');
+  const title = document.getElementById('tagModalTitle');
+  if (name) {
+    editingTagName = name;
+    document.getElementById('tagEditName').value = name;
+    title.textContent = 'Tag bearbeiten';
+    deleteBtn.style.display = '';
+  } else {
+    editingTagName = null;
+    document.getElementById('tagEditName').value = '';
+    title.textContent = 'Neuer Tag';
+    deleteBtn.style.display = 'none';
+  }
   document.getElementById('tagModalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   setTimeout(()=>document.getElementById('tagEditName').focus(), 200);
@@ -2606,24 +2799,36 @@ function closeTagModalOutside(e) {
 }
 
 async function saveTagEdit() {
-  if (!editingTagName) return;
   const newName = document.getElementById('tagEditName').value.trim();
-  if (!newName) { alert('Name ist ein Pflichtfeld.'); return; }
-  if (newName === editingTagName) { closeTagModal(); return; }
+  if (!newName) { toast('Name ist ein Pflichtfeld.', 'error'); return; }
+  if (editingTagName && newName === editingTagName) { closeTagModal(); return; }
   try {
-    await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
+    if (editingTagName) {
+      await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
+    } else {
+      await api('POST', '/tags', { name: newName });
+    }
     closeTagModal();
     await loadTags();
     renderTagList();
     await loadAndRender();
   } catch (e) {
-    alert('Fehler beim Speichern: ' + e.message);
+    if (e.message && e.message.includes('409')) {
+      toast('Ein Tag mit diesem Namen existiert bereits.', 'error');
+    } else {
+      toast('Fehler beim Speichern: ' + e.message, 'error');
+    }
   }
 }
 
 async function deleteTagEdit() {
   if (!editingTagName) return;
-  if (!confirm(`Tag „${editingTagName}" wirklich löschen? Er wird aus allen Buchungen entfernt.`)) return;
+  const ok = await confirmAction({
+    title: `Tag „${editingTagName}“ wirklich löschen?`,
+    message: 'Der Tag wird aus allen Buchungen entfernt.',
+    confirmLabel: 'Löschen'
+  });
+  if (!ok) return;
   try {
     await api('DELETE', `/tags/${encodeURIComponent(editingTagName)}`);
     closeTagModal();
@@ -2631,7 +2836,7 @@ async function deleteTagEdit() {
     renderTagList();
     await loadAndRender();
   } catch (e) {
-    alert('Fehler beim Löschen: ' + e.message);
+    toast('Fehler beim Löschen: ' + e.message, 'error');
   }
 }
 
@@ -2844,8 +3049,9 @@ async function init() {
   await loadAndRender();
   showPanel(loadDefaultView());
   updateSyncBadge();
-  attachDragDismiss('tagModalOverlay', closeTagModal);
+  attachDragDismiss('modalOverlay', closeModal);
   attachDragDismiss('catModalOverlay', closeCatModal);
+  attachDragDismiss('tagModalOverlay', closeTagModal);
 }
 init();
 </script>
