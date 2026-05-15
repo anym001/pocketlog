@@ -1367,8 +1367,8 @@
     font-size: var(--fs-caption);
     color: var(--text3);
     font-weight: 600;
-    margin-bottom: 10px;
-    padding-left: 4px;
+    margin-bottom: var(--space-10);
+    padding-left: var(--space-4);
   }
   .settings-row {
     background: var(--glass-regular);
@@ -1376,12 +1376,12 @@
     backdrop-filter: var(--blur-regular);
     border: var(--border-hairline);
     border-radius: var(--r-md);
-    padding: 14px 16px;
-    margin-bottom: 8px;
+    padding: var(--space-14) var(--space-16);
+    margin-bottom: var(--space-8);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--space-12);
     box-shadow: var(--shadow-soft);
   }
   .settings-row label { font-size: var(--fs-footnote); font-weight: 600; letter-spacing: -0.01em; }
@@ -1389,7 +1389,7 @@
     background: var(--glass-thin);
     border: var(--border-hairline);
     border-radius: var(--r-sm);
-    padding: 8px 12px;
+    padding: var(--space-8) var(--space-12);
     font-size: var(--fs-footnote);
     font-family: var(--font-body);
     color: var(--text);
@@ -1407,14 +1407,14 @@
     backdrop-filter: var(--blur-regular);
     border: var(--border-hairline);
     border-radius: var(--r-md);
-    padding: 14px;
+    padding: var(--space-14);
     font-size: var(--fs-footnote);
     font-weight: 600;
     font-family: var(--font-body);
     color: var(--text);
     cursor: pointer;
     transition: all var(--dur-base) var(--ease-spring);
-    margin-top: 4px;
+    margin-top: var(--space-4);
     box-shadow: var(--shadow-soft);
     letter-spacing: -0.01em;
   }
@@ -1433,7 +1433,7 @@
   .status-msg {
     font-size: var(--fs-micro);
     text-align: center;
-    margin-top: 8px;
+    margin-top: var(--space-8);
     min-height: 16px;
     color: var(--green);
     font-weight: 500;
@@ -1443,7 +1443,7 @@
 
   .empty-state {
     text-align: center;
-    padding: 56px 24px;
+    padding: var(--space-56) var(--space-24);
     color: var(--text3);
   }
   .empty-state .icon { font-size: 3.25rem; margin-bottom: 14px; opacity: 0.75; }
