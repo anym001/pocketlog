@@ -399,7 +399,7 @@
   .header {
     position: sticky;
     top: 0;
-    padding: max(env(safe-area-inset-top), 14px) 20px 14px;
+    padding: max(env(safe-area-inset-top), var(--space-14)) var(--space-20) var(--space-14);
     z-index: var(--z-toolbar);
     background: var(--glass-chrome);
     -webkit-backdrop-filter: var(--blur-regular);
@@ -411,15 +411,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
-    padding-top: 6px;
+    margin-bottom: var(--space-4);
+    padding-top: var(--space-6);
   }
   .month-nav {
     display: flex;
     align-items: center;
-    gap: 4px;
-    margin: 12px auto 0;
-    padding: 3px;
+    gap: var(--space-4);
+    margin: var(--space-12) auto 0;
+    padding: var(--space-3);
     background: var(--glass-thin);
     -webkit-backdrop-filter: var(--blur-thin);
     backdrop-filter: var(--blur-thin);
@@ -461,7 +461,7 @@
     border: var(--border-hairline);
     border-radius: var(--r-pill);
     height: var(--btn-chrome-size);
-    padding: 0 14px;
+    padding: 0 var(--space-14);
     font-size: var(--fs-caption);
     font-weight: 500;
     font-family: var(--font-body);
