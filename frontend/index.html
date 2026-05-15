@@ -86,8 +86,8 @@
     --radius-sm: var(--r-md);
 
     /* Fonts */
-    --font-display: 'DM Serif Display', 'New York', serif;
-    --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'DM Sans', sans-serif;
 
     /* Motion */
     --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
@@ -317,6 +317,15 @@
 
   body > * { position: relative; z-index: 1; }
 
+  /* Visually hidden — for screen-reader-only labels */
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0);
+    white-space: nowrap; border: 0;
+  }
+
   /* ====== HEADER ====== */
   .header {
     position: sticky;
@@ -353,7 +362,7 @@
   .month-nav button {
     background: transparent;
     border: none;
-    width: 38px; height: 38px;
+    width: 44px; height: 44px;
     border-radius: 50%;
     cursor: pointer;
     color: var(--text2);
@@ -438,11 +447,9 @@
   }
   .summary-card > * { position: relative; z-index: 2; }
   .summary-card .label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-size: 12px;
     color: var(--text3);
-    font-weight: 700;
+    font-weight: 600;
     flex-shrink: 0;
   }
   .summary-card .amount {
@@ -520,11 +527,9 @@
 
   /* ====== TRANSACTIONS ====== */
   .section-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 13px;
     color: var(--text3);
-    font-weight: 700;
+    font-weight: 600;
     margin: 18px 4px 8px;
   }
   .tx-row {
@@ -665,12 +670,10 @@
   }
   .chart-container > * { position: relative; z-index: 2; }
   .chart-container h3 {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 14px;
     color: var(--text3);
     margin-bottom: 14px;
-    font-weight: 700;
+    font-weight: 600;
   }
   canvas { max-height: 220px; }
 
@@ -742,19 +745,8 @@
     min-width: 0;
   }
   .search-input::placeholder { color: var(--text3); }
-  .search-clear {
-    background: none;
-    border: none;
-    color: var(--text3);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 4px;
-    margin: -4px;
-    display: none;
-    line-height: 1;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .search-clear.visible { display: block; }
+  .search-wrap:focus-within { border-color: var(--accent); box-shadow: inset 0 0.5px 0 var(--hairline), 0 0 0 3px var(--accent-tint); }
+  .search-form { display: contents; }
 
   /* ====== FAB (liquid glass) ====== */
   .fab {
@@ -912,10 +904,8 @@
     margin: 24px 20px 0;
   }
   .drawer-section h3 {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 600;
     color: var(--text3);
     margin-bottom: 12px;
   }
@@ -1119,11 +1109,9 @@
   .form-group { margin-bottom: 16px; }
   .form-group label {
     display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 13px;
     color: var(--text3);
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 7px;
     padding-left: 4px;
   }
@@ -1281,11 +1269,9 @@
   /* ====== SETTINGS ====== */
   .settings-section { margin-bottom: 26px; }
   .settings-section h3 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 13px;
     color: var(--text3);
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 10px;
     padding-left: 4px;
   }
@@ -1386,7 +1372,7 @@
   .year-nav button {
     background: transparent;
     border: none;
-    border-radius: 50%; width: 38px; height: 38px;
+    border-radius: 50%; width: 44px; height: 44px;
     cursor: pointer; color: var(--text2); font-size: 14px; font-weight: 600;
     display: flex; align-items: center; justify-content: center;
     transition: all 0.2s var(--ease-spring);
@@ -1600,11 +1586,11 @@
 <div class="summary">
   <div class="summary-card">
     <div class="label">Ausgaben</div>
-    <div class="amount negative" id="totalOut">€0,00</div>
+    <div class="amount negative" id="totalOut">0,00 €</div>
   </div>
   <div class="summary-card">
     <div class="label">Einnahmen</div>
-    <div class="amount positive" id="totalIn">€0,00</div>
+    <div class="amount positive" id="totalIn">0,00 €</div>
   </div>
 </div>
 
@@ -1646,12 +1632,16 @@
 
 <!-- BOTTOM BAR -->
 <div class="bottom-bar">
-  <div class="search-wrap">
-    <span class="search-icon">⌕</span>
-    <input class="search-input" id="searchInput" type="search" placeholder="Suchen…"
-           oninput="onSearch(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
-    <button class="search-clear" id="searchClear" onclick="clearSearch()" aria-label="Suche löschen">✕</button>
-  </div>
+  <form class="search-form" role="search" onsubmit="event.preventDefault()">
+    <label for="searchInput" class="visually-hidden">Buchungen durchsuchen</label>
+    <div class="search-wrap">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <input class="search-input" id="searchInput" type="search" placeholder="Buchungen durchsuchen"
+             oninput="onSearch(this.value)"
+             enterkeyhint="search" inputmode="search"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+  </form>
   <button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
 </div>
 
@@ -1769,6 +1759,7 @@ async function api(method, path, body) {
 
 // ── FORMATTING ────────────────────────────────────────────────────────────────
 const fmtCurrency = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
+const fmtSignedCurrency = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',signDisplay:'always'}).format(n);
 const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const MONTHS_SHORT = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
@@ -1782,7 +1773,6 @@ function _resetSearch() {
   _allTransactions = null;
   document.body.classList.remove('searching');
   document.getElementById('searchInput').value = '';
-  document.getElementById('searchClear').classList.remove('visible');
   const fab = document.querySelector('.fab');
   if (fab) {
     fab.textContent = '+';
@@ -1940,7 +1930,6 @@ async function _setSearchPanelActive(active) {
 async function onSearch(val) {
   const wasEmpty = !_searchQuery;
   _searchQuery = val.trim().toLowerCase();
-  document.getElementById('searchClear').classList.toggle('visible', val.length > 0);
   if (_searchQuery && wasEmpty) await _setSearchPanelActive(true);
   else if (!_searchQuery && !wasEmpty) _setSearchPanelActive(false);
   else applySearch();
@@ -1964,7 +1953,7 @@ function getMonthTxs() {
 function renderTransactions(txs, el = document.getElementById('transactionList')) {
   if (!txs.length) {
     el.innerHTML = _searchQuery
-      ? `<div class="empty-state"><div class="icon">🔍</div><p>Keine Treffer für „${_searchQuery}".</p></div>`
+      ? `<div class="empty-state"><div class="icon">🔍</div><p>Keine Treffer für „${_searchQuery}“.</p></div>`
       : `<div class="empty-state"><div class="icon">📭</div><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong> um eine hinzuzufügen.</p></div>`;
     return;
   }
@@ -1991,7 +1980,7 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
             <div class="t-title">${title}</div>
             <div class="t-meta">${meta}</div>
           </div>
-          <div class="t-amount ${t.type}">${t.type==='out'?'–':'+'}${fmtCurrency(t.amount)}</div>
+          <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type==='out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
         </div>
       </div>`;
     }).join('');
@@ -2105,7 +2094,7 @@ function attachSwipeHandlers(container) {
       e.stopPropagation();
       const id = Number(row.dataset.id);
       const tx = transactions.find(t => t.id === id);
-      const label = tx && tx.desc ? `„${tx.desc}"` : 'die Buchung';
+      const label = tx && tx.desc ? `„${tx.desc}“` : 'die Buchung';
       if (!confirm(`${label} löschen?`)) {
         row.classList.remove('swiped');
         return;
@@ -2216,7 +2205,7 @@ function renderCatBreakdown() {
         <div class="cat-name">${cat.name}</div>
         <div class="cat-bar-wrap"><div class="cat-bar" style="width:${(amt/max)*100}%;background:${cat.color}"></div></div>
       </div>
-      <div class="cat-amount">–${fmtCurrency(amt)}</div>
+      <div class="cat-amount">${fmtCurrency(-Math.abs(amt))}</div>
     </div>`;
   }).join('');
 }
@@ -2382,7 +2371,7 @@ function removeTag(t) {
 function renderTagPills() {
   const wrap = document.getElementById('tagsWrap');
   const inp  = document.getElementById('tagInput');
-  wrap.innerHTML = currentTags.map(t=>`<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}" entfernen">×</button></span>`).join('');
+  wrap.innerHTML = currentTags.map(t=>`<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}“ entfernen">×</button></span>`).join('');
   wrap.appendChild(inp);
 }
 
@@ -2553,7 +2542,7 @@ async function saveCategoryEdit() {
 async function deleteCategoryEdit() {
   if (!editingCatId) return;
   const c = categories.find(x => x.id === editingCatId);
-  if (!confirm(`Kategorie „${c?.name || ''}" wirklich löschen?`)) return;
+  if (!confirm(`Kategorie „${c?.name || ''}“ wirklich löschen?`)) return;
   try {
     await api('DELETE', `/categories/${editingCatId}`);
     closeCatModal();
@@ -2623,7 +2612,7 @@ async function saveTagEdit() {
 
 async function deleteTagEdit() {
   if (!editingTagName) return;
-  if (!confirm(`Tag „${editingTagName}" wirklich löschen? Er wird aus allen Buchungen entfernt.`)) return;
+  if (!confirm(`Tag „${editingTagName}“ wirklich löschen? Er wird aus allen Buchungen entfernt.`)) return;
   try {
     await api('DELETE', `/tags/${encodeURIComponent(editingTagName)}`);
     closeTagModal();
