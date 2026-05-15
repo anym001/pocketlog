@@ -132,11 +132,10 @@
     --border-hairline:        0.5px solid var(--hairline-soft);
     --border-hairline-strong: 0.5px solid var(--hairline);
 
-    /* Spacing scale — Zahl im Namen = px-Wert. Phase-1 deckt jeden
-       aktuell vorhandenen Spacing-Wert ab, damit die Migration ohne
-       visuelle Änderung läuft. Halbschritte (3/5/6/7/11/13/15/18/22/26)
-       werden in einer späteren Konsolidierung auf den nächsten 4-px-
-       Schritt zusammengezogen. */
+    /* Spacing scale — Zahl im Namen = px-Wert. 4-px-Raster plus 10 / 14
+       als gängige iOS-Zwischenstufen und 2 / 56 für Sonderfälle
+       (.tag-pill negative, .empty-state Padding). Halbschritte wurden
+       in Phase 3 auf das Raster zusammengezogen. */
     --space-2:  2px;
     --space-4:  4px;
     --space-8:  8px;
