@@ -1815,8 +1815,10 @@
 <!-- CATEGORY ADD/EDIT MODAL -->
 <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
   <div class="modal">
-    <div class="modal-handle"></div>
-    <h2 id="catModalTitle">Kategorie bearbeiten</h2>
+    <div class="modal-header">
+      <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">‹</button>
+      <h2 id="catModalTitle">Kategorie bearbeiten</h2>
+    </div>
     <div class="form-group">
       <label>Name</label>
       <input type="text" id="catEditName" maxlength="100">
@@ -1831,7 +1833,6 @@
     </div>
     <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
     <button class="submit-btn" id="catDeleteBtn" onclick="deleteCategoryEdit()" style="margin-top:8px;background:transparent;color:var(--accent);border:1px solid var(--accent)">Löschen</button>
-    <button class="submit-btn" onclick="closeCatModal()" style="margin-top:8px;background:transparent;color:var(--text2);border:1px solid var(--border)">Abbrechen</button>
   </div>
 </div>
 
@@ -3029,7 +3030,6 @@ async function init() {
   showPanel(loadDefaultView());
   updateSyncBadge();
   attachDragDismiss('tagModalOverlay', closeTagModal);
-  attachDragDismiss('catModalOverlay', closeCatModal);
 }
 init();
 </script>
