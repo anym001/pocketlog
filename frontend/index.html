@@ -363,6 +363,23 @@
   .panel { display: none; padding: 8px 20px calc(96px + env(safe-area-inset-bottom)); }
   .panel.active { display: block; }
 
+  /* ====== SEARCH MODE ====== */
+  .month-nav,
+  .summary {
+    transition: opacity 0.2s var(--ease-soft), max-height 0.25s var(--ease-soft), padding 0.25s var(--ease-soft), margin 0.25s var(--ease-soft);
+    max-height: 300px;
+    overflow: hidden;
+  }
+  body.searching .month-nav,
+  body.searching .summary {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin: 0;
+    pointer-events: none;
+  }
+
   /* ====== CATEGORY VIEW ====== */
   .cat-view-row {
     display: flex;
@@ -591,15 +608,15 @@
     gap: 8px;
     height: 50px;
     padding: 0 16px;
-    background: var(--glass-chrome);
+    background: var(--glass-regular);
     -webkit-backdrop-filter: var(--blur-regular);
     backdrop-filter: var(--blur-regular);
     border: 0.5px solid var(--hairline-soft);
     border-radius: var(--r-pill);
     box-shadow:
       inset 0 0.5px 0 var(--hairline),
-      0 4px 16px rgba(20,20,19,0.10),
-      0 16px 40px -8px rgba(20,20,19,0.18);
+      0 2px 8px rgba(20,20,19,0.06),
+      0 8px 24px -4px rgba(20,20,19,0.10);
   }
   .search-icon {
     color: var(--text3);
@@ -632,24 +649,25 @@
   }
   .search-clear.visible { display: block; }
 
-  /* ====== FAB (glass orb) ====== */
+  /* ====== FAB (liquid glass) ====== */
   .fab {
     width: 50px; height: 50px;
     flex-shrink: 0;
-    background: linear-gradient(145deg, var(--accent-2), var(--accent));
+    background: var(--glass-regular);
+    -webkit-backdrop-filter: var(--blur-regular);
+    backdrop-filter: var(--blur-regular);
     border-radius: 18px;
-    border: 0.5px solid rgba(255,255,255,0.35);
-    color: white;
+    border: 0.5px solid var(--hairline-soft);
+    color: var(--text);
     font-size: 26px;
     font-weight: 300;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: transform 0.25s var(--ease-bounce);
     box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.4),
-      inset 0 -1px 0 rgba(0,0,0,0.1),
-      0 4px 12px rgba(217, 100, 52, 0.4),
-      0 20px 40px -8px rgba(217, 100, 52, 0.55);
+      inset 0 0.5px 0 var(--hairline),
+      0 2px 8px rgba(20,20,19,0.06),
+      0 8px 24px -4px rgba(20,20,19,0.10);
     overflow: hidden;
     isolation: isolate;
     position: relative;
@@ -1637,6 +1655,7 @@ let _allTransactions = null;
 function _resetSearch() {
   _searchQuery = '';
   _allTransactions = null;
+  document.body.classList.remove('searching');
   document.getElementById('searchInput').value = '';
   document.getElementById('searchClear').classList.remove('visible');
   const fab = document.querySelector('.fab');
@@ -1644,7 +1663,7 @@ function _resetSearch() {
     fab.textContent = '+';
     fab.classList.remove('search-exit');
     fab.setAttribute('aria-label', 'Neue Buchung');
-    fab.onclick = openModal;
+    fab.onclick = () => openModal();
   }
 }
 
@@ -1766,6 +1785,7 @@ function applySearch() {
 async function _setSearchPanelActive(active) {
   const fab = document.querySelector('.fab');
   if (active) {
+    document.body.classList.add('searching');
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('panel-search').classList.add('active');
     fab.textContent = '✕';
@@ -1782,12 +1802,13 @@ async function _setSearchPanelActive(active) {
     applySearch();
   } else {
     _allTransactions = null;
+    document.body.classList.remove('searching');
     document.getElementById('panel-search').classList.remove('active');
     document.getElementById('panel-' + _activePanel).classList.add('active');
     fab.textContent = '+';
     fab.classList.remove('search-exit');
     fab.setAttribute('aria-label', 'Neue Buchung');
-    fab.onclick = openModal;
+    fab.onclick = () => openModal();
   }
 }
 
@@ -2101,7 +2122,10 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 function closeModalOutside(e) { if(e.target===document.getElementById('modalOverlay')) closeModal(); }
-function editTransaction(id) { openModal(transactions.find(t=>t.id===Number(id))); }
+function editTransaction(id) {
+  const pool = _allTransactions ?? transactions;
+  openModal(pool.find(t => t.id === Number(id)));
+}
 
 function attachDragDismiss(overlayId, closeFn) {
   const overlay = document.getElementById(overlayId);
