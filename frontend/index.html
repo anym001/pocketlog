@@ -63,6 +63,7 @@
         --green-2: #96a87a;
         --green-tint: rgba(120, 140, 93, 0.15);
         --red: #c0392b;
+        --red-2: #ec6b5b;
         --blue: #2a78d8;
 
         /* Foreground color for text/icons on filled accent/green/red surfaces. */
@@ -105,6 +106,13 @@
         --fs-footnote: 0.875rem; /* 14px – sekundärer Body */
         --fs-caption: 0.8125rem; /* 13px – Meta, Hinweise */
         --fs-micro: 0.75rem; /* 12px – kleinste Marker, Tag-Pills */
+
+        /* Icon-Skala für Emoji-/Picto-Glyphen außerhalb der Chrome-Buttons —
+       Listen-Reihen, FAB-Inhalt, Empty-State-Hero. */
+        --fs-icon-sm: 1.0625rem; /* 17px – Listen-Glyph (cat-icon) */
+        --fs-icon-md: 1.375rem; /* 22px – Section-Glyph (cat-view-icon, fab.search-exit) */
+        --fs-icon-lg: 1.625rem; /* 26px – FAB-Plus */
+        --fs-icon-xl: 3.25rem; /* 52px – Empty-State-Hero */
 
         /* Button tokens — chrome icons share a single source of truth.
        FAB and chrome buttons can be re-sized centrally here. */
@@ -211,6 +219,10 @@
       html {
         background: var(--bg-canvas);
         color-scheme: light dark;
+        /* Horizontal-Clip absichtlich hier, nicht auf body: sonst wird body
+           zum Scroll-Container und `position: sticky` auf .header pinnt an
+           den (mitscrollenden) Body-Anfang statt an den Viewport-Anfang. */
+        overflow-x: hidden;
       }
 
       body {
@@ -220,17 +232,23 @@
         max-width: 430px;
         margin: 0 auto;
         position: relative;
-        overflow-x: hidden;
         background: transparent;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
 
-      /* Ambient color field — gives the glass something to refract */
+      /* Ambient color field — gives the glass something to refract.
+         Explizite 100lvh-Größe statt `inset: 0`, damit der Layer auch im
+         iOS-Standalone-PWA beim ersten Paint sofort bis unter den
+         Home-Indicator-Bereich reicht — sonst scheint bis zum ersten
+         Scroll der html-Canvas durch. */
       body::before {
         content: '';
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100lvh;
         pointer-events: none;
         z-index: 0;
         background:
@@ -663,7 +681,7 @@
         opacity: 0.55;
       }
       .cat-view-icon {
-        font-size: 1.375rem;
+        font-size: var(--fs-icon-md);
         width: 32px;
         text-align: center;
         flex-shrink: 0;
@@ -719,7 +737,7 @@
         right: 0;
         bottom: 0;
         width: 92px;
-        background: linear-gradient(135deg, var(--red), #ec6b5b);
+        background: linear-gradient(135deg, var(--red), var(--red-2));
         color: var(--on-accent);
         font-weight: 600;
         font-size: var(--fs-footnote);
@@ -852,7 +870,7 @@
         margin-bottom: var(--space-14);
         font-weight: 600;
       }
-      canvas {
+      .chart-container canvas {
         max-height: 220px;
       }
 
@@ -870,7 +888,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.0625rem;
+        font-size: var(--fs-icon-sm);
         flex-shrink: 0;
         box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.6);
         border: var(--border-hairline);
@@ -971,7 +989,7 @@
         border-radius: 18px;
         border: var(--border-hairline);
         color: var(--text);
-        font-size: 1.625rem;
+        font-size: var(--fs-icon-lg);
         font-weight: 300;
         cursor: pointer;
         display: flex;
@@ -998,13 +1016,22 @@
         transform: scale(0.92);
       }
       .fab.search-exit {
-        font-size: 1.375rem;
+        font-size: var(--fs-icon-md);
         font-weight: 400;
       }
 
       /* ====== BOTTOM NAV (floating liquid glass capsule) ====== */
       .bottom-nav {
         display: none;
+      }
+
+      /* SVG-Glyph aus dem Sprite — Größe folgt font-size des umgebenden
+         Buttons (1em), Farbe via currentColor. */
+      .ui-icon {
+        width: 1em;
+        height: 1em;
+        flex-shrink: 0;
+        vertical-align: middle;
       }
 
       /* ====== HAMBURGER ====== */
@@ -1015,21 +1042,13 @@
         background: transparent;
         cursor: pointer;
         color: var(--text);
-        display: flex;
-        flex-direction: column;
+        font-size: var(--fs-title);
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: var(--space-4);
         border-radius: var(--r-sm);
         padding: 0;
         flex-shrink: 0;
-      }
-      .hamburger-btn span {
-        display: block;
-        width: 20px;
-        height: 2px;
-        background: currentColor;
-        border-radius: 1px;
         transition: opacity var(--dur-base);
       }
       .hamburger-btn:active {
@@ -1341,7 +1360,6 @@
         border-radius: var(--r-pill);
         margin: 0 auto var(--space-16);
         touch-action: none;
-        cursor: grab;
       }
       .modal h2 {
         font-family: var(--font-display);
@@ -1361,7 +1379,7 @@
       }
       .modal-cancel-btn {
         position: absolute;
-        left: 0;
+        right: 0;
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         border-radius: 50%;
@@ -1438,14 +1456,14 @@
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
         color: var(--on-accent);
         box-shadow:
-          0 2px 8px rgba(217, 100, 52, 0.35),
+          0 2px 8px color-mix(in oklab, var(--accent) 35%, transparent),
           inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
       }
       .type-btn.active.in {
         background: linear-gradient(135deg, var(--green), var(--green-2));
         color: var(--on-accent);
         box-shadow:
-          0 2px 8px rgba(47, 141, 94, 0.35),
+          0 2px 8px color-mix(in oklab, var(--green) 35%, transparent),
           inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
       }
 
@@ -1564,7 +1582,7 @@
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         border-radius: 50%;
-        border: 2.5px solid transparent;
+        border: 2px solid transparent;
         cursor: pointer;
         padding: 0;
         box-shadow:
@@ -1583,7 +1601,7 @@
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         border-radius: 50%;
-        border: 1.5px dashed var(--text3);
+        border: 2px dashed var(--text3);
         padding: 0;
         background: var(--glass-thin);
         cursor: pointer;
@@ -1645,7 +1663,7 @@
         box-shadow:
           inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
           inset 0 -0.5px 0 rgba(0, 0, 0, 0.08),
-          0 6px 18px -4px rgba(217, 100, 52, 0.5);
+          0 6px 18px -4px color-mix(in oklab, var(--accent) 50%, transparent);
       }
       .submit-btn:active {
         transform: scale(0.985);
@@ -1655,7 +1673,25 @@
         box-shadow:
           inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
           inset 0 -0.5px 0 rgba(0, 0, 0, 0.08),
-          0 6px 18px -4px rgba(47, 141, 94, 0.5);
+          0 6px 18px -4px color-mix(in oklab, var(--green) 50%, transparent);
+      }
+      .submit-btn.btn-destructive {
+        margin-top: var(--space-8);
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--accent);
+      }
+
+      /* Inline label + radio rows in Drawer-Sections (Darstellung, Startansicht). */
+      .radio-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-10);
+        padding: var(--space-8) 0;
+        cursor: pointer;
+      }
+      .radio-row input[type='radio'] {
+        accent-color: var(--accent);
       }
 
       /* ====== SETTINGS ====== */
@@ -1738,7 +1774,7 @@
         border-color: rgba(255, 255, 255, 0.25);
         box-shadow:
           inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
-          0 6px 18px -4px rgba(217, 100, 52, 0.45);
+          0 6px 18px -4px color-mix(in oklab, var(--accent) 45%, transparent);
       }
       .save-btn.primary:hover {
         color: var(--on-accent);
@@ -1766,7 +1802,7 @@
         color: var(--text3);
       }
       .empty-state .icon {
-        font-size: 3.25rem;
+        font-size: var(--fs-icon-xl);
         margin-bottom: var(--space-14);
         opacity: 0.75;
       }
@@ -2015,6 +2051,86 @@
     </style>
   </head>
   <body>
+    <!-- Inline SVG icon sprite (chrome glyphs).
+         Hidden via 0×0 absolute positioning so <use href="#icon-…"> works
+         reliably across browsers. Stroke 1.75 / 24×24 viewBox per
+         DESIGN_CONVENTIONS §Icons im UI. -->
+    <svg
+      width="0"
+      height="0"
+      style="position: absolute"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <symbol
+          id="icon-menu"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M4 7h16" />
+          <path d="M4 12h16" />
+          <path d="M4 17h16" />
+        </symbol>
+        <symbol
+          id="icon-chevron-left"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M15 6l-6 6 6 6" />
+        </symbol>
+        <symbol
+          id="icon-chevron-right"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 6l6 6-6 6" />
+        </symbol>
+        <symbol
+          id="icon-close"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </symbol>
+        <symbol
+          id="icon-search"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M20 20l-3.5-3.5" />
+        </symbol>
+        <symbol
+          id="icon-plus"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+      </defs>
+    </svg>
+
     <!-- TOAST HOST -->
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
@@ -2026,7 +2142,7 @@
       <div class="drawer-head">
         <h1 class="drawer-head-title">Pocket<span>Log</span></h1>
         <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">
-          ✕
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
         </button>
       </div>
 
@@ -2053,7 +2169,7 @@
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpSettings')">
               Einstellungen
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
           </nav>
         </div>
@@ -2061,25 +2177,27 @@
         <!-- Panel 1: Einstellungen -->
         <div class="drawer-panel" id="dpSettings" data-state="right">
           <div class="drawer-sub-head">
-            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">‹</button>
+            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
             <span class="drawer-sub-title">Einstellungen</span>
           </div>
           <nav class="drawer-nav">
             <button class="drawer-nav-item" onclick="drawerNav('dpCats')">
               Kategorien
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpTags')">
               Tags
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpImport')">
               Import/Export
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
               Darstellung
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
           </nav>
         </div>
@@ -2092,7 +2210,7 @@
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
             >
-              ‹
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
             <span class="drawer-sub-title">Kategorien</span>
           </div>
@@ -2113,7 +2231,7 @@
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
             >
-              ‹
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
             <span class="drawer-sub-title">Tags</span>
           </div>
@@ -2134,7 +2252,7 @@
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
             >
-              ‹
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
             <span class="drawer-sub-title">Import/Export</span>
           </div>
@@ -2203,64 +2321,37 @@
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
             >
-              ‹
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
             <span class="drawer-sub-title">Darstellung</span>
           </div>
           <div class="drawer-section">
             <h3>Erscheinungsbild</h3>
             <div class="settings-section">
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="appTheme"
                   value="system"
                   onchange="saveTheme(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 System
               </label>
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="appTheme"
                   value="light"
                   onchange="saveTheme(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 Hell
               </label>
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="appTheme"
                   value="dark"
                   onchange="saveTheme(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 Dunkel
               </label>
@@ -2270,39 +2361,21 @@
           <div class="drawer-section">
             <h3>Startansicht</h3>
             <div class="settings-section">
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="defaultView"
                   value="transactions"
                   onchange="saveDefaultView(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 Buchungs-Übersicht
               </label>
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="defaultView"
                   value="categories"
                   onchange="saveDefaultView(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 Kategorien-Übersicht
               </label>
@@ -2316,15 +2389,19 @@
     <div class="header">
       <div class="header-top">
         <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
-          <span></span><span></span><span></span>
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-menu" /></svg>
         </button>
         <div class="month-nav">
-          <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">‹</button>
+          <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
           <span class="month-label" id="monthLabel"></span>
-          <button onclick="changeMonth(1)" aria-label="Nächster Monat">›</button>
+          <button onclick="changeMonth(1)" aria-label="Nächster Monat">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+          </button>
         </div>
         <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
-          <span class="sync-dot" id="syncDot"></span>
+          <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
           <span class="sync-badge" id="syncBadge" hidden></span>
         </button>
       </div>
@@ -2361,9 +2438,13 @@
       <div class="chart-container">
         <h3>Jahresverlauf</h3>
         <div class="year-nav">
-          <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">‹</button>
+          <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
           <span id="yearLabel"></span>
-          <button onclick="changeYear(1)" aria-label="Nächstes Jahr">›</button>
+          <button onclick="changeYear(1)" aria-label="Nächstes Jahr">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+          </button>
         </div>
         <canvas id="yearChart"></canvas>
       </div>
@@ -2383,7 +2464,9 @@
       <form class="search-form" role="search" onsubmit="event.preventDefault()">
         <label for="searchInput" class="visually-hidden">Buchungen durchsuchen</label>
         <div class="search-wrap">
-          <span class="search-icon" aria-hidden="true">⌕</span>
+          <span class="search-icon" aria-hidden="true">
+            <svg class="ui-icon"><use href="#icon-search" /></svg>
+          </span>
           <input
             class="search-input"
             id="searchInput"
@@ -2399,7 +2482,9 @@
           />
         </div>
       </form>
-      <button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
+      <button class="fab" onclick="openModal()" aria-label="Neue Buchung">
+        <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
+      </button>
     </div>
 
     <!-- TRANSACTION ADD/EDIT MODAL -->
@@ -2407,7 +2492,9 @@
       <div class="modal">
         <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">‹</button>
+          <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
           <h2>Neue Buchung</h2>
         </div>
         <div class="modal-body">
@@ -2463,16 +2550,10 @@
             Ausgabe speichern
           </button>
           <button
-            class="submit-btn"
+            class="submit-btn btn-destructive"
             id="deleteBtn"
             onclick="deleteCurrentTransaction()"
-            style="
-              display: none;
-              margin-top: 8px;
-              background: transparent;
-              color: var(--accent);
-              border: 1px solid var(--accent);
-            "
+            style="display: none"
           >
             Löschen
           </button>
@@ -2486,7 +2567,7 @@
         <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">
-            ‹
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
           <h2 id="tagModalTitle">Tag bearbeiten</h2>
         </div>
@@ -2499,15 +2580,9 @@
         <div class="modal-footer">
           <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
           <button
-            class="submit-btn"
+            class="submit-btn btn-destructive"
             id="tagDeleteBtn"
             onclick="deleteTagEdit()"
-            style="
-              margin-top: 8px;
-              background: transparent;
-              color: var(--accent);
-              border: 1px solid var(--accent);
-            "
           >
             Löschen
           </button>
@@ -2521,7 +2596,7 @@
         <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">
-            ‹
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
           <h2 id="catModalTitle">Kategorie bearbeiten</h2>
         </div>
@@ -2547,15 +2622,9 @@
         <div class="modal-footer">
           <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
           <button
-            class="submit-btn"
+            class="submit-btn btn-destructive"
             id="catDeleteBtn"
             onclick="deleteCategoryEdit()"
-            style="
-              margin-top: 8px;
-              background: transparent;
-              color: var(--accent);
-              border: 1px solid var(--accent);
-            "
           >
             Löschen
           </button>
@@ -2564,6 +2633,14 @@
     </div>
 
     <script>
+      // ── ICON-MARKUP ───────────────────────────────────────────────────────────────
+      // Für Glyphen, die dynamisch via JS getauscht werden (FAB-Toggle Plus/✕,
+      // Tag-Pill-Remove). Statische Glyphen sitzen direkt im HTML-Markup.
+      const ICON_SVG = {
+        plus: '<svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"/></svg>',
+        close: '<svg class="ui-icon" aria-hidden="true"><use href="#icon-close"/></svg>',
+      };
+
       // ── API-BASIS ─────────────────────────────────────────────────────────────────
       // Standardmäßig same-origin ("/api"). Über die Settings kann eine vollständige
       // Basis-URL gesetzt werden (z.B. https://pocketlog.deinedomain.de). Das Suffix
@@ -2725,7 +2802,7 @@
         document.getElementById('searchInput').value = '';
         const fab = document.querySelector('.fab');
         if (fab) {
-          fab.textContent = '+';
+          fab.innerHTML = ICON_SVG.plus;
           fab.classList.remove('search-exit');
           fab.setAttribute('aria-label', 'Neue Buchung');
           fab.onclick = () => openModal();
@@ -2844,8 +2921,8 @@
           `${MONTHS[currentMonth]} ${currentYear}`;
         const out = transactions.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
         const inc = transactions.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0);
-        document.getElementById('totalOut').textContent = fmtCurrency(out);
-        document.getElementById('totalIn').textContent = fmtCurrency(inc);
+        document.getElementById('totalOut').textContent = fmtSignedCurrency(-out);
+        document.getElementById('totalIn').textContent = fmtSignedCurrency(inc);
         applySearch();
         if (_activePanel === 'categories') renderCategoryView();
       }
@@ -2873,7 +2950,7 @@
           document.body.classList.add('searching');
           document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
           document.getElementById('panel-search').classList.add('active');
-          fab.textContent = '✕';
+          fab.innerHTML = ICON_SVG.close;
           fab.classList.add('search-exit');
           fab.setAttribute('aria-label', 'Suche beenden');
           fab.onclick = clearSearch;
@@ -2890,7 +2967,7 @@
           document.body.classList.remove('searching');
           document.getElementById('panel-search').classList.remove('active');
           document.getElementById('panel-' + _activePanel).classList.add('active');
-          fab.textContent = '+';
+          fab.innerHTML = ICON_SVG.plus;
           fab.classList.remove('search-exit');
           fab.setAttribute('aria-label', 'Neue Buchung');
           fab.onclick = () => openModal();
@@ -3491,7 +3568,7 @@
         wrap.innerHTML = currentTags
           .map(
             (t) =>
-              `<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}“ entfernen">×</button></span>`
+              `<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}“ entfernen">${ICON_SVG.close}</button></span>`
           )
           .join('');
         wrap.appendChild(inp);

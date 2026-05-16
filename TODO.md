@@ -11,6 +11,14 @@ anfasst, ihn hier bitte gleich streichen.
 - Budget-Grenzen pro Kategorie inkl. Warnung im UI.
 - Push-Benachrichtigungen bei Budget-Überschreitung.
 - Statistik-/Diagrammansichten über mehrere Monate / das gesamte Jahr.
+- **Tablet-/Desktop-Layout.** Aktuell hat `body` ein hartes
+  `max-width: 430px` (`frontend/index.html`) — auf iPad und Mac sieht der
+  Nutzer also nur eine 430-px-Spalte mit viel Leerraum, obwohl iPhone +
+  iPad + Mac laut Architektur-Diagramm in `CLAUDE.md` Ziel-Plattformen
+  sind. Mindestens ein `@media (min-width: 768px)`-Branch fehlt — z. B.
+  zweispaltig (Liste + Detail), breitere Karten oder Dashboard-Anordnung.
+  Eigener Plan/Spike, nicht im selben PR mit Bugfixes
+  (Design-Review #15).
 
 ## PWA / Offline
 
@@ -31,10 +39,22 @@ Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
   Authentik, also kein Uptime-Check von außen ohne Token. Bei Bedarf in SWAG
   einen Location-Block für `/api/health` ohne `authentik-location.conf`
   anlegen.
-- **Icon-Größen in Tokens überführen.** Aktuell sitzen `cat-view-icon`
-  (`1.375rem`), `cat-icon` (`1.0625rem`), `t-icon`
-  (`var(--btn-icon-size)`), `fab` (`1.625rem`), `fab.search-exit`
-  (`1.375rem`) und `empty-state .icon` (`3.25rem`) als Literale im CSS.
-  Sinnvoll wären z. B. `--icon-sm` / `--icon-md` / `--icon-lg` /
-  `--icon-illustration`, damit Emoji- und Symbol-Größen genauso zentral
-  steuerbar werden wie die Text-Skala in `DESIGN_CONVENTIONS.md`.
+- **Stärkerer Aktiv-Marker im Drawer-Mainmenü.** Aktuell wird der aktive
+  Eintrag in `.drawer-nav-item.active` (`frontend/index.html`) nur über
+  `color: var(--accent)` + `font-weight: 600` markiert. Farbe allein
+  verstößt gegen WCAG 1.4.1 ("Use of Color") und ist gegen den
+  Glas-Hintergrund schwach erkennbar. Ein zweites, formbasiertes Signal
+  ergänzen — z. B. Akzent-Bar links (`box-shadow: inset 3px 0
+  var(--accent)`, macOS-Sidebar-Look), Hintergrund-Pill mit
+  `var(--accent-tint)` (iOS-Settings-Look) oder Trailing-Checkmark.
+  Design-Review #16, dort als "nicht kritisch" markiert, weil der Marker
+  ohnehin nur kurz sichtbar ist (Drawer schließt nach Auswahl).
+- **SVG-Sprite in eigene Datei auslagern.** Aktuell sitzt der Inline-Sprite
+  (`icon-menu`, `icon-chevron-left/-right`, `icon-close`, `icon-search`,
+  `icon-plus`) direkt am `<body>`-Anfang in `frontend/index.html`. Bei
+  sechs Glyphen kostet das ~1 KB HTML und spart einen Fetch — bei
+  spürbarem Wachstum (20+ Icons) oder Wiederverwendung außerhalb der PWA
+  Sinn macht ein konsolidiertes `frontend/svg/icons.svg`, referenziert
+  via `<use href="/svg/icons.svg#icon-menu" />`. Beim Umzug daran denken:
+  Service-Worker (`frontend/sw.js`) muss die Datei explizit cachen, sonst
+  bricht der Offline-Modus.

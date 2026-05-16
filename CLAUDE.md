@@ -169,6 +169,42 @@ Kurzfassung der harten Regeln:
 - Touch-Targets mindestens 44 × 44 px, WCAG-AA-Kontrast in beiden Modi
 - App-Name immer „PocketLog"
 
+## Konventionen Frontend
+
+**Vor jeder CSS-/Markup-Änderung erst prüfen, ob es schon ein zentrales
+Steuerelement gibt.** PocketLog ist absichtlich tokenisiert; ein
+hardgecodeter Wert ist fast immer ein Bug, weil er sich nicht mit dem
+Rest mitbewegt (Light/Dark, Theme-Wechsel, Größenanpassung). Es ist
+schon mehrfach passiert, dass neue Code-Stellen Tokens dupliziert oder
+ignoriert haben.
+
+- **Farben:** ausschließlich über `var(--accent)`, `var(--green)`,
+  `var(--red)` / `--red-2`, `var(--text)`, `var(--bg-canvas)` etc. Keine
+  Hex-/RGBA-Literale neu einführen — alle Themes (Light + Dark) leben
+  von den Tokens. Akzent-/Status-Schatten via
+  `color-mix(in oklab, var(--accent) X%, transparent)`, nicht via
+  hartcodierter rgba.
+- **Typografie:** Größen nur aus der `--fs-*`-Skala (`--fs-display` …
+  `--fs-micro`); Icon-Glyphen aus `--fs-icon-sm/md/lg/xl`.
+- **Spacing:** ausschließlich `--space-*`-Token (2, 4, 8, 10, 12, 14,
+  16, 20, 24 …); keine freien `px` für Margins/Paddings.
+- **Radien, Schatten, Z-Layer, Motion-Dauern, Focus-Ring, Borders:** die
+  jeweiligen Tokens (`--r-*`, `--shadow-*`, `--z-*`, `--dur-*`,
+  `--focus-ring`, `--border-hairline*`).
+- **Glyphen / Icons:** den vorhandenen Inline-SVG-Sprite verwenden
+  (`#icon-menu`, `#icon-chevron-left/-right`, `#icon-close`,
+  `#icon-search`, `#icon-plus`). Neue Glyphen als zusätzliches
+  `<symbol>` ergänzen, nicht ad-hoc Unicode oder eigene SVG inline.
+- **Wiederholungen:** sobald ein Inline-`style="…"` oder ein Style-Block
+  ≥ 2× auftaucht → Klasse extrahieren (siehe `.btn-destructive`,
+  `.radio-row`, `.ui-icon` als Beispiele) statt copy-pasten.
+- **Format-Helfer:** Beträge mit Vorzeichen via `fmtSignedCurrency(n)`,
+  ohne via `fmtCurrency(n)` — beide stehen in `frontend/index.html`.
+
+Wenn unklar ist, ob ein passendes Token existiert: erst in `:root` von
+`frontend/index.html` und in `DESIGN_CONVENTIONS.md` schauen, bevor neue
+Werte eingeführt werden.
+
 ## Sprach-Konventionen
 
 - **Code, Kommentare, Workflow-YAML, Skripte, Nginx-Configs (`swag/`):** Englisch

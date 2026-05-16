@@ -1,8 +1,15 @@
 # Design-Review – PocketLog Frontend
 
+> **Archiviert.** Alle 17 Punkte sind abgearbeitet: #1–14 + #17 in Code
+> umgesetzt, #15 (Tablet-/Desktop-Layout) und #16 (Drawer-Aktiv-Marker)
+> bewusst nach [`TODO.md`](../TODO.md) verschoben, #17.4 + #17.5
+> begründet verworfen. Diese Datei bleibt als historischer Snapshot des
+> Review-Zustands stehen — neue Findings gehören in ein eigenes
+> `docs/DESIGN_REVIEW_<datum>.md`.
+
 **Datum:** 2026-05-15
 **Bezug:** `frontend/index.html` (aktueller Working-Tree, inkl. unstaged Änderungen)
-**Grundlage:** [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md), Apple HIG, WCAG 2.2
+**Grundlage:** [`DESIGN_CONVENTIONS.md`](../DESIGN_CONVENTIONS.md), Apple HIG, WCAG 2.2
 
 Checkboxen zum Abhaken beim Bearbeiten. Reihenfolge folgt Priorität (Kritisch → Polish).
 
@@ -100,7 +107,7 @@ Variablen-/Code-Namen (`transactions`) bleiben englisch wie in CLAUDE.md geregel
 
 ---
 
-### [ ] 6. Akzent-bezogene Schatten sind hardcoded
+### [x] 6. Akzent-bezogene Schatten sind hardcoded
 
 **Orte:** `index.html:1466, 1473, 1673, 1683, 1766` u.a.
 
@@ -120,7 +127,7 @@ oder ein dediziertes Token `--shadow-accent`.
 
 ## UX / Information Architecture
 
-### [ ] 7. Kein Active-Panel-Indikator außerhalb des Drawers
+### [x] 7. Kein Active-Panel-Indikator außerhalb des Drawers
 
 **Ort:** `index.html:2767-2778` (`showPanel()`)
 
@@ -162,7 +169,7 @@ davon drei in der Mitte (Pfeile + Label). Apple HIG: max. 1 trailing Action.
 
 ---
 
-### [ ] 10. Summary-Karten verlassen sich auf Farbe
+### [x] 10. Summary-Karten verlassen sich auf Farbe
 
 **Ort:** `index.html:2879-2880`
 
@@ -181,7 +188,7 @@ Beträge `+12,50 €` / `−12,50 €` zeigen.
 
 ## Polish & Code-Hygiene
 
-### [ ] 11. Wiederholte Inline-Styles
+### [x] 11. Wiederholte Inline-Styles
 
 **Orte:**
 
@@ -193,7 +200,7 @@ Beträge `+12,50 €` / `−12,50 €` zeigen.
 
 ---
 
-### [ ] 12. Inkonsistente Tokens
+### [x] 12. Inkonsistente Tokens
 
 - Icon-Größen außerhalb `--fs-*`-Skala: `cat-icon 1.0625rem`,
   `cat-view-icon 1.375rem`, `fab 1.625rem`, `empty-state .icon 3.25rem`.
@@ -206,7 +213,7 @@ und vereinheitlichen.
 
 ---
 
-### [ ] 13. Globales `canvas { max-height: 220px }`
+### [x] 13. Globales `canvas { max-height: 220px }`
 
 **Ort:** `index.html:874-876`
 
@@ -217,7 +224,7 @@ Nicht auf `.chart-container canvas` gescoped. Jedes künftige `<canvas>`
 
 ---
 
-### [ ] 14. Generischer 3-Bar-Hamburger
+### [x] 14. Generischer 3-Bar-Hamburger
 
 **Ort:** `index.html:2350-2352`
 
@@ -228,7 +235,9 @@ Drei flache `<span>`s wirken im sonst sehr polished Liquid-Glass-UI billig.
 
 ---
 
-### [ ] 15. Kein Tablet-/Desktop-Layout
+### [x] 15. Kein Tablet-/Desktop-Layout
+
+→ verschoben nach [`TODO.md`](../TODO.md) §Features.
 
 **Ort:** `index.html:212-223` (`body`)
 
@@ -249,7 +258,9 @@ Eigener Plan/Spike, nicht im selben PR mit Bugfixes.
 
 ---
 
-### [ ] 16. Drawer-Mainmenü ohne starken Aktiv-Marker
+### [x] 16. Drawer-Mainmenü ohne starken Aktiv-Marker
+
+→ verschoben nach [`TODO.md`](../TODO.md) §Nice-to-haves.
 
 **Ort:** `index.html:1226-1228`
 
@@ -265,17 +276,30 @@ Form (Punkt links, Akzent-Bar rechts). „Nice to have", nicht kritisch.
 
 ---
 
-### [ ] 17. Kleinkram-Sammlung
+### [x] 17. Kleinkram-Sammlung
 
-- [ ] `.sync-dot` (`index.html:2359`) ist rein dekorativ → `aria-hidden="true"` setzen.
-- [ ] `.modal-handle` hat `cursor: grab` und `touch-action: none` — sicherstellen,
+- [x] `.sync-dot` (`index.html:2359`) ist rein dekorativ → `aria-hidden="true"` setzen.
+- [x] `.modal-handle` hat `cursor: grab` und `touch-action: none` — sicherstellen,
       dass tatsächlich ein Drag-to-dismiss-Handler existiert; sonst Affordance entfernen.
-- [ ] `.modal-cancel-btn` zeigt `‹` (`index.html:2442`) → bei Sheets ist `✕`
+      → Handler existiert (`attachDragDismiss`), ignoriert aber bewusst `pointerType === 'mouse'`.
+      `cursor: grab` versprach Maus-Verhalten, das nie kam → entfernt. `touch-action: none` bleibt.
+- [x] `.modal-cancel-btn` zeigt `‹` (`index.html:2442`) → bei Sheets ist `✕`
       semantisch klarer (Sheet schließen vs. Push-Navigation zurück).
-- [ ] `body { overflow-x: hidden }` (`index.html:219`) kann in alten iOS-Safaris
+      → Glyph auf `#icon-close` und Position von `left: 0` auf `right: 0` umgestellt;
+      damit deckt sich der Button auch mit dem schon korrekten `aria-label="Schließen"`.
+- [x] `body { overflow-x: hidden }` (`index.html:219`) kann in alten iOS-Safaris
       `position: sticky` brechen — beobachten.
-- [ ] `.sync-dot` `box-shadow: 0 0 var(--space-8) var(--green)` (`index.html:497`)
-      — heller Glow auf Light-Glas, evtl. < WCAG 3:1 für grafische Elemente.
+      → **Bestätigt + umgesetzt** (war ursprünglich als „iOS < 16 obsolet" verworfen,
+      stimmte aber nicht): `overflow-x: hidden` auf `body` macht den body zum
+      Scroll-Container, `position: sticky` pinnt damit an den Body-Anfang statt
+      an den Viewport — beim Scrollen verschwindet der Header und der
+      `body::before`-Gradient kommt durch. Fix: `overflow-x: hidden` von `body`
+      nach `html` verschoben; Horizontal-Clip bleibt erhalten, Sticky pinnt
+      wieder an Viewport-Top.
+- [x] ~~`.sync-dot` `box-shadow: 0 0 var(--space-8) var(--green)` (`index.html:497`)
+      — heller Glow auf Light-Glas, evtl. < WCAG 3:1 für grafische Elemente.~~
+      → **Verworfen:** Status-Information sitzt im gefüllten Dot selbst (Kontrast ~3.5:1
+      ggü. `--bg-canvas`), der Glow ist nur Ambient-Decoration und kein Informationsträger.
 
 ---
 
