@@ -120,7 +120,7 @@ oder ein dediziertes Token `--shadow-accent`.
 
 ## UX / Information Architecture
 
-### [ ] 7. Kein Active-Panel-Indikator außerhalb des Drawers
+### [x] 7. Kein Active-Panel-Indikator außerhalb des Drawers
 
 **Ort:** `index.html:2767-2778` (`showPanel()`)
 
