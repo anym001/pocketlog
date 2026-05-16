@@ -716,6 +716,7 @@
         background: transparent;
         border-radius: 50%;
         color: var(--text3);
+        font-size: var(--fs-icon-lg);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2236,9 +2237,9 @@
           fill="currentColor"
           stroke="none"
         >
-          <circle cx="12" cy="6" r="1.6" />
-          <circle cx="12" cy="12" r="1.6" />
-          <circle cx="12" cy="18" r="1.6" />
+          <circle cx="12" cy="5" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="12" cy="19" r="2" />
         </symbol>
       </defs>
     </svg>
@@ -3166,11 +3167,14 @@
       function applySearch() {
         const q = _searchQuery;
         const catFilter = _categoryFilterId;
-        if (!q && !catFilter) {
+        if (!q && catFilter == null) {
           renderTransactions(transactions);
           return;
         }
-        const pool = _allTransactions ?? transactions;
+        // Category drill-down stays scoped to the visible month so the
+        // result matches what the user saw on the categories panel. Text
+        // search keeps spanning all months via _allTransactions.
+        const pool = catFilter != null ? transactions : (_allTransactions ?? transactions);
         const filtered = pool.filter((t) => {
           if (catFilter != null) return t.category_id === catFilter;
           if ((t.desc || '').toLowerCase().includes(q)) return true;
@@ -3192,12 +3196,15 @@
           fab.classList.add('search-exit');
           fab.setAttribute('aria-label', 'Suche beenden');
           fab.onclick = clearSearch;
-          // Load all transactions for global search
-          try {
-            const raw = await api('GET', '/transactions');
-            _allTransactions = raw.map(normalizeTx);
-          } catch (e) {
-            _allTransactions = [];
+          // Only load the global pool for text search — category drill-down
+          // stays month-scoped via the already-loaded `transactions`.
+          if (_searchQuery && !_allTransactions) {
+            try {
+              const raw = await api('GET', '/transactions');
+              _allTransactions = raw.map(normalizeTx);
+            } catch (e) {
+              _allTransactions = [];
+            }
           }
           applySearch();
         } else {
@@ -3258,24 +3265,23 @@
         txs.forEach((t) => {
           (groups[t.date] = groups[t.date] || []).push(t);
         });
-        // Search results can span years, so the date label needs the year
-        // for orientation; in-month lists keep the compact weekday-only form.
-        const isSearchPanel = el && el.id === 'searchResultsList';
         el.innerHTML = Object.entries(groups)
           .map(([date, list]) => {
             const d = new Date(date + 'T12:00:00');
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const dDay = new Date(date + 'T00:00:00');
-            const dateOptions = isSearchPanel
-              ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
-              : { weekday: 'long', day: 'numeric', month: 'long' };
             const label =
               dDay.getTime() === today.getTime()
                 ? 'Heute'
                 : dDay.getTime() === today.getTime() - 86400000
                   ? 'Gestern'
-                  : d.toLocaleDateString('de-DE', dateOptions);
+                  : d.toLocaleDateString('de-DE', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    });
             return (
               `<div class="section-title">${label}</div>` +
               list
@@ -3379,15 +3385,19 @@
           const inner = row.querySelector('.transaction');
           const action = row.querySelector('.tx-action');
           let startX = 0,
+            startY = 0,
             dx = 0,
             dragging = false,
+            committedAxis = null, // 'x' once we've decided the gesture is a swipe
             openOnStart = false;
 
           inner.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             startX = e.clientX;
+            startY = e.clientY;
             dx = 0;
             dragging = true;
+            committedAxis = null;
             openOnStart = row.classList.contains('swiped');
             row.classList.add('dragging');
             try {
@@ -3397,7 +3407,24 @@
 
           inner.addEventListener('pointermove', (e) => {
             if (!dragging) return;
-            let delta = e.clientX - startX;
+            const rawDx = e.clientX - startX;
+            const rawDy = e.clientY - startY;
+            // Discriminate axis only once the finger has moved past a small
+            // slop, so a vertical scroll never briefly shifts the card and
+            // reveals the red delete action behind it. Once committed to a
+            // direction, stay there for the rest of the gesture.
+            if (committedAxis == null) {
+              const ax = Math.abs(rawDx);
+              const ay = Math.abs(rawDy);
+              if (ax < 8 && ay < 8) return; // still in slop
+              if (ay >= ax) {
+                // Vertical intent — release the gesture and let the page scroll.
+                endDrag(true);
+                return;
+              }
+              committedAxis = 'x';
+            }
+            let delta = rawDx;
             if (openOnStart) delta -= SWIPE_ACTION_WIDTH;
             dx = Math.min(0, Math.max(-SWIPE_ACTION_WIDTH, delta));
             inner.style.transform = `translateX(${dx}px)`;
