@@ -287,10 +287,15 @@ Form (Punkt links, Akzent-Bar rechts). „Nice to have", nicht kritisch.
       semantisch klarer (Sheet schließen vs. Push-Navigation zurück).
       → Glyph auf `#icon-close` und Position von `left: 0` auf `right: 0` umgestellt;
       damit deckt sich der Button auch mit dem schon korrekten `aria-label="Schließen"`.
-- [x] ~~`body { overflow-x: hidden }` (`index.html:219`) kann in alten iOS-Safaris
-      `position: sticky` brechen — beobachten.~~ → **Verworfen:** PocketLog nutzt
-      `color-mix(in oklab, …)` (Safari ≥ 16.4); iOS < 16 ist faktisch nicht mehr
-      Ziel-Plattform, der Bug ist dort längst behoben.
+- [x] `body { overflow-x: hidden }` (`index.html:219`) kann in alten iOS-Safaris
+      `position: sticky` brechen — beobachten.
+      → **Bestätigt + umgesetzt** (war ursprünglich als „iOS < 16 obsolet" verworfen,
+      stimmte aber nicht): `overflow-x: hidden` auf `body` macht den body zum
+      Scroll-Container, `position: sticky` pinnt damit an den Body-Anfang statt
+      an den Viewport — beim Scrollen verschwindet der Header und der
+      `body::before`-Gradient kommt durch. Fix: `overflow-x: hidden` von `body`
+      nach `html` verschoben; Horizontal-Clip bleibt erhalten, Sticky pinnt
+      wieder an Viewport-Top.
 - [x] ~~`.sync-dot` `box-shadow: 0 0 var(--space-8) var(--green)` (`index.html:497`)
       — heller Glow auf Light-Glas, evtl. < WCAG 3:1 für grafische Elemente.~~
       → **Verworfen:** Status-Information sitzt im gefüllten Dot selbst (Kontrast ~3.5:1
