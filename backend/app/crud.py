@@ -218,11 +218,12 @@ def update_transaction(
     return tx
 
 
-def list_tags(db: Session, user_id: int) -> list[str]:
+def list_tags(db: Session, user_id: int) -> list[dict]:
     # Standalone (declared) tags from the tags table — these win on casing
     # when both a standalone entry and a tx-derived entry exist for the
     # same case-folded key.
     by_key: dict[str, str] = {}
+    counts: dict[str, int] = {}
     for name in db.scalars(
         select(models.Tag.name).where(models.Tag.user_id == user_id)
     ):
@@ -247,8 +248,13 @@ def list_tags(db: Session, user_id: int) -> list[str]:
             t = t.strip()
             if not t:
                 continue
-            by_key.setdefault(t.casefold(), t)
-    return sorted(by_key.values(), key=str.casefold)
+            key = t.casefold()
+            by_key.setdefault(key, t)
+            counts[key] = counts.get(key, 0) + 1
+    return [
+        {"name": by_key[k], "count": counts.get(k, 0)}
+        for k in sorted(by_key.keys())
+    ]
 
 
 def create_tag(db: Session, user_id: int, name: str) -> models.Tag:

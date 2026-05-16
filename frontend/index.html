@@ -1545,18 +1545,76 @@
         line-height: 1;
       }
 
-      .tag-add-input {
-        border: none !important;
-        padding: var(--space-4) 0 !important;
-        width: 80px !important;
-        font-size: var(--fs-caption) !important;
-        background: none !important;
-        box-shadow: none !important;
-        -webkit-backdrop-filter: none !important;
-        backdrop-filter: none !important;
+      .tag-add-btn {
+        margin-left: auto;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: var(--border-hairline);
+        background: var(--glass-thick);
+        -webkit-backdrop-filter: var(--blur-thin);
+        backdrop-filter: var(--blur-thin);
+        color: var(--text2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        box-shadow: inset 0 0.5px 0 var(--hairline);
+        transition: transform var(--dur-base) var(--ease-spring);
+        -webkit-tap-highlight-color: transparent;
       }
-      .tag-add-input:focus {
-        box-shadow: none !important;
+      .tag-add-btn:active {
+        transform: scale(0.92);
+      }
+
+      .tag-create-row {
+        display: flex;
+        gap: var(--space-8);
+        align-items: center;
+      }
+      .tag-create-row input {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .tag-picker-search {
+        height: auto;
+        padding: var(--space-10) var(--space-14);
+        margin-bottom: var(--space-12);
+      }
+
+      .tag-picker-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-8);
+      }
+      .tag-picker-chips:empty::after {
+        content: 'Keine Treffer';
+        color: var(--text3);
+        font-size: var(--fs-caption);
+        padding: var(--space-8) var(--space-4);
+      }
+      .tag-picker-chip {
+        background: transparent;
+        border: 1px solid var(--hairline-soft);
+        border-radius: var(--r-pill);
+        padding: var(--space-8) var(--space-14);
+        font-size: var(--fs-micro);
+        font-weight: 500;
+        color: var(--text2);
+        cursor: pointer;
+        font-family: inherit;
+        transition:
+          background var(--dur-base) var(--ease-spring),
+          color var(--dur-base) var(--ease-spring),
+          border-color var(--dur-base) var(--ease-spring);
+        min-height: 32px;
+      }
+      .tag-picker-chip.selected {
+        background: color-mix(in oklab, var(--accent) 18%, transparent);
+        border-color: var(--accent);
+        color: var(--text);
       }
 
       .cat-pill-edit {
@@ -2525,19 +2583,18 @@
             <input type="date" id="inputDate" />
           </div>
           <div class="form-group">
-            <label>Tags (Enter zum Hinzufügen)</label>
-            <div class="tags-input-wrap" id="tagsWrap">
-              <input
-                type="text"
-                class="tag-add-input"
-                id="tagInput"
-                placeholder="+ Tag"
-                list="tagsDatalist"
-                autocomplete="off"
-                onkeydown="handleTagInput(event)"
-              />
+            <label>Tags</label>
+            <div class="tags-input-wrap" id="tagsWrap" onclick="openTagPicker()">
+              <button
+                type="button"
+                class="tag-add-btn"
+                id="tagPickerBtn"
+                aria-label="Tag hinzufügen"
+                onclick="event.stopPropagation(); openTagPicker()"
+              >
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
+              </button>
             </div>
-            <datalist id="tagsDatalist"></datalist>
             <div class="tag-suggestions" id="tagSuggestions"></div>
           </div>
         </div>
@@ -2581,6 +2638,64 @@
           >
             Löschen
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAG PICKER MODAL -->
+    <div class="modal-overlay" id="tagPickerOverlay" onclick="closeTagPickerOutside(event)">
+      <div class="modal">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeTagPicker()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2>Tag wählen</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Neuen Tag anlegen</label>
+            <div class="tag-create-row">
+              <input
+                type="text"
+                id="tagPickerNew"
+                maxlength="64"
+                placeholder="Neuer Tag"
+                autocomplete="off"
+                onkeydown="handleTagPickerNew(event)"
+              />
+              <button
+                type="button"
+                class="tag-add-btn"
+                onclick="addTagFromPicker()"
+                aria-label="Tag erstellen"
+              >
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Vorhandene Tags</label>
+            <div class="search-wrap tag-picker-search">
+              <span class="search-icon" aria-hidden="true">
+                <svg class="ui-icon"><use href="#icon-search" /></svg>
+              </span>
+              <input
+                class="search-input"
+                id="tagPickerFilter"
+                type="search"
+                placeholder="Filter"
+                oninput="renderTagPickerChips()"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+              />
+            </div>
+            <div class="tag-picker-chips" id="tagPickerChips"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="commitTagPicker()">Fertig</button>
         </div>
       </div>
     </div>
@@ -2655,7 +2770,8 @@
 
       let transactions = []; // wird per API geladen
       let categories = []; // wird per API geladen
-      let availableTags = []; // distinkte Tags des Users (für Autocomplete/Suggestions)
+      let availableTags = []; // distinkte Tags des Users (alphabetisch sortiert)
+      const tagCounts = new Map(); // tag-name (case-folded) → Anzahl Verwendungen
 
       // ── API HELPER ────────────────────────────────────────────────────────────────
       async function api(method, path, body) {
@@ -3375,9 +3491,7 @@
           .join('');
         if (tx) catSel.value = tx.category_id;
         setType(tx?.type || 'out', document.querySelector('.type-btn.out'));
-        document.getElementById('tagInput').value = '';
         renderTagPills();
-        renderTagsDatalist();
         renderTagSuggestions();
         document.querySelector('.modal h2').textContent = tx
           ? 'Buchung bearbeiten'
@@ -3433,18 +3547,6 @@
           type === 'out' ? 'Ausgabe speichern' : 'Einnahme speichern';
       }
 
-      function handleTagInput(e) {
-        if (e.key === 'Enter' || e.key === ',') {
-          e.preventDefault();
-          const val = e.target.value.trim().replace(/,$/, '');
-          if (val && !currentTags.includes(val)) {
-            currentTags.push(val);
-            renderTagPills();
-            renderTagSuggestions();
-          }
-          e.target.value = '';
-        }
-      }
       function removeTag(t) {
         currentTags = currentTags.filter((x) => x !== t);
         renderTagPills();
@@ -3452,14 +3554,14 @@
       }
       function renderTagPills() {
         const wrap = document.getElementById('tagsWrap');
-        const inp = document.getElementById('tagInput');
+        const btn = document.getElementById('tagPickerBtn');
         wrap.innerHTML = currentTags
           .map(
             (t) =>
-              `<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}“ entfernen">${ICON_SVG.close}</button></span>`
+              `<span class="tag-pill">${t}<button type="button" onclick="event.stopPropagation(); removeTag('${t.replace(/'/g, "\\'")}')" aria-label="Tag „${t}“ entfernen">${ICON_SVG.close}</button></span>`
           )
           .join('');
-        wrap.appendChild(inp);
+        wrap.appendChild(btn);
       }
 
       async function addTransaction() {
@@ -3486,7 +3588,7 @@
           await api(method, path, body);
           mergeIntoAvailableTags(currentTags);
           closeModal();
-          await loadAndRender();
+          await Promise.all([loadAndRender(), loadTags()]);
         } catch (e) {
           if (!navigator.onLine && window.PocketLogOutbox) {
             await window.PocketLogOutbox.enqueue({ method, path, body });
@@ -3505,15 +3607,17 @@
         let changed = false;
         for (const t of tags) {
           const v = (t || '').trim();
-          if (v && !lower.has(v.toLowerCase())) {
+          if (!v) continue;
+          const key = v.toLowerCase();
+          tagCounts.set(key, (tagCounts.get(key) || 0) + 1);
+          if (!lower.has(key)) {
             availableTags.push(v);
-            lower.add(v.toLowerCase());
+            lower.add(key);
             changed = true;
           }
         }
         if (changed) {
           availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-          renderTagsDatalist();
           renderTagList();
         }
       }
@@ -3532,30 +3636,33 @@
       async function loadTags() {
         try {
           const tags = await api('GET', '/tags');
-          availableTags = Array.isArray(tags) ? tags : [];
+          const list = Array.isArray(tags) ? tags : [];
+          availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
+          tagCounts.clear();
+          for (const t of list) {
+            if (typeof t === 'string') continue;
+            tagCounts.set(t.name.toLowerCase(), Number(t.count) || 0);
+          }
         } catch (e) {
           availableTags = [];
+          tagCounts.clear();
         }
-        renderTagsDatalist();
         renderTagList();
-      }
-
-      function renderTagsDatalist() {
-        const dl = document.getElementById('tagsDatalist');
-        if (!dl) return;
-        dl.innerHTML = availableTags
-          .map((t) => `<option value="${t.replace(/"/g, '&quot;')}"></option>`)
-          .join('');
       }
 
       function renderTagSuggestions() {
         const box = document.getElementById('tagSuggestions');
         if (!box) return;
-        const lower = currentTags.map((x) => x.toLowerCase());
-        const remaining = availableTags
-          .filter((t) => !lower.includes(t.toLowerCase()))
-          .slice(0, 12);
-        box.innerHTML = remaining
+        const selected = new Set(currentTags.map((x) => x.toLowerCase()));
+        const remaining = availableTags.filter((t) => !selected.has(t.toLowerCase()));
+        remaining.sort((a, b) => {
+          const ca = tagCounts.get(a.toLowerCase()) || 0;
+          const cb = tagCounts.get(b.toLowerCase()) || 0;
+          if (cb !== ca) return cb - ca;
+          return a.localeCompare(b, undefined, { sensitivity: 'base' });
+        });
+        const top = remaining.slice(0, 10);
+        box.innerHTML = top
           .map(
             (t) =>
               `<button type="button" class="tag-suggestion" onclick="addTagFromSuggestion('${t.replace(/'/g, "\\'")}')">+ ${t}</button>`
@@ -3568,6 +3675,83 @@
         if (!currentTags.includes(t)) currentTags.push(t);
         renderTagPills();
         renderTagSuggestions();
+      }
+
+      // ── TAG PICKER MODAL ──────────────────────────────────────────────────────────
+      // Staging state: changes apply to `currentTags` only on „Fertig".
+      let pickerSelection = [];
+
+      function openTagPicker() {
+        pickerSelection = [...currentTags];
+        document.getElementById('tagPickerFilter').value = '';
+        document.getElementById('tagPickerNew').value = '';
+        renderTagPickerChips();
+        document.getElementById('tagPickerOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeTagPicker() {
+        document.getElementById('tagPickerOverlay').classList.remove('open');
+        // Booking modal is the parent here — keep scroll-lock if it's still open.
+        if (!document.getElementById('modalOverlay').classList.contains('open')) {
+          document.body.style.overflow = '';
+        }
+        pickerSelection = [];
+      }
+      function closeTagPickerOutside(e) {
+        if (e.target === document.getElementById('tagPickerOverlay')) closeTagPicker();
+      }
+      function commitTagPicker() {
+        currentTags = [...pickerSelection];
+        closeTagPicker();
+        renderTagPills();
+        renderTagSuggestions();
+      }
+      function renderTagPickerChips() {
+        const box = document.getElementById('tagPickerChips');
+        if (!box) return;
+        const q = (document.getElementById('tagPickerFilter').value || '')
+          .trim()
+          .toLowerCase();
+        const filtered = q
+          ? availableTags.filter((t) => t.toLowerCase().includes(q))
+          : availableTags;
+        const selected = new Set(pickerSelection.map((x) => x.toLowerCase()));
+        box.innerHTML = filtered
+          .map((t) => {
+            const isSel = selected.has(t.toLowerCase());
+            const safe = t.replace(/'/g, "\\'");
+            return `<button type="button" class="tag-picker-chip${isSel ? ' selected' : ''}" onclick="togglePickerTag('${safe}')">${t}</button>`;
+          })
+          .join('');
+      }
+      function togglePickerTag(t) {
+        const i = pickerSelection.findIndex((x) => x.toLowerCase() === t.toLowerCase());
+        if (i >= 0) pickerSelection.splice(i, 1);
+        else pickerSelection.push(t);
+        renderTagPickerChips();
+      }
+      function handleTagPickerNew(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addTagFromPicker();
+        }
+      }
+      function addTagFromPicker() {
+        const inp = document.getElementById('tagPickerNew');
+        const val = inp.value.trim();
+        if (!val) return;
+        const key = val.toLowerCase();
+        const existing = availableTags.find((t) => t.toLowerCase() === key);
+        const name = existing || val;
+        if (!existing) {
+          availableTags.push(name);
+          availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        }
+        if (!pickerSelection.some((x) => x.toLowerCase() === key)) {
+          pickerSelection.push(name);
+        }
+        inp.value = '';
+        renderTagPickerChips();
       }
 
       function renderCategories() {
