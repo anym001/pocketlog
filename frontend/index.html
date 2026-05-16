@@ -1023,22 +1023,17 @@
         background: transparent;
         cursor: pointer;
         color: var(--text);
-        display: flex;
-        flex-direction: column;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: var(--space-4);
         border-radius: var(--r-sm);
         padding: 0;
         flex-shrink: 0;
-      }
-      .hamburger-btn span {
-        display: block;
-        width: 20px;
-        height: 2px;
-        background: currentColor;
-        border-radius: 1px;
         transition: opacity var(--dur-base);
+      }
+      .hamburger-btn svg {
+        width: 24px;
+        height: 24px;
       }
       .hamburger-btn:active {
         opacity: 0.6;
@@ -2297,7 +2292,18 @@
     <div class="header">
       <div class="header-top">
         <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
-          <span></span><span></span><span></span>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <path d="M4 7h16" />
+            <path d="M4 12h16" />
+            <path d="M4 17h16" />
+          </svg>
         </button>
         <div class="month-nav">
           <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">‹</button>

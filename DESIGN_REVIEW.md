@@ -217,7 +217,7 @@ Nicht auf `.chart-container canvas` gescoped. Jedes künftige `<canvas>`
 
 ---
 
-### [ ] 14. Generischer 3-Bar-Hamburger
+### [x] 14. Generischer 3-Bar-Hamburger
 
 **Ort:** `index.html:2350-2352`
 
