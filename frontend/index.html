@@ -3428,9 +3428,20 @@
         let intentDecided = false,
           fromChrome = false,
           startScrollTop = 0;
+        let pointerId = null;
+
+        function reset() {
+          startY = prevY = prevTime = dy = 0;
+          active = false;
+          intentDecided = false;
+          fromChrome = false;
+          startScrollTop = 0;
+          pointerId = null;
+        }
 
         modal.addEventListener('pointerdown', (e) => {
           if (e.pointerType === 'mouse') return;
+          if (pointerId !== null) return; // schon eine laufende Geste
           startY = e.clientY;
           prevY = e.clientY;
           prevTime = Date.now();
@@ -3440,9 +3451,16 @@
           fromChrome =
             (handle && handle.contains(e.target)) || (header && header.contains(e.target));
           startScrollTop = body ? body.scrollTop : modal.scrollTop;
+          pointerId = e.pointerId;
         });
 
-        modal.addEventListener('pointermove', (e) => {
+        // Move/Up/Cancel auf document, nicht auf modal: setPointerCapture ist
+        // im iOS-Standalone-PWA unzuverlässig — schlägt es still fehl, gehen
+        // weitere pointermoves an das ursprüngliche Touch-Target (Modal-Body
+        // scrollt nativ) und der Handler bekommt sie nicht mehr. document
+        // erwischt die Events immer; wir filtern per pointerId.
+        function onMove(e) {
+          if (e.pointerId !== pointerId) return;
           if (intentDecided && !active) return;
           const raw = e.clientY - startY;
           if (!intentDecided) {
@@ -3451,9 +3469,6 @@
             if (raw > 0 && (fromChrome || startScrollTop <= 1)) {
               active = true;
               modal.style.transition = 'none';
-              try {
-                modal.setPointerCapture(e.pointerId);
-              } catch (_) {}
             } else {
               return;
             }
@@ -3462,16 +3477,21 @@
             dy = 0;
             return;
           }
+          // Während wir aktiv draggen den nativen Scroll/Bounce unterdrücken.
+          if (e.cancelable) e.preventDefault();
           dy = raw;
           prevY = e.clientY;
           prevTime = Date.now();
           modal.style.transform = `translateY(${dy}px)`;
           const fade = Math.max(0, 0.35 * (1 - (dy / 240) * 0.85));
           overlay.style.background = `rgba(20,14,8,${fade.toFixed(3)})`;
-        });
+        }
 
         function finish(e) {
-          if (!active) return;
+          if (!active) {
+            reset();
+            return;
+          }
           active = false;
           const elapsed = Date.now() - prevTime + 1;
           const velocity = (((e?.clientY ?? prevY) - startY) / elapsed) * 1000;
@@ -3504,18 +3524,28 @@
               { once: true }
             );
           }
-          dy = 0;
+          reset();
         }
 
-        modal.addEventListener('pointerup', finish);
-        modal.addEventListener('pointercancel', () => {
-          if (!active) return;
-          active = false;
-          modal.style.transform = '';
-          modal.style.transition = '';
-          overlay.style.background = '';
-          dy = 0;
-        });
+        function onUp(e) {
+          if (e.pointerId !== pointerId) return;
+          finish(e);
+        }
+
+        function onCancel(e) {
+          if (e.pointerId !== pointerId) return;
+          if (active) {
+            active = false;
+            modal.style.transform = '';
+            modal.style.transition = '';
+            overlay.style.background = '';
+          }
+          reset();
+        }
+
+        document.addEventListener('pointermove', onMove, { passive: false });
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onCancel);
       }
 
       async function deleteCurrentTransaction() {
