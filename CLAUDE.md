@@ -81,6 +81,8 @@ GET    /api/settings                     ← {theme, default_view}, legt Default
 PUT    /api/settings                     ← partial: theme?, default_view?
 POST   /api/import/csv                   ← max. 5 MB, UTF-8 oder CP1252
 GET    /api/export/csv
+DELETE /api/admin/transactions           ← löscht alle Buchungen des Users
+DELETE /api/admin/all-data               ← löscht Buchungen, Kategorien, Tags (User + Settings bleiben)
 ```
 → Interaktive Doku unter `/api/docs` (FastAPI Swagger).
 

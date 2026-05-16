@@ -708,6 +708,29 @@
       .cat-view-amount.positive {
         color: var(--green);
       }
+      .cat-view-more {
+        width: var(--btn-chrome-size);
+        height: var(--btn-chrome-size);
+        margin-right: calc(-1 * var(--space-10));
+        border: none;
+        background: transparent;
+        border-radius: 50%;
+        color: var(--text3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+        transition: background var(--dur-base) var(--ease-spring);
+      }
+      .cat-view-more:active {
+        background: var(--glass-thick);
+      }
+      .cat-view-more:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
 
       /* ====== TRANSACTIONS ====== */
       .section-title {
@@ -772,12 +795,11 @@
         align-items: center;
         gap: var(--space-12);
         box-shadow: var(--shadow-soft);
-        transition: transform var(--dur-fast) var(--ease-spring);
         overflow: hidden;
       }
-      .transaction:active {
-        transform: scale(0.985);
-      }
+      /* No :active transform — scaling on touch-start briefly shrinks
+         the opaque card and exposes a sliver of the red delete action
+         behind it during inertial scroll. */
 
       .t-icon {
         width: 42px;
@@ -945,7 +967,7 @@
         gap: var(--space-8);
         height: var(--btn-fab-size);
         padding: 0 var(--space-16);
-        background: var(--glass-regular);
+        background: var(--glass-thin);
         -webkit-backdrop-filter: var(--blur-regular);
         backdrop-filter: var(--blur-regular);
         border: var(--border-hairline);
@@ -989,7 +1011,7 @@
         width: var(--btn-fab-size);
         height: var(--btn-fab-size);
         flex-shrink: 0;
-        background: var(--glass-regular);
+        background: var(--glass-thin);
         -webkit-backdrop-filter: var(--blur-regular);
         backdrop-filter: var(--blur-regular);
         border-radius: 18px;
@@ -1585,15 +1607,28 @@
       }
 
       .tag-picker-search {
-        height: auto;
-        padding: var(--space-10) var(--space-14);
+        height: var(--btn-fab-size);
+        padding: 0 var(--space-16);
         margin-bottom: var(--space-12);
+      }
+      /* The picker's filter input lives inside .form-group, whose generic
+         input styling would otherwise paint a second pill inside the
+         search bar. Strip it so the search-wrap reads as a single field. */
+      .form-group .tag-picker-search .search-input {
+        background: none;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        height: auto;
+        border-radius: 0;
       }
 
       .tag-picker-chips {
         display: flex;
         flex-wrap: wrap;
         gap: var(--space-8);
+        align-content: flex-start;
+        align-items: flex-start;
       }
       .tag-picker-chips:empty::after {
         content: 'Keine Tags gefunden.';
@@ -1740,11 +1775,13 @@
           inset 0 -0.5px 0 rgba(0, 0, 0, 0.08),
           0 6px 18px -4px color-mix(in oklab, var(--green) 50%, transparent);
       }
-      .submit-btn.btn-destructive {
+      .submit-btn.btn-destructive,
+      .save-btn.btn-destructive {
         margin-top: var(--space-8);
         background: transparent;
         color: var(--accent);
         border: 1px solid var(--accent);
+        box-shadow: none;
       }
 
       /* Inline label + radio rows in Drawer-Sections (Darstellung, Startansicht). */
@@ -2193,6 +2230,16 @@
         >
           <path d="M12 5v14M5 12h14" />
         </symbol>
+        <symbol
+          id="icon-more-vertical"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          stroke="none"
+        >
+          <circle cx="12" cy="6" r="1.6" />
+          <circle cx="12" cy="12" r="1.6" />
+          <circle cx="12" cy="18" r="1.6" />
+        </symbol>
       </defs>
     </svg>
 
@@ -2262,6 +2309,10 @@
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
               Darstellung
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpAdmin')">
+              Verwaltung
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
           </nav>
@@ -2447,6 +2498,35 @@
             </div>
           </div>
         </div>
+
+        <!-- Panel 2e: Verwaltung -->
+        <div class="drawer-panel" id="dpAdmin" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Verwaltung</span>
+          </div>
+          <div class="drawer-section">
+            <button class="save-btn btn-destructive" onclick="openResetModal()">
+              Daten löschen
+            </button>
+            <p
+              style="
+                font-size: var(--fs-caption);
+                color: var(--text3);
+                margin: var(--space-10) 0 0;
+              "
+            >
+              Entfernt Buchungen, Kategorien oder beides serverseitig. Aktion lässt sich nicht
+              rückgängig machen.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2575,6 +2655,7 @@
               placeholder="0,00"
               step="0.01"
               inputmode="decimal"
+              onblur="normalizeAmountInput()"
             />
           </div>
           <div class="form-group">
@@ -2750,6 +2831,37 @@
       </div>
     </div>
 
+    <!-- RESET / DATA-DELETE MODAL -->
+    <div class="modal-overlay" id="resetModalOverlay" onclick="closeResetModalOutside(event)">
+      <div class="modal">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeResetModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2>Daten wirklich löschen?</h2>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-msg">
+            Diese Aktion entfernt Daten dauerhaft vom Server und lässt sich nicht rückgängig
+            machen.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn btn-destructive" onclick="resetAllData()">
+            Alle Daten löschen
+          </button>
+          <button
+            class="submit-btn btn-destructive"
+            style="margin-top: var(--space-8)"
+            onclick="resetTransactionsOnly()"
+          >
+            Nur Buchungen löschen
+          </button>
+          <button class="confirm-cancel" onclick="closeResetModal()">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       // ── ICON-MARKUP ───────────────────────────────────────────────────────────────
       // Für Glyphen, die dynamisch via JS getauscht werden (FAB-Toggle Plus/✕,
@@ -2913,9 +3025,14 @@
       let _activePanel = 'transactions';
       let _searchQuery = '';
       let _allTransactions = null;
+      // Exact category filter set when the user taps the "more" icon on a
+      // category row. Mutually exclusive with text search — typing in the
+      // search input clears it (`onSearch`).
+      let _categoryFilterId = null;
 
       function _resetSearch() {
         _searchQuery = '';
+        _categoryFilterId = null;
         _allTransactions = null;
         document.body.classList.remove('searching');
         document.getElementById('searchInput').value = '';
@@ -2929,7 +3046,7 @@
       }
 
       function showPanel(id) {
-        if (_searchQuery) _resetSearch();
+        if (_searchQuery || _categoryFilterId != null) _resetSearch();
         _activePanel = id;
         document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
         document.getElementById('panel-' + id).classList.add('active');
@@ -2942,7 +3059,7 @@
       }
 
       const _drawerStack = [];
-      const _drawerSubs = ['dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay'];
+      const _drawerSubs = ['dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay', 'dpAdmin'];
 
       function drawerNav(panelId) {
         const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
@@ -3048,12 +3165,14 @@
 
       function applySearch() {
         const q = _searchQuery;
-        if (!q) {
+        const catFilter = _categoryFilterId;
+        if (!q && !catFilter) {
           renderTransactions(transactions);
           return;
         }
         const pool = _allTransactions ?? transactions;
         const filtered = pool.filter((t) => {
+          if (catFilter != null) return t.category_id === catFilter;
           if ((t.desc || '').toLowerCase().includes(q)) return true;
           const cat = getCatById(t.category_id);
           if (cat.name.toLowerCase().includes(q)) return true;
@@ -3094,6 +3213,9 @@
       }
 
       async function onSearch(val) {
+        // Typing in the search input cancels any active category filter
+        // so the panel switches back to plain text-match behaviour.
+        if (_categoryFilterId != null) _categoryFilterId = null;
         const wasEmpty = !_searchQuery;
         _searchQuery = val.trim().toLowerCase();
         if (_searchQuery && wasEmpty) await _setSearchPanelActive(true);
@@ -3102,7 +3224,7 @@
       }
 
       function clearSearch() {
-        const wasActive = !!_searchQuery;
+        const wasActive = !!_searchQuery || _categoryFilterId != null;
         _resetSearch();
         if (wasActive) _setSearchPanelActive(false);
       }
@@ -3136,22 +3258,24 @@
         txs.forEach((t) => {
           (groups[t.date] = groups[t.date] || []).push(t);
         });
+        // Search results can span years, so the date label needs the year
+        // for orientation; in-month lists keep the compact weekday-only form.
+        const isSearchPanel = el && el.id === 'searchResultsList';
         el.innerHTML = Object.entries(groups)
           .map(([date, list]) => {
             const d = new Date(date + 'T12:00:00');
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const dDay = new Date(date + 'T00:00:00');
+            const dateOptions = isSearchPanel
+              ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
+              : { weekday: 'long', day: 'numeric', month: 'long' };
             const label =
               dDay.getTime() === today.getTime()
                 ? 'Heute'
                 : dDay.getTime() === today.getTime() - 86400000
                   ? 'Gestern'
-                  : d.toLocaleDateString('de-DE', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                    });
+                  : d.toLocaleDateString('de-DE', dateOptions);
             return (
               `<div class="section-title">${label}</div>` +
               list
@@ -3211,6 +3335,12 @@
       <span class="cat-view-icon">${r.icon}</span>
       <span class="cat-view-name">${r.name}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
+      <button
+        type="button"
+        class="cat-view-more"
+        aria-label="Buchungen in „${r.name}“ ansehen"
+        onclick="event.stopPropagation(); showTransactionsForCategory(${r.id})"
+      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-more-vertical"/></svg></button>
     </div>
   `
           )
@@ -3220,6 +3350,17 @@
       function openModalForCategory(catId) {
         openModal(null);
         document.getElementById('inputCat').value = catId;
+      }
+
+      async function showTransactionsForCategory(catId) {
+        const cat = getCatById(catId);
+        // Reuses the search-results panel as the host UI, but the actual
+        // filter is exact-by-id (applySearch checks _categoryFilterId
+        // before the substring search path).
+        _categoryFilterId = catId;
+        _searchQuery = '';
+        document.getElementById('searchInput').value = cat.name;
+        await _setSearchPanelActive(true);
       }
 
       // ── SWIPE-TO-DELETE ───────────────────────────────────────────────────────────
@@ -3490,7 +3631,8 @@
       // ── MODAL ─────────────────────────────────────────────────────────────────────
       function openModal(tx) {
         currentTags = tx?.tags ? [...tx.tags] : [];
-        document.getElementById('inputAmount').value = tx?.amount || '';
+        document.getElementById('inputAmount').value =
+          tx?.amount != null ? Number(tx.amount).toFixed(2) : '';
         document.getElementById('inputDesc').value = tx?.desc || '';
         document.getElementById('inputDate').value =
           tx?.date || new Date().toISOString().split('T')[0];
@@ -3554,6 +3696,12 @@
           'submit-btn' + (type === 'in' ? ' green' : '');
         document.getElementById('submitBtn').textContent =
           type === 'out' ? 'Ausgabe speichern' : 'Einnahme speichern';
+      }
+
+      function normalizeAmountInput() {
+        const inp = document.getElementById('inputAmount');
+        const n = parseFloat(inp.value);
+        if (!isNaN(n)) inp.value = n.toFixed(2);
       }
 
       function removeTag(t) {
@@ -3664,6 +3812,8 @@
         if (!box) return;
         const selected = new Set(currentTags.map((x) => x.toLowerCase()));
         const remaining = availableTags.filter((t) => !selected.has(t.toLowerCase()));
+        // Pick the 10 most-used (last 30 days), then render alphabetically
+        // so users can scan the row without re-learning order each open.
         remaining.sort((a, b) => {
           const ca = tagCounts.get(a.toLowerCase()) || 0;
           const cb = tagCounts.get(b.toLowerCase()) || 0;
@@ -3671,6 +3821,7 @@
           return a.localeCompare(b, undefined, { sensitivity: 'base' });
         });
         const top = remaining.slice(0, 10);
+        top.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
         box.innerHTML = top
           .map(
             (t) =>
@@ -4275,6 +4426,45 @@
         } finally {
           ev.target.value = ''; // gleichen File-Reimport erlauben
         }
+      }
+
+      // ── ADMIN / DATA RESET ────────────────────────────────────────────────────────
+      function openResetModal() {
+        document.getElementById('resetModalOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeResetModal() {
+        document.getElementById('resetModalOverlay').classList.remove('open');
+        // Drawer is the parent surface here — keep scroll-lock if it's still open.
+        if (!document.getElementById('drawer').classList.contains('open')) {
+          document.body.style.overflow = '';
+        }
+      }
+      function closeResetModalOutside(e) {
+        if (e.target === document.getElementById('resetModalOverlay')) closeResetModal();
+      }
+
+      async function _runReset(path, successMsg) {
+        try {
+          await api('DELETE', path);
+          closeResetModal();
+          closeDrawer();
+          // Categories repopulate with defaults on next GET when wiped.
+          await loadCategories();
+          await loadTags();
+          await loadAndRender();
+          toast(successMsg, 'ok');
+        } catch (e) {
+          toast('Löschen fehlgeschlagen: ' + e.message, 'error');
+        }
+      }
+
+      async function resetTransactionsOnly() {
+        await _runReset('/admin/transactions', 'Alle Buchungen gelöscht.');
+      }
+
+      async function resetAllData() {
+        await _runReset('/admin/all-data', 'Alle Daten gelöscht.');
       }
 
       // ── INIT ──────────────────────────────────────────────────────────────────────
