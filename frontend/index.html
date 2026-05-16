@@ -223,6 +223,12 @@
            zum Scroll-Container und `position: sticky` auf .header pinnt an
            den (mitscrollenden) Body-Anfang statt an den Viewport-Anfang. */
         overflow-x: hidden;
+        /* Rubber-Band-Overscroll am Root unterdrücken — iOS würde sonst beim
+           Swipe-Down am Listen-Anfang den gesamten Compositor-Layer mit nach
+           unten ziehen, inklusive des Sticky-Headers; der body::before-Gradient
+           erscheint dann oberhalb des Headers. Safari ≥ 16 respektiert
+           overscroll-behavior auf der Root, was PocketLog ohnehin voraussetzt. */
+        overscroll-behavior-y: none;
       }
 
       body {
