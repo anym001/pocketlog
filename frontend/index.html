@@ -234,11 +234,18 @@
         -moz-osx-font-smoothing: grayscale;
       }
 
-      /* Ambient color field — gives the glass something to refract */
+      /* Ambient color field — gives the glass something to refract.
+         Explizite 100lvh-Größe statt `inset: 0`, damit der Layer auch im
+         iOS-Standalone-PWA beim ersten Paint sofort bis unter den
+         Home-Indicator-Bereich reicht — sonst scheint bis zum ersten
+         Scroll der html-Canvas durch. */
       body::before {
         content: '';
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100lvh;
         pointer-events: none;
         z-index: 0;
         background:
