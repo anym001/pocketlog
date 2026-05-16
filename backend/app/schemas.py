@@ -71,6 +71,23 @@ class TransactionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# -------- User Settings --------
+# UI preferences mirrored from localStorage so the app survives iOS-side
+# storage eviction. Single row per user. PUT accepts a partial body — only
+# the provided fields are updated, the rest stays untouched.
+
+class SettingsOut(BaseModel):
+    theme: Literal["system", "light", "dark"]
+    default_view: Literal["transactions", "categories"]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SettingsUpdate(BaseModel):
+    theme: Literal["system", "light", "dark"] | None = None
+    default_view: Literal["transactions", "categories"] | None = None
+
+
 # -------- Import --------
 
 class ImportRowError(BaseModel):

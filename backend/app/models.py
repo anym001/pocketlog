@@ -1,10 +1,11 @@
-from datetime import date as date_type
+from datetime import date as date_type, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     CHAR,
     DECIMAL,
     JSON,
+    TIMESTAMP,
     Date,
     Enum,
     ForeignKey,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +38,32 @@ class User(Base):
     tags: Mapped[list["Tag"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    settings: Mapped["UserSettings | None"] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+    __table_args__ = (
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    theme: Mapped[str] = mapped_column(String(16), nullable=False, default="system")
+    default_view: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="transactions"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+    )
+
+    user: Mapped[User] = relationship(back_populates="settings")
 
 
 class Category(Base):

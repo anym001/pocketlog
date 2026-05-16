@@ -77,6 +77,8 @@ DELETE /api/categories/{id}              ← nur wenn keine TX referenziert
 GET    /api/tags                         ← alle Tags des Users (distinct, sortiert)
 PUT    /api/tags/{name}                  ← umbenennen in allen Transaktionen
 DELETE /api/tags/{name}                  ← aus allen Transaktionen entfernen
+GET    /api/settings                     ← {theme, default_view}, legt Default-Row beim 1. Aufruf an
+PUT    /api/settings                     ← partial: theme?, default_view?
 POST   /api/import/csv                   ← max. 5 MB, UTF-8 oder CP1252
 GET    /api/export/csv
 ```
@@ -105,6 +107,12 @@ category_id INT FK -> categories.id (ON DELETE RESTRICT)
 date DATE
 type ENUM('in','out')
 tags JSON                      -- Array von Strings
+
+-- user_settings                -- UI-Präferenzen, gespiegelt aus localStorage
+user_id INT PK FK -> users.id (ON DELETE CASCADE)
+theme VARCHAR(16)              -- 'system' | 'light' | 'dark'
+default_view VARCHAR(32)       -- 'transactions' | 'categories'
+updated_at TIMESTAMP           -- DEFAULT/ON UPDATE CURRENT_TIMESTAMP
 ```
 Beim ersten Request eines Users legt `crud.get_or_create_user` automatisch
 einen Eintrag in `users` an (Lookup über `X-Authentik-Username`). Beim ersten
@@ -133,7 +141,7 @@ const data = await api('GET', '/transactions?year=2026&month=5');
 ```
 
 ## Offline / PWA
-- `frontend/sw.js`: precached App-Shell, network-first für GET /api/*, Offline-Outbox für POST/PUT/DELETE.
+- `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell (`/`, `/index.html`, `/db.js`, `/manifest.webmanifest`) und für GET /api/*, cache-first für Icons + Chart.js-CDN; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version, sodass jede Release neue Caches anlegt und der activate-Hook alte automatisch räumt.
 - `frontend/db.js`: IndexedDB-Wrapper für die Outbox (`enqueue`, `drain`, `count`).
 - Sync-Button im UI (`syncNow()`) triggert manuell den Outbox-Flush; bei wieder hergestellter Verbindung läuft Background-Sync.
 

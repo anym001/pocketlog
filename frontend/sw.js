@@ -1,15 +1,24 @@
 // PocketLog Service Worker
 // Strategie:
-//   - App-Shell wird beim Install precached und mit Cache-First ausgeliefert.
-//   - GET /api/...      → network-first, Fallback auf Cache.
-//   - Write /api/...    → online direkt durchreichen; offline in Outbox
-//                          (frontend/db.js) ablegen und 202 zurückgeben.
-//   - Background-Sync   → bei wieder hergestelltem Netz Outbox flushen.
+//   - Shell-HTML/JS  → network-first (/, /index.html, /db.js,
+//                       /manifest.webmanifest), damit Updates ohne
+//                       Doppel-Reload sichtbar werden; Cache dient nur
+//                       als Offline-Fallback.
+//   - Statische Shell-Assets (Icons, Chart.js CDN) → cache-first.
+//   - GET /api/...   → network-first, Fallback auf Cache.
+//   - Write /api/... → online direkt durchreichen; offline in Outbox
+//                       (frontend/db.js) ablegen und 202 zurückgeben.
+//   - Background-Sync → bei wieder hergestelltem Netz Outbox flushen.
+//
+// __APP_VERSION__ wird im Dockerfile aus der ENV APP_VERSION ersetzt.
+// Jede Release bekommt damit neue Cache-Keys; alte Caches räumt der
+// activate-Hook ab.
 
 importScripts('/db.js');
 
-const CACHE = 'pocketlog-shell-v1';
-const API_CACHE = 'pocketlog-api-v1';
+const VERSION = '__APP_VERSION__';
+const CACHE = `pocketlog-shell-${VERSION}`;
+const API_CACHE = `pocketlog-api-${VERSION}`;
 
 const SHELL = [
   '/',
@@ -22,6 +31,19 @@ const SHELL = [
   '/icons/apple-touch-icon.png',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
 ];
+
+// HTML-Shell + Single-File-JS (db.js): bei jedem Online-Request frisch holen,
+// Cache nur falls offline. Icons + die versionierte Chart.js-CDN-URL ändern
+// sich praktisch nie und bleiben cache-first.
+function isNetworkFirstShell(url) {
+  if (url.origin !== self.location.origin) return false;
+  return (
+    url.pathname === '/' ||
+    url.pathname === '/index.html' ||
+    url.pathname === '/db.js' ||
+    url.pathname === '/manifest.webmanifest'
+  );
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -53,10 +75,10 @@ function isApi(url) {
   return url.pathname.startsWith('/api/');
 }
 
-async function networkFirst(request) {
+async function networkFirst(request, cacheName) {
   try {
     const fresh = await fetch(request);
-    const cache = await caches.open(API_CACHE);
+    const cache = await caches.open(cacheName);
     cache.put(request, fresh.clone());
     return fresh;
   } catch (e) {
@@ -113,7 +135,7 @@ self.addEventListener('fetch', (event) => {
       return;
     }
     if (req.method === 'GET') {
-      event.respondWith(networkFirst(req));
+      event.respondWith(networkFirst(req, API_CACHE));
     } else {
       event.respondWith(handleWrite(req));
     }
@@ -121,7 +143,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (req.method === 'GET') {
-    event.respondWith(cacheFirst(req));
+    if (isNetworkFirstShell(url)) {
+      event.respondWith(networkFirst(req, CACHE));
+    } else {
+      event.respondWith(cacheFirst(req));
+    }
   }
 });
 

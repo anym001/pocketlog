@@ -25,6 +25,13 @@ COPY backend/app ./app
 COPY frontend/index.html frontend/sw.js frontend/db.js frontend/manifest.webmanifest frontend/example-import.csv ./static/
 COPY frontend/icons ./static/icons
 
+# Bake APP_VERSION into the service worker so each release gets a fresh
+# cache key (pocketlog-shell-${VERSION}, pocketlog-api-${VERSION}) and the
+# activate-hook can prune stale caches automatically. Without this, sw.js
+# bytes never change across releases and the browser keeps serving the
+# previous cached shell.
+RUN sed -i "s/'__APP_VERSION__'/'${APP_VERSION}'/" /app/static/sw.js
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

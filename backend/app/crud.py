@@ -348,6 +348,44 @@ def delete_tag(db: Session, user_id: int, name: str) -> int:
     return affected
 
 
+# ---------- User Settings ----------
+
+def get_or_create_settings(db: Session, user_id: int) -> models.UserSettings:
+    s = db.scalar(
+        select(models.UserSettings).where(models.UserSettings.user_id == user_id)
+    )
+    if s is not None:
+        return s
+    s = models.UserSettings(user_id=user_id)
+    db.add(s)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Concurrent insert — fetch the winner.
+        db.rollback()
+        s = db.scalar(
+            select(models.UserSettings).where(models.UserSettings.user_id == user_id)
+        )
+        if s is None:
+            raise
+    else:
+        db.refresh(s)
+    return s
+
+
+def update_settings(
+    db: Session, user_id: int, payload: schemas.SettingsUpdate
+) -> models.UserSettings:
+    s = get_or_create_settings(db, user_id)
+    data = payload.model_dump(exclude_none=True)
+    for k, v in data.items():
+        setattr(s, k, v)
+    if data:
+        db.commit()
+        db.refresh(s)
+    return s
+
+
 def delete_transaction(db: Session, user_id: int, tx_id: int) -> bool:
     tx = db.scalar(
         select(models.Transaction).where(
