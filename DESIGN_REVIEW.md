@@ -100,7 +100,7 @@ Variablen-/Code-Namen (`transactions`) bleiben englisch wie in CLAUDE.md geregel
 
 ---
 
-### [ ] 6. Akzent-bezogene Schatten sind hardcoded
+### [x] 6. Akzent-bezogene Schatten sind hardcoded
 
 **Orte:** `index.html:1466, 1473, 1673, 1683, 1766` u.a.
 
