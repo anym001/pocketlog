@@ -3,7 +3,7 @@ import io
 from datetime import date as date_type, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import and_, extract, select
+from sqlalchemy import and_, delete, extract, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -397,6 +397,23 @@ def update_settings(
         db.commit()
         db.refresh(s)
     return s
+
+
+def delete_all_transactions(db: Session, user_id: int) -> int:
+    result = db.execute(
+        delete(models.Transaction).where(models.Transaction.user_id == user_id)
+    )
+    db.commit()
+    return result.rowcount or 0
+
+
+def delete_all_user_data(db: Session, user_id: int) -> None:
+    # Order matters: transactions reference categories with ON DELETE RESTRICT,
+    # so the rows must go first or the categories delete raises IntegrityError.
+    db.execute(delete(models.Transaction).where(models.Transaction.user_id == user_id))
+    db.execute(delete(models.Tag).where(models.Tag.user_id == user_id))
+    db.execute(delete(models.Category).where(models.Category.user_id == user_id))
+    db.commit()
 
 
 def delete_transaction(db: Session, user_id: int, tx_id: int) -> bool:

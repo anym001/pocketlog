@@ -201,6 +201,22 @@ def remove_tag(name: str, user: CurrentUser, db: DB):
     return Response(status_code=204)
 
 
+# ---------- Admin / Data Management ----------
+# Bulk reset operations the user triggers from the Verwaltung drawer.
+# User row and user_settings are preserved either way.
+
+@app.delete("/api/admin/transactions", status_code=204)
+def reset_transactions(user: CurrentUser, db: DB):
+    crud.delete_all_transactions(db, user.id)
+    return Response(status_code=204)
+
+
+@app.delete("/api/admin/all-data", status_code=204)
+def reset_all_data(user: CurrentUser, db: DB):
+    crud.delete_all_user_data(db, user.id)
+    return Response(status_code=204)
+
+
 # ---------- User Settings ----------
 # Mirror of the UI preferences in localStorage. The frontend renders from
 # localStorage for an instant paint and reconciles with the server in the
