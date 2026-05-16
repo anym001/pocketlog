@@ -1547,8 +1547,8 @@
 
       .tag-add-btn {
         margin-left: auto;
-        width: 32px;
-        height: 32px;
+        width: var(--btn-chrome-size);
+        height: var(--btn-chrome-size);
         border-radius: 50%;
         border: var(--border-hairline);
         background: var(--glass-thick);
@@ -1566,6 +1566,12 @@
       }
       .tag-add-btn:active {
         transform: scale(0.92);
+      }
+      .tag-add-btn:focus-visible {
+        outline: none;
+        box-shadow:
+          inset 0 0.5px 0 var(--hairline),
+          var(--focus-ring);
       }
 
       .tag-create-row {
@@ -1590,16 +1596,16 @@
         gap: var(--space-8);
       }
       .tag-picker-chips:empty::after {
-        content: 'Keine Treffer';
+        content: 'Keine Tags gefunden.';
         color: var(--text3);
         font-size: var(--fs-caption);
         padding: var(--space-8) var(--space-4);
       }
       .tag-picker-chip {
         background: transparent;
-        border: 1px solid var(--hairline-soft);
+        border: var(--border-hairline-strong);
         border-radius: var(--r-pill);
-        padding: var(--space-8) var(--space-14);
+        padding: var(--space-10) var(--space-14);
         font-size: var(--fs-micro);
         font-weight: 500;
         color: var(--text2);
@@ -1609,12 +1615,16 @@
           background var(--dur-base) var(--ease-spring),
           color var(--dur-base) var(--ease-spring),
           border-color var(--dur-base) var(--ease-spring);
-        min-height: 32px;
+        min-height: var(--btn-chrome-size);
       }
       .tag-picker-chip.selected {
         background: color-mix(in oklab, var(--accent) 18%, transparent);
         border-color: var(--accent);
         color: var(--text);
+      }
+      .tag-picker-chip:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
 
       .cat-pill-edit {
@@ -2581,13 +2591,13 @@
           </div>
           <div class="form-group">
             <label>Tags</label>
-            <div class="tags-input-wrap" id="tagsWrap" onclick="openTagPicker()">
+            <div class="tags-input-wrap" id="tagsWrap">
               <button
                 type="button"
                 class="tag-add-btn"
                 id="tagPickerBtn"
                 aria-label="Tag hinzufügen"
-                onclick="event.stopPropagation(); openTagPicker()"
+                onclick="openTagPicker()"
               >
                 <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
               </button>
@@ -2680,7 +2690,9 @@
                 class="search-input"
                 id="tagPickerFilter"
                 type="search"
-                placeholder="Filter"
+                placeholder="Tags durchsuchen"
+                enterkeyhint="search"
+                inputmode="search"
                 oninput="renderTagPickerChips()"
                 autocomplete="off"
                 autocorrect="off"
@@ -3555,7 +3567,7 @@
         wrap.innerHTML = currentTags
           .map(
             (t) =>
-              `<span class="tag-pill">${t}<button type="button" onclick="event.stopPropagation(); removeTag('${t.replace(/'/g, "\\'")}')" aria-label="Tag „${t}“ entfernen">${ICON_SVG.close}</button></span>`
+              `<span class="tag-pill">${t}<button type="button" onclick="removeTag('${t.replace(/'/g, "\\'")}')" aria-label="Tag „${t}“ entfernen">${ICON_SVG.close}</button></span>`
           )
           .join('');
         wrap.appendChild(btn);
