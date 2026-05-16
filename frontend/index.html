@@ -219,6 +219,10 @@
       html {
         background: var(--bg-canvas);
         color-scheme: light dark;
+        /* Horizontal-Clip absichtlich hier, nicht auf body: sonst wird body
+           zum Scroll-Container und `position: sticky` auf .header pinnt an
+           den (mitscrollenden) Body-Anfang statt an den Viewport-Anfang. */
+        overflow-x: hidden;
       }
 
       body {
@@ -228,7 +232,6 @@
         max-width: 430px;
         margin: 0 auto;
         position: relative;
-        overflow-x: hidden;
         background: transparent;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
