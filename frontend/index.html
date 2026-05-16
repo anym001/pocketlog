@@ -1657,6 +1657,24 @@
           inset 0 -0.5px 0 rgba(0, 0, 0, 0.08),
           0 6px 18px -4px color-mix(in oklab, var(--green) 50%, transparent);
       }
+      .submit-btn.btn-destructive {
+        margin-top: var(--space-8);
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--accent);
+      }
+
+      /* Inline label + radio rows in Drawer-Sections (Darstellung, Startansicht). */
+      .radio-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-10);
+        padding: var(--space-8) 0;
+        cursor: pointer;
+      }
+      .radio-row input[type='radio'] {
+        accent-color: var(--accent);
+      }
 
       /* ====== SETTINGS ====== */
       .settings-section {
@@ -2210,57 +2228,30 @@
           <div class="drawer-section">
             <h3>Erscheinungsbild</h3>
             <div class="settings-section">
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="appTheme"
                   value="system"
                   onchange="saveTheme(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 System
               </label>
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="appTheme"
                   value="light"
                   onchange="saveTheme(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 Hell
               </label>
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="appTheme"
                   value="dark"
                   onchange="saveTheme(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 Dunkel
               </label>
@@ -2270,39 +2261,21 @@
           <div class="drawer-section">
             <h3>Startansicht</h3>
             <div class="settings-section">
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="defaultView"
                   value="transactions"
                   onchange="saveDefaultView(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 Buchungs-Übersicht
               </label>
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  padding: var(--space-8) 0;
-                  cursor: pointer;
-                "
-              >
+              <label class="radio-row">
                 <input
                   type="radio"
                   name="defaultView"
                   value="categories"
                   onchange="saveDefaultView(this.value)"
-                  style="accent-color: var(--accent)"
                 />
                 Kategorien-Übersicht
               </label>
@@ -2463,16 +2436,10 @@
             Ausgabe speichern
           </button>
           <button
-            class="submit-btn"
+            class="submit-btn btn-destructive"
             id="deleteBtn"
             onclick="deleteCurrentTransaction()"
-            style="
-              display: none;
-              margin-top: 8px;
-              background: transparent;
-              color: var(--accent);
-              border: 1px solid var(--accent);
-            "
+            style="display: none"
           >
             Löschen
           </button>
@@ -2499,15 +2466,9 @@
         <div class="modal-footer">
           <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
           <button
-            class="submit-btn"
+            class="submit-btn btn-destructive"
             id="tagDeleteBtn"
             onclick="deleteTagEdit()"
-            style="
-              margin-top: 8px;
-              background: transparent;
-              color: var(--accent);
-              border: 1px solid var(--accent);
-            "
           >
             Löschen
           </button>
@@ -2547,15 +2508,9 @@
         <div class="modal-footer">
           <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
           <button
-            class="submit-btn"
+            class="submit-btn btn-destructive"
             id="catDeleteBtn"
             onclick="deleteCategoryEdit()"
-            style="
-              margin-top: 8px;
-              background: transparent;
-              color: var(--accent);
-              border: 1px solid var(--accent);
-            "
           >
             Löschen
           </button>

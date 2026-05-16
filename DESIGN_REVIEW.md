@@ -181,7 +181,7 @@ Beträge `+12,50 €` / `−12,50 €` zeigen.
 
 ## Polish & Code-Hygiene
 
-### [ ] 11. Wiederholte Inline-Styles
+### [x] 11. Wiederholte Inline-Styles
 
 **Orte:**
 
