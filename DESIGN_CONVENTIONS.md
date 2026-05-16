@@ -105,6 +105,7 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
   | `--bg-canvas` | `#FAF9F5` (ivory) | `#0f0e0c` | App-Hintergrund |
   | `--accent` | `#D97757` (clay) | `#E8926E` | Ausgaben, primäre Aktion |
   | `--green` | `#788C5D` (olive) | `#9AB07A` | Einnahmen, Erfolg |
+  | `--red` / `--red-2` | `#C0392B` / `#EC6B5B` | unverändert | Destruktive Aktionen (Swipe-to-Delete-Gradient) |
   | `--text` | `#141413` (slate) | `#F0EEE6` | Primärtext |
   | `--text2` | `#3D3D3A` | `#B0ADA6` | Sekundärtext |
   | `--text3` | `#87867F` | `#87867F` | Tertiärtext, Hints |
@@ -139,6 +140,10 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
   | `footnote` | `--fs-footnote`   | sekundärer Body, kleine Überschriften| `0.875rem` (14 px), DM Sans 400 |
   | `caption`  | `--fs-caption`    | Metadaten, Hinweise                  | `0.8125rem` (13 px), DM Sans 400 |
   | `micro`    | `--fs-micro`      | Tag-Pills, kleinste Marker           | `0.75rem` (12 px), DM Sans 500 |
+  | `icon-sm`  | `--fs-icon-sm`    | Listen-Glyph (cat-icon)              | `1.0625rem` (17 px) |
+  | `icon-md`  | `--fs-icon-md`    | Section-Glyph (cat-view-icon, fab.search-exit) | `1.375rem` (22 px) |
+  | `icon-lg`  | `--fs-icon-lg`    | FAB-Plus                             | `1.625rem` (26 px) |
+  | `icon-xl`  | `--fs-icon-xl`    | Empty-State-Hero                     | `3.25rem` (52 px) |
 
 - **Button-Tokens** (`frontend/index.html` `:root`):
 

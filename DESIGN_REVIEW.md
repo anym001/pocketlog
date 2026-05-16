@@ -193,7 +193,7 @@ Beträge `+12,50 €` / `−12,50 €` zeigen.
 
 ---
 
-### [ ] 12. Inkonsistente Tokens
+### [x] 12. Inkonsistente Tokens
 
 - Icon-Größen außerhalb `--fs-*`-Skala: `cat-icon 1.0625rem`,
   `cat-view-icon 1.375rem`, `fab 1.625rem`, `empty-state .icon 3.25rem`.

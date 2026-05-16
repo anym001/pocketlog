@@ -63,6 +63,7 @@
         --green-2: #96a87a;
         --green-tint: rgba(120, 140, 93, 0.15);
         --red: #c0392b;
+        --red-2: #ec6b5b;
         --blue: #2a78d8;
 
         /* Foreground color for text/icons on filled accent/green/red surfaces. */
@@ -105,6 +106,13 @@
         --fs-footnote: 0.875rem; /* 14px – sekundärer Body */
         --fs-caption: 0.8125rem; /* 13px – Meta, Hinweise */
         --fs-micro: 0.75rem; /* 12px – kleinste Marker, Tag-Pills */
+
+        /* Icon-Skala für Emoji-/Picto-Glyphen außerhalb der Chrome-Buttons —
+       Listen-Reihen, FAB-Inhalt, Empty-State-Hero. */
+        --fs-icon-sm: 1.0625rem; /* 17px – Listen-Glyph (cat-icon) */
+        --fs-icon-md: 1.375rem; /* 22px – Section-Glyph (cat-view-icon, fab.search-exit) */
+        --fs-icon-lg: 1.625rem; /* 26px – FAB-Plus */
+        --fs-icon-xl: 3.25rem; /* 52px – Empty-State-Hero */
 
         /* Button tokens — chrome icons share a single source of truth.
        FAB and chrome buttons can be re-sized centrally here. */
@@ -663,7 +671,7 @@
         opacity: 0.55;
       }
       .cat-view-icon {
-        font-size: 1.375rem;
+        font-size: var(--fs-icon-md);
         width: 32px;
         text-align: center;
         flex-shrink: 0;
@@ -719,7 +727,7 @@
         right: 0;
         bottom: 0;
         width: 92px;
-        background: linear-gradient(135deg, var(--red), #ec6b5b);
+        background: linear-gradient(135deg, var(--red), var(--red-2));
         color: var(--on-accent);
         font-weight: 600;
         font-size: var(--fs-footnote);
@@ -870,7 +878,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.0625rem;
+        font-size: var(--fs-icon-sm);
         flex-shrink: 0;
         box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.6);
         border: var(--border-hairline);
@@ -971,7 +979,7 @@
         border-radius: 18px;
         border: var(--border-hairline);
         color: var(--text);
-        font-size: 1.625rem;
+        font-size: var(--fs-icon-lg);
         font-weight: 300;
         cursor: pointer;
         display: flex;
@@ -998,7 +1006,7 @@
         transform: scale(0.92);
       }
       .fab.search-exit {
-        font-size: 1.375rem;
+        font-size: var(--fs-icon-md);
         font-weight: 400;
       }
 
@@ -1564,7 +1572,7 @@
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         border-radius: 50%;
-        border: 2.5px solid transparent;
+        border: 2px solid transparent;
         cursor: pointer;
         padding: 0;
         box-shadow:
@@ -1583,7 +1591,7 @@
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         border-radius: 50%;
-        border: 1.5px dashed var(--text3);
+        border: 2px dashed var(--text3);
         padding: 0;
         background: var(--glass-thin);
         cursor: pointer;
@@ -1784,7 +1792,7 @@
         color: var(--text3);
       }
       .empty-state .icon {
-        font-size: 3.25rem;
+        font-size: var(--fs-icon-xl);
         margin-bottom: var(--space-14);
         opacity: 0.75;
       }
