@@ -77,6 +77,8 @@ DELETE /api/categories/{id}              ← nur wenn keine TX referenziert
 GET    /api/tags                         ← alle Tags des Users (distinct, sortiert)
 PUT    /api/tags/{name}                  ← umbenennen in allen Transaktionen
 DELETE /api/tags/{name}                  ← aus allen Transaktionen entfernen
+GET    /api/settings                     ← {theme, default_view}, legt Default-Row beim 1. Aufruf an
+PUT    /api/settings                     ← partial: theme?, default_view?
 POST   /api/import/csv                   ← max. 5 MB, UTF-8 oder CP1252
 GET    /api/export/csv
 ```
@@ -105,6 +107,12 @@ category_id INT FK -> categories.id (ON DELETE RESTRICT)
 date DATE
 type ENUM('in','out')
 tags JSON                      -- Array von Strings
+
+-- user_settings                -- UI-Präferenzen, gespiegelt aus localStorage
+user_id INT PK FK -> users.id (ON DELETE CASCADE)
+theme VARCHAR(16)              -- 'system' | 'light' | 'dark'
+default_view VARCHAR(32)       -- 'transactions' | 'categories'
+updated_at TIMESTAMP           -- DEFAULT/ON UPDATE CURRENT_TIMESTAMP
 ```
 Beim ersten Request eines Users legt `crud.get_or_create_user` automatisch
 einen Eintrag in `users` an (Lookup über `X-Authentik-Username`). Beim ersten

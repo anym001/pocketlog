@@ -201,6 +201,22 @@ def remove_tag(name: str, user: CurrentUser, db: DB):
     return Response(status_code=204)
 
 
+# ---------- User Settings ----------
+# Mirror of the UI preferences in localStorage. The frontend renders from
+# localStorage for an instant paint and reconciles with the server in the
+# background — this endpoint pair is the backup that survives iOS-side
+# localStorage eviction.
+
+@app.get("/api/settings", response_model=schemas.SettingsOut)
+def get_settings(user: CurrentUser, db: DB):
+    return crud.get_or_create_settings(db, user.id)
+
+
+@app.put("/api/settings", response_model=schemas.SettingsOut)
+def put_settings(payload: schemas.SettingsUpdate, user: CurrentUser, db: DB):
+    return crud.update_settings(db, user.id, payload)
+
+
 # ---------- CSV-Import ----------
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB

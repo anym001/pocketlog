@@ -4018,6 +4018,7 @@
 
       function saveDefaultView(view) {
         localStorage.setItem('pocketlog.defaultView', view);
+        pushSettings({ default_view: view });
       }
 
       function loadDefaultView() {
@@ -4046,6 +4047,7 @@
       function saveTheme(theme) {
         localStorage.setItem(THEME_KEY, theme);
         applyTheme(theme);
+        pushSettings({ theme });
       }
 
       function loadTheme() {
@@ -4057,6 +4059,35 @@
         document.querySelectorAll('input[name="appTheme"]').forEach((r) => {
           r.checked = r.value === val;
         });
+      }
+
+      // ── SETTINGS-BACKUP (Server) ──────────────────────────────────────────────────
+      // localStorage rendert sofort — diese Helpers gleichen das mit der DB ab,
+      // damit das Theme + die Startansicht eine iOS-localStorage-Eviction überleben.
+      // PUT geht durchs api()-Helper, im Offline-Fall fängt der SW-Outbox alles ab.
+      function pushSettings(patch) {
+        api('PUT', '/settings', patch).catch(() => {});
+      }
+
+      async function reconcileSettingsFromServer() {
+        let s;
+        try {
+          s = await api('GET', '/settings');
+        } catch (_) {
+          return; // offline / nicht erreichbar → localStorage gilt
+        }
+        if (!s || s.offline) return;
+        if (s.theme && s.theme !== loadTheme()) {
+          localStorage.setItem(THEME_KEY, s.theme);
+          applyTheme(s.theme);
+          syncThemeRadios();
+        }
+        if (s.default_view && s.default_view !== loadDefaultView()) {
+          // Panel-Switch mitten in der Session wäre disruptiv — nur die
+          // Persistenz nachziehen, beim nächsten Start greift der Wert.
+          localStorage.setItem('pocketlog.defaultView', s.default_view);
+          syncDefaultViewRadios();
+        }
       }
 
       async function saveApiBase() {
@@ -4183,6 +4214,9 @@
         attachDragDismiss('modalOverlay', closeModal);
         attachDragDismiss('catModalOverlay', closeCatModal);
         attachDragDismiss('tagModalOverlay', closeTagModal);
+        // Server-Backup im Hintergrund — überschreibt localStorage nur,
+        // falls der Server eine andere (aktuellere oder überlebende) Version hält.
+        reconcileSettingsFromServer();
       }
       init();
     </script>
