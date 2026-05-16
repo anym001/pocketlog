@@ -269,17 +269,17 @@ Form (Punkt links, Akzent-Bar rechts). „Nice to have", nicht kritisch.
 
 ---
 
-### [ ] 17. Kleinkram-Sammlung
+### [x] 17. Kleinkram-Sammlung
 
 - [x] `.sync-dot` (`index.html:2359`) ist rein dekorativ → `aria-hidden="true"` setzen.
 - [x] `.modal-handle` hat `cursor: grab` und `touch-action: none` — sicherstellen,
       dass tatsächlich ein Drag-to-dismiss-Handler existiert; sonst Affordance entfernen.
       → Handler existiert (`attachDragDismiss`), ignoriert aber bewusst `pointerType === 'mouse'`.
       `cursor: grab` versprach Maus-Verhalten, das nie kam → entfernt. `touch-action: none` bleibt.
-- [ ] `.modal-cancel-btn` zeigt `‹` (`index.html:2442`) → bei Sheets ist `✕`
+- [x] `.modal-cancel-btn` zeigt `‹` (`index.html:2442`) → bei Sheets ist `✕`
       semantisch klarer (Sheet schließen vs. Push-Navigation zurück).
-      → **Diskussion offen:** Position (links oben = Push-Nav-Look) und Glyph müssen
-      gemeinsam entschieden werden, kein Quickfix.
+      → Glyph auf `#icon-close` und Position von `left: 0` auf `right: 0` umgestellt;
+      damit deckt sich der Button auch mit dem schon korrekten `aria-label="Schließen"`.
 - [x] ~~`body { overflow-x: hidden }` (`index.html:219`) kann in alten iOS-Safaris
       `position: sticky` brechen — beobachten.~~ → **Verworfen:** PocketLog nutzt
       `color-mix(in oklab, …)` (Safari ≥ 16.4); iOS < 16 ist faktisch nicht mehr
