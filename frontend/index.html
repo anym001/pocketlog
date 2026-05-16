@@ -1015,6 +1015,15 @@
         display: none;
       }
 
+      /* SVG-Glyph aus dem Sprite — Größe folgt font-size des umgebenden
+         Buttons (1em), Farbe via currentColor. */
+      .ui-icon {
+        width: 1em;
+        height: 1em;
+        flex-shrink: 0;
+        vertical-align: middle;
+      }
+
       /* ====== HAMBURGER ====== */
       .hamburger-btn {
         width: var(--btn-chrome-size);
@@ -1023,6 +1032,7 @@
         background: transparent;
         cursor: pointer;
         color: var(--text);
+        font-size: var(--fs-title);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1030,10 +1040,6 @@
         padding: 0;
         flex-shrink: 0;
         transition: opacity var(--dur-base);
-      }
-      .hamburger-btn svg {
-        width: 24px;
-        height: 24px;
       }
       .hamburger-btn:active {
         opacity: 0.6;
@@ -2036,6 +2042,86 @@
     </style>
   </head>
   <body>
+    <!-- Inline SVG icon sprite (chrome glyphs).
+         Hidden via 0×0 absolute positioning so <use href="#icon-…"> works
+         reliably across browsers. Stroke 1.75 / 24×24 viewBox per
+         DESIGN_CONVENTIONS §Icons im UI. -->
+    <svg
+      width="0"
+      height="0"
+      style="position: absolute"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <symbol
+          id="icon-menu"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M4 7h16" />
+          <path d="M4 12h16" />
+          <path d="M4 17h16" />
+        </symbol>
+        <symbol
+          id="icon-chevron-left"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M15 6l-6 6 6 6" />
+        </symbol>
+        <symbol
+          id="icon-chevron-right"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 6l6 6-6 6" />
+        </symbol>
+        <symbol
+          id="icon-close"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </symbol>
+        <symbol
+          id="icon-search"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M20 20l-3.5-3.5" />
+        </symbol>
+        <symbol
+          id="icon-plus"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+      </defs>
+    </svg>
+
     <!-- TOAST HOST -->
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
@@ -2047,7 +2133,7 @@
       <div class="drawer-head">
         <h1 class="drawer-head-title">Pocket<span>Log</span></h1>
         <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">
-          ✕
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
         </button>
       </div>
 
@@ -2074,7 +2160,7 @@
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpSettings')">
               Einstellungen
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
           </nav>
         </div>
@@ -2082,25 +2168,27 @@
         <!-- Panel 1: Einstellungen -->
         <div class="drawer-panel" id="dpSettings" data-state="right">
           <div class="drawer-sub-head">
-            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">‹</button>
+            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
             <span class="drawer-sub-title">Einstellungen</span>
           </div>
           <nav class="drawer-nav">
             <button class="drawer-nav-item" onclick="drawerNav('dpCats')">
               Kategorien
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpTags')">
               Tags
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpImport')">
               Import/Export
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
               Darstellung
-              <span class="drawer-nav-chevron">›</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
           </nav>
         </div>
@@ -2113,7 +2201,7 @@
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
             >
-              ‹
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
             <span class="drawer-sub-title">Kategorien</span>
           </div>
@@ -2134,7 +2222,7 @@
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
             >
-              ‹
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
             <span class="drawer-sub-title">Tags</span>
           </div>
@@ -2155,7 +2243,7 @@
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
             >
-              ‹
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
             <span class="drawer-sub-title">Import/Export</span>
           </div>
@@ -2224,7 +2312,7 @@
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
             >
-              ‹
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
             <span class="drawer-sub-title">Darstellung</span>
           </div>
@@ -2292,23 +2380,16 @@
     <div class="header">
       <div class="header-top">
         <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.75"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <path d="M4 7h16" />
-            <path d="M4 12h16" />
-            <path d="M4 17h16" />
-          </svg>
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-menu" /></svg>
         </button>
         <div class="month-nav">
-          <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">‹</button>
+          <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
           <span class="month-label" id="monthLabel"></span>
-          <button onclick="changeMonth(1)" aria-label="Nächster Monat">›</button>
+          <button onclick="changeMonth(1)" aria-label="Nächster Monat">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+          </button>
         </div>
         <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
           <span class="sync-dot" id="syncDot"></span>
@@ -2348,9 +2429,13 @@
       <div class="chart-container">
         <h3>Jahresverlauf</h3>
         <div class="year-nav">
-          <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">‹</button>
+          <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
           <span id="yearLabel"></span>
-          <button onclick="changeYear(1)" aria-label="Nächstes Jahr">›</button>
+          <button onclick="changeYear(1)" aria-label="Nächstes Jahr">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+          </button>
         </div>
         <canvas id="yearChart"></canvas>
       </div>
@@ -2370,7 +2455,9 @@
       <form class="search-form" role="search" onsubmit="event.preventDefault()">
         <label for="searchInput" class="visually-hidden">Buchungen durchsuchen</label>
         <div class="search-wrap">
-          <span class="search-icon" aria-hidden="true">⌕</span>
+          <span class="search-icon" aria-hidden="true">
+            <svg class="ui-icon"><use href="#icon-search" /></svg>
+          </span>
           <input
             class="search-input"
             id="searchInput"
@@ -2386,7 +2473,9 @@
           />
         </div>
       </form>
-      <button class="fab" onclick="openModal()" aria-label="Neue Buchung">+</button>
+      <button class="fab" onclick="openModal()" aria-label="Neue Buchung">
+        <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
+      </button>
     </div>
 
     <!-- TRANSACTION ADD/EDIT MODAL -->
@@ -2394,7 +2483,9 @@
       <div class="modal">
         <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">‹</button>
+          <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
           <h2>Neue Buchung</h2>
         </div>
         <div class="modal-body">
@@ -2467,7 +2558,7 @@
         <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">
-            ‹
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
           <h2 id="tagModalTitle">Tag bearbeiten</h2>
         </div>
@@ -2496,7 +2587,7 @@
         <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">
-            ‹
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
           <h2 id="catModalTitle">Kategorie bearbeiten</h2>
         </div>
@@ -2533,6 +2624,14 @@
     </div>
 
     <script>
+      // ── ICON-MARKUP ───────────────────────────────────────────────────────────────
+      // Für Glyphen, die dynamisch via JS getauscht werden (FAB-Toggle Plus/✕,
+      // Tag-Pill-Remove). Statische Glyphen sitzen direkt im HTML-Markup.
+      const ICON_SVG = {
+        plus: '<svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"/></svg>',
+        close: '<svg class="ui-icon" aria-hidden="true"><use href="#icon-close"/></svg>',
+      };
+
       // ── API-BASIS ─────────────────────────────────────────────────────────────────
       // Standardmäßig same-origin ("/api"). Über die Settings kann eine vollständige
       // Basis-URL gesetzt werden (z.B. https://pocketlog.deinedomain.de). Das Suffix
@@ -2694,7 +2793,7 @@
         document.getElementById('searchInput').value = '';
         const fab = document.querySelector('.fab');
         if (fab) {
-          fab.textContent = '+';
+          fab.innerHTML = ICON_SVG.plus;
           fab.classList.remove('search-exit');
           fab.setAttribute('aria-label', 'Neue Buchung');
           fab.onclick = () => openModal();
@@ -2842,7 +2941,7 @@
           document.body.classList.add('searching');
           document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
           document.getElementById('panel-search').classList.add('active');
-          fab.textContent = '✕';
+          fab.innerHTML = ICON_SVG.close;
           fab.classList.add('search-exit');
           fab.setAttribute('aria-label', 'Suche beenden');
           fab.onclick = clearSearch;
@@ -2859,7 +2958,7 @@
           document.body.classList.remove('searching');
           document.getElementById('panel-search').classList.remove('active');
           document.getElementById('panel-' + _activePanel).classList.add('active');
-          fab.textContent = '+';
+          fab.innerHTML = ICON_SVG.plus;
           fab.classList.remove('search-exit');
           fab.setAttribute('aria-label', 'Neue Buchung');
           fab.onclick = () => openModal();
@@ -3460,7 +3559,7 @@
         wrap.innerHTML = currentTags
           .map(
             (t) =>
-              `<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}“ entfernen">×</button></span>`
+              `<span class="tag-pill">${t}<button onclick="removeTag('${t}')" aria-label="Tag „${t}“ entfernen">${ICON_SVG.close}</button></span>`
           )
           .join('');
         wrap.appendChild(inp);
