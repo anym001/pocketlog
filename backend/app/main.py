@@ -168,7 +168,7 @@ def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
 
 # ---------- Tags ----------
 
-@app.get("/api/tags", response_model=list[str])
+@app.get("/api/tags", response_model=list[schemas.TagOut])
 def get_tags(user: CurrentUser, db: DB):
     return crud.list_tags(db, user.id)
 

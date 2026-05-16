@@ -36,6 +36,11 @@ class TagRename(BaseModel):
     new_name: str = Field(min_length=1, max_length=64)
 
 
+class TagOut(BaseModel):
+    name: str
+    count: int
+
+
 # -------- Transactions --------
 # The frontend uses the JSON field "desc"; the DB column is "description"
 # (avoids reserved-word conflicts). The Pydantic alias accepts both.
