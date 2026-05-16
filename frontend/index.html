@@ -1358,15 +1358,6 @@
         }
       }
 
-      .modal-handle {
-        width: 38px;
-        height: 5px;
-        background: var(--text3);
-        opacity: 0.4;
-        border-radius: var(--r-pill);
-        margin: 0 auto var(--space-16);
-        touch-action: none;
-      }
       .modal h2 {
         font-family: var(--font-display);
         font-size: var(--fs-title);
@@ -2496,7 +2487,6 @@
     <!-- TRANSACTION ADD/EDIT MODAL -->
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
       <div class="modal">
-        <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
@@ -2570,7 +2560,6 @@
     <!-- TAG ADD/EDIT MODAL -->
     <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
       <div class="modal">
-        <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
@@ -2599,7 +2588,6 @@
     <!-- CATEGORY ADD/EDIT MODAL -->
     <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
       <div class="modal">
-        <div class="modal-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
@@ -3412,142 +3400,6 @@
         openModal(pool.find((t) => t.id === Number(id)));
       }
 
-      function attachDragDismiss(overlayId, closeFn) {
-        const overlay = document.getElementById(overlayId);
-        if (!overlay) return;
-        const modal = overlay.querySelector('.modal');
-        const handle = modal.querySelector('.modal-handle');
-        const body = modal.querySelector('.modal-body');
-        const header = modal.querySelector('.modal-header');
-
-        let startY = 0,
-          prevY = 0,
-          prevTime = 0,
-          dy = 0,
-          active = false;
-        let intentDecided = false,
-          fromChrome = false,
-          startScrollTop = 0;
-        let pointerId = null;
-
-        function reset() {
-          startY = prevY = prevTime = dy = 0;
-          active = false;
-          intentDecided = false;
-          fromChrome = false;
-          startScrollTop = 0;
-          pointerId = null;
-        }
-
-        modal.addEventListener('pointerdown', (e) => {
-          if (e.pointerType === 'mouse') return;
-          if (pointerId !== null) return; // schon eine laufende Geste
-          startY = e.clientY;
-          prevY = e.clientY;
-          prevTime = Date.now();
-          dy = 0;
-          active = false;
-          intentDecided = false;
-          fromChrome =
-            (handle && handle.contains(e.target)) || (header && header.contains(e.target));
-          startScrollTop = body ? body.scrollTop : modal.scrollTop;
-          pointerId = e.pointerId;
-        });
-
-        // Move/Up/Cancel auf document, nicht auf modal: setPointerCapture ist
-        // im iOS-Standalone-PWA unzuverlässig — schlägt es still fehl, gehen
-        // weitere pointermoves an das ursprüngliche Touch-Target (Modal-Body
-        // scrollt nativ) und der Handler bekommt sie nicht mehr. document
-        // erwischt die Events immer; wir filtern per pointerId.
-        function onMove(e) {
-          if (e.pointerId !== pointerId) return;
-          if (intentDecided && !active) return;
-          const raw = e.clientY - startY;
-          if (!intentDecided) {
-            if (Math.abs(raw) < 8) return;
-            intentDecided = true;
-            if (raw > 0 && (fromChrome || startScrollTop <= 1)) {
-              active = true;
-              modal.style.transition = 'none';
-            } else {
-              return;
-            }
-          }
-          if (raw <= 0) {
-            dy = 0;
-            return;
-          }
-          // Während wir aktiv draggen den nativen Scroll/Bounce unterdrücken.
-          if (e.cancelable) e.preventDefault();
-          dy = raw;
-          prevY = e.clientY;
-          prevTime = Date.now();
-          modal.style.transform = `translateY(${dy}px)`;
-          const fade = Math.max(0, 0.35 * (1 - (dy / 240) * 0.85));
-          overlay.style.background = `rgba(20,14,8,${fade.toFixed(3)})`;
-        }
-
-        function finish(e) {
-          if (!active) {
-            reset();
-            return;
-          }
-          active = false;
-          const elapsed = Date.now() - prevTime + 1;
-          const velocity = (((e?.clientY ?? prevY) - startY) / elapsed) * 1000;
-          const dismiss = dy > 110 || velocity > 550;
-
-          if (dismiss) {
-            modal.style.transition = 'transform 0.28s var(--ease-soft)';
-            overlay.style.transition = 'opacity 0.28s ease, background 0.28s ease';
-            modal.style.transform = 'translateY(110%)';
-            overlay.style.opacity = '0';
-            setTimeout(() => {
-              closeFn();
-              modal.style.cssText = '';
-              overlay.style.cssText = overlay.style.cssText
-                .replace(/opacity[^;]*;?/g, '')
-                .replace(/background[^;]*;?/g, '')
-                .replace(/transition[^;]*;?/g, '');
-              overlay.style.opacity = '';
-              overlay.style.transition = '';
-            }, 270);
-          } else {
-            modal.style.transition = 'transform 0.38s var(--ease-spring)';
-            modal.style.transform = '';
-            overlay.style.background = '';
-            modal.addEventListener(
-              'transitionend',
-              () => {
-                modal.style.transition = '';
-              },
-              { once: true }
-            );
-          }
-          reset();
-        }
-
-        function onUp(e) {
-          if (e.pointerId !== pointerId) return;
-          finish(e);
-        }
-
-        function onCancel(e) {
-          if (e.pointerId !== pointerId) return;
-          if (active) {
-            active = false;
-            modal.style.transform = '';
-            modal.style.transition = '';
-            overlay.style.background = '';
-          }
-          reset();
-        }
-
-        document.addEventListener('pointermove', onMove, { passive: false });
-        document.addEventListener('pointerup', onUp);
-        document.addEventListener('pointercancel', onCancel);
-      }
-
       async function deleteCurrentTransaction() {
         const editId = document.getElementById('modalOverlay').dataset.editId;
         if (!editId) return;
@@ -4241,9 +4093,6 @@
         await loadAndRender();
         showPanel(loadDefaultView());
         updateSyncBadge();
-        attachDragDismiss('modalOverlay', closeModal);
-        attachDragDismiss('catModalOverlay', closeCatModal);
-        attachDragDismiss('tagModalOverlay', closeTagModal);
         // Server-Backup im Hintergrund — überschreibt localStorage nur,
         // falls der Server eine andere (aktuellere oder überlebende) Version hält.
         reconcileSettingsFromServer();
