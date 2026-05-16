@@ -206,7 +206,7 @@ und vereinheitlichen.
 
 ---
 
-### [ ] 13. Globales `canvas { max-height: 220px }`
+### [x] 13. Globales `canvas { max-height: 220px }`
 
 **Ort:** `index.html:874-876`
 
