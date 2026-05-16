@@ -1,8 +1,15 @@
 # Design-Review – PocketLog Frontend
 
+> **Archiviert.** Alle 17 Punkte sind abgearbeitet: #1–14 + #17 in Code
+> umgesetzt, #15 (Tablet-/Desktop-Layout) und #16 (Drawer-Aktiv-Marker)
+> bewusst nach [`TODO.md`](../TODO.md) verschoben, #17.4 + #17.5
+> begründet verworfen. Diese Datei bleibt als historischer Snapshot des
+> Review-Zustands stehen — neue Findings gehören in ein eigenes
+> `docs/DESIGN_REVIEW_<datum>.md`.
+
 **Datum:** 2026-05-15
 **Bezug:** `frontend/index.html` (aktueller Working-Tree, inkl. unstaged Änderungen)
-**Grundlage:** [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md), Apple HIG, WCAG 2.2
+**Grundlage:** [`DESIGN_CONVENTIONS.md`](../DESIGN_CONVENTIONS.md), Apple HIG, WCAG 2.2
 
 Checkboxen zum Abhaken beim Bearbeiten. Reihenfolge folgt Priorität (Kritisch → Polish).
 
@@ -230,7 +237,7 @@ Drei flache `<span>`s wirken im sonst sehr polished Liquid-Glass-UI billig.
 
 ### [x] 15. Kein Tablet-/Desktop-Layout
 
-→ verschoben nach [`TODO.md`](TODO.md) §Features.
+→ verschoben nach [`TODO.md`](../TODO.md) §Features.
 
 **Ort:** `index.html:212-223` (`body`)
 
@@ -253,7 +260,7 @@ Eigener Plan/Spike, nicht im selben PR mit Bugfixes.
 
 ### [x] 16. Drawer-Mainmenü ohne starken Aktiv-Marker
 
-→ verschoben nach [`TODO.md`](TODO.md) §Nice-to-haves.
+→ verschoben nach [`TODO.md`](../TODO.md) §Nice-to-haves.
 
 **Ort:** `index.html:1226-1228`
 
