@@ -228,7 +228,9 @@ Drei flache `<span>`s wirken im sonst sehr polished Liquid-Glass-UI billig.
 
 ---
 
-### [ ] 15. Kein Tablet-/Desktop-Layout
+### [x] 15. Kein Tablet-/Desktop-Layout
+
+→ verschoben nach [`TODO.md`](TODO.md) §Features.
 
 **Ort:** `index.html:212-223` (`body`)
 

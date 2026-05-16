@@ -11,6 +11,14 @@ anfasst, ihn hier bitte gleich streichen.
 - Budget-Grenzen pro Kategorie inkl. Warnung im UI.
 - Push-Benachrichtigungen bei Budget-Überschreitung.
 - Statistik-/Diagrammansichten über mehrere Monate / das gesamte Jahr.
+- **Tablet-/Desktop-Layout.** Aktuell hat `body` ein hartes
+  `max-width: 430px` (`frontend/index.html`) — auf iPad und Mac sieht der
+  Nutzer also nur eine 430-px-Spalte mit viel Leerraum, obwohl iPhone +
+  iPad + Mac laut Architektur-Diagramm in `CLAUDE.md` Ziel-Plattformen
+  sind. Mindestens ein `@media (min-width: 768px)`-Branch fehlt — z. B.
+  zweispaltig (Liste + Detail), breitere Karten oder Dashboard-Anordnung.
+  Eigener Plan/Spike, nicht im selben PR mit Bugfixes
+  (Design-Review #15).
 
 ## PWA / Offline
 
