@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import date as date_type, datetime
+from datetime import date as date_type, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import and_, extract, select
@@ -219,11 +219,16 @@ def update_transaction(
 
 
 def list_tags(db: Session, user_id: int) -> list[dict]:
+    # Names: all-time pool (standalone tags + tags ever seen on a tx).
+    # Counts: only transactions from the last 30 days, so suggestions
+    # surface tags that are currently relevant rather than long-stale.
     # Standalone (declared) tags from the tags table — these win on casing
     # when both a standalone entry and a tx-derived entry exist for the
     # same case-folded key.
     by_key: dict[str, str] = {}
     counts: dict[str, int] = {}
+    cutoff = date_type.today() - timedelta(days=30)
+
     for name in db.scalars(
         select(models.Tag.name).where(models.Tag.user_id == user_id)
     ):
@@ -231,17 +236,18 @@ def list_tags(db: Session, user_id: int) -> list[dict]:
         if name:
             by_key[name.casefold()] = name
 
-    rows = db.scalars(
-        select(models.Transaction.tags).where(
+    rows = db.execute(
+        select(models.Transaction.tags, models.Transaction.date).where(
             and_(
                 models.Transaction.user_id == user_id,
                 models.Transaction.tags.is_not(None),
             )
         )
     )
-    for tags in rows:
+    for tags, tx_date in rows:
         if not tags:
             continue
+        in_window = tx_date is not None and tx_date >= cutoff
         for t in tags:
             if not isinstance(t, str):
                 continue
@@ -250,7 +256,8 @@ def list_tags(db: Session, user_id: int) -> list[dict]:
                 continue
             key = t.casefold()
             by_key.setdefault(key, t)
-            counts[key] = counts.get(key, 0) + 1
+            if in_window:
+                counts[key] = counts.get(key, 0) + 1
     return [
         {"name": by_key[k], "count": counts.get(k, 0)}
         for k in sorted(by_key.keys())

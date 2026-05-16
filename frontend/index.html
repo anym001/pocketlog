@@ -3694,12 +3694,20 @@
         pickerSelection = [...currentTags];
         document.getElementById('tagPickerFilter').value = '';
         document.getElementById('tagPickerNew').value = '';
+        const chips = document.getElementById('tagPickerChips');
+        chips.style.minHeight = '';
         renderTagPickerChips();
         document.getElementById('tagPickerOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
+        // Lock chip-area height to the unfiltered render so the modal
+        // doesn't snap shut while the user is narrowing the filter.
+        requestAnimationFrame(() => {
+          chips.style.minHeight = chips.offsetHeight + 'px';
+        });
       }
       function closeTagPicker() {
         document.getElementById('tagPickerOverlay').classList.remove('open');
+        document.getElementById('tagPickerChips').style.minHeight = '';
         // Booking modal is the parent here — keep scroll-lock if it's still open.
         if (!document.getElementById('modalOverlay').classList.contains('open')) {
           document.body.style.overflow = '';

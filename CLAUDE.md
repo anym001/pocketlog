@@ -74,7 +74,7 @@ GET    /api/categories                   ← legt beim 1. Aufruf Default-Kategor
 POST   /api/categories
 PUT    /api/categories/{id}
 DELETE /api/categories/{id}              ← nur wenn keine TX referenziert
-GET    /api/tags                         ← alle Tags des Users als [{name, count}] (alphabetisch sortiert; count = Anzahl Transaktionen mit diesem Tag)
+GET    /api/tags                         ← alle Tags des Users als [{name, count}] (alphabetisch sortiert; count = Anzahl Transaktionen mit diesem Tag in den letzten 30 Tagen)
 PUT    /api/tags/{name}                  ← umbenennen in allen Transaktionen
 DELETE /api/tags/{name}                  ← aus allen Transaktionen entfernen
 GET    /api/settings                     ← {theme, default_view}, legt Default-Row beim 1. Aufruf an
