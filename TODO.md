@@ -39,6 +39,16 @@ Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
   Authentik, also kein Uptime-Check von außen ohne Token. Bei Bedarf in SWAG
   einen Location-Block für `/api/health` ohne `authentik-location.conf`
   anlegen.
+- **Stärkerer Aktiv-Marker im Drawer-Mainmenü.** Aktuell wird der aktive
+  Eintrag in `.drawer-nav-item.active` (`frontend/index.html`) nur über
+  `color: var(--accent)` + `font-weight: 600` markiert. Farbe allein
+  verstößt gegen WCAG 1.4.1 ("Use of Color") und ist gegen den
+  Glas-Hintergrund schwach erkennbar. Ein zweites, formbasiertes Signal
+  ergänzen — z. B. Akzent-Bar links (`box-shadow: inset 3px 0
+  var(--accent)`, macOS-Sidebar-Look), Hintergrund-Pill mit
+  `var(--accent-tint)` (iOS-Settings-Look) oder Trailing-Checkmark.
+  Design-Review #16, dort als "nicht kritisch" markiert, weil der Marker
+  ohnehin nur kurz sichtbar ist (Drawer schließt nach Auswahl).
 - **SVG-Sprite in eigene Datei auslagern.** Aktuell sitzt der Inline-Sprite
   (`icon-menu`, `icon-chevron-left/-right`, `icon-close`, `icon-search`,
   `icon-plus`) direkt am `<body>`-Anfang in `frontend/index.html`. Bei

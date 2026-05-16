@@ -251,7 +251,9 @@ Eigener Plan/Spike, nicht im selben PR mit Bugfixes.
 
 ---
 
-### [ ] 16. Drawer-Mainmenü ohne starken Aktiv-Marker
+### [x] 16. Drawer-Mainmenü ohne starken Aktiv-Marker
+
+→ verschoben nach [`TODO.md`](TODO.md) §Nice-to-haves.
 
 **Ort:** `index.html:1226-1228`
 
