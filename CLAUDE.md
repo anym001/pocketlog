@@ -141,7 +141,7 @@ const data = await api('GET', '/transactions?year=2026&month=5');
 ```
 
 ## Offline / PWA
-- `frontend/sw.js`: precached App-Shell, network-first für GET /api/*, Offline-Outbox für POST/PUT/DELETE.
+- `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell (`/`, `/index.html`, `/db.js`, `/manifest.webmanifest`) und für GET /api/*, cache-first für Icons + Chart.js-CDN; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version, sodass jede Release neue Caches anlegt und der activate-Hook alte automatisch räumt.
 - `frontend/db.js`: IndexedDB-Wrapper für die Outbox (`enqueue`, `drain`, `count`).
 - Sync-Button im UI (`syncNow()`) triggert manuell den Outbox-Flush; bei wieder hergestellter Verbindung läuft Background-Sync.
 
