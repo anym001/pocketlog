@@ -2844,8 +2844,8 @@
           `${MONTHS[currentMonth]} ${currentYear}`;
         const out = transactions.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
         const inc = transactions.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0);
-        document.getElementById('totalOut').textContent = fmtCurrency(out);
-        document.getElementById('totalIn').textContent = fmtCurrency(inc);
+        document.getElementById('totalOut').textContent = fmtSignedCurrency(-out);
+        document.getElementById('totalIn').textContent = fmtSignedCurrency(inc);
         applySearch();
         if (_activePanel === 'categories') renderCategoryView();
       }

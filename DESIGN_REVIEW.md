@@ -162,7 +162,7 @@ davon drei in der Mitte (Pfeile + Label). Apple HIG: max. 1 trailing Action.
 
 ---
 
-### [ ] 10. Summary-Karten verlassen sich auf Farbe
+### [x] 10. Summary-Karten verlassen sich auf Farbe
 
 **Ort:** `index.html:2879-2880`
 
