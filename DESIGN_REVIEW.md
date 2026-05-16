@@ -271,15 +271,23 @@ Form (Punkt links, Akzent-Bar rechts). „Nice to have", nicht kritisch.
 
 ### [ ] 17. Kleinkram-Sammlung
 
-- [ ] `.sync-dot` (`index.html:2359`) ist rein dekorativ → `aria-hidden="true"` setzen.
-- [ ] `.modal-handle` hat `cursor: grab` und `touch-action: none` — sicherstellen,
+- [x] `.sync-dot` (`index.html:2359`) ist rein dekorativ → `aria-hidden="true"` setzen.
+- [x] `.modal-handle` hat `cursor: grab` und `touch-action: none` — sicherstellen,
       dass tatsächlich ein Drag-to-dismiss-Handler existiert; sonst Affordance entfernen.
+      → Handler existiert (`attachDragDismiss`), ignoriert aber bewusst `pointerType === 'mouse'`.
+      `cursor: grab` versprach Maus-Verhalten, das nie kam → entfernt. `touch-action: none` bleibt.
 - [ ] `.modal-cancel-btn` zeigt `‹` (`index.html:2442`) → bei Sheets ist `✕`
       semantisch klarer (Sheet schließen vs. Push-Navigation zurück).
-- [ ] `body { overflow-x: hidden }` (`index.html:219`) kann in alten iOS-Safaris
-      `position: sticky` brechen — beobachten.
-- [ ] `.sync-dot` `box-shadow: 0 0 var(--space-8) var(--green)` (`index.html:497`)
-      — heller Glow auf Light-Glas, evtl. < WCAG 3:1 für grafische Elemente.
+      → **Diskussion offen:** Position (links oben = Push-Nav-Look) und Glyph müssen
+      gemeinsam entschieden werden, kein Quickfix.
+- [x] ~~`body { overflow-x: hidden }` (`index.html:219`) kann in alten iOS-Safaris
+      `position: sticky` brechen — beobachten.~~ → **Verworfen:** PocketLog nutzt
+      `color-mix(in oklab, …)` (Safari ≥ 16.4); iOS < 16 ist faktisch nicht mehr
+      Ziel-Plattform, der Bug ist dort längst behoben.
+- [x] ~~`.sync-dot` `box-shadow: 0 0 var(--space-8) var(--green)` (`index.html:497`)
+      — heller Glow auf Light-Glas, evtl. < WCAG 3:1 für grafische Elemente.~~
+      → **Verworfen:** Status-Information sitzt im gefüllten Dot selbst (Kontrast ~3.5:1
+      ggü. `--bg-canvas`), der Glow ist nur Ambient-Decoration und kein Informationsträger.
 
 ---
 

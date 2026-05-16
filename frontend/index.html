@@ -1350,7 +1350,6 @@
         border-radius: var(--r-pill);
         margin: 0 auto var(--space-16);
         touch-action: none;
-        cursor: grab;
       }
       .modal h2 {
         font-family: var(--font-display);
@@ -2392,7 +2391,7 @@
           </button>
         </div>
         <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
-          <span class="sync-dot" id="syncDot"></span>
+          <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
           <span class="sync-badge" id="syncBadge" hidden></span>
         </button>
       </div>
