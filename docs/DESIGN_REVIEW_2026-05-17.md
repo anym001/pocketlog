@@ -1,5 +1,12 @@
 # Design-Review – PocketLog Frontend
 
+> **Archiviert.** Alle 22 Punkte sind abgearbeitet:
+> – #1–16 mit PR #31 (`claude/execute-ui-review-naG95`).
+> – #17–22 + Drill-down-Politur mit PR #32 (`claude/design-review-followup-17-22`).
+>
+> Diese Datei bleibt als historischer Snapshot des Review-Zustands stehen —
+> neue Findings gehören in ein eigenes `docs/DESIGN_REVIEW_<datum>.md`.
+
 **Datum:** 2026-05-17
 **Bezug:** `frontend/index.html` (4521 Zeilen), `frontend/sw.js` (166 Zeilen)
 **Grundlage:** [`DESIGN_CONVENTIONS.md`](../DESIGN_CONVENTIONS.md), Apple HIG, WCAG 2.2, [`CLAUDE.md`](../CLAUDE.md)
