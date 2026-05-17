@@ -33,7 +33,9 @@ PocketLog/
 │   ├── manifest.webmanifest
 │   ├── sw.js                         ← Service Worker (Cache + Outbox)
 │   ├── db.js                         ← IndexedDB-Helper für Outbox
-│   └── icons/                        ← 192/512/maskable + apple-touch-icon
+│   ├── icons/                        ← 192/512/maskable + apple-touch-icon
+│   ├── fonts/                        ← DM Sans + DM Serif Display woff2
+│   └── vendor/                       ← Drittanbieter-Bundles (Chart.js)
 ├── backend/
 │   ├── Dockerfile                    ← builds aus Repo-Root, kopiert backend/ und frontend/
 │   ├── requirements.txt
@@ -59,7 +61,7 @@ Routes registriert sind.
 - **Datenbank:** MariaDB 11 (extern, InnoDB, utf8mb4)
 - **Auth:** Authentik Forward Auth (Standard-Flow inkl. MFA) + Shared-Secret-Header zwischen SWAG und Backend
 - **Fonts:** DM Serif Display + DM Sans (selbst gehostet in `frontend/fonts/`, kein Google-Fonts-CDN)
-- **Charts:** Chart.js 4.4.1 (CDN, im SW gecached)
+- **Charts:** Chart.js 4.4.1 (selbst gehostet in `frontend/vendor/`, im SW gecached)
 - **Migrationen:** Alembic, läuft im Container-Entrypoint vor uvicorn
 
 ## API Endpoints (FastAPI)
@@ -145,7 +147,7 @@ const data = await api('GET', '/transactions?year=2026&month=5');
 ```
 
 ## Offline / PWA
-- `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell (`/`, `/index.html`, `/db.js`, `/manifest.webmanifest`) und für GET /api/*, cache-first für Icons + Chart.js-CDN; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version, sodass jede Release neue Caches anlegt und der activate-Hook alte automatisch räumt.
+- `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell (`/`, `/index.html`, `/db.js`, `/manifest.webmanifest`) und für GET /api/*, cache-first für Icons, Fonts und das Chart.js-Vendor-Bundle; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version, sodass jede Release neue Caches anlegt und der activate-Hook alte automatisch räumt.
 - `frontend/db.js`: IndexedDB-Wrapper für die Outbox (`enqueue`, `drain`, `count`).
 - Sync-Button im UI (`syncNow()`) triggert manuell den Outbox-Flush; bei wieder hergestellter Verbindung läuft Background-Sync.
 

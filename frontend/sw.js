@@ -4,7 +4,7 @@
 //                       /manifest.webmanifest), damit Updates ohne
 //                       Doppel-Reload sichtbar werden; Cache dient nur
 //                       als Offline-Fallback.
-//   - Statische Shell-Assets (Icons, Chart.js CDN) → cache-first.
+//   - Statische Shell-Assets (Icons, Fonts, Chart.js Vendor-Bundle) → cache-first.
 //   - GET /api/...   → network-first, Fallback auf Cache.
 //   - Write /api/... → online direkt durchreichen; offline in Outbox
 //                       (frontend/db.js) ablegen und 202 zurückgeben.
@@ -33,12 +33,12 @@ const SHELL = [
   '/fonts/dm-sans-latin-ext.woff2',
   '/fonts/dm-serif-display-latin.woff2',
   '/fonts/dm-serif-display-latin-ext.woff2',
-  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+  '/vendor/chart.umd.min.js',
 ];
 
 // HTML-Shell + Single-File-JS (db.js): bei jedem Online-Request frisch holen,
-// Cache nur falls offline. Icons + die versionierte Chart.js-CDN-URL ändern
-// sich praktisch nie und bleiben cache-first.
+// Cache nur falls offline. Icons, Fonts und der versionierte Chart.js-Bundle
+// unter /vendor/ ändern sich praktisch nie und bleiben cache-first.
 function isNetworkFirstShell(url) {
   if (url.origin !== self.location.origin) return false;
   return (
