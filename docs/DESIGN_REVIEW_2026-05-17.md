@@ -246,7 +246,7 @@ function setSyncAria(status) {
 
 ---
 
-### [ ] 10. Heading-Hierarchie springt von H1 zu H3
+### [x] 10. Heading-Hierarchie springt von H1 zu H3
 
 **Ort:** `frontend/index.html:2256`, `2581`, `2585`, `2598`
 
@@ -267,7 +267,7 @@ Charts-Sections sauber drunter.
 
 ## Mittel – Tokens & Design-System-Hygiene
 
-### [ ] 11. Freie px-Werte für `width`/`height`/`border-radius`
+### [x] 11. Freie px-Werte für `width`/`height`/`border-radius`
 
 **Ort:** `frontend/index.html:691`, `769`, `806-807`, `914-915`, `934`, `941`, `1018`, `1040`
 
@@ -283,7 +283,7 @@ Charts-Sections sauber drunter.
 
 ---
 
-### [ ] 12. Magic Numbers für Bottom-Bar-Höhe und Innenabstand
+### [x] 12. Magic Numbers für Bottom-Bar-Höhe und Innenabstand
 
 **Ort:** `frontend/index.html:646`, `955`, `958`
 
@@ -304,7 +304,7 @@ Charts-Sections sauber drunter.
 
 ---
 
-### [ ] 13. Freie Animations-Dauern statt `var(--dur-*)`-Tokens
+### [x] 13. Freie Animations-Dauern statt `var(--dur-*)`-Tokens
 
 **Ort:** `frontend/index.html:291`, `530`, `943`, `1117`, `1348`, `2015`, `2021`
 
@@ -329,7 +329,7 @@ oder soweit möglich auf `var(--dur-slow)` (0.3s) bzw. `var(--dur-medium)`
 
 ---
 
-### [ ] 14. `box-shadow` mit rgba statt `var(--shadow-*)`-Tokens
+### [x] 14. `box-shadow` mit rgba statt `var(--shadow-*)`-Tokens
 
 **Ort:** `frontend/index.html:298-302`, `442-443`, `978-979`
 
@@ -345,7 +345,7 @@ einführen, in `:root` definieren (light + dark separat).
 
 ---
 
-### [ ] 15. Wiederkehrende Inline-Styles als Klasse extrahieren
+### [x] 15. Wiederkehrende Inline-Styles als Klasse extrahieren
 
 **Ort:** `frontend/index.html:2337`, `2358`, `3640`, `3957`, `4106`
 
@@ -374,7 +374,7 @@ Zusätzlich `padding: 16px` → `var(--space-16)`, `gap: 8px` → `var(--space-8
 
 ---
 
-### [ ] 16. Liquid-Glass-Blur-Werte abweichend vom Standard-Rezept
+### [x] 16. Liquid-Glass-Blur-Werte abweichend vom Standard-Rezept
 
 **Ort:** `frontend/index.html:1093`, `1319`, `1548`, `1976`
 
