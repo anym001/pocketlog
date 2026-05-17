@@ -120,6 +120,16 @@
         --btn-fab-size: 50px; /* FAB + Search-Bar Höhe */
         --btn-icon-size: 1.25rem; /* Glyph in Chrome-Buttons (‹ ✕ ⌕ …) */
 
+        /* Element-specific sizes that are visual constants outside the
+       spacing scale. Each one is a single design decision. */
+        --icon-section-size: 32px; /* .cat-view-icon (section glyph in cat list) */
+        --icon-list-md: 42px; /* .t-icon (transaction-row icon container) */
+        --icon-list-sm: 38px; /* .cat-icon (category-breakdown icon) */
+        --swipe-action-w: 92px; /* .tx-action reveal width on swipe-to-delete */
+        --cat-bar-h: 5px; /* .cat-bar progress-bar height */
+        --r-fab: 18px; /* FAB radius (between --r-md 16 and --r-lg 22) */
+        --bottom-bar-clearance: 66px; /* space content panels reserve under the floating bottom bar */
+
         /* Layering — semantic z-index tiers. Intra-component stacks
        (cards, transactions, modals' inner gradient) keep literal 1/2. */
         --z-toolbar: 100; /* Header */
@@ -136,6 +146,9 @@
         --dur-base: 0.2s;
         --dur-medium: 0.25s;
         --dur-slow: 0.3s;
+        --dur-progress: 0.7s; /* .cat-bar width fill */
+        --dur-pulse: 1.2s; /* .sync-dot syncing animation */
+        --dur-ambient: 22s; /* body::after ambient-drift loop */
 
         /* Focus ring — gleiches Aussehen für alle fokussierten Inputs/Buttons. */
         --focus-ring: 0 0 0 3px var(--accent-tint);
@@ -166,9 +179,20 @@
         --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
 
         /* Glass blur */
+        --blur-dim: blur(8px) saturate(140%); /* Dimmer overlays (drawer/modal backdrop) */
         --blur-thin: blur(18px) saturate(180%);
         --blur-regular: blur(28px) saturate(180%);
         --blur-thick: blur(40px) saturate(200%);
+
+        /* Themed shadows used outside of the generic --shadow-* set. */
+        --shadow-header:
+          0 0.5px 0 rgba(255, 255, 255, 0.6) inset,
+          0 2px 10px rgba(60, 35, 20, 0.1),
+          0 8px 28px -16px rgba(60, 35, 20, 0.2);
+        --shadow-floating-strip:
+          inset 0 0.5px 0 var(--hairline),
+          0 2px 8px rgba(20, 20, 19, 0.06),
+          0 8px 24px -4px rgba(20, 20, 19, 0.1);
       }
 
       @media (prefers-color-scheme: dark) {
@@ -206,6 +230,11 @@
           --green: #9ab07a;
           --green-2: #b3c895;
           --green-tint: rgba(154, 176, 122, 0.18);
+
+          --shadow-header:
+            0 0.5px 0 rgba(209, 207, 197, 0.18) inset,
+            0 2px 10px rgba(0, 0, 0, 0.3),
+            0 8px 28px -16px rgba(0, 0, 0, 0.45);
         }
       }
 
@@ -288,17 +317,11 @@
         z-index: 0;
         background: radial-gradient(closest-side, rgba(255, 255, 255, 0.22), transparent 70%);
         filter: blur(28px);
-        animation: ambient-drift 22s ease-in-out infinite alternate;
+        animation: ambient-drift var(--dur-ambient) ease-in-out infinite alternate;
       }
       @media (prefers-color-scheme: dark) {
         body::after {
           background: radial-gradient(closest-side, rgba(255, 220, 180, 0.1), transparent 70%);
-        }
-        .header {
-          box-shadow:
-            0 0.5px 0 rgba(209, 207, 197, 0.18) inset,
-            0 2px 10px rgba(0, 0, 0, 0.3),
-            0 8px 28px -16px rgba(0, 0, 0, 0.45);
         }
       }
 
@@ -331,6 +354,10 @@
         --green: #9ab07a;
         --green-2: #b3c895;
         --green-tint: rgba(154, 176, 122, 0.18);
+        --shadow-header:
+          0 0.5px 0 rgba(209, 207, 197, 0.18) inset,
+          0 2px 10px rgba(0, 0, 0, 0.3),
+          0 8px 28px -16px rgba(0, 0, 0, 0.45);
       }
       html[data-theme='dark'] body::before {
         background:
@@ -343,13 +370,6 @@
       html[data-theme='dark'] body::after {
         background: radial-gradient(closest-side, rgba(255, 220, 180, 0.1), transparent 70%);
       }
-      html[data-theme='dark'] .header {
-        box-shadow:
-          0 0.5px 0 rgba(209, 207, 197, 0.18) inset,
-          0 2px 10px rgba(0, 0, 0, 0.3),
-          0 8px 28px -16px rgba(0, 0, 0, 0.45);
-      }
-
       html[data-theme='light'] {
         color-scheme: light;
         --bg-canvas: #faf9f5;
@@ -378,6 +398,10 @@
         --green: #788c5d;
         --green-2: #96a87a;
         --green-tint: rgba(120, 140, 93, 0.15);
+        --shadow-header:
+          0 0.5px 0 rgba(255, 255, 255, 0.6) inset,
+          0 2px 10px rgba(60, 35, 20, 0.1),
+          0 8px 28px -16px rgba(60, 35, 20, 0.2);
       }
       html[data-theme='light'] body::before {
         background:
@@ -390,13 +414,6 @@
       html[data-theme='light'] body::after {
         background: radial-gradient(closest-side, rgba(255, 255, 255, 0.22), transparent 70%);
       }
-      html[data-theme='light'] .header {
-        box-shadow:
-          0 0.5px 0 rgba(255, 255, 255, 0.6) inset,
-          0 2px 10px rgba(60, 35, 20, 0.1),
-          0 8px 28px -16px rgba(60, 35, 20, 0.2);
-      }
-
       @keyframes ambient-drift {
         0% {
           transform: translate3d(-4%, -2%, 0) scale(1);
@@ -437,10 +454,7 @@
         -webkit-backdrop-filter: var(--blur-regular);
         backdrop-filter: var(--blur-regular);
         border-bottom: var(--border-hairline-strong);
-        box-shadow:
-          0 0.5px 0 rgba(255, 255, 255, 0.6) inset,
-          0 2px 10px rgba(60, 35, 20, 0.1),
-          0 8px 28px -16px rgba(60, 35, 20, 0.2);
+        box-shadow: var(--shadow-header);
       }
       .header-top {
         display: flex;
@@ -527,7 +541,7 @@
       .sync-dot.syncing {
         background: var(--accent);
         box-shadow: 0 0 var(--space-8) var(--accent);
-        animation: pulse 1.2s ease-in-out infinite;
+        animation: pulse var(--dur-pulse) ease-in-out infinite;
       }
       .sync-dot.error {
         background: var(--red);
@@ -578,9 +592,7 @@
       }
       .summary-card {
         position: relative;
-        background: var(--glass-regular);
-        -webkit-backdrop-filter: var(--blur-regular);
-        backdrop-filter: var(--blur-regular);
+        background: color-mix(in oklab, var(--text) 4%, var(--bg-canvas));
         border: var(--border-hairline);
         border-radius: var(--r-md);
         padding: var(--space-10) var(--space-14);
@@ -622,9 +634,10 @@
         font-family: var(--font-display);
         font-size: var(--fs-title-sm);
         color: var(--text);
-        line-height: 1;
+        line-height: 1.25;
         letter-spacing: -0.02em;
         text-align: right;
+        font-variant-numeric: tabular-nums;
       }
       .summary-card .amount.positive {
         background: linear-gradient(135deg, var(--green), var(--green-2));
@@ -643,7 +656,7 @@
       .panel {
         display: none;
         padding: var(--space-8) var(--space-20)
-          calc(66px + max(var(--space-16), env(safe-area-inset-bottom)));
+          calc(var(--bottom-bar-clearance) + max(var(--space-16), env(safe-area-inset-bottom)));
       }
       .panel.active {
         display: block;
@@ -683,12 +696,18 @@
       .cat-view-row:last-child {
         border-bottom: none;
       }
-      .cat-view-row:active {
+      .cat-view-row:active,
+      .cat-view-row.is-key-active {
         opacity: 0.55;
+      }
+      .cat-view-row:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-xs);
       }
       .cat-view-icon {
         font-size: var(--fs-icon-md);
-        width: 32px;
+        width: var(--icon-section-size);
         text-align: center;
         flex-shrink: 0;
       }
@@ -766,7 +785,7 @@
         top: 0;
         right: 0;
         bottom: 0;
-        width: 92px;
+        width: var(--swipe-action-w);
         background: linear-gradient(135deg, var(--red), var(--red-2));
         color: var(--on-accent);
         font-weight: 600;
@@ -803,8 +822,8 @@
          behind it during inertial scroll. */
 
       .t-icon {
-        width: 42px;
-        height: 42px;
+        width: var(--icon-list-md);
+        height: var(--icon-list-md);
         border-radius: var(--r-sm);
         display: flex;
         align-items: center;
@@ -853,6 +872,7 @@
         font-weight: 400;
         flex-shrink: 0;
         letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
       }
       .t-amount.out {
         color: var(--accent);
@@ -864,9 +884,7 @@
       /* ====== CHARTS ====== */
       .chart-container {
         position: relative;
-        background: var(--glass-regular);
-        -webkit-backdrop-filter: var(--blur-regular);
-        backdrop-filter: var(--blur-regular);
+        background: color-mix(in oklab, var(--text) 4%, var(--bg-canvas));
         border: var(--border-hairline);
         border-radius: var(--r-lg);
         padding: var(--space-20) var(--space-20);
@@ -893,7 +911,7 @@
         position: relative;
         z-index: 2;
       }
-      .chart-container h3 {
+      .chart-container h2 {
         font-size: var(--fs-footnote);
         color: var(--text3);
         margin-bottom: var(--space-14);
@@ -911,8 +929,8 @@
         margin-bottom: var(--space-14);
       }
       .cat-icon {
-        width: 38px;
-        height: 38px;
+        width: var(--icon-list-sm);
+        height: var(--icon-list-sm);
         border-radius: var(--r-sm);
         display: flex;
         align-items: center;
@@ -931,31 +949,33 @@
         letter-spacing: -0.01em;
       }
       .cat-bar-wrap {
-        height: 5px;
+        height: var(--cat-bar-h);
         background: var(--hairline-soft);
         border-radius: var(--r-pill);
         margin-top: var(--space-8);
         overflow: hidden;
       }
       .cat-bar {
-        height: 5px;
+        height: var(--cat-bar-h);
         border-radius: var(--r-pill);
-        transition: width 0.7s var(--ease-spring);
+        transition: width var(--dur-progress) var(--ease-spring);
       }
       .cat-amount {
         font-family: var(--font-display);
         font-size: var(--fs-body);
         color: var(--accent);
         letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
       }
 
       /* ====== BOTTOM BAR (search + FAB) ====== */
       .bottom-bar {
         position: fixed;
-        bottom: max(16px, env(safe-area-inset-bottom));
+        bottom: max(var(--space-16), env(safe-area-inset-bottom));
         left: 50%;
         transform: translateX(-50%);
-        width: min(calc(430px - 32px), calc(100vw - 32px));
+        /* App-max width (430) minus horizontal page padding on both sides. */
+        width: min(calc(430px - 2 * var(--space-16)), calc(100vw - 2 * var(--space-16)));
         display: flex;
         align-items: center;
         gap: var(--space-10);
@@ -973,10 +993,7 @@
         backdrop-filter: var(--blur-regular);
         border: var(--border-hairline);
         border-radius: var(--r-pill);
-        box-shadow:
-          inset 0 0.5px 0 var(--hairline),
-          0 2px 8px rgba(20, 20, 19, 0.06),
-          0 8px 24px -4px rgba(20, 20, 19, 0.1);
+        box-shadow: var(--shadow-floating-strip);
       }
       .search-icon {
         color: var(--text3);
@@ -1015,7 +1032,7 @@
         background: var(--glass-thin);
         -webkit-backdrop-filter: var(--blur-regular);
         backdrop-filter: var(--blur-regular);
-        border-radius: 18px;
+        border-radius: var(--r-fab);
         border: var(--border-hairline);
         color: var(--text);
         font-size: var(--fs-icon-lg);
@@ -1025,10 +1042,7 @@
         align-items: center;
         justify-content: center;
         transition: transform var(--dur-medium) var(--ease-bounce);
-        box-shadow:
-          inset 0 0.5px 0 var(--hairline),
-          0 2px 8px rgba(20, 20, 19, 0.06),
-          0 8px 24px -4px rgba(20, 20, 19, 0.1);
+        box-shadow: var(--shadow-floating-strip);
         overflow: hidden;
         isolation: isolate;
         position: relative;
@@ -1037,7 +1051,7 @@
         content: '';
         position: absolute;
         inset: 1px;
-        border-radius: 17px;
+        border-radius: calc(var(--r-fab) - 1px);
         background: linear-gradient(170deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%);
         pointer-events: none;
       }
@@ -1090,6 +1104,8 @@
         inset: 0;
         z-index: var(--z-drawer-backdrop);
         background: rgba(20, 14, 8, 0.35);
+        /* Deliberately weaker than --blur-dim: the drawer overlay only
+           needs to hint at the inert content underneath without obscuring it. */
         -webkit-backdrop-filter: blur(4px);
         backdrop-filter: blur(4px);
         opacity: 0;
@@ -1176,7 +1192,7 @@
         font-weight: 400;
         color: var(--text);
         letter-spacing: -0.015em;
-        line-height: 1;
+        line-height: 1.25;
       }
       .drawer-head-title span {
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -1316,8 +1332,8 @@
         position: fixed;
         inset: 0;
         background: rgba(20, 14, 8, 0.35);
-        -webkit-backdrop-filter: blur(8px) saturate(140%);
-        backdrop-filter: blur(8px) saturate(140%);
+        -webkit-backdrop-filter: var(--blur-dim);
+        backdrop-filter: var(--blur-dim);
         z-index: var(--z-modal);
         align-items: flex-end;
         justify-content: center;
@@ -1528,6 +1544,7 @@
         text-align: center;
         letter-spacing: -0.02em;
         padding: var(--space-12) var(--space-16);
+        font-variant-numeric: tabular-nums;
       }
 
       .tags-input-wrap {
@@ -1545,8 +1562,8 @@
       }
       .tag-pill {
         background: var(--glass-thick);
-        -webkit-backdrop-filter: blur(10px);
-        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: var(--blur-thin);
+        backdrop-filter: var(--blur-thin);
         border: var(--border-hairline);
         border-radius: var(--r-pill);
         padding: var(--space-4) var(--space-12);
@@ -1669,8 +1686,13 @@
         -webkit-user-select: none;
         transition: transform var(--dur-fast) var(--ease-spring);
       }
-      .cat-pill-edit:active {
+      .cat-pill-edit:active,
+      .cat-pill-edit.is-key-active {
         transform: scale(0.94);
+      }
+      .cat-pill-edit:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
 
       .color-swatches {
@@ -1914,6 +1936,26 @@
         line-height: 1.6;
       }
 
+      /* Drawer list chips (categories / tags) – horizontal wrap with
+         add-button below; used in #catList and #tagList. */
+      .drawer-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-8);
+        margin-bottom: var(--space-12);
+      }
+
+      /* Sub-message used for "Noch keine …" hints inside drawer sections
+         and breakdown lists. */
+      .empty-state-hint {
+        font-size: var(--fs-caption);
+        color: var(--text3);
+      }
+      .empty-state-hint.center {
+        text-align: center;
+        padding: var(--space-16);
+      }
+
       /* ====== YEAR NAV ====== */
       .year-nav {
         display: flex;
@@ -1973,8 +2015,8 @@
       #catList .cat-pill-edit,
       #tagList > * {
         background: var(--glass-thick) !important;
-        -webkit-backdrop-filter: blur(14px) saturate(180%);
-        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: var(--blur-thin);
+        backdrop-filter: var(--blur-thin);
         border-color: var(--hairline-soft) !important;
         box-shadow: inset 0 0.5px 0 var(--hairline);
       }
@@ -2253,7 +2295,7 @@
     <!-- DRAWER -->
     <div class="drawer" id="drawer" role="dialog" aria-label="Menü">
       <div class="drawer-head">
-        <h1 class="drawer-head-title">Pocket<span>Log</span></h1>
+        <h2 class="drawer-head-title">Pocket<span>Log</span></h2>
         <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">
           <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
         </button>
@@ -2332,10 +2374,7 @@
             <span class="drawer-sub-title">Kategorien</span>
           </div>
           <div class="drawer-section">
-            <div
-              id="catList"
-              style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px"
-            ></div>
+            <div id="catList" class="drawer-chip-list"></div>
             <button class="save-btn" onclick="openCatModal()">Kategorie hinzufügen</button>
           </div>
         </div>
@@ -2353,10 +2392,7 @@
             <span class="drawer-sub-title">Tags</span>
           </div>
           <div class="drawer-section">
-            <div
-              id="tagList"
-              style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px"
-            ></div>
+            <div id="tagList" class="drawer-chip-list"></div>
             <button class="save-btn" onclick="openTagModal()">Tag erstellen</button>
           </div>
         </div>
@@ -2531,6 +2567,10 @@
       </div>
     </div>
 
+    <!-- Page-level heading so the document has a single H1. Visually
+         hidden because the brand mark already lives in the drawer head. -->
+    <h1 class="visually-hidden">PocketLog</h1>
+
     <!-- HEADER -->
     <div class="header">
       <div class="header-top">
@@ -2550,6 +2590,7 @@
           <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
           <span class="sync-badge" id="syncBadge" hidden></span>
         </button>
+        <span id="syncAriaLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></span>
       </div>
     </div>
 
@@ -2578,11 +2619,12 @@
     <!-- CHARTS PANEL -->
     <div class="panel" id="panel-charts">
       <div class="chart-container">
-        <h3>Monatsvergleich</h3>
-        <canvas id="monthChart"></canvas>
+        <h2 id="monthChartTitle">Monatsvergleich</h2>
+        <canvas id="monthChart" role="img" aria-labelledby="monthChartTitle" aria-describedby="monthChartSummary"></canvas>
+        <p id="monthChartSummary" class="visually-hidden" aria-live="polite"></p>
       </div>
       <div class="chart-container">
-        <h3>Jahresverlauf</h3>
+        <h2 id="yearChartTitle">Jahresverlauf</h2>
         <div class="year-nav">
           <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
@@ -2592,10 +2634,11 @@
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
         </div>
-        <canvas id="yearChart"></canvas>
+        <canvas id="yearChart" role="img" aria-labelledby="yearChartTitle" aria-describedby="yearChartSummary"></canvas>
+        <p id="yearChartSummary" class="visually-hidden" aria-live="polite"></p>
       </div>
       <div class="chart-container">
-        <h3>Kategorien</h3>
+        <h2>Kategorien</h2>
         <div id="catBreakdown"></div>
       </div>
     </div>
@@ -2967,6 +3010,7 @@
         destructive = true,
       }) {
         return new Promise((resolve) => {
+          const prevFocus = document.activeElement;
           const overlay = document.createElement('div');
           overlay.className = 'modal-overlay open';
           overlay.style.alignItems = 'center';
@@ -3006,14 +3050,30 @@
 
           overlay.appendChild(modal);
 
+          // Cycle Tab between yes/no — the alert-dialog has no other focusable
+          // controls, so a manual trap is simpler than reusing trapFocusIn().
+          const onKey = (e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              (document.activeElement === yes ? no : yes).focus();
+            }
+          };
+
           const close = (result) => {
+            overlay.removeEventListener('keydown', onKey);
             overlay.remove();
-            document.body.style.overflow = '';
+            // Only release scroll-lock if no other modal is still open.
+            const stillOpen = document.querySelector('.modal-overlay.open');
+            if (!stillOpen) document.body.style.overflow = '';
+            if (prevFocus && document.contains(prevFocus) && typeof prevFocus.focus === 'function') {
+              prevFocus.focus();
+            }
             resolve(result);
           };
           overlay.addEventListener('click', (e) => {
             if (e.target === overlay) close(false);
           });
+          overlay.addEventListener('keydown', onKey);
           document.body.appendChild(overlay);
           document.body.style.overflow = 'hidden';
           yes.addEventListener('click', () => close(true));
@@ -3093,16 +3153,85 @@
       }
 
       function openDrawer() {
+        rememberModalFocus('drawer');
         document.getElementById('drawer').classList.add('open');
         document.getElementById('drawerOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
+        trapFocusIn(document.getElementById('drawer'), 'drawer');
       }
 
       function closeDrawer() {
         document.getElementById('drawer').classList.remove('open');
         document.getElementById('drawerOverlay').classList.remove('open');
         document.body.style.overflow = '';
+        releaseFocusTrap('drawer');
+        restoreModalFocus('drawer');
         setTimeout(_drawerResetPanels, 380);
+      }
+
+      // Keyboard activation for elements that are interactive but cannot be
+      // a <button> (e.g. row contains a nested action button). Mirrors native
+      // button semantics: Enter and Space trigger the click; Space is
+      // prevented from scrolling. The `!e.repeat` guard avoids re-firing
+      // while the key is held. `.is-key-active` gives the keyboard press
+      // the same visual feedback that mouse `:active` does.
+      function handleRowActivate(e, fn) {
+        if ((e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') && !e.repeat) {
+          e.preventDefault();
+          const el = e.currentTarget;
+          el.classList.add('is-key-active');
+          setTimeout(() => el.classList.remove('is-key-active'), 150);
+          fn();
+        }
+      }
+
+      // ── MODAL FOCUS MANAGEMENT ────────────────────────────────────────────────────
+      // Each modal stores the element that had focus before it opened, so the
+      // matching close() can restore it. Keyed by modal id to support nesting
+      // (tag picker opens from inside the booking modal).
+      const _modalPrevFocus = new Map();
+      const _modalTrapTeardown = new Map();
+
+      function rememberModalFocus(key) {
+        _modalPrevFocus.set(key, document.activeElement);
+      }
+
+      function restoreModalFocus(key) {
+        const el = _modalPrevFocus.get(key);
+        _modalPrevFocus.delete(key);
+        if (el && document.contains(el) && typeof el.focus === 'function') {
+          el.focus();
+        }
+      }
+
+      // Wraps Tab cycling inside the given root element. Returns nothing; call
+      // releaseFocusTrap(key) to remove the listener when the modal closes.
+      function trapFocusIn(rootEl, key) {
+        const handler = (e) => {
+          if (e.key !== 'Tab') return;
+          const focusable = rootEl.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          const visible = Array.from(focusable).filter((el) => el.offsetParent !== null);
+          if (!visible.length) return;
+          const first = visible[0];
+          const last = visible[visible.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        };
+        rootEl.addEventListener('keydown', handler);
+        _modalTrapTeardown.set(key, () => rootEl.removeEventListener('keydown', handler));
+      }
+
+      function releaseFocusTrap(key) {
+        const fn = _modalTrapTeardown.get(key);
+        if (fn) fn();
+        _modalTrapTeardown.delete(key);
       }
 
       function changeMonth(d) {
@@ -3337,7 +3466,10 @@
         el.innerHTML = rows
           .map(
             (r) => `
-    <div class="cat-view-row" onclick="openModalForCategory(${r.id})">
+    <div class="cat-view-row" role="button" tabindex="0"
+      aria-label="Kategorie „${r.name}“ bearbeiten"
+      onclick="openModalForCategory(${r.id})"
+      onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
       <span class="cat-view-icon">${r.icon}</span>
       <span class="cat-view-name">${r.name}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
@@ -3570,6 +3702,10 @@
             },
           },
         });
+        const totalOut = outData.reduce((a, b) => a + b, 0);
+        const totalIn = inData.reduce((a, b) => a + b, 0);
+        document.getElementById('monthChartSummary').textContent =
+          `${MONTHS[currentMonth]} ${currentYear}: Einnahmen ${fmtCurrency(totalIn)}, Ausgaben ${fmtCurrency(totalOut)}.`;
       }
 
       async function renderYearChart() {
@@ -3626,6 +3762,10 @@
             },
           },
         });
+        const totalOut = monthly.reduce((a, m) => a + m.out, 0);
+        const totalIn = monthly.reduce((a, m) => a + m.in, 0);
+        document.getElementById('yearChartSummary').textContent =
+          `Jahr ${chartYear}: Einnahmen ${fmtCurrency(totalIn)}, Ausgaben ${fmtCurrency(totalOut)}.`;
       }
 
       function renderCatBreakdown() {
@@ -3637,7 +3777,7 @@
         const el = document.getElementById('catBreakdown');
         if (!sorted.length) {
           el.innerHTML =
-            '<p style="color:var(--text3);font-size:var(--fs-caption);text-align:center;padding:16px">Keine Ausgaben in diesem Monat</p>';
+            '<p class="empty-state-hint center">Keine Ausgaben in diesem Monat</p>';
           return;
         }
         el.innerHTML = sorted
@@ -3657,6 +3797,7 @@
 
       // ── MODAL ─────────────────────────────────────────────────────────────────────
       function openModal(tx) {
+        rememberModalFocus('booking');
         currentTags = tx?.tags ? [...tx.tags] : [];
         document.getElementById('inputAmount').value =
           tx?.amount != null ? Number(tx.amount).toFixed(2) : '';
@@ -3679,10 +3820,13 @@
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('inputAmount').focus(), 300);
         document.getElementById('modalOverlay').dataset.editId = tx?.id || '';
+        trapFocusIn(document.querySelector('#modalOverlay .modal'), 'booking');
       }
       function closeModal() {
         document.getElementById('modalOverlay').classList.remove('open');
         document.body.style.overflow = '';
+        releaseFocusTrap('booking');
+        restoreModalFocus('booking');
       }
       function closeModalOutside(e) {
         if (e.target === document.getElementById('modalOverlay')) closeModal();
@@ -3869,6 +4013,7 @@
       let pickerSelection = [];
 
       function openTagPicker() {
+        rememberModalFocus('tagPicker');
         pickerSelection = [...currentTags];
         document.getElementById('tagPickerFilter').value = '';
         document.getElementById('tagPickerNew').value = '';
@@ -3882,6 +4027,7 @@
         requestAnimationFrame(() => {
           chips.style.minHeight = chips.offsetHeight + 'px';
         });
+        trapFocusIn(document.querySelector('#tagPickerOverlay .modal'), 'tagPicker');
       }
       function closeTagPicker() {
         document.getElementById('tagPickerOverlay').classList.remove('open');
@@ -3891,6 +4037,8 @@
           document.body.style.overflow = '';
         }
         pickerSelection = [];
+        releaseFocusTrap('tagPicker');
+        restoreModalFocus('tagPicker');
       }
       function closeTagPickerOutside(e) {
         if (e.target === document.getElementById('tagPickerOverlay')) closeTagPicker();
@@ -3954,34 +4102,39 @@
         if (!box) return;
         if (!categories.length) {
           box.innerHTML =
-            '<p style="font-size:var(--fs-caption);color:var(--text3)">Noch keine Kategorien vorhanden.</p>';
+            '<p class="empty-state-hint">Noch keine Kategorien vorhanden.</p>';
           return;
         }
         box.innerHTML = categories
           .map(
             (c) => `
-    <div class="tag-pill cat-pill-edit" style="border-color:${c.color}66" onclick="openCatModal(${c.id})">${c.icon} ${c.name}</div>
+    <div class="tag-pill cat-pill-edit" role="button" tabindex="0"
+      aria-label="Kategorie „${c.name}“ bearbeiten"
+      style="border-color:${c.color}66"
+      onclick="openCatModal(${c.id})"
+      onkeydown="handleRowActivate(event, () => openCatModal(${c.id}))">${c.icon} ${c.name}</div>
   `
           )
           .join('');
       }
 
       const CAT_COLOR_PRESETS = [
-        '#D97757',
-        '#6b7aa1',
-        '#788C5D',
-        '#c47ab0',
-        '#e0a44a',
-        '#87867F',
-        '#B85C3E',
-        '#8a6a4a',
-        '#a45ab0',
-        '#6a8a8a',
+        { hex: '#D97757', name: 'Terracotta' },
+        { hex: '#6b7aa1', name: 'Blau' },
+        { hex: '#788C5D', name: 'Olive' },
+        { hex: '#c47ab0', name: 'Mauve' },
+        { hex: '#e0a44a', name: 'Senf' },
+        { hex: '#87867F', name: 'Grau' },
+        { hex: '#B85C3E', name: 'Rost' },
+        { hex: '#8a6a4a', name: 'Kakao' },
+        { hex: '#a45ab0', name: 'Violett' },
+        { hex: '#6a8a8a', name: 'Petrol' },
       ];
       let editingCatId = null;
       let editingCatColor = '#9e9b96';
 
       function openCatModal(id) {
+        rememberModalFocus('cat');
         const deleteBtn = document.getElementById('catDeleteBtn');
         const title = document.getElementById('catModalTitle');
         if (id) {
@@ -4005,21 +4158,25 @@
         document.getElementById('catModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('catEditName').focus(), 200);
+        trapFocusIn(document.querySelector('#catModalOverlay .modal'), 'cat');
       }
 
       function renderCatColorSwatches() {
         const presets = [...CAT_COLOR_PRESETS];
-        if (!presets.includes(editingCatColor)) presets.push(editingCatColor);
+        const hasCurrent = presets.some(
+          (p) => p.hex.toLowerCase() === editingCatColor.toLowerCase()
+        );
+        if (!hasCurrent) presets.push({ hex: editingCatColor, name: 'Eigene Farbe' });
         const box = document.getElementById('catEditColors');
         box.innerHTML =
           presets
-            .map(
-              (c) =>
-                `<button type="button" class="color-swatch${c.toLowerCase() === editingCatColor.toLowerCase() ? ' active' : ''}" style="background:${c}" onclick="pickCatColor('${c}')"></button>`
-            )
+            .map((p) => {
+              const isActive = p.hex.toLowerCase() === editingCatColor.toLowerCase();
+              return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="Farbe ${p.name} wählen" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
+            })
             .join('') +
           `<label class="color-swatch-custom" title="Eigene Farbe">
-     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)">
+     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)" aria-label="Eigene Farbe wählen">
    </label>`;
       }
 
@@ -4032,6 +4189,8 @@
         document.getElementById('catModalOverlay').classList.remove('open');
         document.body.style.overflow = '';
         editingCatId = null;
+        releaseFocusTrap('cat');
+        restoreModalFocus('cat');
       }
       function closeCatModalOutside(e) {
         if (e.target === document.getElementById('catModalOverlay')) closeCatModal();
@@ -4103,7 +4262,7 @@
         if (!box) return;
         if (!availableTags.length) {
           box.innerHTML =
-            '<p style="font-size:var(--fs-caption);color:var(--text3)">Noch keine Tags vorhanden.</p>';
+            '<p class="empty-state-hint">Noch keine Tags vorhanden.</p>';
           return;
         }
         box.innerHTML = availableTags
@@ -4118,6 +4277,7 @@
       }
 
       function openTagModal(name) {
+        rememberModalFocus('tag');
         const deleteBtn = document.getElementById('tagDeleteBtn');
         const title = document.getElementById('tagModalTitle');
         if (name) {
@@ -4134,12 +4294,15 @@
         document.getElementById('tagModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('tagEditName').focus(), 200);
+        trapFocusIn(document.querySelector('#tagModalOverlay .modal'), 'tag');
       }
 
       function closeTagModal() {
         document.getElementById('tagModalOverlay').classList.remove('open');
         document.body.style.overflow = '';
         editingTagName = null;
+        releaseFocusTrap('tag');
+        restoreModalFocus('tag');
       }
       function closeTagModalOutside(e) {
         if (e.target === document.getElementById('tagModalOverlay')) closeTagModal();
@@ -4212,6 +4375,10 @@
       function setSyncAria(status) {
         const btn = document.getElementById('syncBtn');
         if (btn) btn.setAttribute('aria-label', `Synchronisieren – ${status}`);
+        // The dedicated live region announces the change actively; the
+        // aria-label above gives a stable description on focus.
+        const live = document.getElementById('syncAriaLive');
+        if (live) live.textContent = status;
       }
 
       async function syncNow() {
@@ -4252,7 +4419,7 @@
           btn.classList.add('error');
           dot.classList.add('error');
           setSyncBadge(remaining);
-          const msg = 'Offline – Änderungen werden gespeichert';
+          const msg = 'Offline – Änderungen werden gespeichert…';
           setSyncAria(msg);
           toast(msg, 'error');
           return;
@@ -4393,7 +4560,7 @@
         const pending = await window.PocketLogOutbox.count();
         if (pending > 0) {
           setSyncBadge(pending);
-          setSyncAria('Änderungen werden gespeichert');
+          setSyncAria('Änderungen werden gespeichert…');
         } else {
           btn.classList.remove('error');
           dot.classList.remove('error');
@@ -4403,8 +4570,37 @@
       }
 
       window.addEventListener('online', () => syncNow());
+      // Escape closes the topmost open modal/drawer. Order matters: confirm
+      // dialog overrides everything, then nested tag picker, then the
+      // individual modals, then the drawer.
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeDrawer();
+        if (e.key !== 'Escape') return;
+        const confirmOverlay = Array.from(
+          document.querySelectorAll('.modal-overlay.open')
+        ).find((o) => o.querySelector('.confirm-modal'));
+        if (confirmOverlay) {
+          confirmOverlay.querySelector('.confirm-cancel')?.click();
+          return;
+        }
+        if (document.getElementById('tagPickerOverlay').classList.contains('open')) {
+          closeTagPicker();
+          return;
+        }
+        if (document.getElementById('tagModalOverlay').classList.contains('open')) {
+          closeTagModal();
+          return;
+        }
+        if (document.getElementById('catModalOverlay').classList.contains('open')) {
+          closeCatModal();
+          return;
+        }
+        if (document.getElementById('modalOverlay').classList.contains('open')) {
+          closeModal();
+          return;
+        }
+        if (document.getElementById('drawer').classList.contains('open')) {
+          closeDrawer();
+        }
       });
 
       if ('serviceWorker' in navigator) {
@@ -4448,7 +4644,7 @@
           await loadTags();
           await loadAndRender();
         } catch (e) {
-          status.textContent = 'Import fehlgeschlagen – Verbindung prüfen.';
+          status.textContent = 'Import fehlgeschlagen – Verbindung prüfen';
           status.className = 'status-msg err';
         } finally {
           ev.target.value = ''; // gleichen File-Reimport erlauben
