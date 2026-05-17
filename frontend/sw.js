@@ -29,6 +29,10 @@ const SHELL = [
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',
   '/icons/apple-touch-icon.png',
+  '/fonts/dm-sans-latin.woff2',
+  '/fonts/dm-sans-latin-ext.woff2',
+  '/fonts/dm-serif-display-latin.woff2',
+  '/fonts/dm-serif-display-latin-ext.woff2',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
 ];
 

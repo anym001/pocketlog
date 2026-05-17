@@ -58,7 +58,7 @@ Routes registriert sind.
 - **Backend:** FastAPI (Python 3.12), uvicorn auf Port 8000
 - **Datenbank:** MariaDB 11 (extern, InnoDB, utf8mb4)
 - **Auth:** Authentik Forward Auth (Standard-Flow inkl. MFA) + Shared-Secret-Header zwischen SWAG und Backend
-- **Fonts:** DM Serif Display + DM Sans
+- **Fonts:** DM Serif Display + DM Sans (selbst gehostet in `frontend/fonts/`, kein Google-Fonts-CDN)
 - **Charts:** Chart.js 4.4.1 (CDN, im SW gecached)
 - **Migrationen:** Alembic, läuft im Container-Entrypoint vor uvicorn
 
