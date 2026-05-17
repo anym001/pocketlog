@@ -12,6 +12,21 @@ Lies die relevanten Bereiche von `frontend/index.html` (und ggf. `frontend/sw.js
 
 Gruppiere Funde nach Kategorie. Schreibe am Ende eine kurze Zusammenfassung: wie viele Funde pro Kategorie, was kritisch ist und was optional/nice-to-have.
 
+## Ergebnis-Datei
+
+Schreibe den Bericht **immer** in eine neue Datei `docs/DESIGN_REVIEW_<YYYY-MM-DD>.md` (Datum von heute). Format-Vorlage: das archivierte `docs/DESIGN_REVIEW_2026-05-15.md`.
+
+Pflicht-Struktur der Datei:
+
+- Header mit Datum, Bezug (geprüfte Dateien + Zeilenzahl), Grundlage (`DESIGN_CONVENTIONS.md`, Apple HIG, WCAG 2.2, `CLAUDE.md`)
+- Hinweis-Satz: „Checkboxen zum Abhaken beim Bearbeiten. Reihenfolge folgt Priorität (Kritisch → Polish)."
+- Funde nach Priorität sortiert (Kritisch → Hoch → Mittel → Niedrig), durchnummeriert
+- Jeder Punkt mit `### [ ] N. Titel`, Fundort, kurzer Problembeschreibung und konkretem Fix-Snippet
+- Zusammenfassungstabelle am Ende mit Anzahl pro Priorität + empfohlene Reihenfolge der Bearbeitung
+- Akzeptanzkriterium pro Punkt nennen (Code geändert + Browser-Test Light/Dark/Tab-Nav)
+
+Datei selbst legt nur die Funde an — keine eigenmächtigen Fixes im Code. Anschließend committen und auf die Branch pushen (siehe Branch-Vorgaben aus dem Session-Kontext); der User hakt die Punkte beim Abarbeiten ab.
+
 ---
 
 ## 1 · Design Tokens

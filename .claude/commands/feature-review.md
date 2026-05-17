@@ -102,3 +102,21 @@ Bewerte das Feature in drei Kategorien:
 → Verbesserungsvorschläge, alternative Flows, Nice-to-have-Zustände
 
 Gib eine klare Empfehlung: **Merge-ready / Überarbeitung nötig / Grundlegendes Problem**.
+
+---
+
+## Schritt 8 – Ergebnis-Datei
+
+Schreibe den Bericht **immer** in eine neue Datei `docs/FEATURE_REVIEW_<feature-slug>_<YYYY-MM-DD>.md` (Slug: kebab-case-Kurzname des Features, Datum von heute). Format-Vorlage: das archivierte `docs/DESIGN_REVIEW_2026-05-15.md`.
+
+Pflicht-Struktur der Datei:
+
+- Header mit Datum, Featurename, Bezug (geänderte/relevante Dateien + Zeilenzahl), Grundlage (`DESIGN_CONVENTIONS.md`, `CLAUDE.md`)
+- Hinweis-Satz: „Checkboxen zum Abhaken beim Bearbeiten. Reihenfolge folgt Priorität (Kritisch → Polish)."
+- Kurze Feature-Zusammenfassung (2–3 Sätze) aus Schritt 1
+- Tabelle der UI-Zustände aus Schritt 3 als eigener Abschnitt
+- Funde nach Priorität sortiert (Kritisch → Wichtig → Optional), durchnummeriert
+- Jeder Punkt mit `### [ ] N. Titel`, Fundort, kurzer Problembeschreibung und konkretem Fix-Snippet
+- Abschluss-Empfehlung (Merge-ready / Überarbeitung nötig / Grundlegendes Problem) plus Zusammenfassungstabelle (Anzahl pro Priorität)
+
+Datei selbst legt nur die Funde an — keine eigenmächtigen Fixes im Code. Anschließend committen und auf die Branch pushen (siehe Branch-Vorgaben aus dem Session-Kontext); der User hakt die Punkte beim Abarbeiten ab.
