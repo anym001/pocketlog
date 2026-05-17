@@ -36,26 +36,24 @@ def get_or_create_user(db: Session, username: str) -> models.User:
         user = db.scalar(select(models.User).where(models.User.username == username))
         if user is None:
             raise
-    else:
-        db.refresh(user)
+        return user
+    db.refresh(user)
+    # Seed defaults exactly once, at user creation. Re-seeding on every
+    # categories fetch would resurrect them right after the "delete all data"
+    # reset, defeating the purpose of that action.
+    _seed_default_categories(db, user.id)
     return user
 
 
 # ---------- Categories ----------
 
-def ensure_default_categories(db: Session, user_id: int) -> None:
-    existing = db.scalar(
-        select(models.Category).where(models.Category.user_id == user_id).limit(1)
-    )
-    if existing is not None:
-        return
+def _seed_default_categories(db: Session, user_id: int) -> None:
     for c in DEFAULT_CATEGORIES:
         db.add(models.Category(user_id=user_id, **c))
     db.commit()
 
 
 def list_categories(db: Session, user_id: int) -> list[models.Category]:
-    ensure_default_categories(db, user_id)
     return list(
         db.scalars(
             select(models.Category)
