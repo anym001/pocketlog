@@ -79,7 +79,7 @@ class Category(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    icon: Mapped[str] = mapped_column(String(8), nullable=False, default="📦")
+    icon: Mapped[str] = mapped_column(String(64), nullable=False, default="package")
     color: Mapped[str] = mapped_column(CHAR(7), nullable=False, default="#9e9b96")
 
     user: Mapped[User] = relationship(back_populates="categories")

@@ -680,10 +680,16 @@
         border-radius: var(--r-xs);
       }
       .cat-view-icon {
-        font-size: var(--fs-icon-md);
         width: var(--icon-section-size);
-        text-align: center;
+        height: var(--icon-section-size);
+        display: flex;
+        align-items: center;
+        justify-content: center;
         flex-shrink: 0;
+      }
+      .cat-view-icon .cat-glyph {
+        width: 80%;
+        height: 80%;
       }
       .cat-view-name {
         flex: 1;
@@ -1715,6 +1721,117 @@
         padding: 0;
         cursor: pointer;
         background: none;
+      }
+
+      /* Category icon picker (Phosphor sprite, see frontend/icons/categories/sprite.svg) */
+      .cat-glyph {
+        width: 60%;
+        height: 60%;
+        display: block;
+      }
+      .cat-pill-glyph {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1em;
+        height: 1em;
+        flex: 0 0 auto;
+      }
+      .cat-pill-glyph .cat-glyph {
+        width: 100%;
+        height: 100%;
+      }
+      .icon-trigger {
+        display: flex;
+        align-items: center;
+        gap: var(--space-12);
+        width: 100%;
+        padding: var(--space-10) var(--space-14);
+        background: var(--glass-thin);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        cursor: pointer;
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        transition: background var(--dur-base) var(--ease-soft);
+      }
+      .icon-trigger:hover,
+      .icon-trigger:focus-visible {
+        background: var(--glass-thick);
+        outline: none;
+      }
+      .icon-trigger:focus-visible {
+        box-shadow: var(--focus-ring);
+      }
+      .icon-trigger-glyph {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--r-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        background: color-mix(in oklab, currentColor 10%, transparent);
+      }
+      .icon-trigger-label {
+        flex: 1 1 auto;
+        color: var(--text2);
+        font-size: var(--fs-body);
+      }
+      .icon-trigger .ui-icon {
+        flex: 0 0 auto;
+        color: var(--text3);
+      }
+
+      .icon-picker-section + .icon-picker-section {
+        margin-top: var(--space-20);
+      }
+      .icon-picker-section-title {
+        color: var(--accent);
+        font-size: var(--fs-title-sm);
+        font-weight: 600;
+        margin-bottom: var(--space-12);
+        letter-spacing: -0.01em;
+      }
+      .icon-picker-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: var(--space-8);
+      }
+      .icon-picker-cell {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px dashed var(--hairline);
+        border-radius: var(--r-sm);
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        padding: 0;
+        transition:
+          background var(--dur-base) var(--ease-soft),
+          border-color var(--dur-base) var(--ease-soft),
+          transform var(--dur-base) var(--ease-bounce);
+        -webkit-tap-highlight-color: transparent;
+      }
+      .icon-picker-cell:active {
+        transform: scale(0.92);
+      }
+      .icon-picker-cell.active {
+        border-style: solid;
+        border-color: var(--accent);
+        background: color-mix(in oklab, var(--accent) 12%, transparent);
+        color: var(--accent);
+      }
+      .icon-picker-cell:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .icon-picker-cell .cat-glyph {
+        width: 58%;
+        height: 58%;
       }
 
       .tag-suggestions {
@@ -2813,13 +2930,18 @@
             <input type="text" id="catEditName" maxlength="100" />
           </div>
           <div class="form-group">
-            <label>Icon (Emoji)</label>
-            <input
-              type="text"
-              id="catEditIcon"
-              maxlength="8"
-              style="text-align: center; font-size: var(--fs-title)"
-            />
+            <label>Icon</label>
+            <button
+              type="button"
+              class="icon-trigger"
+              id="catEditIconBtn"
+              onclick="openIconPicker()"
+              aria-haspopup="dialog"
+            >
+              <span class="icon-trigger-glyph" id="catEditIconPreview" aria-hidden="true"></span>
+              <span class="icon-trigger-label">Icon ändern</span>
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+            </button>
           </div>
           <div class="form-group">
             <label>Farbe</label>
@@ -2835,6 +2957,21 @@
           >
             Löschen
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY ICON PICKER -->
+    <div class="modal-overlay" id="iconPickerOverlay" onclick="closeIconPickerOutside(event)">
+      <div class="modal">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeIconPicker()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2>Icon wählen</h2>
+        </div>
+        <div class="modal-body">
+          <div id="iconPickerSections"></div>
         </div>
       </div>
     </div>
@@ -3333,7 +3470,7 @@
         return (
           categories.find((c) => c.id === Number(id)) || {
             name: 'Sonstiges',
-            icon: '📦',
+            icon: 'package',
             color: '#9e9b96',
           }
         );
@@ -3389,7 +3526,7 @@
                   return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
-          <div class="t-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent)">${cat.icon}</div>
+          <div class="t-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="t-info">
             <div class="t-title">${title}</div>
             <div class="t-meta">${meta}</div>
@@ -3424,7 +3561,7 @@
 
         // All categories, sorted alphabetically — zero if no transactions this month
         const rows = categories
-          .map((cat) => ({ id: cat.id, name: cat.name, icon: cat.icon, net: totals[cat.id] ?? 0 }))
+          .map((cat) => ({ id: cat.id, name: cat.name, icon: cat.icon, color: cat.color, net: totals[cat.id] ?? 0 }))
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
         el.innerHTML = rows
@@ -3434,7 +3571,7 @@
       aria-label="Kategorie „${r.name}“ bearbeiten"
       onclick="openModalForCategory(${r.id})"
       onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
-      <span class="cat-view-icon">${r.icon}</span>
+      <span class="cat-view-icon" style="color:${r.color}">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${r.name}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
       <button
@@ -3749,7 +3886,7 @@
           .map(([catId, amt]) => {
             const cat = getCatById(parseInt(catId));
             return `<div class="cat-row">
-      <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent)">${cat.icon}</div>
+      <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
       <div class="cat-info">
         <div class="cat-name">${cat.name}</div>
         <div class="cat-bar-wrap"><div class="cat-bar" style="width:${(amt / max) * 100}%;background:${cat.color}"></div></div>
@@ -3771,7 +3908,7 @@
           tx?.date || new Date().toISOString().split('T')[0];
         const catSel = document.getElementById('inputCat');
         catSel.innerHTML = categories
-          .map((c) => `<option value="${c.id}">${c.icon} ${c.name}</option>`)
+          .map((c) => `<option value="${c.id}">${c.name}</option>`)
           .join('');
         if (tx) catSel.value = tx.category_id;
         setType(tx?.type || 'out', document.querySelector('.type-btn.out'));
@@ -4077,7 +4214,7 @@
       aria-label="Kategorie „${c.name}“ bearbeiten"
       style="border-color:color-mix(in oklab, ${c.color} 40%, transparent)"
       onclick="openCatModal(${c.id})"
-      onkeydown="handleRowActivate(event, () => openCatModal(${c.id}))">${c.icon} ${c.name}</div>
+      onkeydown="handleRowActivate(event, () => openCatModal(${c.id}))"><span class="cat-pill-glyph" style="color:${c.color}">${catIconSvg(c.icon)}</span>${c.name}</div>
   `
           )
           .join('');
@@ -4095,8 +4232,95 @@
         { hex: '#a45ab0', name: 'Violett' },
         { hex: '#6a8a8a', name: 'Petrol' },
       ];
+
+      // Picker catalogue. IDs map 1:1 to <symbol id="cat-…"> entries in the
+      // Phosphor sprite (frontend/icons/categories/sprite.svg). Order inside
+      // a group is the order the picker renders.
+      const CAT_ICON_GROUPS = [
+        {
+          title: 'Haus & Haushalt',
+          ids: ['house', 'buildings', 'bed', 'armchair', 'television',
+            'lightbulb', 'key', 'wrench', 'hammer', 'paint-brush',
+            'broom', 'plug'],
+        },
+        {
+          title: 'Kleidung & Pflege',
+          ids: ['t-shirt', 'dress', 'sneaker', 'hoodie', 'coat-hanger',
+            'washing-machine', 'scissors', 'shower', 'drop', 'toilet-paper'],
+        },
+        {
+          title: 'Lebensmittel & Getränke',
+          ids: ['shopping-cart', 'basket', 'bread', 'hamburger', 'pizza',
+            'cookie', 'cake', 'coffee', 'beer-stein', 'wine',
+            'martini', 'fork-knife'],
+        },
+        {
+          title: 'Mobilität',
+          ids: ['car', 'taxi', 'bus', 'train', 'airplane',
+            'bicycle', 'gas-pump'],
+        },
+        {
+          title: 'Freizeit',
+          ids: ['film-strip', 'game-controller', 'music-note', 'book',
+            'gift', 'ticket', 'soccer-ball', 'tree-palm'],
+        },
+        {
+          title: 'Gesundheit',
+          ids: ['pill', 'first-aid-kit', 'heartbeat', 'stethoscope',
+            'tooth', 'dog'],
+        },
+        {
+          title: 'Büro & Bildung',
+          ids: ['briefcase', 'graduation-cap', 'book-open', 'pencil',
+            'laptop', 'paperclip'],
+        },
+        {
+          title: 'Finanzen',
+          ids: ['wallet', 'credit-card', 'bank', 'coins', 'piggy-bank',
+            'currency-eur', 'hand-coins', 'receipt'],
+        },
+        {
+          title: 'Sonstiges',
+          ids: ['package', 'star', 'heart', 'sparkle', 'globe',
+            'tag', 'question'],
+        },
+      ];
+      const CAT_ICON_FALLBACK = 'package';
+      const CAT_ICON_VALID = new Set(CAT_ICON_GROUPS.flatMap((g) => g.ids));
+
+      // Renders one sprite glyph. Unknown IDs (e.g. legacy emoji glyphs that
+      // somehow survived migration) gracefully fall back to the box icon
+      // rather than referencing a missing symbol.
+      function catIconSvg(id) {
+        const safe = CAT_ICON_VALID.has(id) ? id : CAT_ICON_FALLBACK;
+        return `<svg class="cat-glyph" aria-hidden="true"><use href="#cat-${safe}"/></svg>`;
+      }
+
+      // Fetch the sprite once at boot and inject it inline so document-local
+      // <use href="#cat-…"> references resolve everywhere (transaction rows,
+      // category breakdown, picker). The file is cache-first via the SW.
+      async function loadCategoryIconSprite() {
+        if (document.getElementById('cat-icon-sprite')) return;
+        try {
+          const res = await fetch('/icons/categories/sprite.svg');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const text = await res.text();
+          // Strip the XML prolog if present — invalid as inline HTML.
+          const cleaned = text.replace(/<\?xml[^?]*\?>/, '').trim();
+          const host = document.createElement('div');
+          host.id = 'cat-icon-sprite';
+          host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+          host.setAttribute('aria-hidden', 'true');
+          host.innerHTML = cleaned;
+          document.body.insertBefore(host, document.body.firstChild);
+        } catch (e) {
+          console.warn('Category icon sprite failed to load:', e);
+        }
+      }
+
       let editingCatId = null;
       let editingCatColor = '#9e9b96';
+      let editingCatIcon = CAT_ICON_FALLBACK;
 
       function openCatModal(id) {
         rememberModalFocus('cat');
@@ -4107,23 +4331,31 @@
           if (!c) return;
           editingCatId = c.id;
           editingCatColor = c.color || '#9e9b96';
+          editingCatIcon = CAT_ICON_VALID.has(c.icon) ? c.icon : CAT_ICON_FALLBACK;
           document.getElementById('catEditName').value = c.name || '';
-          document.getElementById('catEditIcon').value = c.icon || '📦';
           title.textContent = 'Kategorie bearbeiten';
           deleteBtn.style.display = '';
         } else {
           editingCatId = null;
           editingCatColor = CAT_CREATE_COLORS[categories.length % CAT_CREATE_COLORS.length];
+          editingCatIcon = CAT_ICON_FALLBACK;
           document.getElementById('catEditName').value = '';
-          document.getElementById('catEditIcon').value = '📦';
           title.textContent = 'Neue Kategorie';
           deleteBtn.style.display = 'none';
         }
         renderCatColorSwatches();
+        renderCatIconPreview();
         document.getElementById('catModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('catEditName').focus(), 200);
         trapFocusIn(document.querySelector('#catModalOverlay .modal'), 'cat');
+      }
+
+      function renderCatIconPreview() {
+        const el = document.getElementById('catEditIconPreview');
+        if (!el) return;
+        el.style.color = editingCatColor;
+        el.innerHTML = catIconSvg(editingCatIcon);
       }
 
       function renderCatColorSwatches() {
@@ -4148,6 +4380,7 @@
       function pickCatColor(c) {
         editingCatColor = c;
         renderCatColorSwatches();
+        renderCatIconPreview();
       }
 
       function closeCatModal() {
@@ -4161,9 +4394,61 @@
         if (e.target === document.getElementById('catModalOverlay')) closeCatModal();
       }
 
+      // ── ICON PICKER ───────────────────────────────────────────────────────────────
+      function openIconPicker() {
+        rememberModalFocus('iconPicker');
+        renderIconPicker();
+        const overlay = document.getElementById('iconPickerOverlay');
+        overlay.classList.add('open');
+        // Body scroll-lock already set by the cat modal; keep it.
+        trapFocusIn(overlay.querySelector('.modal'), 'iconPicker');
+        // Scroll the active icon into view so the user sees their current choice.
+        setTimeout(() => {
+          const active = overlay.querySelector('.icon-picker-cell.active');
+          if (active && typeof active.scrollIntoView === 'function') {
+            active.scrollIntoView({ block: 'center', behavior: 'instant' });
+          }
+        }, 30);
+      }
+
+      function closeIconPicker() {
+        document.getElementById('iconPickerOverlay').classList.remove('open');
+        releaseFocusTrap('iconPicker');
+        restoreModalFocus('iconPicker');
+      }
+
+      function closeIconPickerOutside(e) {
+        if (e.target === document.getElementById('iconPickerOverlay')) closeIconPicker();
+      }
+
+      function renderIconPicker() {
+        const host = document.getElementById('iconPickerSections');
+        host.innerHTML = CAT_ICON_GROUPS.map((g) => {
+          const cells = g.ids.map((id) => {
+            const active = id === editingCatIcon ? ' active' : '';
+            const pressed = active ? 'true' : 'false';
+            return `<button type="button" class="icon-picker-cell${active}"
+              aria-pressed="${pressed}" aria-label="${id}"
+              onclick="pickIcon('${id}')">${catIconSvg(id)}</button>`;
+          }).join('');
+          return `<section class="icon-picker-section">
+            <h3 class="icon-picker-section-title">${g.title}</h3>
+            <div class="icon-picker-grid">${cells}</div>
+          </section>`;
+        }).join('');
+      }
+
+      function pickIcon(id) {
+        editingCatIcon = CAT_ICON_VALID.has(id) ? id : CAT_ICON_FALLBACK;
+        renderCatIconPreview();
+        closeIconPicker();
+      }
+
       async function saveCategoryEdit() {
         const name = document.getElementById('catEditName').value.trim();
-        const icon = document.getElementById('catEditIcon').value.trim() || '📦';
+        const icon = CAT_ICON_VALID.has(editingCatIcon)
+          ? editingCatIcon
+          : CAT_ICON_FALLBACK;
         if (!name) {
           toast('Name ist ein Pflichtfeld.', 'error');
           return;
@@ -4680,6 +4965,9 @@
             console.warn('SW registration failed:', e);
           }
         }
+        // Inject the category icon sprite before the first list render so
+        // <use href="#cat-…"> resolves on the very first paint.
+        await loadCategoryIconSprite();
         await loadCategories();
         await loadTags();
         await loadAndRender();

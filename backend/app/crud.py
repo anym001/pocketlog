@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 
 DEFAULT_CATEGORIES: list[dict] = [
-    {"name": "Lebensmittel", "icon": "🛒", "color": "#c8623a"},
-    {"name": "Wohnen", "icon": "🏠", "color": "#8a6a4a"},
-    {"name": "Mobilität", "icon": "🚗", "color": "#6a8a8a"},
-    {"name": "Freizeit", "icon": "🎬", "color": "#a45ab0"},
-    {"name": "Gesundheit", "icon": "💊", "color": "#3a7d5c"},
-    {"name": "Sonstiges", "icon": "📦", "color": "#9e9b96"},
-    {"name": "Gehalt", "icon": "💰", "color": "#3a7d5c"},
+    {"name": "Lebensmittel", "icon": "shopping-cart", "color": "#c8623a"},
+    {"name": "Wohnen", "icon": "house", "color": "#8a6a4a"},
+    {"name": "Mobilität", "icon": "car", "color": "#6a8a8a"},
+    {"name": "Freizeit", "icon": "film-strip", "color": "#a45ab0"},
+    {"name": "Gesundheit", "icon": "pill", "color": "#3a7d5c"},
+    {"name": "Sonstiges", "icon": "package", "color": "#9e9b96"},
+    {"name": "Gehalt", "icon": "wallet", "color": "#3a7d5c"},
 ]
 
 
@@ -72,7 +72,7 @@ def get_or_create_category(db: Session, user_id: int, name: str) -> models.Categ
     )
     if cat is not None:
         return cat
-    cat = models.Category(user_id=user_id, name=name[:100], icon="📦", color="#9e9b96")
+    cat = models.Category(user_id=user_id, name=name[:100], icon="package", color="#9e9b96")
     db.add(cat)
     db.flush()
     return cat

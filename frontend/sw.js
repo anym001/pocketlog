@@ -29,6 +29,7 @@ const SHELL = [
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',
   '/icons/apple-touch-icon.png',
+  '/icons/categories/sprite.svg',
   '/fonts/dm-sans-latin.woff2',
   '/fonts/dm-sans-latin-ext.woff2',
   '/fonts/dm-serif-display-latin.woff2',
