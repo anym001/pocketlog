@@ -2120,6 +2120,7 @@
       #catList .cat-pill-edit,
       #tagList > * {
         font-size: var(--fs-callout);
+        line-height: 1.4;
         padding: var(--space-10) var(--space-16);
       }
 
@@ -4207,7 +4208,10 @@
             '<p class="empty-state-hint">Noch keine Kategorien vorhanden.</p>';
           return;
         }
-        box.innerHTML = categories
+        const sorted = [...categories].sort((a, b) =>
+          a.name.localeCompare(b.name, 'de', { sensitivity: 'base' })
+        );
+        box.innerHTML = sorted
           .map(
             (c) => `
     <div class="tag-pill cat-pill-edit" role="button" tabindex="0"
@@ -4239,50 +4243,65 @@
       const CAT_ICON_GROUPS = [
         {
           title: 'Haus & Haushalt',
-          ids: ['house', 'buildings', 'bed', 'armchair', 'television',
-            'lightbulb', 'key', 'wrench', 'hammer', 'paint-brush',
-            'broom', 'plug'],
+          ids: ['house', 'buildings', 'door', 'bed', 'armchair', 'couch',
+            'chair', 'television', 'lightbulb', 'fan', 'oven', 'plug',
+            'key', 'wrench', 'hammer', 'paint-brush', 'broom', 'fire'],
         },
         {
           title: 'Kleidung & Pflege',
-          ids: ['t-shirt', 'dress', 'sneaker', 'hoodie', 'coat-hanger',
-            'washing-machine', 'scissors', 'shower', 'drop', 'toilet-paper'],
+          ids: ['t-shirt', 'dress', 'hoodie', 'pants', 'sneaker',
+            'eyeglasses', 'watch', 'backpack', 'handbag', 'baby',
+            'coat-hanger', 'washing-machine', 'scissors', 'shower',
+            'drop', 'toilet-paper'],
         },
         {
           title: 'Lebensmittel & Getränke',
-          ids: ['shopping-cart', 'basket', 'bread', 'hamburger', 'pizza',
-            'cookie', 'cake', 'coffee', 'beer-stein', 'wine',
-            'martini', 'fork-knife'],
+          ids: ['shopping-cart', 'basket', 'bag', 'bag-simple', 'bread',
+            'egg', 'carrot', 'fish', 'orange', 'avocado', 'pepper',
+            'hamburger', 'pizza', 'cookie', 'cake', 'ice-cream',
+            'bowl-food', 'bowl-steam', 'coffee', 'beer-stein', 'wine',
+            'martini', 'fork-knife', 'knife'],
         },
         {
           title: 'Mobilität',
-          ids: ['car', 'taxi', 'bus', 'train', 'airplane',
-            'bicycle', 'gas-pump'],
+          ids: ['car', 'taxi', 'bus', 'truck', 'motorcycle', 'scooter',
+            'bicycle', 'train', 'train-regional', 'airplane', 'boat',
+            'gas-pump', 'map-pin', 'road-horizon'],
         },
         {
           title: 'Freizeit',
-          ids: ['film-strip', 'game-controller', 'music-note', 'book',
-            'gift', 'ticket', 'soccer-ball', 'tree-palm'],
+          ids: ['film-strip', 'camera', 'game-controller', 'dice-five',
+            'music-note', 'guitar', 'headphones', 'microphone',
+            'palette', 'confetti', 'book', 'books', 'gift', 'ticket',
+            'soccer-ball', 'basketball', 'tennis-ball', 'tree-palm'],
         },
         {
           title: 'Gesundheit',
-          ids: ['pill', 'first-aid-kit', 'heartbeat', 'stethoscope',
-            'tooth', 'dog'],
+          ids: ['pill', 'first-aid-kit', 'bandaids', 'heartbeat',
+            'stethoscope', 'syringe', 'hospital', 'brain', 'virus',
+            'mask-happy', 'tooth', 'dog', 'cat'],
         },
         {
           title: 'Büro & Bildung',
-          ids: ['briefcase', 'graduation-cap', 'book-open', 'pencil',
-            'laptop', 'paperclip'],
+          ids: ['briefcase', 'graduation-cap', 'chalkboard', 'book-open',
+            'pencil', 'envelope', 'calendar', 'clipboard', 'calculator',
+            'laptop', 'folder', 'files', 'magnifying-glass',
+            'newspaper-clipping', 'paperclip'],
         },
         {
           title: 'Finanzen',
-          ids: ['wallet', 'credit-card', 'bank', 'coins', 'piggy-bank',
-            'currency-eur', 'hand-coins', 'receipt'],
+          ids: ['wallet', 'credit-card', 'bank', 'vault', 'coins', 'coin',
+            'coin-vertical', 'piggy-bank', 'currency-eur',
+            'currency-dollar', 'hand-coins', 'receipt', 'invoice',
+            'money', 'trend-up', 'trend-down', 'chart-line', 'percent'],
         },
         {
           title: 'Sonstiges',
-          ids: ['package', 'star', 'heart', 'sparkle', 'globe',
-            'tag', 'question'],
+          ids: ['package', 'star', 'heart', 'sparkle', 'magic-wand',
+            'globe', 'bell', 'alarm', 'sun', 'moon', 'cloud', 'snowflake',
+            'umbrella', 'mountains', 'tree', 'plant', 'leaf',
+            'flower-tulip', 'butterfly', 'smiley', 'anchor', 'tag',
+            'question'],
         },
       ];
       const CAT_ICON_FALLBACK = 'package';
@@ -4401,14 +4420,10 @@
         const overlay = document.getElementById('iconPickerOverlay');
         overlay.classList.add('open');
         // Body scroll-lock already set by the cat modal; keep it.
+        // Always open scrolled to the top — the browser otherwise keeps
+        // whatever scrollTop the modal-body had on the previous open.
+        overlay.querySelector('.modal-body').scrollTop = 0;
         trapFocusIn(overlay.querySelector('.modal'), 'iconPicker');
-        // Scroll the active icon into view so the user sees their current choice.
-        setTimeout(() => {
-          const active = overlay.querySelector('.icon-picker-cell.active');
-          if (active && typeof active.scrollIntoView === 'function') {
-            active.scrollIntoView({ block: 'center', behavior: 'instant' });
-          }
-        }, 30);
       }
 
       function closeIconPicker() {
