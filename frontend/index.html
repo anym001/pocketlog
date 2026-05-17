@@ -578,9 +578,7 @@
       }
       .summary-card {
         position: relative;
-        background: var(--glass-regular);
-        -webkit-backdrop-filter: var(--blur-regular);
-        backdrop-filter: var(--blur-regular);
+        background: color-mix(in oklab, var(--text) 4%, var(--bg-canvas));
         border: var(--border-hairline);
         border-radius: var(--r-md);
         padding: var(--space-10) var(--space-14);
@@ -622,7 +620,7 @@
         font-family: var(--font-display);
         font-size: var(--fs-title-sm);
         color: var(--text);
-        line-height: 1;
+        line-height: 1.25;
         letter-spacing: -0.02em;
         text-align: right;
         font-variant-numeric: tabular-nums;
@@ -872,9 +870,7 @@
       /* ====== CHARTS ====== */
       .chart-container {
         position: relative;
-        background: var(--glass-regular);
-        -webkit-backdrop-filter: var(--blur-regular);
-        backdrop-filter: var(--blur-regular);
+        background: color-mix(in oklab, var(--text) 4%, var(--bg-canvas));
         border: var(--border-hairline);
         border-radius: var(--r-lg);
         padding: var(--space-20) var(--space-20);
@@ -1185,7 +1181,7 @@
         font-weight: 400;
         color: var(--text);
         letter-spacing: -0.015em;
-        line-height: 1;
+        line-height: 1.25;
       }
       .drawer-head-title span {
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -2565,6 +2561,7 @@
           <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
           <span class="sync-badge" id="syncBadge" hidden></span>
         </button>
+        <span id="syncAriaLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></span>
       </div>
     </div>
 
@@ -4349,6 +4346,10 @@
       function setSyncAria(status) {
         const btn = document.getElementById('syncBtn');
         if (btn) btn.setAttribute('aria-label', `Synchronisieren – ${status}`);
+        // The dedicated live region announces the change actively; the
+        // aria-label above gives a stable description on focus.
+        const live = document.getElementById('syncAriaLive');
+        if (live) live.textContent = status;
       }
 
       async function syncNow() {
@@ -4389,7 +4390,7 @@
           btn.classList.add('error');
           dot.classList.add('error');
           setSyncBadge(remaining);
-          const msg = 'Offline – Änderungen werden gespeichert';
+          const msg = 'Offline – Änderungen werden gespeichert…';
           setSyncAria(msg);
           toast(msg, 'error');
           return;
@@ -4530,7 +4531,7 @@
         const pending = await window.PocketLogOutbox.count();
         if (pending > 0) {
           setSyncBadge(pending);
-          setSyncAria('Änderungen werden gespeichert');
+          setSyncAria('Änderungen werden gespeichert…');
         } else {
           btn.classList.remove('error');
           dot.classList.remove('error');
@@ -4614,7 +4615,7 @@
           await loadTags();
           await loadAndRender();
         } catch (e) {
-          status.textContent = 'Import fehlgeschlagen – Verbindung prüfen.';
+          status.textContent = 'Import fehlgeschlagen – Verbindung prüfen';
           status.className = 'status-msg err';
         } finally {
           ev.target.value = ''; // gleichen File-Reimport erlauben
