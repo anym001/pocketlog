@@ -9,7 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class CategoryBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    icon: str = Field(min_length=1, max_length=8, default="📦")
+    # Icon ID from the bundled Phosphor sprite (frontend/icons/categories/
+    # sprite.svg). Slug-form, no whitespace, no emoji — kept lax here so a
+    # new sprite icon can ship in the frontend without a coupled backend
+    # release. Unknown IDs render as the default `package` glyph client-side.
+    icon: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$", default="package")
     color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", default="#9e9b96")
 
 

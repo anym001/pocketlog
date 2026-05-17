@@ -34,6 +34,7 @@ PocketLog/
 │   ├── sw.js                         ← Service Worker (Cache + Outbox)
 │   ├── db.js                         ← IndexedDB-Helper für Outbox
 │   ├── icons/                        ← 192/512/maskable + apple-touch-icon
+│   │   └── categories/sprite.svg     ← Kategorie-Glyphen (Phosphor Regular, MIT)
 │   ├── fonts/                        ← DM Sans + DM Serif Display woff2
 │   └── vendor/                       ← Drittanbieter-Bundles (Chart.js)
 ├── backend/
@@ -62,6 +63,7 @@ Routes registriert sind.
 - **Auth:** Authentik Forward Auth (Standard-Flow inkl. MFA) + Shared-Secret-Header zwischen SWAG und Backend
 - **Fonts:** DM Serif Display + DM Sans (selbst gehostet in `frontend/fonts/`, kein Google-Fonts-CDN)
 - **Charts:** Chart.js 4.4.1 (selbst gehostet in `frontend/vendor/`, im SW gecached)
+- **Kategorie-Icons:** Phosphor Regular (MIT) als Sprite-File in `frontend/icons/categories/sprite.svg`; ID-basiert in `categories.icon` gespeichert, beim Boot ins DOM injiziert
 - **Migrationen:** Alembic, läuft im Container-Entrypoint vor uvicorn
 
 ## Drittanbieter & Privacy
@@ -82,7 +84,11 @@ Frontend-Laden gilt, ist die App bewusst **frei von externen Quellen**:
   erhalten).
 - Font → `frontend/fonts/<name>.woff2`. Subset wenn möglich (latin + latin-ext
   reichen für PocketLog), keine variable-axis-Files die wir nicht brauchen.
-- Icon → SVG ins Sprite in `frontend/index.html` (`<symbol id="icon-…">`).
+- Chrome-Icon (Menu, Chevron, etc.) → SVG ins Inline-Sprite in `frontend/index.html` (`<symbol id="icon-…">`).
+- Kategorie-Icon → `<symbol id="cat-…">` ins externe Sprite `frontend/icons/categories/sprite.svg`
+  einfügen, dann zur Catalogue-Konstante `CAT_ICON_GROUPS` in `frontend/index.html` hinzufügen.
+  Quelle ist Phosphor Regular (`github.com/phosphor-icons/core/assets/regular/`, MIT) — niemals
+  Icons aus anderen Sets mischen, sonst bricht der einheitliche Strichcharakter.
 
 Falls eine Abhängigkeit beim besten Willen nur online verfügbar ist (z. B.
 ein Auth-Provider-Login), das in einem Code-Kommentar **und** hier
@@ -123,7 +129,7 @@ username VARCHAR(150) UNIQUE   -- gespiegelter Authentik-Username
 id INT PK AUTO_INCREMENT
 user_id INT FK -> users.id (ON DELETE CASCADE) INDEX
 name VARCHAR(100)
-icon VARCHAR(8)                -- Emoji (mb4)
+icon VARCHAR(64)               -- Phosphor-Icon-ID, z.B. 'house' (siehe frontend/icons/categories/sprite.svg)
 color CHAR(7)                  -- #RRGGBB
 UNIQUE (user_id, name)
 
