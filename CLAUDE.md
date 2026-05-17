@@ -64,6 +64,31 @@ Routes registriert sind.
 - **Charts:** Chart.js 4.4.1 (selbst gehostet in `frontend/vendor/`, im SW gecached)
 - **Migrationen:** Alembic, läuft im Container-Entrypoint vor uvicorn
 
+## Drittanbieter & Privacy
+
+PocketLog ist ein selbst gehostetes Haushaltsbuch — die Buchungen liegen
+zwischen dem User, seiner Instanz und sonst niemandem. Damit das auch beim
+Frontend-Laden gilt, ist die App bewusst **frei von externen Quellen**:
+
+- Schriften, JS-Bibliotheken (Chart.js), Icons, CSS — alles vom eigenen Origin.
+- Keine CDNs (Google Fonts, gstatic, cdnjs, jsdelivr, unpkg …).
+- Keine Analytics, kein Tracking, keine externen Telemetrie-Endpoints.
+- Keine externen iFrames / Embeds.
+
+**Vor jedem neuen Asset prüfen**, ob es sich lokal versionieren lässt:
+
+- JS-Lib → `frontend/vendor/<name>.js` (Tarball von npm-Registry, Shasum gegen
+  Registry-Eintrag verifizieren, MIT/Apache/BSD-Lizenz bestätigen, Banner
+  erhalten).
+- Font → `frontend/fonts/<name>.woff2`. Subset wenn möglich (latin + latin-ext
+  reichen für PocketLog), keine variable-axis-Files die wir nicht brauchen.
+- Icon → SVG ins Sprite in `frontend/index.html` (`<symbol id="icon-…">`).
+
+Falls eine Abhängigkeit beim besten Willen nur online verfügbar ist (z. B.
+ein Auth-Provider-Login), das in einem Code-Kommentar **und** hier
+dokumentieren, damit jeder spätere Reviewer den Trade-off nachvollziehen
+kann.
+
 ## API Endpoints (FastAPI)
 ```
 GET    /api/health
