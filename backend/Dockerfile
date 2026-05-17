@@ -24,6 +24,7 @@ COPY backend/app ./app
 # PWA static files (served via FastAPI StaticFiles)
 COPY frontend/index.html frontend/sw.js frontend/db.js frontend/manifest.webmanifest frontend/example-import.csv ./static/
 COPY frontend/icons ./static/icons
+COPY frontend/fonts ./static/fonts
 
 # Bake APP_VERSION into the service worker so each release gets a fresh
 # cache key (pocketlog-shell-${VERSION}, pocketlog-api-${VERSION}) and the

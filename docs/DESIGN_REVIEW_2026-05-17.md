@@ -1,5 +1,12 @@
 # Design-Review – PocketLog Frontend
 
+> **Archiviert.** Alle 22 Punkte sind abgearbeitet:
+> – #1–16 mit PR #31 (`claude/execute-ui-review-naG95`).
+> – #17–22 + Drill-down-Politur mit PR #32 (`claude/design-review-followup-17-22`).
+>
+> Diese Datei bleibt als historischer Snapshot des Review-Zustands stehen —
+> neue Findings gehören in ein eigenes `docs/DESIGN_REVIEW_<datum>.md`.
+
 **Datum:** 2026-05-17
 **Bezug:** `frontend/index.html` (4521 Zeilen), `frontend/sw.js` (166 Zeilen)
 **Grundlage:** [`DESIGN_CONVENTIONS.md`](../DESIGN_CONVENTIONS.md), Apple HIG, WCAG 2.2, [`CLAUDE.md`](../CLAUDE.md)
@@ -396,7 +403,7 @@ Drawer-Overlay-Use-Cases einführen.
 
 ## Niedrig – Polish / Nice-to-have
 
-### [ ] 17. Theme-Definition dreifach gepflegt – Sync-Risiko
+### [x] 17. Theme-Definition dreifach gepflegt – Sync-Risiko
 
 **Ort:** `frontend/index.html:174-210`, `306-351`, `353-398`
 
@@ -414,7 +421,7 @@ Niedrige Priorität – funktional korrekt, nur Wartungskosten.
 
 ---
 
-### [ ] 18. Hex-Alpha-Hacks (`${color}22`, `${color}66`) für Kategorie-Tints
+### [x] 18. Hex-Alpha-Hacks (`${color}22`, `${color}66`) für Kategorie-Tints
 
 **Ort:** `frontend/index.html:3299`, `3647`, `3963`
 
@@ -436,7 +443,7 @@ undurchsichtig.
 
 ---
 
-### [ ] 19. `line-height` für Body-Text leicht zu hoch
+### [x] 19. `line-height` für Body-Text leicht zu hoch
 
 **Ort:** `frontend/index.html:1914`, `2048`
 
@@ -448,7 +455,7 @@ ziehen, oder Konvention für Hilfstexte/Confirms explizit lockern.
 
 ---
 
-### [ ] 20. Empty-State-Emoji statt SVG-Sprite
+### [x] 20. Empty-State-Emoji statt SVG-Sprite
 
 **Ort:** `frontend/index.html:3260`, `3320`
 
@@ -462,7 +469,7 @@ via `currentColor`.
 
 ---
 
-### [ ] 21. Google Fonts nicht im Service-Worker-Precache
+### [x] 21. Google Fonts nicht im Service-Worker-Precache
 
 **Ort:** `frontend/sw.js:23-33`
 
@@ -484,7 +491,7 @@ in `SHELL` aufnehmen — fragil, weil Hash-URLs sich ändern.
 
 ---
 
-### [ ] 22. Backdrop-Overlay-Divs ohne `aria-hidden`
+### [x] 22. Backdrop-Overlay-Divs ohne `aria-hidden`
 
 **Ort:** `frontend/index.html:2251`, `2637`
 
