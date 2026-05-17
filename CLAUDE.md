@@ -70,7 +70,7 @@ GET    /api/transactions?year=&month=    ← month optional → ganzes Jahr
 POST   /api/transactions
 PUT    /api/transactions/{id}
 DELETE /api/transactions/{id}
-GET    /api/categories                   ← legt beim 1. Aufruf Default-Kategorien an
+GET    /api/categories                   ← Default-Kategorien werden bei User-Anlage geseedet (nicht hier)
 POST   /api/categories
 PUT    /api/categories/{id}
 DELETE /api/categories/{id}              ← nur wenn keine TX referenziert
@@ -117,9 +117,11 @@ default_view VARCHAR(32)       -- 'transactions' | 'categories'
 updated_at TIMESTAMP           -- DEFAULT/ON UPDATE CURRENT_TIMESTAMP
 ```
 Beim ersten Request eines Users legt `crud.get_or_create_user` automatisch
-einen Eintrag in `users` an (Lookup über `X-Authentik-Username`). Beim ersten
-`GET /api/categories` werden Default-Kategorien angelegt
-(siehe `crud.ensure_default_categories`).
+einen Eintrag in `users` an (Lookup über `X-Authentik-Username`) und seedet
+in demselben Schritt die Default-Kategorien (`crud._seed_default_categories`).
+Das Seeding läuft bewusst nur beim Anlegen des Users — nicht bei jedem
+`GET /api/categories` — damit `DELETE /api/admin/all-data` die Kategorien
+nicht direkt wieder auferstehen lässt.
 
 ## Auth-Konzept
 - Authentik schützt die gesamte Domain per Forward Auth über SWAG (Standard-Redirect-Flow, MFA von Authentik abgewickelt)
