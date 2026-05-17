@@ -708,8 +708,11 @@
         border: none;
         background: transparent;
         border-radius: 50%;
-        color: var(--text2);
-        font-size: var(--fs-icon-lg);
+        /* Match the chrome buttons (hamburger etc.): full --text color
+           and --fs-title icon size, so the drill-down affordance has
+           the same visual weight as the rest of the toolbar chrome. */
+        color: var(--text);
+        font-size: var(--fs-title);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2234,6 +2237,16 @@
           <path d="M4 13l2-7h12l2 7v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
           <path d="M4 13h4l1 2h6l1-2h4" />
         </symbol>
+        <symbol
+          id="icon-more-vertical"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          stroke="none"
+        >
+          <circle cx="12" cy="5" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="12" cy="19" r="2" />
+        </symbol>
       </defs>
     </svg>
 
@@ -3429,7 +3442,7 @@
         class="cat-view-more"
         aria-label="Buchungen in „${r.name}“ ansehen"
         onclick="event.stopPropagation(); showTransactionsForCategory(${r.id})"
-      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></button>
+      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-more-vertical"/></svg></button>
     </div>
   `
           )
