@@ -684,7 +684,8 @@
       .cat-view-row:last-child {
         border-bottom: none;
       }
-      .cat-view-row:active {
+      .cat-view-row:active,
+      .cat-view-row.is-key-active {
         opacity: 0.55;
       }
       .cat-view-row:focus-visible {
@@ -1678,7 +1679,8 @@
         -webkit-user-select: none;
         transition: transform var(--dur-fast) var(--ease-spring);
       }
-      .cat-pill-edit:active {
+      .cat-pill-edit:active,
+      .cat-pill-edit.is-key-active {
         transform: scale(0.94);
       }
       .cat-pill-edit:focus-visible {
@@ -3144,10 +3146,15 @@
       // Keyboard activation for elements that are interactive but cannot be
       // a <button> (e.g. row contains a nested action button). Mirrors native
       // button semantics: Enter and Space trigger the click; Space is
-      // prevented from scrolling the page.
+      // prevented from scrolling. The `!e.repeat` guard avoids re-firing
+      // while the key is held. `.is-key-active` gives the keyboard press
+      // the same visual feedback that mouse `:active` does.
       function handleRowActivate(e, fn) {
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        if ((e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') && !e.repeat) {
           e.preventDefault();
+          const el = e.currentTarget;
+          el.classList.add('is-key-active');
+          setTimeout(() => el.classList.remove('is-key-active'), 150);
           fn();
         }
       }
@@ -4089,11 +4096,11 @@
         { hex: '#D97757', name: 'Terracotta' },
         { hex: '#6b7aa1', name: 'Blau' },
         { hex: '#788C5D', name: 'Olive' },
-        { hex: '#c47ab0', name: 'Rosa' },
+        { hex: '#c47ab0', name: 'Mauve' },
         { hex: '#e0a44a', name: 'Senf' },
         { hex: '#87867F', name: 'Grau' },
         { hex: '#B85C3E', name: 'Rost' },
-        { hex: '#8a6a4a', name: 'Braun' },
+        { hex: '#8a6a4a', name: 'Kakao' },
         { hex: '#a45ab0', name: 'Violett' },
         { hex: '#6a8a8a', name: 'Petrol' },
       ];
