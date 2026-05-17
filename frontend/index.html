@@ -4420,14 +4420,10 @@
         const overlay = document.getElementById('iconPickerOverlay');
         overlay.classList.add('open');
         // Body scroll-lock already set by the cat modal; keep it.
+        // Always open scrolled to the top — the browser otherwise keeps
+        // whatever scrollTop the modal-body had on the previous open.
+        overlay.querySelector('.modal-body').scrollTop = 0;
         trapFocusIn(overlay.querySelector('.modal'), 'iconPicker');
-        // Scroll the active icon into view so the user sees their current choice.
-        setTimeout(() => {
-          const active = overlay.querySelector('.icon-picker-cell.active');
-          if (active && typeof active.scrollIntoView === 'function') {
-            active.scrollIntoView({ block: 'center', behavior: 'instant' });
-          }
-        }, 30);
       }
 
       function closeIconPicker() {
