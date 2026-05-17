@@ -10,7 +10,7 @@ Checkboxen zum Abhaken beim Bearbeiten. Reihenfolge folgt Priorität (Kritisch �
 
 ## Kritisch – kaputt im laufenden Code
 
-### [ ] 1. `font-variant-numeric: tabular-nums` fehlt auf allen Betragsspalten
+### [x] 1. `font-variant-numeric: tabular-nums` fehlt auf allen Betragsspalten
 
 **Ort:** `frontend/index.html:621-628`, `850-862`, `945-950`, `1525-1531`
 
@@ -34,7 +34,7 @@ font-variant-numeric: tabular-nums;
 
 ---
 
-### [ ] 2. Modal: kein Fokus-Restore, kein Escape-Handler, kein Focus-Trap
+### [x] 2. Modal: kein Fokus-Restore, kein Escape-Handler, kein Focus-Trap
 
 **Ort:** `frontend/index.html:3673-3686`, `4406-4408`
 
@@ -73,7 +73,7 @@ Focus-Trap separat (Tab-Cycle innerhalb `.modal` halten).
 
 ---
 
-### [ ] 3. `<div onclick>` auf Kategorie-Zeile + Tag-Pill – nicht per Tastatur erreichbar
+### [x] 3. `<div onclick>` auf Kategorie-Zeile + Tag-Pill – nicht per Tastatur erreichbar
 
 **Ort:** `frontend/index.html:3340`, `3963`
 
@@ -100,7 +100,7 @@ vorhanden. Styling auf `<button class="cat-view-row">` übertragen
 
 ---
 
-### [ ] 4. Canvas-Charts ohne Screenreader-Alternative
+### [x] 4. Canvas-Charts ohne Screenreader-Alternative
 
 **Ort:** `frontend/index.html:2582`, `2595`
 
@@ -128,7 +128,7 @@ JS aktualisiert `#monthChartSummary` synchron mit jedem Chart.js-Update
 
 ---
 
-### [ ] 5. Color-Swatch-Button ohne `aria-label`
+### [x] 5. Color-Swatch-Button ohne `aria-label`
 
 **Ort:** `frontend/index.html:4018`
 

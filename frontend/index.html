@@ -625,6 +625,7 @@
         line-height: 1;
         letter-spacing: -0.02em;
         text-align: right;
+        font-variant-numeric: tabular-nums;
       }
       .summary-card .amount.positive {
         background: linear-gradient(135deg, var(--green), var(--green-2));
@@ -685,6 +686,11 @@
       }
       .cat-view-row:active {
         opacity: 0.55;
+      }
+      .cat-view-row:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-xs);
       }
       .cat-view-icon {
         font-size: var(--fs-icon-md);
@@ -853,6 +859,7 @@
         font-weight: 400;
         flex-shrink: 0;
         letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
       }
       .t-amount.out {
         color: var(--accent);
@@ -947,6 +954,7 @@
         font-size: var(--fs-body);
         color: var(--accent);
         letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
       }
 
       /* ====== BOTTOM BAR (search + FAB) ====== */
@@ -1528,6 +1536,7 @@
         text-align: center;
         letter-spacing: -0.02em;
         padding: var(--space-12) var(--space-16);
+        font-variant-numeric: tabular-nums;
       }
 
       .tags-input-wrap {
@@ -1671,6 +1680,10 @@
       }
       .cat-pill-edit:active {
         transform: scale(0.94);
+      }
+      .cat-pill-edit:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
 
       .color-swatches {
@@ -2578,11 +2591,12 @@
     <!-- CHARTS PANEL -->
     <div class="panel" id="panel-charts">
       <div class="chart-container">
-        <h3>Monatsvergleich</h3>
-        <canvas id="monthChart"></canvas>
+        <h3 id="monthChartTitle">Monatsvergleich</h3>
+        <canvas id="monthChart" role="img" aria-labelledby="monthChartTitle" aria-describedby="monthChartSummary"></canvas>
+        <p id="monthChartSummary" class="visually-hidden" aria-live="polite"></p>
       </div>
       <div class="chart-container">
-        <h3>Jahresverlauf</h3>
+        <h3 id="yearChartTitle">Jahresverlauf</h3>
         <div class="year-nav">
           <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
@@ -2592,7 +2606,8 @@
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
         </div>
-        <canvas id="yearChart"></canvas>
+        <canvas id="yearChart" role="img" aria-labelledby="yearChartTitle" aria-describedby="yearChartSummary"></canvas>
+        <p id="yearChartSummary" class="visually-hidden" aria-live="polite"></p>
       </div>
       <div class="chart-container">
         <h3>Kategorien</h3>
@@ -2967,6 +2982,7 @@
         destructive = true,
       }) {
         return new Promise((resolve) => {
+          const prevFocus = document.activeElement;
           const overlay = document.createElement('div');
           overlay.className = 'modal-overlay open';
           overlay.style.alignItems = 'center';
@@ -3006,14 +3022,30 @@
 
           overlay.appendChild(modal);
 
+          // Cycle Tab between yes/no — the alert-dialog has no other focusable
+          // controls, so a manual trap is simpler than reusing trapFocusIn().
+          const onKey = (e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              (document.activeElement === yes ? no : yes).focus();
+            }
+          };
+
           const close = (result) => {
+            overlay.removeEventListener('keydown', onKey);
             overlay.remove();
-            document.body.style.overflow = '';
+            // Only release scroll-lock if no other modal is still open.
+            const stillOpen = document.querySelector('.modal-overlay.open');
+            if (!stillOpen) document.body.style.overflow = '';
+            if (prevFocus && document.contains(prevFocus) && typeof prevFocus.focus === 'function') {
+              prevFocus.focus();
+            }
             resolve(result);
           };
           overlay.addEventListener('click', (e) => {
             if (e.target === overlay) close(false);
           });
+          overlay.addEventListener('keydown', onKey);
           document.body.appendChild(overlay);
           document.body.style.overflow = 'hidden';
           yes.addEventListener('click', () => close(true));
@@ -3093,16 +3125,80 @@
       }
 
       function openDrawer() {
+        rememberModalFocus('drawer');
         document.getElementById('drawer').classList.add('open');
         document.getElementById('drawerOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
+        trapFocusIn(document.getElementById('drawer'), 'drawer');
       }
 
       function closeDrawer() {
         document.getElementById('drawer').classList.remove('open');
         document.getElementById('drawerOverlay').classList.remove('open');
         document.body.style.overflow = '';
+        releaseFocusTrap('drawer');
+        restoreModalFocus('drawer');
         setTimeout(_drawerResetPanels, 380);
+      }
+
+      // Keyboard activation for elements that are interactive but cannot be
+      // a <button> (e.g. row contains a nested action button). Mirrors native
+      // button semantics: Enter and Space trigger the click; Space is
+      // prevented from scrolling the page.
+      function handleRowActivate(e, fn) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+          e.preventDefault();
+          fn();
+        }
+      }
+
+      // ── MODAL FOCUS MANAGEMENT ────────────────────────────────────────────────────
+      // Each modal stores the element that had focus before it opened, so the
+      // matching close() can restore it. Keyed by modal id to support nesting
+      // (tag picker opens from inside the booking modal).
+      const _modalPrevFocus = new Map();
+      const _modalTrapTeardown = new Map();
+
+      function rememberModalFocus(key) {
+        _modalPrevFocus.set(key, document.activeElement);
+      }
+
+      function restoreModalFocus(key) {
+        const el = _modalPrevFocus.get(key);
+        _modalPrevFocus.delete(key);
+        if (el && document.contains(el) && typeof el.focus === 'function') {
+          el.focus();
+        }
+      }
+
+      // Wraps Tab cycling inside the given root element. Returns nothing; call
+      // releaseFocusTrap(key) to remove the listener when the modal closes.
+      function trapFocusIn(rootEl, key) {
+        const handler = (e) => {
+          if (e.key !== 'Tab') return;
+          const focusable = rootEl.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          const visible = Array.from(focusable).filter((el) => el.offsetParent !== null);
+          if (!visible.length) return;
+          const first = visible[0];
+          const last = visible[visible.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        };
+        rootEl.addEventListener('keydown', handler);
+        _modalTrapTeardown.set(key, () => rootEl.removeEventListener('keydown', handler));
+      }
+
+      function releaseFocusTrap(key) {
+        const fn = _modalTrapTeardown.get(key);
+        if (fn) fn();
+        _modalTrapTeardown.delete(key);
       }
 
       function changeMonth(d) {
@@ -3337,7 +3433,10 @@
         el.innerHTML = rows
           .map(
             (r) => `
-    <div class="cat-view-row" onclick="openModalForCategory(${r.id})">
+    <div class="cat-view-row" role="button" tabindex="0"
+      aria-label="Kategorie „${r.name}“ bearbeiten"
+      onclick="openModalForCategory(${r.id})"
+      onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
       <span class="cat-view-icon">${r.icon}</span>
       <span class="cat-view-name">${r.name}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
@@ -3570,6 +3669,10 @@
             },
           },
         });
+        const totalOut = outData.reduce((a, b) => a + b, 0);
+        const totalIn = inData.reduce((a, b) => a + b, 0);
+        document.getElementById('monthChartSummary').textContent =
+          `${MONTHS[currentMonth]} ${currentYear}: Einnahmen ${fmtCurrency(totalIn)}, Ausgaben ${fmtCurrency(totalOut)}.`;
       }
 
       async function renderYearChart() {
@@ -3626,6 +3729,10 @@
             },
           },
         });
+        const totalOut = monthly.reduce((a, m) => a + m.out, 0);
+        const totalIn = monthly.reduce((a, m) => a + m.in, 0);
+        document.getElementById('yearChartSummary').textContent =
+          `Jahr ${chartYear}: Einnahmen ${fmtCurrency(totalIn)}, Ausgaben ${fmtCurrency(totalOut)}.`;
       }
 
       function renderCatBreakdown() {
@@ -3657,6 +3764,7 @@
 
       // ── MODAL ─────────────────────────────────────────────────────────────────────
       function openModal(tx) {
+        rememberModalFocus('booking');
         currentTags = tx?.tags ? [...tx.tags] : [];
         document.getElementById('inputAmount').value =
           tx?.amount != null ? Number(tx.amount).toFixed(2) : '';
@@ -3679,10 +3787,13 @@
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('inputAmount').focus(), 300);
         document.getElementById('modalOverlay').dataset.editId = tx?.id || '';
+        trapFocusIn(document.querySelector('#modalOverlay .modal'), 'booking');
       }
       function closeModal() {
         document.getElementById('modalOverlay').classList.remove('open');
         document.body.style.overflow = '';
+        releaseFocusTrap('booking');
+        restoreModalFocus('booking');
       }
       function closeModalOutside(e) {
         if (e.target === document.getElementById('modalOverlay')) closeModal();
@@ -3869,6 +3980,7 @@
       let pickerSelection = [];
 
       function openTagPicker() {
+        rememberModalFocus('tagPicker');
         pickerSelection = [...currentTags];
         document.getElementById('tagPickerFilter').value = '';
         document.getElementById('tagPickerNew').value = '';
@@ -3882,6 +3994,7 @@
         requestAnimationFrame(() => {
           chips.style.minHeight = chips.offsetHeight + 'px';
         });
+        trapFocusIn(document.querySelector('#tagPickerOverlay .modal'), 'tagPicker');
       }
       function closeTagPicker() {
         document.getElementById('tagPickerOverlay').classList.remove('open');
@@ -3891,6 +4004,8 @@
           document.body.style.overflow = '';
         }
         pickerSelection = [];
+        releaseFocusTrap('tagPicker');
+        restoreModalFocus('tagPicker');
       }
       function closeTagPickerOutside(e) {
         if (e.target === document.getElementById('tagPickerOverlay')) closeTagPicker();
@@ -3960,28 +4075,33 @@
         box.innerHTML = categories
           .map(
             (c) => `
-    <div class="tag-pill cat-pill-edit" style="border-color:${c.color}66" onclick="openCatModal(${c.id})">${c.icon} ${c.name}</div>
+    <div class="tag-pill cat-pill-edit" role="button" tabindex="0"
+      aria-label="Kategorie „${c.name}“ bearbeiten"
+      style="border-color:${c.color}66"
+      onclick="openCatModal(${c.id})"
+      onkeydown="handleRowActivate(event, () => openCatModal(${c.id}))">${c.icon} ${c.name}</div>
   `
           )
           .join('');
       }
 
       const CAT_COLOR_PRESETS = [
-        '#D97757',
-        '#6b7aa1',
-        '#788C5D',
-        '#c47ab0',
-        '#e0a44a',
-        '#87867F',
-        '#B85C3E',
-        '#8a6a4a',
-        '#a45ab0',
-        '#6a8a8a',
+        { hex: '#D97757', name: 'Terracotta' },
+        { hex: '#6b7aa1', name: 'Blau' },
+        { hex: '#788C5D', name: 'Olive' },
+        { hex: '#c47ab0', name: 'Rosa' },
+        { hex: '#e0a44a', name: 'Senf' },
+        { hex: '#87867F', name: 'Grau' },
+        { hex: '#B85C3E', name: 'Rost' },
+        { hex: '#8a6a4a', name: 'Braun' },
+        { hex: '#a45ab0', name: 'Violett' },
+        { hex: '#6a8a8a', name: 'Petrol' },
       ];
       let editingCatId = null;
       let editingCatColor = '#9e9b96';
 
       function openCatModal(id) {
+        rememberModalFocus('cat');
         const deleteBtn = document.getElementById('catDeleteBtn');
         const title = document.getElementById('catModalTitle');
         if (id) {
@@ -4005,21 +4125,25 @@
         document.getElementById('catModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('catEditName').focus(), 200);
+        trapFocusIn(document.querySelector('#catModalOverlay .modal'), 'cat');
       }
 
       function renderCatColorSwatches() {
         const presets = [...CAT_COLOR_PRESETS];
-        if (!presets.includes(editingCatColor)) presets.push(editingCatColor);
+        const hasCurrent = presets.some(
+          (p) => p.hex.toLowerCase() === editingCatColor.toLowerCase()
+        );
+        if (!hasCurrent) presets.push({ hex: editingCatColor, name: 'Eigene Farbe' });
         const box = document.getElementById('catEditColors');
         box.innerHTML =
           presets
-            .map(
-              (c) =>
-                `<button type="button" class="color-swatch${c.toLowerCase() === editingCatColor.toLowerCase() ? ' active' : ''}" style="background:${c}" onclick="pickCatColor('${c}')"></button>`
-            )
+            .map((p) => {
+              const isActive = p.hex.toLowerCase() === editingCatColor.toLowerCase();
+              return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="Farbe ${p.name} wählen" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
+            })
             .join('') +
           `<label class="color-swatch-custom" title="Eigene Farbe">
-     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)">
+     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)" aria-label="Eigene Farbe wählen">
    </label>`;
       }
 
@@ -4032,6 +4156,8 @@
         document.getElementById('catModalOverlay').classList.remove('open');
         document.body.style.overflow = '';
         editingCatId = null;
+        releaseFocusTrap('cat');
+        restoreModalFocus('cat');
       }
       function closeCatModalOutside(e) {
         if (e.target === document.getElementById('catModalOverlay')) closeCatModal();
@@ -4118,6 +4244,7 @@
       }
 
       function openTagModal(name) {
+        rememberModalFocus('tag');
         const deleteBtn = document.getElementById('tagDeleteBtn');
         const title = document.getElementById('tagModalTitle');
         if (name) {
@@ -4134,12 +4261,15 @@
         document.getElementById('tagModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('tagEditName').focus(), 200);
+        trapFocusIn(document.querySelector('#tagModalOverlay .modal'), 'tag');
       }
 
       function closeTagModal() {
         document.getElementById('tagModalOverlay').classList.remove('open');
         document.body.style.overflow = '';
         editingTagName = null;
+        releaseFocusTrap('tag');
+        restoreModalFocus('tag');
       }
       function closeTagModalOutside(e) {
         if (e.target === document.getElementById('tagModalOverlay')) closeTagModal();
@@ -4403,8 +4533,37 @@
       }
 
       window.addEventListener('online', () => syncNow());
+      // Escape closes the topmost open modal/drawer. Order matters: confirm
+      // dialog overrides everything, then nested tag picker, then the
+      // individual modals, then the drawer.
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeDrawer();
+        if (e.key !== 'Escape') return;
+        const confirmOverlay = Array.from(
+          document.querySelectorAll('.modal-overlay.open')
+        ).find((o) => o.querySelector('.confirm-modal'));
+        if (confirmOverlay) {
+          confirmOverlay.querySelector('.confirm-cancel')?.click();
+          return;
+        }
+        if (document.getElementById('tagPickerOverlay').classList.contains('open')) {
+          closeTagPicker();
+          return;
+        }
+        if (document.getElementById('tagModalOverlay').classList.contains('open')) {
+          closeTagModal();
+          return;
+        }
+        if (document.getElementById('catModalOverlay').classList.contains('open')) {
+          closeCatModal();
+          return;
+        }
+        if (document.getElementById('modalOverlay').classList.contains('open')) {
+          closeModal();
+          return;
+        }
+        if (document.getElementById('drawer').classList.contains('open')) {
+          closeDrawer();
+        }
       });
 
       if ('serviceWorker' in navigator) {
