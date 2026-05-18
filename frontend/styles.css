@@ -2014,7 +2014,7 @@
       }
 
       .report-head {
-        padding: var(--space-12) var(--space-20) 0;
+        padding: var(--space-4) 0 0;
       }
       .report-title {
         font-family: var(--font-display);
@@ -2030,7 +2030,7 @@
       }
 
       .range-picker {
-        padding: var(--space-12) var(--space-20);
+        padding: var(--space-12) 0;
         display: flex;
         flex-direction: column;
         gap: var(--space-10);
@@ -2116,6 +2116,12 @@
         grid-template-columns: 1fr 1fr;
         gap: var(--space-10);
       }
+      .range-custom[hidden] {
+        display: none;
+      }
+      .range-stepper[hidden] {
+        display: none;
+      }
       .range-custom-field {
         display: flex;
         flex-direction: column;
@@ -2134,7 +2140,7 @@
       }
 
       #reportBody {
-        padding: 0 var(--space-20) var(--space-20);
+        padding: 0;
       }
 
       .report-section {
@@ -2353,6 +2359,19 @@
       }
       .forecast-table tr:last-child td {
         border-bottom: none;
+      }
+      .forecast-table tr.is-clickable {
+        cursor: pointer;
+        transition: background var(--dur-base) var(--ease-soft);
+      }
+      .forecast-table tr.is-clickable:hover,
+      .forecast-table tr.is-clickable:active {
+        background: var(--surface-tint);
+      }
+      .forecast-table tr.is-clickable:focus-visible {
+        outline: var(--focus-ring);
+        outline-offset: -2px;
+        border-radius: var(--r-sm);
       }
       .forecast-table .num {
         text-align: right;

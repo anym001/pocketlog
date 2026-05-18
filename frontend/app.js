@@ -62,6 +62,10 @@
       }
       // Beim Drill-Down aus der Kategorien-Analyse merken, wohin „Abbrechen" zurückspringt.
       let _searchExitTarget = null;
+      // Letzte vom aktiven Report geladene Transaktionen — wird von editTransaction
+      // konsultiert, damit ein Klick auf eine Top-Liste die echte Buchung findet
+      // (nicht nur die des aktuellen Monats aus der Transaktions-View).
+      let _reportTxPool = null;
 
       let transactions = []; // wird per API geladen
       let categories = []; // wird per API geladen
@@ -242,6 +246,7 @@
         if (_searchQuery || _categoryFilterId != null) _resetSearch();
         _activePanel = id;
         document.body.classList.toggle('in-report', id === 'charts');
+        if (id !== 'charts') _reportTxPool = null;
         document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
         document.getElementById('panel-' + id).classList.add('active');
         document.querySelectorAll('.drawer-nav-item[data-panel]').forEach((btn) => {
@@ -985,6 +990,7 @@
         body.innerHTML = '';
 
         const txs = await loadRangeTxs(reportRange.from, reportRange.to);
+        _reportTxPool = txs;
         document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
 
         if (id === 'overview') await renderReportOverview(body, txs);
@@ -1084,7 +1090,7 @@
 
           <div class="report-section">
             <h3 class="report-section-title">Top-Kategorien</h3>
-            <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat)).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
+            <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat, { drillDown: true })).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
           </div>
 
           <div class="report-section">
@@ -1294,10 +1300,12 @@
         });
       }
 
-      async function drillDownCategory(catId) {
+      async function drillDownCategory(catId, fromIso, toIso) {
         _searchExitTarget = 'charts';
         _categoryFilterId = catId;
-        _allTransactions = await loadRangeTxs(reportRange.from, reportRange.to);
+        const from = fromIso || reportRange.from;
+        const to = toIso || reportRange.to;
+        _allTransactions = await loadRangeTxs(from, to);
         document.body.classList.add('searching');
         await _setSearchPanelActive(true);
         applySearch();
@@ -1388,7 +1396,9 @@
                   const cat = getCatById(r.catId);
                   if (!cat) return '';
                   const s = statusFor(r.current, r.avg);
-                  return `<tr>
+                  return `<tr class="is-clickable" role="button" tabindex="0"
+                    onclick="drillDownCategory(${r.catId}, '${monthFrom}', '${monthTo}')"
+                    onkeydown="handleRowActivate(event, () => drillDownCategory(${r.catId}, '${monthFrom}', '${monthTo}'))">
                     <td><span class="forecast-cat-name"><span class="forecast-cat-dot" style="background:${cat.color}"></span>${cat.name}</span></td>
                     <td class="num">${fmtCurrency(r.avg)}</td>
                     <td class="num">${fmtCurrency(r.current)}</td>
@@ -1449,8 +1459,16 @@
         if (e.target === document.getElementById('modalOverlay')) closeModal();
       }
       function editTransaction(id) {
-        const pool = _allTransactions ?? transactions;
-        openModal(pool.find((t) => t.id === Number(id)));
+        const num = Number(id);
+        const pools = [_allTransactions, _reportTxPool, transactions];
+        for (const p of pools) {
+          if (!p) continue;
+          const t = p.find((t) => t.id === num);
+          if (t) return openModal(t);
+        }
+        // Falls die TX in keinem Pool liegt (etwa weil sie gerade per Sync entfernt
+        // wurde): kein stilles Öffnen der Neuanlage — Hinweis geben.
+        toast('Buchung wurde nicht gefunden.');
       }
 
       async function deleteCurrentTransaction() {
