@@ -3,6 +3,7 @@ import hmac
 import io
 import logging
 import os
+from datetime import date as date_type
 from pathlib import Path
 from typing import Annotated
 
@@ -120,7 +121,18 @@ def get_transactions(
     db: DB,
     year: int | None = Query(default=None, ge=1900, le=2999),
     month: int | None = Query(default=None, ge=1, le=12),
+    date_from: str | None = Query(default=None, alias="from"),
+    date_to: str | None = Query(default=None, alias="to"),
 ):
+    if date_from is not None or date_to is not None:
+        try:
+            df = date_type.fromisoformat(date_from) if date_from else None
+            dt = date_type.fromisoformat(date_to) if date_to else None
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid date range")
+        if df is not None and dt is not None and df > dt:
+            raise HTTPException(status_code=400, detail="invalid date range")
+        return crud.list_transactions_by_range(db, user.id, df, dt)
     if year is None:
         return crud.list_all_transactions(db, user.id)
     return crud.list_transactions(db, user.id, year, month)

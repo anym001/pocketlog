@@ -19,10 +19,49 @@
 
       let currentMonth = new Date().getMonth();
       let currentYear = new Date().getFullYear();
-      let chartYear = new Date().getFullYear();
       let currentType = 'out';
       let currentTags = [];
-      let monthChartInst, yearChartInst;
+
+      // ── REPORTS-STATE ─────────────────────────────────────────────────────────────
+      // Welche Auswertung gerade aktiv ist (Quelle der Wahrheit für panel-charts).
+      // Persistiert in localStorage, damit ein Reload den letzten Stand zeigt.
+      const REPORT_STORAGE_KEY = 'pocketlog.report';
+      const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'forecast', 'top'];
+      const REPORT_TITLES = {
+        overview: 'Übersicht',
+        month: 'Monatsverlauf',
+        year: 'Jahresverlauf',
+        categories: 'Kategorien-Analyse',
+        forecast: 'Durchschnitt und Prognose',
+        top: 'Größte Ausgaben',
+      };
+      let currentReport = (() => {
+        const v = localStorage.getItem(REPORT_STORAGE_KEY);
+        return REPORT_IDS.includes(v) ? v : 'overview';
+      })();
+      const _today = new Date();
+      let reportRange = {
+        kind: 'month',
+        anchor: {
+          y: _today.getFullYear(),
+          m: _today.getMonth(),
+          q: Math.floor(_today.getMonth() / 3),
+        },
+        from: '',
+        to: '',
+      };
+      // Optionaler Lock: 'month' oder 'year' erzwingt den Picker-Modus für Reports,
+      // die nur in dieser Granularität sinnvoll sind. null = frei wählbar.
+      let _rangeLock = null;
+      // Chart.js-Instanzen pro Report, getrennt damit destroy() keine fremde Instanz trifft.
+      const chartInsts = { month: null, year: null, categories: null, sparkline: null };
+      // Pro-Jahr-Cache der Transaktionen. Bei jedem write geleert.
+      const _txCacheByYear = new Map();
+      function invalidateReportCache() {
+        _txCacheByYear.clear();
+      }
+      // Beim Drill-Down aus der Kategorien-Analyse merken, wohin „Abbrechen" zurückspringt.
+      let _searchExitTarget = null;
 
       let transactions = []; // wird per API geladen
       let categories = []; // wird per API geladen
@@ -35,6 +74,7 @@
         if (body) opts.body = JSON.stringify(body);
         const res = await fetch(API + path, opts);
         if (!res.ok) throw new Error(`API ${method} ${path} → ${res.status}`);
+        if (method !== 'GET') invalidateReportCache();
         if (res.status === 204) return null;
         return res.json();
       }
@@ -186,6 +226,7 @@
         _searchQuery = '';
         _categoryFilterId = null;
         _allTransactions = null;
+        _searchExitTarget = null;
         document.body.classList.remove('searching');
         document.getElementById('searchInput').value = '';
         const fab = document.querySelector('.fab');
@@ -200,18 +241,33 @@
       function showPanel(id) {
         if (_searchQuery || _categoryFilterId != null) _resetSearch();
         _activePanel = id;
+        document.body.classList.toggle('in-report', id === 'charts');
         document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
         document.getElementById('panel-' + id).classList.add('active');
         document.querySelectorAll('.drawer-nav-item[data-panel]').forEach((btn) => {
           btn.classList.toggle('active', btn.dataset.panel === id);
         });
-        if (id === 'charts') renderCharts();
+        if (id === 'charts') renderReport();
         if (id === 'categories') renderCategoryView();
         closeDrawer();
       }
 
+      // Wird aus dem Drawer-Subpanel „Auswertungen" aufgerufen. Setzt den aktiven
+      // Report (inkl. Lock-Mode bei Monat-/Jahresverlauf) und schaltet auf das
+      // Charts-Panel.
+      function openReport(id) {
+        if (!REPORT_IDS.includes(id)) id = 'overview';
+        currentReport = id;
+        try {
+          localStorage.setItem(REPORT_STORAGE_KEY, id);
+        } catch (e) {}
+        if (id === 'month' && reportRange.kind !== 'month') setRangeKind('month', { skipRender: true });
+        if (id === 'year' && reportRange.kind !== 'year') setRangeKind('year', { skipRender: true });
+        showPanel('charts');
+      }
+
       const _drawerStack = [];
-      const _drawerSubs = ['dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay', 'dpAdmin'];
+      const _drawerSubs = ['dpReports', 'dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay', 'dpAdmin'];
 
       function drawerNav(panelId) {
         const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
@@ -337,12 +393,6 @@
         }
         loadAndRender();
       }
-      function changeYear(d) {
-        chartYear += d;
-        document.getElementById('yearLabel').textContent = chartYear;
-        renderCharts();
-      }
-
       // ── LOAD & RENDER ─────────────────────────────────────────────────────────────
       function normalizeTx(t) {
         return { ...t, amount: Number(t.amount), tags: t.tags || [] };
@@ -391,10 +441,11 @@
           renderTransactions(transactions);
           return;
         }
-        // Category drill-down stays scoped to the visible month so the
-        // result matches what the user saw on the categories panel. Text
-        // search keeps spanning all months via _allTransactions.
-        const pool = catFilter != null ? transactions : (_allTransactions ?? transactions);
+        // The drill-down from the monthly view leaves `_allTransactions` unset,
+        // so we naturally fall back to the month-scoped `transactions` pool.
+        // When the drill-down comes from a report, `_allTransactions` holds the
+        // report range — same logic, just a wider pool.
+        const pool = _allTransactions ?? transactions;
         const filtered = pool.filter((t) => {
           if (catFilter != null) return t.category_id === catFilter;
           if ((t.desc || '').toLowerCase().includes(q)) return true;
@@ -452,8 +503,11 @@
 
       function clearSearch() {
         const wasActive = !!_searchQuery || _categoryFilterId != null;
+        const exitTo = _searchExitTarget;
+        _searchExitTarget = null;
         _resetSearch();
         if (wasActive) _setSearchPanelActive(false);
+        if (exitTo) showPanel(exitTo);
       }
 
       function getCatById(id) {
@@ -737,153 +791,625 @@
         };
       }
 
-      async function renderCharts() {
-        document.getElementById('yearLabel').textContent = chartYear;
-        renderMonthChart();
-        await renderYearChart();
-        renderCatBreakdown();
+      // Liest einen CSS-Custom-Property-Wert aus dem aktiven Theme. Wenn `alpha` < 1
+       // wird der Hex-Wert nach rgba() konvertiert, damit Chart.js eine transparente
+      // Variante zeichnen kann. Nur Hex-Tokens (#RRGGBB) werden unterstützt — alle
+      // Reports-Akzente sind als Hex hinterlegt.
+      function cssColor(name, alpha = 1) {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        if (alpha >= 1 || !v.startsWith('#')) return v;
+        const n = parseInt(v.slice(1), 16);
+        return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
       }
 
-      function renderMonthChart() {
-        const txs = getMonthTxs();
+      // ── REPORTS — RANGE & DATA ────────────────────────────────────────────────────
+
+      function _iso(y, m, d) {
+        return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      }
+      function _daysInMonth(y, m) {
+        return new Date(y, m + 1, 0).getDate();
+      }
+      function computeRange(kind, a) {
+        if (kind === 'month') {
+          const last = _daysInMonth(a.y, a.m);
+          return { from: _iso(a.y, a.m, 1), to: _iso(a.y, a.m, last) };
+        }
+        if (kind === 'quarter') {
+          const startM = a.q * 3;
+          const endM = startM + 2;
+          const last = _daysInMonth(a.y, endM);
+          return { from: _iso(a.y, startM, 1), to: _iso(a.y, endM, last) };
+        }
+        if (kind === 'year') {
+          return { from: _iso(a.y, 0, 1), to: _iso(a.y, 11, 31) };
+        }
+        // custom: from/to bleiben wie zuletzt eingegeben.
+        return { from: reportRange.from, to: reportRange.to };
+      }
+
+      function applyRange(opts = {}) {
+        const r = computeRange(reportRange.kind, reportRange.anchor);
+        if (reportRange.kind !== 'custom') {
+          reportRange.from = r.from;
+          reportRange.to = r.to;
+        }
+        updatePickerUI();
+        if (!opts.skipRender && _activePanel === 'charts') renderReport();
+      }
+
+      function setRangeKind(kind, opts = {}) {
+        if (_rangeLock && kind !== _rangeLock) return;
+        if (!['month', 'quarter', 'year', 'custom'].includes(kind)) return;
+        reportRange.kind = kind;
+        if (kind === 'custom' && (!reportRange.from || !reportRange.to)) {
+          // Beim Wechsel auf „Eigen" mit den aktuellen Monatsgrenzen vorbelegen.
+          const r = computeRange('month', reportRange.anchor);
+          reportRange.from = r.from;
+          reportRange.to = r.to;
+        }
+        applyRange(opts);
+      }
+
+      function shiftRange(delta) {
+        const a = reportRange.anchor;
+        if (reportRange.kind === 'month') {
+          let m = a.m + delta, y = a.y;
+          while (m < 0) { m += 12; y--; }
+          while (m > 11) { m -= 12; y++; }
+          a.m = m; a.y = y; a.q = Math.floor(m / 3);
+        } else if (reportRange.kind === 'quarter') {
+          let q = a.q + delta, y = a.y;
+          while (q < 0) { q += 4; y--; }
+          while (q > 3) { q -= 4; y++; }
+          a.q = q; a.y = y; a.m = q * 3;
+        } else if (reportRange.kind === 'year') {
+          a.y += delta;
+        } else {
+          return; // Custom hat keinen Stepper
+        }
+        applyRange();
+      }
+
+      function onCustomRangeChange() {
+        const from = document.getElementById('rangeFrom').value;
+        const to = document.getElementById('rangeTo').value;
+        if (!from || !to) return;
+        if (from > to) {
+          toast('Bis-Datum muss nach Von-Datum liegen.');
+          return;
+        }
+        reportRange.from = from;
+        reportRange.to = to;
+        renderReport();
+      }
+
+      function setRangeLock(kind) {
+        _rangeLock = kind;
+        const tabs = document.querySelectorAll('#rangeKindTabs button');
+        tabs.forEach((b) => {
+          const allowed = !kind || b.dataset.kind === kind;
+          b.disabled = !allowed;
+          b.setAttribute('aria-disabled', String(!allowed));
+        });
+      }
+
+      function _rangeStepperLabel() {
+        const a = reportRange.anchor;
+        if (reportRange.kind === 'month') return `${MONTHS[a.m]} ${a.y}`;
+        if (reportRange.kind === 'quarter') return `Q${a.q + 1} ${a.y}`;
+        if (reportRange.kind === 'year') return `${a.y}`;
+        return '';
+      }
+
+      function _rangeSubtitle(txCount) {
+        const noun = txCount === 1 ? 'Buchung' : 'Buchungen';
+        if (reportRange.kind === 'custom') {
+          const fmt = (iso) => {
+            const [y, m, d] = iso.split('-');
+            return `${d}.${m}.${y}`;
+          };
+          return `${fmt(reportRange.from)} – ${fmt(reportRange.to)} · ${txCount} ${noun}`;
+        }
+        return `${_rangeStepperLabel()} · ${txCount} ${noun}`;
+      }
+
+      function updatePickerUI() {
+        document.querySelectorAll('#rangeKindTabs button').forEach((b) => {
+          const active = b.dataset.kind === reportRange.kind;
+          b.setAttribute('aria-selected', String(active));
+          b.classList.toggle('is-active', active);
+        });
+        const stepper = document.getElementById('rangeStepper');
+        const custom = document.getElementById('rangeCustom');
+        if (reportRange.kind === 'custom') {
+          stepper.hidden = true;
+          custom.hidden = false;
+          document.getElementById('rangeFrom').value = reportRange.from || '';
+          document.getElementById('rangeTo').value = reportRange.to || '';
+        } else {
+          stepper.hidden = false;
+          custom.hidden = true;
+          document.getElementById('rangeStepperLabel').textContent = _rangeStepperLabel();
+        }
+      }
+
+      async function _loadYearTxs(year) {
+        if (_txCacheByYear.has(year)) return _txCacheByYear.get(year);
+        try {
+          const raw = await api('GET', `/transactions?year=${year}`);
+          const txs = raw.map(normalizeTx);
+          _txCacheByYear.set(year, txs);
+          return txs;
+        } catch (e) {
+          return [];
+        }
+      }
+
+      async function loadRangeTxs(from, to) {
+        if (!from || !to) return [];
+        const y1 = parseInt(from.slice(0, 4), 10);
+        const y2 = parseInt(to.slice(0, 4), 10);
+        const years = [];
+        for (let y = y1; y <= y2; y++) years.push(y);
+        const pools = await Promise.all(years.map(_loadYearTxs));
+        const all = pools.flat();
+        return all.filter((t) => t.date >= from && t.date <= to);
+      }
+
+      // ── REPORTS — RENDER DISPATCH ─────────────────────────────────────────────────
+
+      async function renderReport(id = currentReport) {
+        if (!REPORT_IDS.includes(id)) id = 'overview';
+        currentReport = id;
+        try {
+          localStorage.setItem(REPORT_STORAGE_KEY, id);
+        } catch (e) {}
+        const locks = { month: 'month', year: 'year' };
+        setRangeLock(locks[id] || null);
+        if (_rangeLock && reportRange.kind !== _rangeLock) {
+          reportRange.kind = _rangeLock;
+          applyRange({ skipRender: true });
+        }
+        updatePickerUI();
+        document.getElementById('reportTitle').textContent = REPORT_TITLES[id];
+
+        Object.keys(chartInsts).forEach((k) => {
+          if (chartInsts[k]) {
+            chartInsts[k].destroy();
+            chartInsts[k] = null;
+          }
+        });
+
+        const body = document.getElementById('reportBody');
+        body.innerHTML = '';
+
+        const txs = await loadRangeTxs(reportRange.from, reportRange.to);
+        document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
+
+        if (id === 'overview') await renderReportOverview(body, txs);
+        else if (id === 'month') renderReportMonth(body, txs);
+        else if (id === 'year') await renderReportYear(body, txs);
+        else if (id === 'categories') renderReportCategories(body, txs);
+        else if (id === 'forecast') await renderReportForecast(body);
+        else if (id === 'top') renderReportTop(body, txs);
+      }
+
+      // ── REPORTS — SHARED HELPERS ──────────────────────────────────────────────────
+
+      function _sumByType(txs) {
+        let out = 0, inn = 0;
+        for (const t of txs) {
+          if (t.type === 'out') out += t.amount;
+          else inn += t.amount;
+        }
+        return { out, in: inn };
+      }
+
+      function _totalsByCategory(txs, type = 'out') {
+        const totals = {};
+        for (const t of txs) {
+          if (t.type !== type) continue;
+          totals[t.category_id] = (totals[t.category_id] || 0) + t.amount;
+        }
+        return Object.entries(totals)
+          .map(([id, amt]) => ({ catId: parseInt(id, 10), amount: amt }))
+          .sort((a, b) => b.amount - a.amount);
+      }
+
+      function _catRowMarkup(catId, amount, max, opts = {}) {
+        const cat = getCatById(catId);
+        if (!cat) return '';
+        const pct = max > 0 ? (amount / max) * 100 : 0;
+        const drill = opts.drillDown
+          ? `role="button" tabindex="0" onclick="drillDownCategory(${catId})" onkeydown="handleRowActivate(event, () => drillDownCategory(${catId}))"`
+          : '';
+        return `<div class="cat-row" ${drill}>
+          <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="cat-info">
+            <div class="cat-name">${cat.name}</div>
+            <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${cat.color}"></div></div>
+          </div>
+          <div class="cat-amount">${fmtCurrency(-Math.abs(amount))}</div>
+        </div>`;
+      }
+
+      function _txRowMarkup(t) {
+        const cat = getCatById(t.category_id);
+        const sign = t.type === 'out' ? -t.amount : t.amount;
+        const dateLbl = (() => {
+          const [y, m, d] = t.date.split('-');
+          return `${d}.${m}.${y}`;
+        })();
+        return `<div class="report-tx-row" role="button" tabindex="0"
+          onclick="editTransaction(${t.id})"
+          onkeydown="handleRowActivate(event, () => editTransaction(${t.id}))">
+          <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="report-tx-main">
+            <div class="report-tx-desc">${t.desc || cat.name}</div>
+            <div class="report-tx-meta">${cat.name} · ${dateLbl}</div>
+          </div>
+          <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtSignedCurrency(sign)}</div>
+        </div>`;
+      }
+
+      function _emptyState(msg) {
+        return `<p class="empty-state-hint center">${msg}</p>`;
+      }
+
+      // ── REPORTS — OVERVIEW ────────────────────────────────────────────────────────
+
+      async function renderReportOverview(body, txs) {
+        const totals = _sumByType(txs);
+        const balance = totals.in - totals.out;
+        const cats = _totalsByCategory(txs, 'out').slice(0, 3);
+        const topTx = [...txs]
+          .filter((t) => t.type === 'out')
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 3);
+        const maxCat = cats[0]?.amount || 1;
+
+        body.innerHTML = `
+          <div class="report-kpis">
+            <div class="summary-card"><div class="label">Einnahmen</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
+            <div class="summary-card"><div class="label">Ausgaben</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">Bilanz</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(balance)}</div></div>
+          </div>
+
+          <div class="report-section">
+            <h3 class="report-section-title">Vorjahr im Verlauf</h3>
+            <div class="report-sparkline-wrap"><canvas id="overviewSparkline" role="img" aria-label="Bilanz Vorjahr pro Monat"></canvas></div>
+            <p class="report-sparkline-caption" id="sparklineCaption"></p>
+          </div>
+
+          <div class="report-section">
+            <h3 class="report-section-title">Top-Kategorien</h3>
+            <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat)).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
+          </div>
+
+          <div class="report-section">
+            <h3 class="report-section-title">Größte Ausgaben</h3>
+            <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
+          </div>
+
+          <div class="report-tiles">
+            <button type="button" class="report-tile" onclick="openReport('categories')">Kategorien-Analyse</button>
+            <button type="button" class="report-tile" onclick="openReport('year')">Jahresverlauf</button>
+            <button type="button" class="report-tile" onclick="openReport('forecast')">Prognose</button>
+          </div>
+        `;
+
+        // Sparkline: Vorjahr des Range-Endjahres.
+        const endYear = parseInt(reportRange.to.slice(0, 4), 10);
+        const prevYear = endYear - 1;
+        const prevTxs = await _loadYearTxs(prevYear);
+        const monthly = Array.from({ length: 12 }, (_, m) => {
+          const tx = prevTxs.filter((t) => new Date(t.date).getMonth() === m);
+          const out = tx.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
+          const inn = tx.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0);
+          return inn - out;
+        });
+        const c = getChartColors();
+        const canvas = document.getElementById('overviewSparkline');
+        chartInsts.sparkline = new Chart(canvas, {
+          type: 'line',
+          data: {
+            labels: MONTHS_SHORT,
+            datasets: [{
+              data: monthly,
+              borderColor: cssColor('--accent'),
+              backgroundColor: cssColor('--accent', 0.1),
+              tension: 0.35,
+              fill: true,
+              pointRadius: 0,
+              borderWidth: 2,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: {
+              x: { ticks: { color: c.text, font: { size: 10 } }, grid: { display: false } },
+              y: { display: false },
+            },
+          },
+        });
+        document.getElementById('sparklineCaption').textContent =
+          `Monatliche Bilanz ${prevYear}`;
+      }
+
+      // ── REPORTS — MONTH ───────────────────────────────────────────────────────────
+
+      function renderReportMonth(body, txs) {
+        const a = reportRange.anchor;
+        const days = _daysInMonth(a.y, a.m);
+        const labels = Array.from({ length: days }, (_, i) => i + 1);
         const byDay = {};
         txs.forEach((t) => {
           const d = new Date(t.date).getDate();
           if (!byDay[d]) byDay[d] = { out: 0, in: 0 };
           byDay[d][t.type] += t.amount;
         });
-        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-        const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
         const outData = labels.map((d) => byDay[d]?.out || 0);
         const inData = labels.map((d) => byDay[d]?.in || 0);
+        const totals = _sumByType(txs);
+
+        body.innerHTML = `
+          <div class="report-section">
+            <div class="report-canvas-wrap"><canvas id="monthChart" role="img" aria-labelledby="reportTitle" aria-describedby="monthChartSummary"></canvas></div>
+            <p id="monthChartSummary" class="visually-hidden" aria-live="polite">${MONTHS[a.m]} ${a.y}: Einnahmen ${fmtCurrency(totals.in)}, Ausgaben ${fmtCurrency(totals.out)}.</p>
+          </div>
+          <div class="report-kpis">
+            <div class="summary-card"><div class="label">Einnahmen</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
+            <div class="summary-card"><div class="label">Ausgaben</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">Bilanz</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
+          </div>
+        `;
+
         const c = getChartColors();
-        if (monthChartInst) monthChartInst.destroy();
-        monthChartInst = new Chart(document.getElementById('monthChart'), {
+        chartInsts.month = new Chart(document.getElementById('monthChart'), {
           type: 'bar',
           data: {
             labels,
             datasets: [
-              {
-                label: 'Ausgaben',
-                data: outData,
-                backgroundColor: 'rgba(217,119,87,0.7)',
-                borderRadius: 4,
-                borderSkipped: false,
-              },
-              {
-                label: 'Einnahmen',
-                data: inData,
-                backgroundColor: 'rgba(120,140,93,0.7)',
-                borderRadius: 4,
-                borderSkipped: false,
-              },
+              { label: 'Ausgaben', data: outData, backgroundColor: cssColor('--accent', 0.7), borderRadius: 4, borderSkipped: false },
+              { label: 'Einnahmen', data: inData, backgroundColor: cssColor('--green', 0.7), borderRadius: 4, borderSkipped: false },
             ],
           },
           options: {
             responsive: true,
-            plugins: {
-              legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } },
-            },
+            plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
             scales: {
               x: { ticks: { color: c.text, font: { size: 10 } }, grid: { color: c.grid } },
-              y: {
-                ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' },
-                grid: { color: c.grid },
-              },
+              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' }, grid: { color: c.grid } },
             },
           },
         });
-        const totalOut = outData.reduce((a, b) => a + b, 0);
-        const totalIn = inData.reduce((a, b) => a + b, 0);
-        document.getElementById('monthChartSummary').textContent =
-          `${MONTHS[currentMonth]} ${currentYear}: Einnahmen ${fmtCurrency(totalIn)}, Ausgaben ${fmtCurrency(totalOut)}.`;
       }
 
-      async function renderYearChart() {
-        let yearTxs = [];
-        try {
-          const raw = await api('GET', `/transactions?year=${chartYear}`);
-          yearTxs = raw.map(normalizeTx);
-        } catch (e) {}
-        const monthly = Array.from({ length: 12 }, (_, m) => {
-          const txs = yearTxs.filter((t) => new Date(t.date).getMonth() === m);
-          return {
-            out: txs.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0),
-            in: txs.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0),
-          };
-        });
+      // ── REPORTS — YEAR ────────────────────────────────────────────────────────────
+
+      async function renderReportYear(body, txs) {
+        const a = reportRange.anchor;
+        const aggregate = (pool) =>
+          Array.from({ length: 12 }, (_, m) => {
+            const tx = pool.filter((t) => new Date(t.date).getMonth() === m);
+            return {
+              out: tx.filter((t) => t.type === 'out').reduce((s, t) => s + t.amount, 0),
+              in: tx.filter((t) => t.type === 'in').reduce((s, t) => s + t.amount, 0),
+            };
+          });
+        const monthly = aggregate(txs);
+        const prevTxs = await _loadYearTxs(a.y - 1);
+        const hasPrev = prevTxs.length > 0;
+        const prevMonthly = hasPrev ? aggregate(prevTxs) : null;
+        const totals = _sumByType(txs);
+
+        body.innerHTML = `
+          <div class="report-section">
+            <div class="report-canvas-wrap"><canvas id="yearChart" role="img" aria-labelledby="reportTitle" aria-describedby="yearChartSummary"></canvas></div>
+            <p id="yearChartSummary" class="visually-hidden" aria-live="polite">Jahr ${a.y}: Einnahmen ${fmtCurrency(totals.in)}, Ausgaben ${fmtCurrency(totals.out)}.</p>
+          </div>
+          <div class="report-kpis">
+            <div class="summary-card"><div class="label">Einnahmen</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
+            <div class="summary-card"><div class="label">Ausgaben</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">Bilanz</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
+          </div>
+        `;
+
         const c = getChartColors();
-        if (yearChartInst) yearChartInst.destroy();
-        yearChartInst = new Chart(document.getElementById('yearChart'), {
+        const datasets = [
+          { label: `Ausgaben ${a.y}`, data: monthly.map((m) => m.out), borderColor: cssColor('--accent'), backgroundColor: cssColor('--accent', 0.1), tension: 0.4, fill: true, pointRadius: 3 },
+          { label: `Einnahmen ${a.y}`, data: monthly.map((m) => m.in), borderColor: cssColor('--green'), backgroundColor: cssColor('--green', 0.1), tension: 0.4, fill: true, pointRadius: 3 },
+        ];
+        if (prevMonthly) {
+          datasets.push({
+            label: `Ausgaben ${a.y - 1}`,
+            data: prevMonthly.map((m) => m.out),
+            borderColor: cssColor('--accent', 0.5),
+            borderDash: [5, 4],
+            backgroundColor: 'transparent',
+            tension: 0.4,
+            fill: false,
+            pointRadius: 0,
+          });
+        }
+        chartInsts.year = new Chart(document.getElementById('yearChart'), {
           type: 'line',
-          data: {
-            labels: MONTHS_SHORT,
-            datasets: [
-              {
-                label: 'Ausgaben',
-                data: monthly.map((m) => m.out),
-                borderColor: '#D97757',
-                backgroundColor: 'rgba(217,119,87,0.10)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 3,
-              },
-              {
-                label: 'Einnahmen',
-                data: monthly.map((m) => m.in),
-                borderColor: '#788C5D',
-                backgroundColor: 'rgba(120,140,93,0.10)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 3,
-              },
-            ],
-          },
+          data: { labels: MONTHS_SHORT, datasets },
           options: {
             responsive: true,
-            plugins: {
-              legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } },
-            },
+            plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
             scales: {
               x: { ticks: { color: c.text, font: { size: 10 } }, grid: { color: c.grid } },
-              y: {
-                ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' },
-                grid: { color: c.grid },
-              },
+              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' }, grid: { color: c.grid } },
             },
           },
         });
-        const totalOut = monthly.reduce((a, m) => a + m.out, 0);
-        const totalIn = monthly.reduce((a, m) => a + m.in, 0);
-        document.getElementById('yearChartSummary').textContent =
-          `Jahr ${chartYear}: Einnahmen ${fmtCurrency(totalIn)}, Ausgaben ${fmtCurrency(totalOut)}.`;
       }
 
-      function renderCatBreakdown() {
-        const txs = getMonthTxs().filter((t) => t.type === 'out');
-        const totals = {};
-        txs.forEach((t) => (totals[t.category_id] = (totals[t.category_id] || 0) + t.amount));
-        const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-        const max = sorted[0]?.[1] || 1;
-        const el = document.getElementById('catBreakdown');
+      // ── REPORTS — CATEGORIES ──────────────────────────────────────────────────────
+
+      function renderReportCategories(body, txs) {
+        const sorted = _totalsByCategory(txs, 'out');
         if (!sorted.length) {
-          el.innerHTML =
-            '<p class="empty-state-hint center">Keine Ausgaben in diesem Monat</p>';
+          body.innerHTML = _emptyState('Keine Ausgaben im Zeitraum.');
           return;
         }
-        el.innerHTML = sorted
-          .map(([catId, amt]) => {
-            const cat = getCatById(parseInt(catId));
-            return `<div class="cat-row">
-      <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
-      <div class="cat-info">
-        <div class="cat-name">${cat.name}</div>
-        <div class="cat-bar-wrap"><div class="cat-bar" style="width:${(amt / max) * 100}%;background:${cat.color}"></div></div>
-      </div>
-      <div class="cat-amount">${fmtCurrency(-Math.abs(amt))}</div>
-    </div>`;
-          })
-          .join('');
+        const total = sorted.reduce((s, c) => s + c.amount, 0);
+        const max = sorted[0].amount;
+
+        body.innerHTML = `
+          <div class="report-section">
+            <div class="donut-wrap">
+              <canvas id="categoriesDonut" role="img" aria-label="Ausgaben pro Kategorie"></canvas>
+              <div class="donut-center">
+                <div class="donut-center-value">${fmtCurrency(total)}</div>
+                <div class="donut-center-label">Ausgaben gesamt</div>
+              </div>
+            </div>
+          </div>
+          <div class="report-section">
+            ${sorted.map((c) => _catRowMarkup(c.catId, c.amount, max, { drillDown: true })).join('')}
+          </div>
+        `;
+
+        chartInsts.categories = new Chart(document.getElementById('categoriesDonut'), {
+          type: 'doughnut',
+          data: {
+            labels: sorted.map((c) => getCatById(c.catId)?.name || ''),
+            datasets: [{
+              data: sorted.map((c) => c.amount),
+              backgroundColor: sorted.map((c) => getCatById(c.catId)?.color || cssColor('--accent')),
+              borderWidth: 0,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '64%',
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${fmtCurrency(ctx.parsed)}` } } },
+          },
+        });
+      }
+
+      async function drillDownCategory(catId) {
+        _searchExitTarget = 'charts';
+        _categoryFilterId = catId;
+        _allTransactions = await loadRangeTxs(reportRange.from, reportRange.to);
+        document.body.classList.add('searching');
+        await _setSearchPanelActive(true);
+        applySearch();
+      }
+
+      // ── REPORTS — FORECAST ────────────────────────────────────────────────────────
+
+      async function renderReportForecast(body) {
+        const a = reportRange.anchor;
+        // Zielmonat = Monat des Range-Starts (auch bei Quartal/Jahr/Custom).
+        const targetY = parseInt(reportRange.from.slice(0, 4), 10);
+        const targetM = parseInt(reportRange.from.slice(5, 7), 10) - 1;
+
+        // Historie: 6 Monate vor dem Zielmonat.
+        const histStart = new Date(targetY, targetM - 6, 1);
+        const histEnd = new Date(targetY, targetM, 0);
+        const histTxs = await loadRangeTxs(
+          _iso(histStart.getFullYear(), histStart.getMonth(), 1),
+          _iso(histEnd.getFullYear(), histEnd.getMonth(), histEnd.getDate())
+        );
+
+        if (histTxs.length === 0 || (histEnd - histStart) / (1000 * 60 * 60 * 24) < 28) {
+          body.innerHTML = _emptyState('Noch nicht genug Daten für eine Prognose. Mindestens vier Wochen Buchungen werden benötigt.');
+          return;
+        }
+
+        // Aktueller Zielmonat-Pool.
+        const monthFrom = _iso(targetY, targetM, 1);
+        const monthTo = _iso(targetY, targetM, _daysInMonth(targetY, targetM));
+        const monthTxs = await loadRangeTxs(monthFrom, monthTo);
+        const monthOut = monthTxs.filter((t) => t.type === 'out').reduce((s, t) => s + t.amount, 0);
+
+        // Tage-Abrechnung: wenn der Zielmonat in der Zukunft liegt, daysPassed = daysTotal.
+        const today = new Date();
+        const daysTotal = _daysInMonth(targetY, targetM);
+        let daysPassed;
+        if (today.getFullYear() < targetY || (today.getFullYear() === targetY && today.getMonth() < targetM)) {
+          daysPassed = 0;
+        } else if (today.getFullYear() > targetY || (today.getFullYear() === targetY && today.getMonth() > targetM)) {
+          daysPassed = daysTotal;
+        } else {
+          daysPassed = today.getDate();
+        }
+
+        // Per-Kategorie Ø der Historie.
+        const histByCat = {};
+        for (const t of histTxs) {
+          if (t.type !== 'out') continue;
+          histByCat[t.category_id] = (histByCat[t.category_id] || 0) + t.amount;
+        }
+        const avgOut = Object.values(histByCat).reduce((s, v) => s + v, 0) / 6;
+        const projected = daysPassed > 0 ? (monthOut * daysTotal) / daysPassed : avgOut;
+
+        // Aktuelle Ausgaben pro Kategorie im Zielmonat.
+        const curByCat = {};
+        for (const t of monthTxs) {
+          if (t.type !== 'out') continue;
+          curByCat[t.category_id] = (curByCat[t.category_id] || 0) + t.amount;
+        }
+
+        const rows = Object.entries(histByCat)
+          .map(([id, sum6]) => ({ catId: parseInt(id, 10), avg: sum6 / 6, current: curByCat[id] || 0 }))
+          .sort((a, b) => b.avg - a.avg);
+
+        const statusFor = (cur, avg) => {
+          if (avg <= 0) return { label: '', cls: '' };
+          const ratio = cur / avg;
+          if (ratio < 0.9) return { label: 'unter Ø', cls: 'is-ok' };
+          if (ratio < 1.1) return { label: 'auf Ø', cls: 'is-neutral' };
+          return { label: 'über Ø', cls: 'is-warn' };
+        };
+
+        const monthLabel = `${MONTHS[targetM]} ${targetY}`;
+        body.innerHTML = `
+          <div class="report-section">
+            <div class="forecast-card">
+              <div class="forecast-card-label">Voraussichtliche Monats-Ausgaben</div>
+              <div class="forecast-card-value">${fmtCurrency(projected)}</div>
+              <div class="forecast-card-hint">${monthLabel} · Tag ${daysPassed} von ${daysTotal} · Basis: letzte 6 Monate</div>
+            </div>
+          </div>
+          <div class="report-section">
+            <h3 class="report-section-title">Pro Kategorie</h3>
+            <table class="forecast-table">
+              <thead><tr><th>Kategorie</th><th class="num">Ø Monat</th><th class="num">Aktuell</th><th class="num">Status</th></tr></thead>
+              <tbody>
+                ${rows.map((r) => {
+                  const cat = getCatById(r.catId);
+                  if (!cat) return '';
+                  const s = statusFor(r.current, r.avg);
+                  return `<tr>
+                    <td><span class="forecast-cat-name"><span class="forecast-cat-dot" style="background:${cat.color}"></span>${cat.name}</span></td>
+                    <td class="num">${fmtCurrency(r.avg)}</td>
+                    <td class="num">${fmtCurrency(r.current)}</td>
+                    <td class="num"><span class="forecast-status ${s.cls}">${s.label}</span></td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      // ── REPORTS — TOP EXPENSES ────────────────────────────────────────────────────
+
+      function renderReportTop(body, txs) {
+        const top = txs.filter((t) => t.type === 'out').sort((a, b) => b.amount - a.amount).slice(0, 10);
+        if (!top.length) {
+          body.innerHTML = _emptyState('Keine Ausgaben im Zeitraum.');
+          return;
+        }
+        body.innerHTML = `<div class="report-section">${top.map(_txRowMarkup).join('')}</div>`;
       }
 
       // ── MODAL ─────────────────────────────────────────────────────────────────────
@@ -1736,12 +2262,14 @@
           const manual = localStorage.getItem(THEME_KEY);
           if (manual === 'dark' || manual === 'light') return;
           document.documentElement.setAttribute('data-dark', e.matches ? 'true' : 'false');
+          if (_activePanel === 'charts') renderReport();
         });
 
       function saveTheme(theme) {
         localStorage.setItem(THEME_KEY, theme);
         applyTheme(theme);
         pushSettings({ theme });
+        if (_activePanel === 'charts') renderReport();
       }
 
       function loadTheme() {
@@ -1960,7 +2488,7 @@
       async function init() {
         applyTheme(loadTheme());
         syncThemeRadios();
-        document.getElementById('yearLabel').textContent = chartYear;
+        applyRange({ skipRender: true });
         if ('serviceWorker' in navigator) {
           try {
             await navigator.serviceWorker.register('/sw.js');

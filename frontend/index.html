@@ -170,13 +170,32 @@
             >
               Buchungs-Übersicht
             </button>
-            <button class="drawer-nav-item" data-panel="charts" onclick="showPanel('charts')">
+            <button class="drawer-nav-item" onclick="drawerNav('dpReports')">
               Auswertungen
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpSettings')">
               Einstellungen
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
+          </nav>
+        </div>
+
+        <!-- Panel 1a: Auswertungen -->
+        <div class="drawer-panel" id="dpReports" data-state="right">
+          <div class="drawer-sub-head">
+            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Auswertungen</span>
+          </div>
+          <nav class="drawer-nav">
+            <button class="drawer-nav-item" onclick="openReport('overview')">Übersicht</button>
+            <button class="drawer-nav-item" onclick="openReport('month')">Monatsverlauf</button>
+            <button class="drawer-nav-item" onclick="openReport('year')">Jahresverlauf</button>
+            <button class="drawer-nav-item" onclick="openReport('categories')">Kategorien-Analyse</button>
+            <button class="drawer-nav-item" onclick="openReport('forecast')">Durchschnitt und Prognose</button>
+            <button class="drawer-nav-item" onclick="openReport('top')">Größte Ausgaben</button>
           </nav>
         </div>
 
@@ -469,29 +488,40 @@
 
     <!-- CHARTS PANEL -->
     <div class="panel" id="panel-charts">
-      <div class="chart-container">
-        <h2 id="monthChartTitle">Monatsvergleich</h2>
-        <canvas id="monthChart" role="img" aria-labelledby="monthChartTitle" aria-describedby="monthChartSummary"></canvas>
-        <p id="monthChartSummary" class="visually-hidden" aria-live="polite"></p>
+      <div class="report-head">
+        <h2 class="report-title" id="reportTitle">Übersicht</h2>
+        <p class="report-subtitle" id="reportRangeLabel" aria-live="polite"></p>
       </div>
-      <div class="chart-container">
-        <h2 id="yearChartTitle">Jahresverlauf</h2>
-        <div class="year-nav">
-          <button onclick="changeYear(-1)" aria-label="Vorheriges Jahr">
+
+      <div class="range-picker">
+        <div class="segmented" role="tablist" aria-label="Zeitraum" id="rangeKindTabs">
+          <button role="tab" type="button" data-kind="month" onclick="setRangeKind('month')">Monat</button>
+          <button role="tab" type="button" data-kind="quarter" onclick="setRangeKind('quarter')">Quartal</button>
+          <button role="tab" type="button" data-kind="year" onclick="setRangeKind('year')">Jahr</button>
+          <button role="tab" type="button" data-kind="custom" onclick="setRangeKind('custom')">Eigen</button>
+        </div>
+        <div class="range-stepper" id="rangeStepper">
+          <button type="button" onclick="shiftRange(-1)" aria-label="Zurück">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
-          <span id="yearLabel"></span>
-          <button onclick="changeYear(1)" aria-label="Nächstes Jahr">
+          <span id="rangeStepperLabel"></span>
+          <button type="button" onclick="shiftRange(1)" aria-label="Vor">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
         </div>
-        <canvas id="yearChart" role="img" aria-labelledby="yearChartTitle" aria-describedby="yearChartSummary"></canvas>
-        <p id="yearChartSummary" class="visually-hidden" aria-live="polite"></p>
+        <div class="range-custom" id="rangeCustom" hidden>
+          <label class="range-custom-field">
+            <span>Von</span>
+            <input type="date" id="rangeFrom" onchange="onCustomRangeChange()" />
+          </label>
+          <label class="range-custom-field">
+            <span>Bis</span>
+            <input type="date" id="rangeTo" onchange="onCustomRangeChange()" />
+          </label>
+        </div>
       </div>
-      <div class="chart-container">
-        <h2>Kategorien</h2>
-        <div id="catBreakdown"></div>
-      </div>
+
+      <div id="reportBody"></div>
     </div>
 
     <!-- CATEGORIES PANEL -->
