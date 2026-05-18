@@ -232,6 +232,23 @@ Werte eingeführt werden.
 - Schemaänderungen: Alembic-Revision generieren, nicht manuell ALTER TABLE
 - StaticFiles-Mount IMMER zuletzt registrieren, damit `/api/*` vorher matcht
 
+## Subagents (`.claude/agents/`)
+
+PocketLog hat projektspezifische Claude-Code-Subagents für Review-Aufgaben:
+
+| Agent | Zuständig für |
+|---|---|
+| `review` | Allgemeines Code-Review (Konventionen, Korrektheit) |
+| `security-review` | Auth, Queries, Header-Validierung, Uploads |
+| `ui-review` | Design-Konventionen, Layout, Responsiveness |
+| `db-review` | Alembic-Migrationen, Schema-Änderungen |
+| `token-audit` | Hardcodierte CSS-Werte statt Design-Tokens |
+| `copy-review` | UI-Texte, Apple Style Guide (Deutsch) |
+| `pwa-review` | Service Worker, Cache-Strategie, Offline-Outbox |
+| `vendor-audit` | Vendored JS/Fonts/Icons — Lizenz, Quelle, Privacy |
+
+**Pflege:** Wenn sich Konventionen in `CLAUDE.md` oder `DESIGN_CONVENTIONS.md` ändern, prüfen ob die betroffenen Agents in `.claude/agents/` ebenfalls aktualisiert werden müssen. Faustregel: neue Tokens → `token-audit.md` + `ui-review.md`; neues Schema-Muster → `db-review.md`; neue Vendor-Policy → `vendor-audit.md`; neue UI-Terminologie → `copy-review.md`.
+
 ## Bekannte Einschränkungen / TODO (Backlog)
 
 Siehe [`TODO.md`](TODO.md) für offene Punkte (Features, PWA-Limits, Security).
