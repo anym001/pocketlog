@@ -573,7 +573,7 @@
                   return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
-          <div class="t-icon">${catIconSvg(cat.icon)}</div>
+          <div class="t-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <span class="visually-hidden">${cat.name}</span>
           <div class="t-info">
             <div class="t-note">${note}</div>
@@ -619,7 +619,7 @@
       aria-label="Kategorie „${r.name}“ bearbeiten"
       onclick="openModalForCategory(${r.id})"
       onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
-      <span class="cat-view-icon">${catIconSvg(r.icon)}</span>
+      <span class="cat-view-icon" style="background:color-mix(in oklab, ${r.color} 13%, transparent); color:${r.color}">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${r.name}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
       <button
