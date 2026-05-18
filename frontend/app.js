@@ -1300,10 +1300,12 @@
         });
       }
 
-      async function drillDownCategory(catId) {
+      async function drillDownCategory(catId, fromIso, toIso) {
         _searchExitTarget = 'charts';
         _categoryFilterId = catId;
-        _allTransactions = await loadRangeTxs(reportRange.from, reportRange.to);
+        const from = fromIso || reportRange.from;
+        const to = toIso || reportRange.to;
+        _allTransactions = await loadRangeTxs(from, to);
         document.body.classList.add('searching');
         await _setSearchPanelActive(true);
         applySearch();
@@ -1394,7 +1396,9 @@
                   const cat = getCatById(r.catId);
                   if (!cat) return '';
                   const s = statusFor(r.current, r.avg);
-                  return `<tr>
+                  return `<tr class="is-clickable" role="button" tabindex="0"
+                    onclick="drillDownCategory(${r.catId}, '${monthFrom}', '${monthTo}')"
+                    onkeydown="handleRowActivate(event, () => drillDownCategory(${r.catId}, '${monthFrom}', '${monthTo}'))">
                     <td><span class="forecast-cat-name"><span class="forecast-cat-dot" style="background:${cat.color}"></span>${cat.name}</span></td>
                     <td class="num">${fmtCurrency(r.avg)}</td>
                     <td class="num">${fmtCurrency(r.current)}</td>

@@ -2360,6 +2360,19 @@
       .forecast-table tr:last-child td {
         border-bottom: none;
       }
+      .forecast-table tr.is-clickable {
+        cursor: pointer;
+        transition: background var(--dur-base) var(--ease-soft);
+      }
+      .forecast-table tr.is-clickable:hover,
+      .forecast-table tr.is-clickable:active {
+        background: var(--surface-tint);
+      }
+      .forecast-table tr.is-clickable:focus-visible {
+        outline: var(--focus-ring);
+        outline-offset: -2px;
+        border-radius: var(--r-sm);
+      }
       .forecast-table .num {
         text-align: right;
         font-variant-numeric: tabular-nums;
