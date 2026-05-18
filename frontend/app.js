@@ -507,19 +507,18 @@
               list
                 .map((t) => {
                   const cat = getCatById(t.category_id);
-                  const tags = (t.tags || [])
-                    .map((tg) => `<span class="tag">${tg}</span>`)
+                  const tagsHtml = (t.tags || [])
+                    .map((tg) => `<span class="t-tag">${tg}</span>`)
                     .join('');
-                  const hasDesc = (t.desc || '').trim().length > 0;
-                  const title = hasDesc ? t.desc : cat.name;
-                  const meta = hasDesc ? `<span>${cat.name}</span>${tags}` : tags;
+                  const note = (t.desc || '').trim();
                   return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
-          <div class="t-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="t-icon">${catIconSvg(cat.icon)}</div>
+          <span class="visually-hidden">${cat.name}</span>
           <div class="t-info">
-            <div class="t-title">${title}</div>
-            <div class="t-meta">${meta}</div>
+            <div class="t-note">${note}</div>
+            <div class="t-tags">${tagsHtml}</div>
           </div>
           <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type === 'out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
         </div>
@@ -561,7 +560,7 @@
       aria-label="Kategorie „${r.name}“ bearbeiten"
       onclick="openModalForCategory(${r.id})"
       onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
-      <span class="cat-view-icon" style="color:${r.color}">${catIconSvg(r.icon)}</span>
+      <span class="cat-view-icon">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${r.name}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
       <button
