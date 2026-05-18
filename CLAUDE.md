@@ -17,9 +17,7 @@ iPhone/iPad/Mac (installierte PWA)
             DB: pocketlog   User: pocketlog
 ```
 
-Ein einzelner Container liefert sowohl die PWA (StaticFiles-Mount in FastAPI)
-als auch die JSON-API aus. MariaDB ist NICHT Teil des Stacks – sie wird vom
-User selbst bereitgestellt (typisch: bestehender MariaDB-Container auf Unraid).
+Ein Container, zwei Rollen: PWA (StaticFiles) + JSON-API. MariaDB ist extern (Unraid).
 
 ## Projektstruktur
 ```
@@ -51,7 +49,8 @@ PocketLog/
 │       ├── crud.py                   ← username-skopierte Queries
 │       └── database.py               ← MariaDB Engine (pymysql)
 ├── CLAUDE.md
-└── DESIGN_CONVENTIONS.md             ← Frontend-Design- und Schreibregeln
+├── DESIGN_CONVENTIONS.md             ← Frontend-Design- und Schreibregeln
+└── docs/SETUP.md                     ← Deployment- und Auth-Setup-Anleitung
 ```
 
 Im fertigen Image landen die PWA-Files unter `/app/static`. FastAPI mountet
@@ -70,14 +69,7 @@ Routes registriert sind.
 
 ## Drittanbieter & Privacy
 
-PocketLog ist ein selbst gehostetes Haushaltsbuch — die Buchungen liegen
-zwischen dem User, seiner Instanz und sonst niemandem. Damit das auch beim
-Frontend-Laden gilt, ist die App bewusst **frei von externen Quellen**:
-
-- Schriften, JS-Bibliotheken (Chart.js), Icons, CSS — alles vom eigenen Origin.
-- Keine CDNs (Google Fonts, gstatic, cdnjs, jsdelivr, unpkg …).
-- Keine Analytics, kein Tracking, keine externen Telemetrie-Endpoints.
-- Keine externen iFrames / Embeds.
+Alle Assets (Fonts, JS, Icons) kommen vom eigenen Origin — keine CDNs, kein Tracking.
 
 **Vor jedem neuen Asset prüfen**, ob es sich lokal versionieren lässt:
 
@@ -159,25 +151,9 @@ Das Seeding läuft bewusst nur beim Anlegen des Users — nicht bei jedem
 nicht direkt wieder auferstehen lässt.
 
 ## Auth-Konzept
-- Authentik schützt die gesamte Domain per Forward Auth über SWAG (Standard-Redirect-Flow, MFA von Authentik abgewickelt)
-- Nach erfolgreicher Session setzt Authentik den Header `X-Authentik-Username`
-- SWAG injiziert zusätzlich einen statischen Header `X-Auth-Secret: <token>` in jeden Backend-Request (`swag/pocketlog.subdomain.conf`)
-- FastAPI prüft in `get_current_user()` (`backend/app/main.py`):
-  1. Wenn `AUTH_SECRET`-ENV gesetzt: `X-Auth-Secret` muss matchen (timing-safe via `hmac.compare_digest`), sonst 401
-  2. `X-Authentik-Username` muss vorhanden sein, sonst 401
-  3. Lookup oder Lazy-Insert in `users`; gibt das `User`-ORM-Objekt zurück
-- `AUTH_SECRET`-ENV leer/ungesetzt: Backend warnt beim Start und überspringt den Check (Port 8000 darf dann nur intern erreichbar sein)
-- Lokales Testen ohne Authentik/SWAG: beide Header manuell mitschicken, z.B. `curl -H "X-Authentik-Username: test" -H "X-Auth-Secret: <token>" http://localhost:8080/api/health`
-- Alle DB-Queries filtern nach `user_id` – Multi-User-fähig ohne extra Login-Code
-
-## Frontend API-Aufruf
-```js
-// Default same-origin; per Settings auf andere Domain umstellbar
-const API_BASE_KEY = 'pocketlog.apiBase';
-let API = (localStorage.getItem(API_BASE_KEY) || '').trim().replace(/\/+$/, '');
-API = API ? API + '/api' : '/api';
-const data = await api('GET', '/transactions?year=2026&month=5');
-```
+SWAG (Authentik Forward Auth) setzt `X-Authentik-Username`; injiziert außerdem `X-Auth-Secret`.
+`get_current_user()` in `main.py` prüft beide Header (timing-safe); gibt das `User`-ORM-Objekt zurück.
+Alle Queries filtern nach `user_id`. → Setup-Details: [`docs/SETUP.md`](docs/SETUP.md)
 
 ## Offline / PWA
 - `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell (`/`, `/index.html`, `/styles.css`, `/app.js`, `/db.js`, `/manifest.webmanifest`) und für GET /api/*, cache-first für Icons, Fonts und das Chart.js-Vendor-Bundle; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version, sodass jede Release neue Caches anlegt und der activate-Hook alte automatisch räumt.
@@ -186,16 +162,7 @@ const data = await api('GET', '/transactions?year=2026&month=5');
 
 ## Deployment
 
-Template `unraid/pocketlog.xml` in Unraid importieren oder ENV-Variablen in der
-"Add Container"-GUI manuell setzen. Image kommt aus
-`ghcr.io/anym001/pocketlog:latest` (oder lokal selbst gebaut). Anschließend
-`swag/pocketlog.subdomain.conf` nach `/swag/config/nginx/proxy-confs/` legen.
-Vor dem ersten SWAG-Reload: in der Config den Platzhalter beim
-`proxy_set_header X-Auth-Secret` durch ein langes zufälliges Token ersetzen
-(`openssl rand -hex 32`) und denselben Wert als `AUTH_SECRET`-ENV im PocketLog-
-Container setzen. In Authentik einen Forward-Auth-Provider + Application für
-`pocketlog.<domain>` anlegen und dem Outpost zuweisen (MFA kann normal über die
-Authentik-Flow-Policy konfiguriert werden).
+→ [`docs/SETUP.md`](docs/SETUP.md)
 
 ## Design Conventions (Frontend)
 
