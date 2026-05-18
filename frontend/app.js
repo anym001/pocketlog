@@ -515,6 +515,7 @@
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
           <div class="t-icon">${catIconSvg(cat.icon)}</div>
+          <span class="visually-hidden">${cat.name}</span>
           <div class="t-info">
             <div class="t-note">${note}</div>
             <div class="t-tags">${tagsHtml}</div>
