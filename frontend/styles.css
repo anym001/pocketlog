@@ -753,6 +753,17 @@
         border-radius: var(--r-md);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
         letter-spacing: -0.01em;
+        /* Hidden until the row is being interacted with so neither
+           sub-pixel rounding at the rounded right corner nor a
+           transient transform during inertial scroll can reveal a
+           red sliver behind the card. */
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .tx-row.swiped .tx-action,
+      .tx-row.dragging .tx-action {
+        visibility: visible;
+        pointer-events: auto;
       }
       .tx-action:focus-visible {
         outline: 2px solid var(--text);
