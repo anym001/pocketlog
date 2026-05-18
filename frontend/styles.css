@@ -148,8 +148,7 @@
 
         /* Element-specific sizes that are visual constants outside the
        spacing scale. Each one is a single design decision. */
-        --icon-section-size: 32px; /* .cat-view-icon (section glyph in cat list) */
-        --icon-list-md: 42px; /* .t-icon (transaction-row icon container) */
+        --icon-list-md: 42px; /* .t-icon / .cat-view-icon (list-row icon container) */
         --icon-list-sm: 38px; /* .cat-icon (category-breakdown icon) */
         --swipe-action-w: 92px; /* .tx-action reveal width on swipe-to-delete */
         --cat-bar-h: 5px; /* .cat-bar progress-bar height */
@@ -645,16 +644,23 @@
         border-radius: var(--r-xs);
       }
       .cat-view-icon {
-        width: var(--icon-section-size);
-        height: var(--icon-section-size);
+        width: var(--icon-list-md);
+        height: var(--icon-list-md);
+        border-radius: var(--r-sm);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        background: var(--surface-tint);
+        color: var(--text);
+        box-shadow:
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
+          inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
+        border: var(--border-hairline);
       }
       .cat-view-icon .cat-glyph {
-        width: 80%;
-        height: 80%;
+        width: 70%;
+        height: 70%;
       }
       .cat-view-name {
         flex: 1;
@@ -778,6 +784,8 @@
         justify-content: center;
         font-size: var(--btn-icon-size);
         flex-shrink: 0;
+        background: var(--surface-tint);
+        color: var(--text);
         box-shadow:
           inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
           inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
@@ -786,26 +794,32 @@
       .t-info {
         flex: 1;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        overflow: hidden;
       }
-      .t-title {
-        font-size: var(--fs-callout);
-        font-weight: 600;
+      .t-note {
+        font-size: var(--fs-micro);
+        font-weight: 500;
         color: var(--text);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         letter-spacing: -0.01em;
+        min-height: 1.2em;
+        min-width: 0;
+        max-width: 100%;
       }
-      .t-meta {
-        font-size: var(--fs-micro);
-        color: var(--text3);
-        margin-top: var(--space-4);
+      .t-tags {
         display: flex;
-        gap: var(--space-8);
-        align-items: center;
+        gap: var(--space-4);
         flex-wrap: wrap;
+        align-items: center;
+        min-height: 1.2em;
+        min-width: 0;
       }
-      .tag {
+      .t-tag {
         background: var(--surface-tint);
         border: var(--border-hairline);
         border-radius: var(--r-xs);
@@ -813,6 +827,7 @@
         font-size: var(--fs-micro);
         font-weight: 500;
         color: var(--text2);
+        line-height: 1.4;
       }
       .t-amount {
         font-family: var(--font-display);
