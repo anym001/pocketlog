@@ -29,7 +29,9 @@ PocketLog/
 ├── swag/
 │   └── pocketlog.subdomain.conf      ← SWAG-Snippet, proxy_pass → pocketlog:8000
 ├── frontend/                         ← reine Source-Files, werden ins Image kopiert
-│   ├── index.html                    ← PWA (HTML+CSS+JS)
+│   ├── index.html                    ← PWA-Shell (Markup + Inline-Theme-Bootstrap)
+│   ├── styles.css                    ← komplettes CSS (Tokens, Layout, Komponenten)
+│   ├── app.js                        ← komplette App-Logik
 │   ├── manifest.webmanifest
 │   ├── sw.js                         ← Service Worker (Cache + Outbox)
 │   ├── db.js                         ← IndexedDB-Helper für Outbox
@@ -57,7 +59,7 @@ diesen Ordner via `StaticFiles(html=True)` auf `/`, nachdem alle `/api/*`
 Routes registriert sind.
 
 ## Tech Stack
-- **Frontend:** Vanilla HTML/CSS/JS in einer Datei (`frontend/index.html`) + Service Worker
+- **Frontend:** Vanilla HTML/CSS/JS, aufgeteilt in `frontend/index.html` (Shell + Markup), `frontend/styles.css` (Styles) und `frontend/app.js` (Logik) + Service Worker. Nur das Theme-Bootstrap-Snippet bleibt inline in `index.html`, damit es vor dem ersten Paint läuft.
 - **Backend:** FastAPI (Python 3.12), uvicorn auf Port 8000
 - **Datenbank:** MariaDB 11 (extern, InnoDB, utf8mb4)
 - **Auth:** Authentik Forward Auth (Standard-Flow inkl. MFA) + Shared-Secret-Header zwischen SWAG und Backend
@@ -86,7 +88,7 @@ Frontend-Laden gilt, ist die App bewusst **frei von externen Quellen**:
   reichen für PocketLog), keine variable-axis-Files die wir nicht brauchen.
 - Chrome-Icon (Menu, Chevron, etc.) → SVG ins Inline-Sprite in `frontend/index.html` (`<symbol id="icon-…">`).
 - Kategorie-Icon → `<symbol id="cat-…">` ins externe Sprite `frontend/icons/categories/sprite.svg`
-  einfügen, dann zur Catalogue-Konstante `CAT_ICON_GROUPS` in `frontend/index.html` hinzufügen.
+  einfügen, dann zur Catalogue-Konstante `CAT_ICON_GROUPS` in `frontend/app.js` hinzufügen.
   Quelle ist Phosphor Regular (`github.com/phosphor-icons/core/assets/regular/`, MIT) — niemals
   Icons aus anderen Sets mischen, sonst bricht der einheitliche Strichcharakter.
 
@@ -178,7 +180,7 @@ const data = await api('GET', '/transactions?year=2026&month=5');
 ```
 
 ## Offline / PWA
-- `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell (`/`, `/index.html`, `/db.js`, `/manifest.webmanifest`) und für GET /api/*, cache-first für Icons, Fonts und das Chart.js-Vendor-Bundle; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version, sodass jede Release neue Caches anlegt und der activate-Hook alte automatisch räumt.
+- `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell (`/`, `/index.html`, `/styles.css`, `/app.js`, `/db.js`, `/manifest.webmanifest`) und für GET /api/*, cache-first für Icons, Fonts und das Chart.js-Vendor-Bundle; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version, sodass jede Release neue Caches anlegt und der activate-Hook alte automatisch räumt.
 - `frontend/db.js`: IndexedDB-Wrapper für die Outbox (`enqueue`, `drain`, `count`).
 - Sync-Button im UI (`syncNow()`) triggert manuell den Outbox-Flush; bei wieder hergestellter Verbindung läuft Background-Sync.
 
@@ -244,10 +246,10 @@ ignoriert haben.
   ≥ 2× auftaucht → Klasse extrahieren (siehe `.btn-destructive`,
   `.radio-row`, `.ui-icon` als Beispiele) statt copy-pasten.
 - **Format-Helfer:** Beträge mit Vorzeichen via `fmtSignedCurrency(n)`,
-  ohne via `fmtCurrency(n)` — beide stehen in `frontend/index.html`.
+  ohne via `fmtCurrency(n)` — beide stehen in `frontend/app.js`.
 
 Wenn unklar ist, ob ein passendes Token existiert: erst in `:root` von
-`frontend/index.html` und in `DESIGN_CONVENTIONS.md` schauen, bevor neue
+`frontend/styles.css` und in `DESIGN_CONVENTIONS.md` schauen, bevor neue
 Werte eingeführt werden.
 
 ## Sprach-Konventionen

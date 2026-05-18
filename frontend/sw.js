@@ -1,9 +1,9 @@
 // PocketLog Service Worker
 // Strategie:
-//   - Shell-HTML/JS  → network-first (/, /index.html, /db.js,
-//                       /manifest.webmanifest), damit Updates ohne
-//                       Doppel-Reload sichtbar werden; Cache dient nur
-//                       als Offline-Fallback.
+//   - Shell-HTML/CSS/JS → network-first (/, /index.html, /styles.css,
+//                          /app.js, /db.js, /manifest.webmanifest), damit
+//                          Updates ohne Doppel-Reload sichtbar werden;
+//                          Cache dient nur als Offline-Fallback.
 //   - Statische Shell-Assets (Icons, Fonts, Chart.js Vendor-Bundle) → cache-first.
 //   - GET /api/...   → network-first, Fallback auf Cache.
 //   - Write /api/... → online direkt durchreichen; offline in Outbox
@@ -23,6 +23,8 @@ const API_CACHE = `pocketlog-api-${VERSION}`;
 const SHELL = [
   '/',
   '/index.html',
+  '/styles.css',
+  '/app.js',
   '/manifest.webmanifest',
   '/db.js',
   '/icons/icon-192.png',
@@ -37,14 +39,17 @@ const SHELL = [
   '/vendor/chart.umd.min.js',
 ];
 
-// HTML-Shell + Single-File-JS (db.js): bei jedem Online-Request frisch holen,
-// Cache nur falls offline. Icons, Fonts und der versionierte Chart.js-Bundle
-// unter /vendor/ ändern sich praktisch nie und bleiben cache-first.
+// HTML-Shell + App-Code (styles.css, app.js, db.js): bei jedem Online-Request
+// frisch holen, Cache nur falls offline. Icons, Fonts und der versionierte
+// Chart.js-Bundle unter /vendor/ ändern sich praktisch nie und bleiben
+// cache-first.
 function isNetworkFirstShell(url) {
   if (url.origin !== self.location.origin) return false;
   return (
     url.pathname === '/' ||
     url.pathname === '/index.html' ||
+    url.pathname === '/styles.css' ||
+    url.pathname === '/app.js' ||
     url.pathname === '/db.js' ||
     url.pathname === '/manifest.webmanifest'
   );
