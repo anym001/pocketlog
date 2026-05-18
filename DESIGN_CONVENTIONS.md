@@ -1,63 +1,18 @@
 # PocketLog – Design Conventions
 
-Gilt für alle UI-Arbeiten im Frontend (`frontend/index.html`, `frontend/sw.js`,
-`frontend/icons/`). Alle sichtbaren Texte sind deutsch, Code und Kommentare
-englisch (siehe „Sprach-Konventionen" in [`CLAUDE.md`](CLAUDE.md)).
+Gilt für alle UI-Arbeiten im Frontend (`frontend/index.html`, `frontend/styles.css`,
+`frontend/app.js`, `frontend/icons/`). Alle sichtbaren Texte sind deutsch, Code
+und Kommentare englisch (siehe „Sprach-Konventionen" in [`CLAUDE.md`](CLAUDE.md)).
 
-## Quellen
-
-Diese Konventionen basieren auf den folgenden offiziellen Apple-Referenzen
-und werden für eine Web-PWA pragmatisch übersetzt (Web-Pendants in
-Klammern, wo iOS-spezifische APIs nicht verfügbar sind):
-
-- [Apple Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/)
-- [Apple Style Guide (PDF)](https://help.apple.com/pdf/applestyleguide/en_US/apple-style-guide.pdf)
-- [HIG: Writing](https://developer.apple.com/design/human-interface-guidelines/writing)
-- [Adopting Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass)
-- [HIG: App Icons](https://developer.apple.com/design/human-interface-guidelines/app-icons)
-- [HIG: Color](https://developer.apple.com/design/human-interface-guidelines/color)
-- [HIG: Materials](https://developer.apple.com/design/human-interface-guidelines/materials)
-- [HIG: Layout](https://developer.apple.com/design/human-interface-guidelines/layout)
-- [HIG: Icons](https://developer.apple.com/design/human-interface-guidelines/icons)
-- [HIG: Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility)
-- [HIG: Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)
-- [HIG: Search Fields](https://developer.apple.com/design/human-interface-guidelines/search-fields)
-
-## Inhalt
-
-1. [Grundprinzipien](#grundprinzipien)
-2. [Layout & Safe Areas](#layout--safe-areas)
-3. [Farbe & Theming](#farbe--theming)
-4. [Typografie](#typografie)
-5. [Materialien (Blur, Vibrancy, Glass)](#materialien-blur-vibrancy-glass)
-6. [Liquid Glass](#liquid-glass)
-7. [App-Icons](#app-icons)
-8. [Icons im UI](#icons-im-ui)
-9. [Toolbars / Tab Bar / Navigation Bar](#toolbars--tab-bar--navigation-bar)
-10. [Suchfelder](#suchfelder)
-11. [Barrierefreiheit](#barrierefreiheit)
-12. [Schreibstil & Texte (Apple Style Guide)](#schreibstil--texte-apple-style-guide)
-
----
 
 ## Grundprinzipien
 
-Apples drei klassische Designprinzipien gelten auch für PocketLog:
-
-- **Klarheit (Clarity):** Text lesbar, Icons präzise, Layout luftig.
-  Funktion vor Dekoration. Keine doppelte Information, kein visuelles Rauschen.
-- **Zurückhaltung (Deference):** Die UI rahmt die Daten – die Buchungen, Beträge
-  und Charts stehen im Vordergrund. Kein Schmuck, keine konkurrierenden Farben.
-- **Tiefe (Depth):** Hierarchie über Schichten (Hintergrund → Inhalt → Modals),
-  feinen Schatten und Bewegung, nicht über Skeuomorphismus.
-
-Daraus folgt für PocketLog:
-
-- **Mobile-first:** max-width `430px`, einspaltig, große Tippflächen.
-- **Inhalt zuerst:** Beträge in DM Serif Display dominieren, sekundäre Labels
-  in DM Sans treten zurück.
-- **Plattform-Look auf iOS:** `display-mode: standalone`, `theme-color` passt zu
-  `--bg-canvas`, `apple-touch-icon` ist gesetzt.
+- **Klarheit:** Funktion vor Dekoration, kein visuelles Rauschen.
+- **Zurückhaltung:** UI rahmt die Daten – Buchungen und Beträge im Vordergrund.
+- **Tiefe:** Hierarchie über Schichten und Schatten, nicht Skeuomorphismus.
+- **Mobile-first:** max-width `430px`, einspaltig, Touch-Targets ≥ 44×44px.
+- **Inhalt zuerst:** DM Serif Display für Beträge dominant, DM Sans tritt zurück.
+- **Plattform-Look auf iOS:** `standalone`-Mode, `theme-color` = `--bg-canvas`, `apple-touch-icon` gesetzt.
 
 ## Layout & Safe Areas
 
@@ -67,7 +22,7 @@ Referenz: [HIG: Layout](https://developer.apple.com/design/human-interface-guide
 - **Vertikales Spacing-Raster:** Vielfache von 4 (`4 / 8 / 12 / 16 / 20 / 24`)
   plus die zwei gängigen iOS-Zwischenstufen `10` und `14`. Spacing-Werte
   außerhalb dieser Skala vermeiden. Quelle der Wahrheit sind die
-  CSS-Variablen `--space-N` in `frontend/index.html` `:root`, wobei `N`
+  CSS-Variablen `--space-N` in `frontend/styles.css` `:root`, wobei `N`
   dem Px-Wert entspricht (`--space-8` = 8 px). Sonderwerte `--space-2`
   und `--space-56` sind für vereinzelte Spezial-Spacings reserviert
   (Tag-Pill Innenrand, Empty-State Padding).
@@ -127,7 +82,7 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
   und **DM Sans** (alles andere). **Niemals** Inter, Roboto, Helvetica,
   Arial oder System-Font-Stacks.
 - **Skala (rem-basiert, 1 rem = 16 px). Quelle der Wahrheit sind die
-  CSS-Custom-Properties in `frontend/index.html` `:root`:**
+  CSS-Custom-Properties in `frontend/styles.css` `:root`:**
 
   | Token      | CSS-Variable      | Verwendung                           | Größe |
   |---|---|---|---|
@@ -145,7 +100,7 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
   | `icon-lg`  | `--fs-icon-lg`    | FAB-Plus                             | `1.625rem` (26 px) |
   | `icon-xl`  | `--fs-icon-xl`    | Empty-State-Hero                     | `3.25rem` (52 px) |
 
-- **Button-Tokens** (`frontend/index.html` `:root`):
+- **Button-Tokens** (`frontend/styles.css` `:root`):
 
   | Variable            | Verwendung                                             | Wert      |
   |---|---|---|
@@ -158,7 +113,7 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
   `var(--fs-callout)`. Globale Änderung: nur den Wert der CSS-Variable
   in `:root` anpassen, dann gilt sie überall.
 
-- **Weitere zentrale Tokens** (`frontend/index.html` `:root`):
+- **Weitere zentrale Tokens** (`frontend/styles.css` `:root`):
 
   | Bereich        | Variable                       | Wert / Verwendung |
   |---|---|---|
@@ -285,32 +240,22 @@ Referenz: [HIG: App Icons](https://developer.apple.com/design/human-interface-gu
 
 Referenz: [HIG: Icons](https://developer.apple.com/design/human-interface-guidelines/icons).
 
-PocketLog verwendet bewusst **Emoji als Kategorie-Icons** (siehe `categories.icon`)
-und Unicode-Symbole / Inline-SVG für UI-Glyphen. SF Symbols ist iOS-exklusiv
-und steht im Web nicht zur Verfügung.
+Zwei Icon-Systeme, strikt getrennt:
 
-- **Kategorie-Icons (Emoji):**
-  - Genau **ein** Emoji pro Kategorie, keine Sequenzen, keine ZWJ-Ketten,
-    die auf Android anders rendern.
-  - Spalte ist `VARCHAR(8)` (mb4) – das reicht für ein Emoji inkl.
-    Skin-Tone-Modifier.
-  - Im Picker nur Emojis anbieten, die auf Apple, Google Noto und
-    Microsoft Segoe gleich klar erkennbar sind.
-- **UI-Glyphen (Aktion-Icons):**
-  - Inline-SVG bevorzugen (keine externen Icon-Fonts, kein FontAwesome).
-  - Strichstärke `1.5 – 2 px` bei `24 × 24px` Viewport.
-  - Strichstärke passt zur Schriftstärke daneben.
-  - Currentcolor (`stroke="currentColor"` / `fill="currentColor"`) damit
-    Icons Text-Farbe erben.
-  - Größe: 20 px innerhalb von Buttons, 24 px in Toolbars, 28 px für
-    Hero-Aktionen.
-- **Semantik:** Icon ohne Label nur, wenn die Bedeutung universell ist
-  (Plus = neu, Mülleimer = löschen, Lupe = suchen, Zahnrad = Einstellungen).
-  Alles andere bekommt zusätzlich Text.
-- **Accessibility:** Jedes Icon-only-Element bekommt `aria-label` mit
-  **Zweck**, nicht Aussehen („Buchung löschen", nicht „Mülleimer-Symbol").
-- **Kein Mixing der Stile.** Entweder Outline oder Filled in der ganzen
-  App – aktuell: Outline.
+- **Kategorie-Icons (Phosphor Regular SVG-Sprite):**
+  - Sprites in `frontend/icons/categories/sprite.svg` als `<symbol id="cat-…">`.
+  - Neue Icons aus `github.com/phosphor-icons/core/assets/regular/` – **niemals**
+    andere Sets mischen (bricht den einheitlichen Strichcharakter, Strichstärke 1.75 px).
+  - ID wird in `categories.icon` gespeichert (`VARCHAR(64)`); beim Boot per
+    `loadCategoryIconSprite()` ins DOM injiziert.
+  - Neue Glyph → `<symbol>` ins Sprite + Eintrag in `CAT_ICON_GROUPS` in `app.js`.
+- **UI-Chrome-Glyphen (Inline-SVG-Sprite in `index.html`):**
+  - `<use href="#icon-menu|chevron-left|chevron-right|close|search|plus">`.
+  - 24×24 Viewport, `stroke="currentColor"` – Icons erben Textfarbe.
+  - Neue Chrome-Glyph → als `<symbol id="icon-…">` in den Sprite-Block in `index.html`.
+- **Semantik:** Icon ohne Label nur wenn universell (Plus = neu, Mülleimer = löschen).
+- **Accessibility:** `aria-label` mit Zweck, nicht Aussehen.
+- **Strich-Stil:** Ausschließlich Outline – kein Mixing.
 
 ## Toolbars / Tab Bar / Navigation Bar
 
@@ -414,143 +359,13 @@ Pflichtprogramm – keine Ausnahme „weil PWA":
 
 ## Schreibstil & Texte (Apple Style Guide)
 
-Gilt für alle sichtbaren Texte in `frontend/index.html`. Regeln basieren auf
-dem [Apple Style Guide](https://help.apple.com/pdf/applestyleguide/en_US/apple-style-guide.pdf)
-und den [HIG: Writing](https://developer.apple.com/design/human-interface-guidelines/writing).
+→ Vollständige Regeln in [`docs/WRITING_GUIDE.md`](docs/WRITING_GUIDE.md).
 
-### Groß-/Kleinschreibung
+Kurzregeln:
+- **Sentence case:** Buttons, Titel, Labels kleingeschrieben außer Substantive.
+- **Verb-first** bei Aktions-Buttons: „Speichern", „Löschen" – nicht „OK".
+- **Direkt und aktiv:** „Betrag ungültig." – nicht „Ungültige Eingabe."
+- **Kein „Bitte" / kein „Sorry"** – direkt formulieren.
+- **Beträge** via `fmtCurrency(n)` (de-DE): `1.234,56 €`, Datum intern ISO 8601.
+- Destruktive Aktionen immer mit „Abbrechen" ergänzen; Dialog-Öffner enden mit `…`.
 
-Alle sichtbaren deutschen UI-Texte folgen **deutscher Rechtschreibung
-(Sentence case):** Am Satzanfang großgeschrieben, Substantive groß, alles
-andere klein. Verben, Adjektive, Adverbien und Präpositionen werden
-**nicht** zusätzlich großgeschrieben – auch nicht in Buttons oder
-Bildschirmtiteln. Das weicht bewusst vom englischen „Title Case" ab und
-folgt Apples deutscher UI-Praxis sowie der Duden-Konvention.
-
-| UI-Element | Beispiel |
-|---|---|
-| Buttons (Aktionen) | „Ausgabe speichern", „Als CSV exportieren", „Aus CSV importieren…" |
-| Bildschirmtitel | „Buchung bearbeiten", „Neue Buchung" |
-| Tab-Labels / Drawer-Einträge | „Transaktionen", „Auswertungen", „Einstellungen" |
-| Abschnittsüberschriften | „Erscheinungsbild", „Startansicht", „Allgemein" |
-| Alert-Titel | „Buchung wirklich löschen?" |
-| Alert-Text / Fehlermeldungen | „Betrag und Datum sind Pflichtfelder." |
-| Formular-Feldlabels | „Betrag (€)", „Beschreibung (optional)" |
-| Platzhaltertexte | „Buchungen durchsuchen", „z. B. Supermarkt" |
-| Checkbox- / Toggle-Labels | „System", „Hell", „Dunkel" |
-
-Sonderfälle:
-
-- **Abkürzungen** in Großbuchstaben behalten: CSV, API, URL, WLAN, PWA,
-  MFA, ID, PDF.
-- **Eigennamen / Markennamen** wie geschrieben übernehmen.
-- **App-Name:** „PocketLog" – immer genau so, nie „Pocketlog" oder
-  „pocket log".
-- **Kein ALL-CAPS** in UI-Labels (`text-transform: uppercase` ist
-  verboten – wirkt aggressiv, schlechte Lesbarkeit).
-- **„OK"** (nicht „Ok" oder „Okay") nur für einfache Bestätigungen ohne
-  Handlungsalternative; sonst Verb-Button bevorzugen.
-
-### Aktions-Buttons
-
-- Verb-first: „Speichern", „Löschen", „Importieren" – nicht „OK", „Ja", „Nein".
-- Destruktive Aktionen (Löschen) immer mit „Abbrechen"-Button ergänzt,
-  destruktiver Button visuell abgesetzt (bereits:
-  `border:1px solid var(--accent)`).
-- „Abbrechen" beendet Dialog ohne Änderungen; „Schließen" nur wenn nichts
-  geändert werden konnte.
-- Buttons, die einen weiteren Dialog öffnen, enden mit Ellipse:
-  „Importieren…" (Unicode `…`, nicht `...`).
-
-### Ton & Formulierung
-
-- **Direkt und spezifisch:** „Betrag muss größer als null sein." – nicht
-  „Ungültige Eingabe."
-- **Aktiv statt passiv:** „Buchung löschen" – nicht „Die Buchung wird gelöscht."
-- **Kein „Bitte" / kein „Sorry":** Klingt hohl und umständlich. Stattdessen
-  direkt formulieren.
-- **Keine Vorwürfe:** Nicht „Du hast ein ungültiges Datum eingegeben." →
-  „Das eingegebene Datum ist ungültig."
-- **Zweite Person (du/Sie):** Nutzer direkt ansprechen – „Deine Buchungen",
-  nicht „Die Buchungen".
-- **Präsens bevorzugen:** „Tippe auf +, um eine Buchung hinzuzufügen." –
-  nicht „Durch Tippen wird eine Buchung hinzugefügt."
-- **Keine Füllphrasen:** „Um…" statt „Um…zu" kürzen. Adjektive/Adverbien
-  weglassen wenn sie keinen Informationsgehalt haben.
-- **Keine Ausrufezeichen:** Klingen bevormundend und unaufrichtig.
-- Kontraktionen (Kurzformen) sparsam – erschweren die Lokalisierung.
-
-### Alerts & Fehlermeldungen
-
-Struktur: **[Was ist passiert.] [Wie beheben.]**
-
-- Gut: „Der Betrag ist ungültig. Bitte eine Zahl größer als null eingeben."
-- Schlecht: „Fehler.", „Bitte alles ausfüllen."
-- Alert-Titel: ein Satz oder Satzfragment, kein abschließender Punkt wenn
-  Satzfragment.
-- Alert-Text: vollständige Sätze, mit Punkt.
-- Keine technischen Fehlercodes / Stack Traces in nutzer-sichtbaren Meldungen.
-- Kurze Labels (Button-Text, einzelne Labels) **ohne** abschließenden Punkt.
-- Mehrsätzige Hilfetexte und Beschreibungen enden **mit** Punkt.
-
-### Terminologie (Deutsch)
-
-| Verwenden | Nicht verwenden |
-|---|---|
-| Tippen | Klicken (Touch-Kontext) |
-| Auswählen | Klicken (plattformneutral) |
-| Wischen, Ziehen | Swipen, Draggen |
-| Anmelden / Abmelden | Einloggen / Ausloggen / Login |
-| App | Applikation, Anwendung |
-| WLAN | WiFi, W-LAN |
-| E-Mail | Email, eMail |
-| Gerät | Device |
-| Einstellungen | Settings, Optionen (als Menüpunkt) |
-| Buchung | Transaktion (in der UI; im Code weiter `transaction`) |
-| Leere-Zustand-Meldung | „Noch keine Buchungen. Tippe auf + um die erste hinzuzufügen." |
-
-### Zahlen & Währung
-
-- Alle Beträge via `fmtCurrency(n)` (de-DE Locale): `1.234,56 €`
-- Währungssymbol **nach** der Zahl: `12,50 €` – nicht `€12,50`
-- Negativbeträge: Minuszeichen U+2212 (`−`), kein ASCII-Bindestrich –
-  `Intl.NumberFormat` erledigt dies korrekt.
-- Einheiten mit Leerzeichen: `5 MB`, `100 %` – nicht `5MB`, `100%`
-- Prozent: Leerzeichen vor `%` in Deutsch: `42 %`
-
-### Datum & Zeit
-
-- Anzeige: `DD.MM.YYYY` oder relative Begriffe „Heute", „Gestern" (bereits
-  umgesetzt).
-- Monatsnamen ausschreiben wenn Platz vorhanden; nur kürzen wenn nötig
-  (Jan, Feb, …).
-- Intern immer ISO 8601: `YYYY-MM-DD`.
-- Niemals Datums- / Zahlenformate hardcoden – immer `Intl.DateTimeFormat` /
-  `Intl.NumberFormat`.
-
-### Satzzeichen & Typografie
-
-- Anführungszeichen: `„Text"` (deutscher Standard, bereits umgesetzt für
-  Buchungstitel).
-- Ellipse: `…` (U+2026), niemals drei Punkte `...`.
-- Gedankenstrich: `–` (En-Dash, U+2013) für Einschübe in Deutsch; kein `--`.
-- Apostroph: `'` (U+2019), nicht ASCII `'`.
-- Keine doppelten Leerzeichen, kein harter Zeilenumbruch in UI-Labels.
-
-### Touch & Interaktion
-
-- Mindest-Tippfläche: **44 × 44 pt** für alle interaktiven Elemente.
-- Berührungsaktionen mit „tippen" beschreiben – nicht „klicken" oder „drücken".
-- Swipe-Gesten explizit benennen wenn nötig: „Wische nach links zum Löschen".
-
-### Offline- & Sync-Zustand
-
-Spezifisch statt generisch – Nutzer wissen, was gerade passiert:
-
-| Zustand | Text |
-|---|---|
-| Aktiv | „Wird synchronisiert…" |
-| Abgeschlossen | „Gespeichert" |
-| Offline | „Offline – Änderungen werden gespeichert" |
-| Fehler | „Synchronisation fehlgeschlagen – Verbindung prüfen" |
-| Laden | „Buchungen werden geladen…" (nicht nur „Laden…") |
