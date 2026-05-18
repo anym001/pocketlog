@@ -168,6 +168,21 @@ def list_all_transactions(db: Session, user_id: int) -> list[models.Transaction]
     return list(db.scalars(q))
 
 
+def list_transactions_by_range(
+    db: Session,
+    user_id: int,
+    date_from: date_type | None,
+    date_to: date_type | None,
+) -> list[models.Transaction]:
+    q = select(models.Transaction).where(models.Transaction.user_id == user_id)
+    if date_from is not None:
+        q = q.where(models.Transaction.date >= date_from)
+    if date_to is not None:
+        q = q.where(models.Transaction.date <= date_to)
+    q = q.order_by(models.Transaction.date.desc(), models.Transaction.id.desc())
+    return list(db.scalars(q))
+
+
 def _check_category_owned(db: Session, user_id: int, category_id: int) -> bool:
     return (
         db.scalar(
