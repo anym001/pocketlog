@@ -2116,6 +2116,12 @@
         grid-template-columns: 1fr 1fr;
         gap: var(--space-10);
       }
+      .range-custom[hidden] {
+        display: none;
+      }
+      .range-stepper[hidden] {
+        display: none;
+      }
       .range-custom-field {
         display: flex;
         flex-direction: column;
