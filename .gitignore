@@ -19,3 +19,5 @@ __pycache__/
 .DS_Store
 Thumbs.db
 preview.html
+preview.db
+preview_server.py
