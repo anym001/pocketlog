@@ -26,12 +26,13 @@
       // Welche Auswertung gerade aktiv ist (Quelle der Wahrheit für panel-charts).
       // Persistiert in localStorage, damit ein Reload den letzten Stand zeigt.
       const REPORT_STORAGE_KEY = 'pocketlog.report';
-      const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'forecast', 'top'];
+      const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'tags', 'forecast', 'top'];
       const REPORT_TITLES = {
         overview: 'Übersicht',
         month: 'Monatsverlauf',
         year: 'Jahresverlauf',
         categories: 'Kategorien-Analyse',
+        tags: 'Tag-Analyse',
         forecast: 'Durchschnitt und Prognose',
         top: 'Größte Ausgaben',
       };
@@ -54,7 +55,7 @@
       // die nur in dieser Granularität sinnvoll sind. null = frei wählbar.
       let _rangeLock = null;
       // Chart.js-Instanzen pro Report, getrennt damit destroy() keine fremde Instanz trifft.
-      const chartInsts = { month: null, year: null, categories: null, sparkline: null };
+      const chartInsts = { month: null, year: null, categories: null, tags: null, sparkline: null };
       // Pro-Jahr-Cache der Transaktionen. Bei jedem write geleert.
       const _txCacheByYear = new Map();
       function invalidateReportCache() {
@@ -225,10 +226,14 @@
       // category row. Mutually exclusive with text search — typing in the
       // search input clears it (`onSearch`).
       let _categoryFilterId = null;
+      // Exact tag filter set when the user drills down from the tag analysis.
+      // Mutually exclusive with text search and category filter.
+      let _tagFilterName = null;
 
       function _resetSearch() {
         _searchQuery = '';
         _categoryFilterId = null;
+        _tagFilterName = null;
         _allTransactions = null;
         _searchExitTarget = null;
         document.body.classList.remove('searching');
@@ -243,7 +248,7 @@
       }
 
       function showPanel(id) {
-        if (_searchQuery || _categoryFilterId != null) _resetSearch();
+        if (_searchQuery || _categoryFilterId != null || _tagFilterName != null) _resetSearch();
         _activePanel = id;
         document.body.classList.toggle('in-report', id === 'charts');
         if (id !== 'charts') _reportTxPool = null;
@@ -442,7 +447,8 @@
       function applySearch() {
         const q = _searchQuery;
         const catFilter = _categoryFilterId;
-        if (!q && catFilter == null) {
+        const tagFilter = _tagFilterName;
+        if (!q && catFilter == null && tagFilter == null) {
           renderTransactions(transactions);
           return;
         }
@@ -453,6 +459,7 @@
         const pool = _allTransactions ?? transactions;
         const filtered = pool.filter((t) => {
           if (catFilter != null) return t.category_id === catFilter;
+          if (tagFilter != null) return Array.isArray(t.tags) && t.tags.includes(tagFilter);
           if ((t.desc || '').toLowerCase().includes(q)) return true;
           const cat = getCatById(t.category_id);
           if (cat.name.toLowerCase().includes(q)) return true;
@@ -496,9 +503,10 @@
       }
 
       async function onSearch(val) {
-        // Typing in the search input cancels any active category filter
+        // Typing in the search input cancels any active drill-down filter
         // so the panel switches back to plain text-match behaviour.
         if (_categoryFilterId != null) _categoryFilterId = null;
+        if (_tagFilterName != null) _tagFilterName = null;
         const wasEmpty = !_searchQuery;
         _searchQuery = val.trim().toLowerCase();
         if (_searchQuery && wasEmpty) await _setSearchPanelActive(true);
@@ -507,7 +515,7 @@
       }
 
       function clearSearch() {
-        const wasActive = !!_searchQuery || _categoryFilterId != null;
+        const wasActive = !!_searchQuery || _categoryFilterId != null || _tagFilterName != null;
         const exitTo = _searchExitTarget;
         _searchExitTarget = null;
         _resetSearch();
@@ -997,6 +1005,7 @@
         else if (id === 'month') renderReportMonth(body, txs);
         else if (id === 'year') await renderReportYear(body, txs);
         else if (id === 'categories') renderReportCategories(body, txs);
+        else if (id === 'tags') renderReportTags(body, txs);
         else if (id === 'forecast') await renderReportForecast(body);
         else if (id === 'top') renderReportTop(body, txs);
       }
@@ -1303,6 +1312,119 @@
       async function drillDownCategory(catId, fromIso, toIso) {
         _searchExitTarget = 'charts';
         _categoryFilterId = catId;
+        const from = fromIso || reportRange.from;
+        const to = toIso || reportRange.to;
+        _allTransactions = await loadRangeTxs(from, to);
+        document.body.classList.add('searching');
+        await _setSearchPanelActive(true);
+        applySearch();
+      }
+
+      // ── REPORTS — TAGS ────────────────────────────────────────────────────────────
+
+      // Stable hue per tag — same name always maps to the same color. Avoids
+      // a per-tag color setting while keeping the donut visually distinct.
+      function _tagColor(name) {
+        let h = 0;
+        for (let i = 0; i < name.length; i++) {
+          h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+        }
+        return `hsl(${Math.abs(h) % 360}deg 58% 52%)`;
+      }
+
+      // Sum amounts per tag for the given type. A transaction with multiple
+      // tags contributes its full amount to each tag (tags are categorical
+      // labels, not splits) — mirrors how Top-Kategorien aggregates.
+      function _totalsByTag(txs, type = 'out') {
+        const totals = {};
+        for (const t of txs) {
+          if (t.type !== type) continue;
+          if (!Array.isArray(t.tags) || !t.tags.length) continue;
+          for (const tag of t.tags) {
+            totals[tag] = (totals[tag] || 0) + t.amount;
+          }
+        }
+        return Object.entries(totals)
+          .map(([name, amount]) => ({ name, amount }))
+          .sort((a, b) => b.amount - a.amount);
+      }
+
+      function _escAttr(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+      function _escText(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function _tagRowMarkup(name, amount, max, opts = {}) {
+        const color = _tagColor(name);
+        const pct = max > 0 ? (amount / max) * 100 : 0;
+        const attrName = _escAttr(name);
+        const drill = opts.drillDown
+          ? `role="button" tabindex="0" data-tag-drill="${attrName}"`
+          : '';
+        return `<div class="cat-row" ${drill}>
+          <div class="cat-icon" style="background:color-mix(in oklab, ${color} 13%, transparent); color:${color}">#</div>
+          <div class="cat-info">
+            <div class="cat-name">${_escText(name)}</div>
+            <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
+          </div>
+          <div class="cat-amount">${fmtCurrency(-Math.abs(amount))}</div>
+        </div>`;
+      }
+
+      function renderReportTags(body, txs) {
+        const sorted = _totalsByTag(txs, 'out');
+        if (!sorted.length) {
+          body.innerHTML = _emptyState('Keine getaggten Ausgaben im Zeitraum.');
+          return;
+        }
+        const total = sorted.reduce((s, t) => s + t.amount, 0);
+        const max = sorted[0].amount;
+
+        body.innerHTML = `
+          <div class="report-section">
+            <div class="donut-wrap">
+              <canvas id="tagsDonut" role="img" aria-label="Ausgaben pro Tag"></canvas>
+              <div class="donut-center">
+                <div class="donut-center-value">${fmtCurrency(total)}</div>
+                <div class="donut-center-label">Ausgaben gesamt</div>
+              </div>
+            </div>
+          </div>
+          <div class="report-section">
+            ${sorted.map((t) => _tagRowMarkup(t.name, t.amount, max, { drillDown: true })).join('')}
+          </div>
+        `;
+
+        chartInsts.tags = new Chart(document.getElementById('tagsDonut'), {
+          type: 'doughnut',
+          data: {
+            labels: sorted.map((t) => t.name),
+            datasets: [{
+              data: sorted.map((t) => t.amount),
+              backgroundColor: sorted.map((t) => _tagColor(t.name)),
+              borderWidth: 0,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '64%',
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${fmtCurrency(ctx.parsed)}` } } },
+          },
+        });
+
+        body.querySelectorAll('[data-tag-drill]').forEach((el) => {
+          const name = el.dataset.tagDrill;
+          el.addEventListener('click', () => drillDownTag(name));
+          el.addEventListener('keydown', (ev) => handleRowActivate(ev, () => drillDownTag(name)));
+        });
+      }
+
+      async function drillDownTag(name, fromIso, toIso) {
+        _searchExitTarget = 'charts';
+        _tagFilterName = name;
         const from = fromIso || reportRange.from;
         const to = toIso || reportRange.to;
         _allTransactions = await loadRangeTxs(from, to);
