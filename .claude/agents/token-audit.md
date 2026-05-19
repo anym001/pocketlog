@@ -28,6 +28,7 @@ You are a CSS token auditor for PocketLog. PocketLog uses a strict token system 
 - Z-index → `--z-dropdown`, `--z-modal`, `--z-toast`
 - Transitions → `--dur-fast`, `--dur-normal`, `--dur-slow`
 - Focus ring → `--focus-ring`
+- Adaptive layout → `--app-sidebar-width`, `--app-max-content`, `--app-max-content-lg`, `--app-max-shell`
 
 ## What is allowed
 
@@ -36,6 +37,7 @@ You are a CSS token auditor for PocketLog. PocketLog uses a strict token system 
 - Percentage values for width/flex-basis layout
 - Hardcoded values inside `@keyframes` animation math
 - Values in `:root` token definitions themselves
+- Breakpoint literals (`768px`, `1024px`) inside `@media (min-width: …)` queries — CSS does not interpolate custom properties in media queries. The single source of truth lives in the `:root` comment block in `styles.css`; the same literals also appear in `window.matchMedia('(min-width: 768px)')` in `app.js`. If a breakpoint changes, all three locations must change together.
 
 ## Audit procedure
 
