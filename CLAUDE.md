@@ -17,8 +17,6 @@ iPhone/iPad/Mac (installierte PWA)
             DB: pocketlog   User: pocketlog
 ```
 
-Ein Container, zwei Rollen: PWA (StaticFiles) + JSON-API. MariaDB ist extern (Unraid).
-
 ## Projektstruktur
 ```
 PocketLog/
@@ -53,41 +51,16 @@ PocketLog/
 └── docs/SETUP.md                     ← Deployment- und Auth-Setup-Anleitung
 ```
 
-Im fertigen Image landen die PWA-Files unter `/app/static`. FastAPI mountet
-diesen Ordner via `StaticFiles(html=True)` auf `/`, nachdem alle `/api/*`
-Routes registriert sind.
-
-## Tech Stack
-- **Frontend:** Vanilla HTML/CSS/JS, aufgeteilt in `frontend/index.html` (Shell + Markup), `frontend/styles.css` (Styles) und `frontend/app.js` (Logik) + Service Worker. Nur das Theme-Bootstrap-Snippet bleibt inline in `index.html`, damit es vor dem ersten Paint läuft.
-- **Backend:** FastAPI (Python 3.12), uvicorn auf Port 8000
-- **Datenbank:** MariaDB 11 (extern, InnoDB, utf8mb4)
-- **Auth:** Authentik Forward Auth (Standard-Flow inkl. MFA) + Shared-Secret-Header zwischen SWAG und Backend
-- **Fonts:** DM Serif Display + DM Sans (selbst gehostet in `frontend/fonts/`, kein Google-Fonts-CDN)
-- **Charts:** Chart.js 4.4.1 (selbst gehostet in `frontend/vendor/`, im SW gecached)
-- **Kategorie-Icons:** Phosphor Regular (MIT) als Sprite-File in `frontend/icons/categories/sprite.svg`; ID-basiert in `categories.icon` gespeichert, beim Boot ins DOM injiziert
-- **Migrationen:** Alembic, läuft im Container-Entrypoint vor uvicorn
-
 ## Drittanbieter & Privacy
 
 Alle Assets (Fonts, JS, Icons) kommen vom eigenen Origin — keine CDNs, kein Tracking.
+**Vor jedem neuen Asset** lokal versionieren:
+- JS-Lib → `frontend/vendor/<name>.js` (Shasum verifizieren, MIT/Apache/BSD, Banner erhalten)
+- Font → `frontend/fonts/<name>.woff2` (latin + latin-ext subset)
+- UI-Icon → `<symbol id="icon-…">` ins Inline-Sprite in `index.html`
+- Kategorie-Icon → `<symbol id="cat-…">` ins `frontend/icons/categories/sprite.svg` + `CAT_ICON_GROUPS` in `app.js`; nur Phosphor Regular (MIT), keine Mischsets
 
-**Vor jedem neuen Asset prüfen**, ob es sich lokal versionieren lässt:
-
-- JS-Lib → `frontend/vendor/<name>.js` (Tarball von npm-Registry, Shasum gegen
-  Registry-Eintrag verifizieren, MIT/Apache/BSD-Lizenz bestätigen, Banner
-  erhalten).
-- Font → `frontend/fonts/<name>.woff2`. Subset wenn möglich (latin + latin-ext
-  reichen für PocketLog), keine variable-axis-Files die wir nicht brauchen.
-- Chrome-Icon (Menu, Chevron, etc.) → SVG ins Inline-Sprite in `frontend/index.html` (`<symbol id="icon-…">`).
-- Kategorie-Icon → `<symbol id="cat-…">` ins externe Sprite `frontend/icons/categories/sprite.svg`
-  einfügen, dann zur Catalogue-Konstante `CAT_ICON_GROUPS` in `frontend/app.js` hinzufügen.
-  Quelle ist Phosphor Regular (`github.com/phosphor-icons/core/assets/regular/`, MIT) — niemals
-  Icons aus anderen Sets mischen, sonst bricht der einheitliche Strichcharakter.
-
-Falls eine Abhängigkeit beim besten Willen nur online verfügbar ist (z. B.
-ein Auth-Provider-Login), das in einem Code-Kommentar **und** hier
-dokumentieren, damit jeder spätere Reviewer den Trade-off nachvollziehen
-kann.
+Falls eine Abhängigkeit nur online verfügbar ist, im Code-Kommentar **und** hier dokumentieren.
 
 ## API Endpoints (FastAPI)
 ```
@@ -111,7 +84,6 @@ GET    /api/export/csv
 DELETE /api/admin/transactions           ← löscht alle Buchungen des Users
 DELETE /api/admin/all-data               ← löscht Buchungen, Kategorien, Tags (User + Settings bleiben)
 ```
-→ Interaktive Doku unter `/api/docs` (FastAPI Swagger).
 
 ## Datenbankschema (MariaDB)
 ```sql
@@ -156,7 +128,7 @@ SWAG (Authentik Forward Auth) setzt `X-Authentik-Username`; injiziert außerdem 
 Alle Queries filtern nach `user_id`. → Setup-Details: [`docs/SETUP.md`](docs/SETUP.md)
 
 ## Offline / PWA
-- `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell (`/`, `/index.html`, `/styles.css`, `/app.js`, `/db.js`, `/manifest.webmanifest`) und für GET /api/*, cache-first für Icons, Fonts und das Chart.js-Vendor-Bundle; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version, sodass jede Release neue Caches anlegt und der activate-Hook alte automatisch räumt.
+- `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell und GET /api/*, cache-first für Icons, Fonts und das Chart.js-Vendor-Bundle; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version.
 - `frontend/db.js`: IndexedDB-Wrapper für die Outbox (`enqueue`, `drain`, `count`).
 - Sync-Button im UI (`syncNow()`) triggert manuell den Outbox-Flush; bei wieder hergestellter Verbindung läuft Background-Sync.
 
@@ -166,58 +138,11 @@ Alle Queries filtern nach `user_id`. → Setup-Details: [`docs/SETUP.md`](docs/S
 
 ## Design Conventions (Frontend)
 
-Alle Design- und UI-Konventionen (Layout, Farbe, Typografie, Materialien,
-Liquid Glass, App-Icons, Toolbars, Suchfelder, Barrierefreiheit sowie der
-komplette Apple Style Guide für UI-Texte) sind in
-[`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md) ausgelagert. Vor jeder
-Frontend-Änderung kurz nachschlagen.
+Alle Design- und UI-Konventionen (Layout, Farbe, Typografie, Liquid Glass, Barrierefreiheit, Apple Style Guide) sind in [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md) ausgelagert — vor jeder Frontend-Änderung nachschlagen.
 
-Kurzfassung der harten Regeln:
+Harte Kurzregeln: Mobile-first 430 px · `env(safe-area-inset-*)` · nur **DM Serif Display** + **DM Sans** · `fmtCurrency(n)` / `fmtSignedCurrency(n)` für Beträge · Datum ISO 8601 · Touch-Targets ≥ 44×44 px · WCAG-AA · App-Name immer „PocketLog".
 
-- Mobile-first, max-width 430 px, `env(safe-area-inset-*)` für iPhone
-- CSS-Variablen für alle Farben – automatischer Light/Dark Mode über
-  `prefers-color-scheme`
-- Schriften ausschließlich **DM Serif Display** + **DM Sans** – niemals
-  Inter, Roboto, Arial, System-Stack
-- Beträge via `fmtCurrency(n)` (de-DE), Datum intern ISO 8601
-- Touch-Targets mindestens 44 × 44 px, WCAG-AA-Kontrast in beiden Modi
-- App-Name immer „PocketLog"
-
-## Konventionen Frontend
-
-**Vor jeder CSS-/Markup-Änderung erst prüfen, ob es schon ein zentrales
-Steuerelement gibt.** PocketLog ist absichtlich tokenisiert; ein
-hardgecodeter Wert ist fast immer ein Bug, weil er sich nicht mit dem
-Rest mitbewegt (Light/Dark, Theme-Wechsel, Größenanpassung). Es ist
-schon mehrfach passiert, dass neue Code-Stellen Tokens dupliziert oder
-ignoriert haben.
-
-- **Farben:** ausschließlich über `var(--accent)`, `var(--green)`,
-  `var(--red)` / `--red-2`, `var(--text)`, `var(--bg-canvas)` etc. Keine
-  Hex-/RGBA-Literale neu einführen — alle Themes (Light + Dark) leben
-  von den Tokens. Akzent-/Status-Schatten via
-  `color-mix(in oklab, var(--accent) X%, transparent)`, nicht via
-  hartcodierter rgba.
-- **Typografie:** Größen nur aus der `--fs-*`-Skala (`--fs-display` …
-  `--fs-micro`); Icon-Glyphen aus `--fs-icon-sm/md/lg/xl`.
-- **Spacing:** ausschließlich `--space-*`-Token (2, 4, 8, 10, 12, 14,
-  16, 20, 24 …); keine freien `px` für Margins/Paddings.
-- **Radien, Schatten, Z-Layer, Motion-Dauern, Focus-Ring, Borders:** die
-  jeweiligen Tokens (`--r-*`, `--shadow-*`, `--z-*`, `--dur-*`,
-  `--focus-ring`, `--border-hairline*`).
-- **Glyphen / Icons:** den vorhandenen Inline-SVG-Sprite verwenden
-  (`#icon-menu`, `#icon-chevron-left/-right`, `#icon-close`,
-  `#icon-search`, `#icon-plus`). Neue Glyphen als zusätzliches
-  `<symbol>` ergänzen, nicht ad-hoc Unicode oder eigene SVG inline.
-- **Wiederholungen:** sobald ein Inline-`style="…"` oder ein Style-Block
-  ≥ 2× auftaucht → Klasse extrahieren (siehe `.btn-destructive`,
-  `.radio-row`, `.ui-icon` als Beispiele) statt copy-pasten.
-- **Format-Helfer:** Beträge mit Vorzeichen via `fmtSignedCurrency(n)`,
-  ohne via `fmtCurrency(n)` — beide stehen in `frontend/app.js`.
-
-Wenn unklar ist, ob ein passendes Token existiert: erst in `:root` von
-`frontend/styles.css` und in `DESIGN_CONVENTIONS.md` schauen, bevor neue
-Werte eingeführt werden.
+**Tokens:** Farben via `var(--accent/--green/--red/--text/--bg-canvas …)`, Typografie via `--fs-*`, Spacing via `--space-*`, Radien/Schatten/Z-Layer/Motion via `--r-*/--shadow-*/--z-*/--dur-*`. Keine Hex-/px-Literale neu einführen — bei Unklarheit erst in `:root` von `styles.css` und in `DESIGN_CONVENTIONS.md` nachschlagen. Hardcodierte Werte sind fast immer ein Bug.
 
 ## Sprach-Konventionen
 
@@ -247,7 +172,7 @@ PocketLog hat projektspezifische Claude-Code-Subagents für Review-Aufgaben:
 | `pwa-review` | Service Worker, Cache-Strategie, Offline-Outbox |
 | `vendor-audit` | Vendored JS/Fonts/Icons — Lizenz, Quelle, Privacy |
 
-**Pflege:** Wenn sich Konventionen in `CLAUDE.md` oder `DESIGN_CONVENTIONS.md` ändern, prüfen ob die betroffenen Agents in `.claude/agents/` ebenfalls aktualisiert werden müssen. Faustregel: neue Tokens → `token-audit.md` + `ui-review.md`; neues Schema-Muster → `db-review.md`; neue Vendor-Policy → `vendor-audit.md`; neue UI-Terminologie → `copy-review.md`.
+**Pflege:** Bei Konventionsänderungen die betroffenen Agents in `.claude/agents/` mitpflegen (neue Tokens → `token-audit.md`/`ui-review.md`; Schema → `db-review.md`; Vendor-Policy → `vendor-audit.md`; UI-Texte → `copy-review.md`).
 
 ## Bekannte Einschränkungen / TODO (Backlog)
 
