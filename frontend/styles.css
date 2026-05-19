@@ -2114,7 +2114,16 @@
       .range-custom {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: var(--space-10);
+        align-items: stretch;
+        padding: var(--space-4);
+        background: var(--glass-thin);
+        -webkit-backdrop-filter: var(--blur-thin);
+        backdrop-filter: var(--blur-thin);
+        border: var(--border-hairline);
+        border-radius: var(--r-pill);
+        width: fit-content;
+        align-self: center;
+        box-shadow: inset 0 0.5px 0 var(--hairline);
       }
       .range-custom[hidden] {
         display: none;
@@ -2124,19 +2133,39 @@
       }
       .range-custom-field {
         display: flex;
-        flex-direction: column;
-        gap: var(--space-4);
-        font-size: var(--fs-caption);
+        flex-direction: row;
+        align-items: center;
+        gap: var(--space-8);
+        padding: 0 var(--space-12);
+        min-height: var(--btn-chrome-size);
+        font-size: var(--fs-footnote);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .range-custom-field + .range-custom-field {
+        border-left: var(--border-hairline);
+      }
+      .range-custom-field > span {
         color: var(--text3);
+        font-weight: 500;
       }
       .range-custom-field input {
-        font-size: var(--fs-body);
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        padding: 0;
+        font-size: var(--fs-footnote);
+        font-weight: 600;
         color: var(--text);
-        padding: var(--space-10) var(--space-12);
-        border: var(--border-hairline);
-        border-radius: var(--r-sm);
-        background: var(--bg-canvas);
         font-family: inherit;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+      }
+      .range-custom-field input::-webkit-calendar-picker-indicator {
+        margin-left: var(--space-4);
+        opacity: 0.55;
+        cursor: pointer;
       }
 
       #reportBody {
