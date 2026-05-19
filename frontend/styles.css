@@ -155,6 +155,18 @@
         --r-fab: 18px; /* FAB radius (between --r-md 16 and --r-lg 22) */
         --bottom-bar-clearance: 66px; /* space content panels reserve under the floating bottom bar */
 
+        /* Adaptive layout — tablet/desktop shell. The breakpoints themselves
+           must be literal px in @media queries (CSS limitation), so the
+           single source of truth lives in the comment below; if they ever
+           change, search-and-replace `768px` / `1024px` across this file
+           AND the matchMedia() calls in app.js.
+           Breakpoints: 768px (tablet, sidebar appears) — 1024px (desktop,
+           wider content + larger charts). */
+        --app-sidebar-width: 260px;
+        --app-max-content: 640px; /* content column ≥ 768px */
+        --app-max-content-lg: 720px; /* content column ≥ 1024px */
+        --app-max-shell: 1100px; /* sidebar + content stage cap */
+
         /* Layering — semantic z-index tiers. Intra-component stacks
        (cards, transactions, modals' inner gradient) keep literal 1/2. */
         --z-toolbar: 100; /* Header */
@@ -364,9 +376,16 @@
         }
       }
 
-      body > * {
+      body > *,
+      .app-shell > * {
         position: relative;
         z-index: 1;
+      }
+
+      /* Tablet/desktop turns this into the grid stage; on mobile it stays
+         transparent so the existing body-level layout is unchanged. */
+      .app-shell {
+        display: contents;
       }
 
       /* Visually hidden — for screen-reader-only labels */
@@ -2579,6 +2598,165 @@
         }
         body::after {
           display: none;
+        }
+      }
+
+      /* ====== ADAPTIVE LAYOUT (≥768px tablet, ≥1024px desktop) ======
+         Mobile-first base above is untouched. Two literal breakpoints
+         (CSS limitation; tokens documented in :root above). */
+
+      /* Hover-only affordances. Touch devices (`hover: none` or coarse
+         pointer) never see this — swipe-to-delete stays the only delete
+         mechanism on iPhone/iPad. Only the transaction list gets the
+         shortcut; categories and tags have explicit delete buttons in
+         their management subpanels. */
+      @media (hover: hover) and (pointer: fine) {
+        .tx-row .tx-hover-delete {
+          position: absolute;
+          right: var(--space-12);
+          top: 50%;
+          transform: translateY(-50%);
+          width: var(--btn-chrome-size);
+          height: var(--btn-chrome-size);
+          border: none;
+          background: var(--glass-thin);
+          -webkit-backdrop-filter: var(--blur-thin);
+          backdrop-filter: var(--blur-thin);
+          border-radius: 50%;
+          color: var(--red);
+          font-size: var(--btn-icon-size);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity var(--dur-medium) var(--ease-soft);
+          z-index: 3;
+        }
+        .tx-row:hover .tx-hover-delete {
+          opacity: 1;
+          pointer-events: auto;
+        }
+        .tx-row.swiped .tx-hover-delete,
+        .tx-row.dragging .tx-hover-delete {
+          display: none;
+        }
+        .tx-hover-delete:focus-visible {
+          opacity: 1;
+          outline: none;
+          box-shadow: var(--focus-ring);
+        }
+      }
+
+      @keyframes fadeScaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @media (min-width: 768px) {
+        /* Body lets the shell take over centering; viewport-fixed glass
+           layers (body::before/after) keep working because they're sized
+           relative to the viewport, not the body box. */
+        body {
+          max-width: none;
+        }
+        .app-shell {
+          display: grid;
+          grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
+          max-width: var(--app-max-shell);
+          margin-inline: auto;
+          position: relative;
+        }
+
+        /* Drawer becomes a persistent sticky sidebar. The mobile overlay,
+           hamburger trigger and drawer head (which only carries the
+           close button) are no longer needed. grid-row: 1 / -1 spans
+           every content row so the sidebar visually fills the column. */
+        .drawer {
+          position: sticky;
+          top: 0;
+          left: auto;
+          bottom: auto;
+          width: 100%;
+          height: 100dvh;
+          min-height: 100vh; /* iPad-Safari sticky + 100dvh fallback */
+          transform: none;
+          transition: none;
+          box-shadow: none;
+          border-right: var(--border-hairline-strong);
+          grid-column: 1;
+          grid-row: 1 / -1;
+          align-self: start;
+        }
+        .drawer.open {
+          transform: none;
+          box-shadow: none;
+        }
+        .drawer-overlay,
+        .hamburger-btn,
+        .drawer-head {
+          display: none;
+        }
+        /* Drawer subpanels keep their nested navigation; no head means
+           subpanels need their own safe-area top padding. */
+        .drawer-panel {
+          padding-top: var(--space-16);
+        }
+
+        /* Header / summary / panels stack in the content column. */
+        .header,
+        .summary,
+        .panel,
+        .bottom-bar {
+          grid-column: 2;
+        }
+        .panel {
+          max-width: var(--app-max-content);
+          margin-inline: auto;
+          /* Bottom bar stays floating in tablet mode too; keep the same
+             reserve so list rows aren't hidden behind it. */
+        }
+
+        /* Bottom bar stays floating but only over the content column. */
+        .bottom-bar {
+          left: auto;
+          right: var(--space-20);
+          transform: none;
+          width: min(calc(var(--app-max-content) - 2 * var(--space-20)), calc(100vw - var(--app-sidebar-width) - 2 * var(--space-20)));
+          margin-inline: auto;
+        }
+
+        /* Modal switches from bottom-sheet to centered card. */
+        .modal-overlay {
+          align-items: center;
+        }
+        .modal {
+          max-width: 560px;
+          border: var(--border-hairline);
+          border-radius: var(--r-xl);
+          max-height: 85dvh;
+          animation: fadeScaleIn var(--dur-medium) var(--ease-spring);
+        }
+      }
+
+      @media (min-width: 1024px) {
+        .panel {
+          max-width: var(--app-max-content-lg);
+        }
+        .report-canvas-wrap,
+        .report-canvas-wrap canvas {
+          max-height: 360px;
+        }
+        .report-sparkline-wrap,
+        .report-sparkline-wrap canvas {
+          height: 80px !important;
         }
       }
 

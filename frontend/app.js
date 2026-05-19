@@ -309,7 +309,14 @@
         document.getElementById('drawer').classList.remove('sub-active');
       }
 
+      // ≥768px: drawer is a persistent sidebar — open/close become no-ops
+      // so a stray call (e.g. from showPanel) doesn't trap focus or lock
+      // body scroll. Keep this in sync with the @media breakpoint in
+      // styles.css (see "ADAPTIVE LAYOUT" block).
+      const _mqTablet = window.matchMedia('(min-width: 768px)');
+
       function openDrawer() {
+        if (_mqTablet.matches) return;
         rememberModalFocus('drawer');
         document.getElementById('drawer').classList.add('open');
         document.getElementById('drawerOverlay').classList.add('open');
@@ -318,6 +325,7 @@
       }
 
       function closeDrawer() {
+        if (_mqTablet.matches) return;
         document.getElementById('drawer').classList.remove('open');
         document.getElementById('drawerOverlay').classList.remove('open');
         document.body.style.overflow = '';
@@ -325,6 +333,20 @@
         restoreModalFocus('drawer');
         setTimeout(_drawerResetPanels, 380);
       }
+
+      // Rotate / resize crossing the tablet breakpoint while a mobile
+      // overlay is open would leave the body scroll-locked. Reset state
+      // when we enter sidebar mode.
+      _mqTablet.addEventListener('change', (e) => {
+        if (!e.matches) return;
+        document.getElementById('drawer').classList.remove('open');
+        document.getElementById('drawerOverlay').classList.remove('open');
+        releaseFocusTrap('drawer');
+        // Only release the scroll lock if no modal is still open.
+        if (!document.querySelector('.modal-overlay.open')) {
+          document.body.style.overflow = '';
+        }
+      });
 
       // Keyboard activation for elements that are interactive but cannot be
       // a <button> (e.g. row contains a nested action button). Mirrors native
@@ -589,6 +611,9 @@
           </div>
           <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type === 'out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
         </div>
+        <button class="tx-hover-delete" type="button" aria-label="Buchung löschen" tabindex="-1">
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+        </button>
       </div>`;
                 })
                 .join('')
@@ -673,6 +698,7 @@
         container.querySelectorAll('.tx-row').forEach((row) => {
           const inner = row.querySelector('.transaction');
           const action = row.querySelector('.tx-action');
+          const hoverDel = row.querySelector('.tx-hover-delete');
           let startX = 0,
             startY = 0,
             dx = 0,
@@ -750,8 +776,7 @@
           inner.addEventListener('pointerup', () => endDrag(false));
           inner.addEventListener('pointercancel', () => endDrag(true));
 
-          action.addEventListener('click', async (e) => {
-            e.stopPropagation();
+          const deleteRow = async () => {
             const id = Number(row.dataset.id);
             const ok = await confirmAction({
               title: 'Buchung wirklich löschen?',
@@ -780,7 +805,18 @@
               toast('Fehler beim Löschen: ' + err.message, 'error');
               row.classList.remove('swiped');
             }
+          };
+
+          action.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteRow();
           });
+          if (hoverDel) {
+            hoverDel.addEventListener('click', (e) => {
+              e.stopPropagation();
+              deleteRow();
+            });
+          }
         });
       }
 
@@ -2504,6 +2540,44 @@
       }
 
       window.addEventListener('online', () => syncNow());
+
+      // Desktop / Magic-Keyboard shortcuts. Cmd (macOS / iPad) and Ctrl
+      // (Windows / Linux) are treated alike. Arrow keys for month
+      // navigation are intentionally bare keys — they only fire when no
+      // input is focused, no modal is open, and no mobile drawer is open.
+      document.addEventListener('keydown', (e) => {
+        const mod = e.metaKey || e.ctrlKey;
+        const tag = (e.target.tagName || '').toLowerCase();
+        const inField =
+          ['input', 'textarea', 'select'].includes(tag) || e.target.isContentEditable;
+        const modalOpen = !!document.querySelector('.modal-overlay.open');
+        const drawerOpenMobile =
+          document.getElementById('drawer').classList.contains('open') &&
+          !_mqTablet.matches;
+
+        if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'n') {
+          e.preventDefault();
+          openModal();
+          return;
+        }
+        if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+          e.preventDefault();
+          const s = document.getElementById('searchInput');
+          if (s) s.focus();
+          return;
+        }
+        if (!modalOpen && !drawerOpenMobile && !inField) {
+          if (e.key === 'ArrowLeft') {
+            changeMonth(-1);
+            return;
+          }
+          if (e.key === 'ArrowRight') {
+            changeMonth(1);
+            return;
+          }
+        }
+      });
+
       // Escape closes the topmost open modal/drawer. Order matters: confirm
       // dialog overrides everything, then nested tag picker, then the
       // individual modals, then the drawer.

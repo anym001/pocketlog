@@ -42,6 +42,48 @@ Referenz: [HIG: Layout](https://developer.apple.com/design/human-interface-guide
   (außer bewusst für Chart / Tag-Reihe). `overscroll-behavior-y: contain` auf
   Modal-Inhalten.
 
+## Adaptives Layout (Tablet & Desktop)
+
+Mobile-first bleibt Doktrin. iPad und Mac sind progressive Erweiterungen über
+zwei Breakpoints — Layout-Tokens stehen in `frontend/styles.css` `:root`,
+die Breakpoint-Werte selbst müssen literal in `@media` stehen
+(CSS-Limitation) und sind im `:root`-Kommentar dokumentiert.
+
+- **Breakpoints:** `768px` (iPad Hochformat — Sidebar erscheint), `1024px`
+  (iPad Querformat / Mac — breitere Content-Spalte, größere Charts). Der
+  iPhone-Pfad < 768 px bleibt unverändert.
+- **Layout-Tokens:**
+  - `--app-sidebar-width` (Drawer-Breite im Sidebar-Modus)
+  - `--app-max-content` / `--app-max-content-lg` (Content-Spalte ≥ 768 / 1024)
+  - `--app-max-shell` (Gesamt-Bühne, zentriert)
+- **App-Shell:** `<main class="app-shell">` umschließt Header, Summary,
+  Panels und Bottom-Bar. Auf Mobile `display: contents` (kein visueller
+  Effekt). Ab 768 px wird es zum Grid mit Sidebar-Spalte + Content-Spalte.
+- **Sidebar:** Drawer wird ab 768 px zur permanenten sticky-Sidebar
+  (`position: sticky; top: 0`). Hamburger, Drawer-Overlay und Drawer-Head
+  (Close-Button) sind ausgeblendet. Sub-Panel-Navigation (`drawerNav` /
+  `drawerBack`) bleibt funktional.
+- **Modals:** Ab 768 px wechseln Modals vom Bottom-Sheet zur zentrierten
+  Card (`max-width: 560px`, `border-radius: var(--r-xl)` rundum,
+  `fadeScaleIn`-Keyframe). Mobile bleibt Bottom-Sheet.
+- **JS-Guards:** `openDrawer()` / `closeDrawer()` sind ab 768 px No-Ops.
+  `body.style.overflow = 'hidden'` darf in Modals weiter gesetzt werden
+  (Background-Lock ist auch auf Desktop sinnvoll). Quelle der Wahrheit
+  für den Breakpoint im JS: `window.matchMedia('(min-width: 768px)')` —
+  muss bei jeder CSS-Breakpoint-Änderung mitgepflegt werden.
+- **Hover-Aktionen:** Maus-/Trackpad-spezifische Affordanzen (z.B. Lösch-
+  Button rechts in Transaktions-Zeile) stehen **nur** unter
+  `@media (hover: hover) and (pointer: fine)`. Touch-Geräte sehen sie
+  nie — Swipe-to-Delete bleibt auf iPhone/iPad alleinige Lösch-Geste.
+- **Orientierung:** Manifest erzwingt keine Orientierung mehr. Querformat
+  ist auf iPad erlaubt. Manifest-Änderungen greifen erst nach Re-Install
+  der PWA.
+- **Tastatur-Shortcuts:** `Cmd/Ctrl+N` (neue Buchung), `Cmd/Ctrl+F`
+  (Suche fokussieren), `←` / `→` (Monat wechseln, nur wenn kein Input
+  fokussiert und kein Modal/Drawer offen), `Esc` (schließen). Auf
+  iPad-Safari greifen `Cmd+N` / `Cmd+F` nur im Standalone-PWA-Mode —
+  außerhalb fängt der Browser die Shortcuts ab.
+
 ## Farbe & Theming
 
 Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidelines/color).

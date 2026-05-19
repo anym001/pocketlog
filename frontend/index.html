@@ -140,6 +140,12 @@
     <!-- TOAST HOST -->
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
+    <!-- App shell: `display: contents` on mobile (no visual change), grid
+         with sidebar + content column ≥ 768px (see styles.css adaptive
+         layout block). Drawer sits inside the shell so it can become the
+         sticky sidebar column on tablet; on mobile it stays a fixed
+         overlay regardless of DOM position. -->
+    <main class="app-shell">
     <!-- DRAWER OVERLAY -->
     <div class="drawer-overlay" id="drawerOverlay" aria-hidden="true" onclick="closeDrawer()"></div>
 
@@ -557,6 +563,7 @@
         <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
       </button>
     </div>
+    </main>
 
     <!-- TRANSACTION ADD/EDIT MODAL -->
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">

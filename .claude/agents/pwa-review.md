@@ -42,6 +42,8 @@ You are a PWA reviewer for PocketLog. The Service Worker is the most fragile par
 - `display: standalone`
 - Icons: 192, 512, maskable variants all present
 - `theme_color` and `background_color` match the CSS tokens for the default theme
+- No `orientation` field — both portrait and landscape are supported on iPad/Mac as of the adaptive-layout work. If `orientation` reappears, flag it: it locks iPad rotation.
+- Manifest changes (orientation, display, icons) require **re-installing** the PWA on iOS/iPad — flag this in release notes when changing.
 
 **Update flow**
 - New SW version triggers `skipWaiting` + `clients.claim` so updates are picked up quickly
