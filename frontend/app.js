@@ -2709,10 +2709,9 @@
         const fmt = (a, b, c) => `${a}.${b}${c ? '.' + c : ''}`;
         let m;
         // iPad: 'iPad'-Marker (älteres iOS) ODER 'Macintosh' + Touch (iPadOS 13+).
-        if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) {
-          m = ua.match(/(?:CPU OS|iPhone OS) (\d+)[._](\d+)(?:[._](\d+))?/);
-          return m ? `iPad · iPadOS ${fmt(m[1], m[2], m[3])}` : 'iPad';
-        }
+        // OS-Version absichtlich nicht — im Desktop-Spoof-UA nicht extrahierbar,
+        // im Legacy-Fall nur noch Edge-Case. Konsistent „iPad" zeigen.
+        if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) return 'iPad';
         if (/iPhone/.test(ua)) {
           m = ua.match(/iPhone OS (\d+)[._](\d+)(?:[._](\d+))?/);
           return m ? `iPhone · iOS ${fmt(m[1], m[2], m[3])}` : 'iPhone';
@@ -2725,10 +2724,9 @@
           const model = mm ? mm[1].trim() : '';
           return `Android${v ? ' ' + v[1] : ''}${model ? ' · ' + model : ''}`;
         }
-        if (/Macintosh/.test(ua)) {
-          m = ua.match(/Mac OS X (\d+)[._](\d+)(?:[._](\d+))?/);
-          return m ? `Mac · macOS ${fmt(m[1], m[2], m[3])}` : 'Mac';
-        }
+        // macOS-Version friert Safari seit v14 auf 10_15_7 ein — Wert ist
+        // nicht real, daher nur Plattformname.
+        if (/Macintosh/.test(ua)) return 'Mac';
         if (/Windows NT/.test(ua)) {
           m = ua.match(/Windows NT (\d+\.\d+)/);
           const map = { '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7' };
