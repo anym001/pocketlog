@@ -2761,16 +2761,16 @@
           margin-inline: auto;
         }
 
-        /* Bottom bar stays floating but only over the content column —
-           pin its left edge to the sidebar's right edge so it never
-           slides under the drawer. Width tracks the same max as the
-           panel column so it lines up with the list above it. */
+        /* Bottom bar stays floating but only over the content column.
+           Mirror the iPhone insets — 16px from each visual edge — so
+           the bar doesn't visually clip to the sidebar on the left or
+           to the viewport edge on the right. */
         .bottom-bar {
-          left: var(--app-sidebar-width);
-          right: 0;
+          left: calc(var(--app-sidebar-width) + var(--space-16));
+          right: var(--space-16);
           transform: none;
           width: auto;
-          max-width: calc(var(--app-max-content) - 2 * var(--space-20));
+          max-width: calc(var(--app-max-content) - 2 * var(--space-16));
           margin-inline: auto;
         }
 
@@ -2806,7 +2806,7 @@
           padding-left: 0;
         }
         html.sidebar-collapsed .bottom-bar {
-          left: 0;
+          left: var(--space-16);
         }
       }
 
@@ -2817,7 +2817,7 @@
           max-width: var(--app-max-content-lg);
         }
         .bottom-bar {
-          max-width: calc(var(--app-max-content-lg) - 2 * var(--space-20));
+          max-width: calc(var(--app-max-content-lg) - 2 * var(--space-16));
         }
         .report-canvas-wrap,
         .report-canvas-wrap canvas {
