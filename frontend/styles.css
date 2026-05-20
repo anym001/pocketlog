@@ -162,8 +162,6 @@
            Breakpoints: 768px (tablet, sidebar appears) — 1024px (desktop,
            wider content + larger charts). */
         --app-sidebar-width: 260px;
-        --app-max-content: 640px; /* content column ≥ 768px */
-        --app-max-content-lg: 720px; /* content column ≥ 1024px */
 
         /* Layering — semantic z-index tiers. Intra-component stacks
        (cards, transactions, modals' inner gradient) keep literal 1/2. */
@@ -633,26 +631,34 @@
       }
 
       /* ====== CATEGORY VIEW ====== */
+      /* Card-styled row, same chrome as .transaction so the
+         Kategorien-Übersicht reads as the same surface family as the
+         Buchungs-Übersicht. */
       .cat-view-row {
+        position: relative;
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        padding: var(--space-12) var(--space-14);
+        margin-bottom: var(--space-8);
         display: flex;
         align-items: center;
         gap: var(--space-12);
-        padding: var(--space-14) 0;
-        border-bottom: var(--border-hairline);
+        box-shadow: var(--shadow-soft);
         cursor: pointer;
-        transition: opacity var(--dur-fast) ease;
       }
-      .cat-view-row:last-child {
-        border-bottom: none;
-      }
-      .cat-view-row:active,
+      /* No :active feedback — touchstart fires the state immediately,
+         which made rows flash on scroll. Same call as .transaction.
+         Keyboard activation still gets visual feedback via the
+         is-key-active class set by handleRowActivate(). */
       .cat-view-row.is-key-active {
         opacity: 0.55;
+        transition: opacity var(--dur-fast) ease;
       }
       .cat-view-row:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
-        border-radius: var(--r-xs);
+        border-radius: var(--r-md);
       }
       .cat-view-icon {
         width: var(--icon-list-md);
@@ -2737,18 +2743,12 @@
         }
 
         /* Header / summary / panels keep their natural block flow inside
-           the padded shell. Inner content stays capped at the panel
-           column width so list rows, month nav and summary cards all
-           line up under each other instead of stretching across wide
-           landscape iPads.
-           The header-top becomes a 3-column grid: the sidebar toggle
-           sits in col 1, the month nav stays centered in col 2, and the
-           sync button anchors col 3. Auto-placement maps each visible
-           child to the next free cell, so no explicit grid-column is
-           needed beyond the alignment hints below. */
+           the padded shell and take the full content-pane width — Apple
+           HIG doesn't cap list / table widths (Mail, Notes, Files all
+           let rows fill the secondary pane), so neither do we. The
+           header-top is a 3-column grid so the month nav stays
+           visually centered regardless of how wide the column gets. */
         .header-top {
-          max-width: var(--app-max-content);
-          margin-inline: auto;
           display: grid;
           grid-template-columns: var(--btn-chrome-size) 1fr var(--btn-chrome-size);
           align-items: center;
@@ -2759,22 +2759,17 @@
         .header-top > .sync-btn {
           justify-self: end;
         }
-        .summary,
-        .panel {
-          max-width: var(--app-max-content);
-          margin-inline: auto;
-        }
 
-        /* Bottom bar stays floating but only over the content column.
-           Mirror the iPhone insets — 16px from each visual edge — so
-           the bar doesn't visually clip to the sidebar on the left or
-           to the viewport edge on the right. */
+        /* Bottom bar mirrors the iPhone insets — 16px from each visual
+           edge — so it doesn't clip to the sidebar on the left or to
+           the viewport edge on the right. No max-width: the bar tracks
+           the content column above it. */
         .bottom-bar {
           left: calc(var(--app-sidebar-width) + var(--space-16));
           right: var(--space-16);
           transform: none;
           width: auto;
-          max-width: calc(var(--app-max-content) - 2 * var(--space-16));
+          max-width: none;
           margin-inline: auto;
         }
 
@@ -2815,14 +2810,9 @@
       }
 
       @media (min-width: 1024px) {
-        .header-top,
-        .summary,
-        .panel {
-          max-width: var(--app-max-content-lg);
-        }
-        .bottom-bar {
-          max-width: calc(var(--app-max-content-lg) - 2 * var(--space-16));
-        }
+        /* On larger displays the chart canvas gets a bit more vertical
+           breathing room; the list / bar widths are unrestricted from
+           the 768 px block onwards. */
         .report-canvas-wrap,
         .report-canvas-wrap canvas {
           max-height: 360px;
