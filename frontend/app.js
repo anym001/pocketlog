@@ -277,7 +277,7 @@
       }
 
       const _drawerStack = [];
-      const _drawerSubs = ['dpReports', 'dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay', 'dpAdmin'];
+      const _drawerSubs = ['dpReports', 'dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay', 'dpAdmin', 'dpInfo'];
 
       function drawerNav(panelId) {
         const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
@@ -289,6 +289,7 @@
         if (panelId === 'dpTags') renderTagList();
         if (panelId === 'dpImport') loadApiBaseInput();
         if (panelId === 'dpDisplay') syncDefaultViewRadios();
+        if (panelId === 'dpInfo') renderInfoPanel();
       }
 
       function drawerBack() {
@@ -2696,6 +2697,73 @@
 
       async function resetAllData() {
         await _runReset('/admin/all-data', 'Alle Daten gelöscht.');
+      }
+
+      // ── INFO PANEL ────────────────────────────────────────────────────────────────
+      async function renderInfoPanel() {
+        const set = (id, value) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = value;
+        };
+
+        set('infoBackendVersion', 'Wird geladen…');
+        set('infoSwVersion', '–');
+        set('infoOnline', navigator.onLine ? 'Online' : 'Offline');
+        set('infoLang', navigator.language || '–');
+        set(
+          'infoViewport',
+          `${window.innerWidth}×${window.innerHeight} px @ ${window.devicePixelRatio || 1}×`
+        );
+        set('infoUserAgent', navigator.userAgent || '–');
+
+        // Service-Worker-Status + Cache-Version
+        if ('serviceWorker' in navigator) {
+          try {
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (!reg) {
+              set('infoSwState', 'Nicht registriert');
+            } else {
+              const sw = reg.active || reg.waiting || reg.installing;
+              const state = sw ? sw.state : 'unbekannt';
+              const controlled = navigator.serviceWorker.controller ? ' · steuert' : '';
+              set('infoSwState', `${state}${controlled}`);
+            }
+          } catch (e) {
+            set('infoSwState', 'Fehler');
+          }
+          try {
+            const keys = await caches.keys();
+            const shellKey = keys.find((k) => k.startsWith('pocketlog-shell-'));
+            set('infoSwVersion', shellKey ? shellKey.replace('pocketlog-shell-', '') : '–');
+          } catch (e) {
+            set('infoSwVersion', '–');
+          }
+        } else {
+          set('infoSwState', 'Nicht unterstützt');
+        }
+
+        // Outbox-Stand
+        try {
+          const pending = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+          set('infoOutbox', String(pending));
+        } catch (e) {
+          set('infoOutbox', '–');
+        }
+
+        // Backend-Version – ohne api()-Helper, da /api/version öffentlich ist
+        // und keinen Auth-Header braucht. Direkter Fetch vermeidet außerdem,
+        // dass die SW-Outbox bei Offline-Zustand eine Schreib-Operation queued.
+        try {
+          const res = await fetch(API + '/version', { headers: { Accept: 'application/json' } });
+          if (res.ok) {
+            const data = await res.json();
+            set('infoBackendVersion', data.version || '–');
+          } else {
+            set('infoBackendVersion', 'HTTP ' + res.status);
+          }
+        } catch (e) {
+          set('infoBackendVersion', 'Offline');
+        }
       }
 
       // ── INIT ──────────────────────────────────────────────────────────────────────
