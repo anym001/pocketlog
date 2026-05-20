@@ -612,9 +612,6 @@
           </div>
           <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type === 'out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
         </div>
-        <button class="tx-hover-delete" type="button" aria-label="Buchung löschen" tabindex="-1">
-          <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
-        </button>
       </div>`;
                 })
                 .join('')
@@ -699,7 +696,6 @@
         container.querySelectorAll('.tx-row').forEach((row) => {
           const inner = row.querySelector('.transaction');
           const action = row.querySelector('.tx-action');
-          const hoverDel = row.querySelector('.tx-hover-delete');
           let startX = 0,
             startY = 0,
             dx = 0,
@@ -812,12 +808,6 @@
             e.stopPropagation();
             deleteRow();
           });
-          if (hoverDel) {
-            hoverDel.addEventListener('click', (e) => {
-              e.stopPropagation();
-              deleteRow();
-            });
-          }
         });
       }
 

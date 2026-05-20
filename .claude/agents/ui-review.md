@@ -12,8 +12,8 @@ You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVEN
 - `env(safe-area-inset-*)` used wherever content can be clipped by iPhone notch/home bar
 - No fixed pixel widths that break on small screens
 - Adaptive layout (≥ 768 px sidebar, ≥ 1024 px wider content) uses tokens `--app-sidebar-width`, `--app-max-content`, `--app-max-content-lg`, `--app-max-shell` — breakpoint literals only inside `@media` (CSS limitation, documented in `:root`)
-- Hover-only affordances (e.g. `.tx-hover-delete`) wrapped in `@media (hover: hover) and (pointer: fine)` — never shown to touch devices
 - When `@media (min-width: 768px)` changes, `window.matchMedia('(min-width: 768px)')` in `app.js` must match (single source of truth in CSS, mirrored in JS)
+- Delete affordance on `.tx-row` is swipe-to-reveal only (`.tx-action`); do not add hover/pointer-only delete buttons — the swipe action stays the single mechanism across all viewports
 
 **Tokens — the #1 mistake in this codebase**
 - Colors exclusively via CSS variables: `var(--accent)`, `var(--green)`, `var(--red)`, `var(--red-2)`, `var(--text)`, `var(--bg-canvas)`, etc.
