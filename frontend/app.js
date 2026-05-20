@@ -2708,14 +2708,12 @@
         const touch = navigator.maxTouchPoints || 0;
         const fmt = (a, b, c) => `${a}.${b}${c ? '.' + c : ''}`;
         let m;
-        // iPad: 'iPad'-Marker (älteres iOS) ODER 'Macintosh' + Touch (iPadOS 13+).
-        // OS-Version absichtlich nicht — im Desktop-Spoof-UA nicht extrahierbar,
-        // im Legacy-Fall nur noch Edge-Case. Konsistent „iPad" zeigen.
+        // Apple deckelt OS-Versionen mittlerweile in allen Browser-UAs ein
+        // (macOS auf 10_15_7 seit Safari 14, iPadOS gibt im Desktop-Spoof
+        // gar nichts mehr aus, und seit iOS 26 friert auch der iPhone-UA
+        // auf „18_x" ein). Daher überall nur den Plattformnamen.
         if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) return 'iPad';
-        if (/iPhone/.test(ua)) {
-          m = ua.match(/iPhone OS (\d+)[._](\d+)(?:[._](\d+))?/);
-          return m ? `iPhone · iOS ${fmt(m[1], m[2], m[3])}` : 'iPhone';
-        }
+        if (/iPhone/.test(ua)) return 'iPhone';
         if (/Android/.test(ua)) {
           const v = ua.match(/Android (\d+(?:\.\d+)*)/);
           // Modell steht hinter dem zweiten Semikolon und vor ' Build/' bzw. ')'.
@@ -2724,8 +2722,6 @@
           const model = mm ? mm[1].trim() : '';
           return `Android${v ? ' ' + v[1] : ''}${model ? ' · ' + model : ''}`;
         }
-        // macOS-Version friert Safari seit v14 auf 10_15_7 ein — Wert ist
-        // nicht real, daher nur Plattformname.
         if (/Macintosh/.test(ua)) return 'Mac';
         if (/Windows NT/.test(ua)) {
           m = ua.match(/Windows NT (\d+\.\d+)/);
