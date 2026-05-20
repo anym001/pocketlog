@@ -45,34 +45,56 @@ Referenz: [HIG: Layout](https://developer.apple.com/design/human-interface-guide
 ## Adaptives Layout (Tablet & Desktop)
 
 Mobile-first bleibt Doktrin. iPad und Mac sind progressive Erweiterungen über
-zwei Breakpoints — Layout-Tokens stehen in `frontend/styles.css` `:root`,
-die Breakpoint-Werte selbst müssen literal in `@media` stehen
-(CSS-Limitation) und sind im `:root`-Kommentar dokumentiert.
+zwei Breakpoints — der Breakpoint-Wert lebt literal in `@media` (CSS-Limitation)
+und ist im `:root`-Kommentar dokumentiert.
 
 - **Breakpoints:** `768px` (iPad Hochformat — Sidebar erscheint), `1024px`
-  (iPad Querformat / Mac — breitere Content-Spalte, größere Charts). Der
-  iPhone-Pfad < 768 px bleibt unverändert.
-- **Layout-Tokens:**
-  - `--app-sidebar-width` (Drawer-Breite im Sidebar-Modus, links fix)
+  (iPad Querformat / Mac — nur größere Chart-Höhen, **keine** Content-Breiten-
+  Änderung). Der iPhone-Pfad < 768 px bleibt unverändert.
+- **Layout-Token:** `--app-sidebar-width` (260 px, Sidebar-Breite). Es gibt
+  bewusst **keine** `--app-max-content`-Tokens — Listen / Tabellen / Panels
+  füllen die Content-Pane voll (siehe „Content-Breite" unten).
 - **App-Shell:** `<main class="app-shell">` umschließt Header, Summary,
-  Panels und Bottom-Bar. Auf Mobile `display: contents` (kein visueller
-  Effekt). Ab 768 px wird es zum Grid mit Sidebar-Spalte + Content-Spalte.
-- **Sidebar:** Drawer wird ab 768 px zur permanenten sticky-Sidebar
-  (`position: sticky; top: 0`). Hamburger, Drawer-Overlay und Drawer-Head
-  (Close-Button) sind ausgeblendet. Sub-Panel-Navigation (`drawerNav` /
-  `drawerBack`) bleibt funktional.
+  Panels, Bottom-Bar **und** den Drawer. Auf Mobile `display: contents`
+  (kein visueller Effekt). Ab 768 px wird sie zu `display: block` mit
+  `padding-left: var(--app-sidebar-width)`, das den Platz für die fixed
+  Sidebar reserviert.
+- **Sidebar:** Drawer ist ab 768 px `position: fixed; top: 0; left: 0;
+  width: var(--app-sidebar-width); height: 100dvh` mit
+  `min-height: 100vh`-Fallback für iPad-Safari. Hamburger, Drawer-Overlay
+  und der Drawer-Head-**Close-Button** werden ausgeblendet — der „PocketLog"-
+  Titel im Drawer-Head bleibt sichtbar als Sidebar-Brand. Sub-Panel-
+  Navigation (`drawerNav` / `drawerBack`) bleibt funktional. Sub-Panel-
+  State **persistiert** zwischen Open/Close des mobilen Drawers (User
+  landet beim nächsten Hamburger-Klick wieder im zuletzt geöffneten
+  Sub-Panel, nicht auf der obersten Ebene).
+- **Sidebar-Toggle (Apple-Mail-Pattern):** Eigener `.sidebar-toggle-btn`
+  oben links im Header (nur Tablet+). State lebt als `html.sidebar-collapsed`
+  und wird vor dem ersten Paint über ein Inline-Boot-Script in `<head>` aus
+  `localStorage` wiederhergestellt (kein Flash). Zwei state-abhängige
+  Icons: `arrows-out` bei sichtbarer Sidebar (Klick erweitert den Content),
+  `arrows-in` bei collapsed Sidebar (Klick holt die Sidebar zurück).
+  `aria-pressed` mirror't den Zustand.
 - **Modals:** Ab 768 px wechseln Modals vom Bottom-Sheet zur zentrierten
   Card (`max-width: 560px`, `border-radius: var(--r-xl)` rundum,
   `fadeScaleIn`-Keyframe). Mobile bleibt Bottom-Sheet.
+- **Bottom-Bar:** Bleibt floating, mit 16-px-Inset zu beiden visuellen
+  Rändern — links zur Sidebar-Right-Edge, rechts zum Viewport. Im
+  collapsed-State zum Viewport-Left. Spiegelt das iPhone-Verhalten.
 - **JS-Guards:** `openDrawer()` / `closeDrawer()` sind ab 768 px No-Ops.
   `body.style.overflow = 'hidden'` darf in Modals weiter gesetzt werden
   (Background-Lock ist auch auf Desktop sinnvoll). Quelle der Wahrheit
   für den Breakpoint im JS: `window.matchMedia('(min-width: 768px)')` —
   muss bei jeder CSS-Breakpoint-Änderung mitgepflegt werden.
-- **Hover-Aktionen:** Maus-/Trackpad-spezifische Affordanzen (z.B. Lösch-
-  Button rechts in Transaktions-Zeile) stehen **nur** unter
-  `@media (hover: hover) and (pointer: fine)`. Touch-Geräte sehen sie
-  nie — Swipe-to-Delete bleibt auf iPhone/iPad alleinige Lösch-Geste.
+- **Hover-Aktionen:** Maus-/Trackpad-spezifische Affordanzen stehen
+  **nur** unter `@media (hover: hover) and (pointer: fine)`. Touch-Geräte
+  sehen sie nie — Swipe-to-Delete bleibt auf iPhone/iPad alleinige
+  Lösch-Geste.
+- **`:active` auf Listen-Reihen:** Vermeiden für touch-relevante Reihen
+  (`.transaction`, `.cat-view-row`). Browser triggert `:active`
+  sofort bei `touchstart`, was Reihen beim Scrollen aufflackern lässt.
+  Visuelles Feedback für Keyboard-Aktivierung läuft über
+  `.is-key-active`, gesetzt von `handleRowActivate()`.
 - **Orientierung:** Manifest erzwingt keine Orientierung mehr. Querformat
   ist auf iPad erlaubt. Manifest-Änderungen greifen erst nach Re-Install
   der PWA.
@@ -81,6 +103,34 @@ die Breakpoint-Werte selbst müssen literal in `@media` stehen
   fokussiert und kein Modal/Drawer offen), `Esc` (schließen). Auf
   iPad-Safari greifen `Cmd+N` / `Cmd+F` nur im Standalone-PWA-Mode —
   außerhalb fängt der Browser die Shortcuts ab.
+
+### Content-Breite (Apple-HIG-Recherche)
+
+> Verifiziert via [HIG: Layout](https://developer.apple.com/design/human-interface-guidelines/layout)
+> und [HIG: Split Views](https://developer.apple.com/design/human-interface-guidelines/split-views),
+> sowie Apple-eigene Apps (Mail, Notes, Files) als Referenz-Implementierung.
+
+- **Apple HIG dictiert keine Pixel-Cap für Listen oder Tabellen.** Die
+  allgemeine Layout-Empfehlung lautet „restrict the width of text for
+  optimal readability" — bewusst ohne konkrete Pixel-Zahl. Empfohlen
+  wird stattdessen **adaptives Layout** (Auto Layout, Size Classes),
+  das mit dem verfügbaren Platz wächst.
+- **Split Views (Sidebar + Content):** HIG sagt „secondary pane nimmt
+  ⅔ des Screens", **kein** Reading-Width-Cap. Mail, Notes und Files
+  lassen Listen-Reihen die volle Breite des Sekundär-Panes nutzen.
+- **Die 66-Zeichen-pro-Zeile-Regel ist Web-Typografie** (Bringhurst,
+  etc.) und gilt für Fließtext-Absätze — Listen-Reihen mit Icon +
+  kurzer Beschreibung + Betrag sind kein Fließtext.
+- **In PocketLog:** Listen, Summary-Cards, Header-Top und Bottom-Bar
+  nutzen die volle Content-Pane-Breite (Viewport minus Sidebar bzw.
+  Viewport im collapsed-State, jeweils minus 16-px-Inset bei der
+  Bottom-Bar). Das Header-Top ist ein 3-Spalten-Grid (`chrome 1fr
+  chrome`), damit der Monatswechsler optisch zentriert bleibt
+  unabhängig von der Pane-Breite.
+- **Fließtext-Caps** (Modal-Body, Empty-States) bleiben weiterhin
+  sinnvoll — die HIG-Begründung „restrict text for readability" gilt
+  dort. Aktuell hat PocketLog davon nur das zentrierte Modal
+  (`max-width: 560px`).
 
 ## Farbe & Theming
 
