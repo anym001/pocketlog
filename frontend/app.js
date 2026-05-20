@@ -2783,8 +2783,17 @@
         return parts.join(' · ');
       }
 
+      // Jede renderInfoPanel-Invocation bekommt eine Sequenznummer; async
+      // Antworten (Backend-Version, Health-Probe) überschreiben das DOM nur
+      // dann, wenn sie noch zum aktuellen Durchgang gehören. Verhindert,
+      // dass eine alte, langsame Antwort einen neueren Stand überschreibt,
+      // wenn der User das Panel schnell zweimal öffnet.
+      let _infoPanelSeq = 0;
+
       async function renderInfoPanel() {
+        const mySeq = ++_infoPanelSeq;
         const set = (id, value) => {
+          if (mySeq !== _infoPanelSeq) return;
           const el = document.getElementById(id);
           if (el) el.textContent = value;
         };
@@ -2794,17 +2803,28 @@
         const vh = window.innerHeight;
         const sw = window.screen ? window.screen.width : 0;
         const sh = window.screen ? window.screen.height : 0;
+        // Browser-Zoom näherungsweise aus outerWidth/innerWidth. Auf macOS
+        // Safari/Firefox zählt das Fenster-Chrome minimal mit, daher runden.
+        // visualViewport.scale fängt Pinch-Zoom auf Touch-Geräten ein.
+        const zoomRatio = window.outerWidth && vw ? window.outerWidth / vw : 1;
+        const zoomPct = Math.round(zoomRatio * 100);
+        const pinch = window.visualViewport ? window.visualViewport.scale : 1;
+        const zoomParts = [`${zoomPct}%`];
+        if (pinch && Math.abs(pinch - 1) > 0.01) {
+          zoomParts.push(`Pinch ${Math.round(pinch * 100) / 100}×`);
+        }
 
         set('infoBackendVersion', 'Wird geladen…');
         set('infoSwVersion', '–');
-        set('infoOnline', navigator.onLine ? 'Online' : 'Offline');
+        set('infoOnline', navigator.onLine ? 'Prüfe Backend…' : 'Offline');
         set('infoPlatform', _detectPlatform());
         set('infoBrowser', _detectBrowser());
         set('infoDisplayMode', _detectDisplayMode());
         set('infoPointer', _detectPointer());
         set('infoViewport', `${vw} × ${vh} px`);
         set('infoScreen', sw && sh ? `${sw} × ${sh} px` : '–');
-        set('infoDpr', `${dpr}× (${Math.round(dpr * 100) / 100})`);
+        set('infoDpr', `${Math.round(dpr * 100) / 100}×`);
+        set('infoZoom', zoomParts.join(' · '));
         set('infoPhysical', `${Math.round(vw * dpr)} × ${Math.round(vh * dpr)} px`);
         set('infoLang', navigator.language || '–');
         set('infoUserAgent', navigator.userAgent || '–');
@@ -2841,6 +2861,19 @@
           set('infoOutbox', String(pending));
         } catch (e) {
           set('infoOutbox', '–');
+        }
+
+        // Backend-Health-Probe – ehrlicher als navigator.onLine, das nur
+        // sagt, ob irgendein Netzwerk-Interface da ist. Läuft nur beim
+        // Öffnen des Panels (kein Polling) und nur wenn der Browser
+        // überhaupt online meldet — sonst wäre der Fetch sicher umsonst.
+        if (navigator.onLine) {
+          try {
+            const res = await fetch(API + '/health', { cache: 'no-store' });
+            set('infoOnline', res.ok ? 'Online · Backend erreichbar' : `Online · HTTP ${res.status}`);
+          } catch (e) {
+            set('infoOnline', 'Online · Backend unerreichbar');
+          }
         }
 
         // Backend-Version – ohne api()-Helper, da /api/version öffentlich ist
