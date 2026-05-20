@@ -1028,7 +1028,8 @@
       }
 
       /* ====== HAMBURGER ====== */
-      .hamburger-btn {
+      .hamburger-btn,
+      .sidebar-toggle-btn {
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         border: none;
@@ -1044,8 +1045,18 @@
         flex-shrink: 0;
         transition: opacity var(--dur-base);
       }
-      .hamburger-btn:active {
+      .hamburger-btn:active,
+      .sidebar-toggle-btn:active {
         opacity: 0.6;
+      }
+      .sidebar-toggle-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      /* Sidebar toggle is tablet-only; the hamburger covers the same slot
+         on phones, so this button stays hidden below 768px. */
+      .sidebar-toggle-btn {
+        display: none;
       }
 
       /* ====== DRAWER ====== */
@@ -2673,7 +2684,9 @@
           padding-left: var(--app-sidebar-width);
         }
 
-        /* Drawer = persistent sidebar pinned to the viewport edge. */
+        /* Drawer = persistent sidebar pinned to the viewport edge. The
+           transform/left/padding-left transitions for the collapse
+           toggle are defined further down in this block. */
         .drawer {
           position: fixed;
           top: 0;
@@ -2683,7 +2696,6 @@
           height: 100dvh;
           min-height: 100vh; /* iPad-Safari 100dvh quirk fallback */
           transform: none;
-          transition: none;
           box-shadow: none;
           border-right: var(--border-hairline-strong);
         }
@@ -2693,11 +2705,16 @@
         }
         /* Mobile overlay, hamburger trigger and the drawer-head's close
            button are no longer needed. The "PocketLog" title stays —
-           it's the sidebar's brand mark. */
+           it's the sidebar's brand mark, and the new sidebar-toggle
+           button (Apple Mail style) takes the hamburger's slot in the
+           header. */
         .drawer-overlay,
         .hamburger-btn,
         .drawer-close-btn {
           display: none;
+        }
+        .sidebar-toggle-btn {
+          display: inline-flex;
         }
         .drawer-head {
           justify-content: flex-start;
@@ -2707,8 +2724,25 @@
            the padded shell. Inner content stays capped at the panel
            column width so list rows, month nav and summary cards all
            line up under each other instead of stretching across wide
-           landscape iPads. */
-        .header-top,
+           landscape iPads.
+           The header-top becomes a 3-column grid: the sidebar toggle
+           sits in col 1, the month nav stays centered in col 2, and the
+           sync button anchors col 3. Auto-placement maps each visible
+           child to the next free cell, so no explicit grid-column is
+           needed beyond the alignment hints below. */
+        .header-top {
+          max-width: var(--app-max-content);
+          margin-inline: auto;
+          display: grid;
+          grid-template-columns: var(--btn-chrome-size) 1fr var(--btn-chrome-size);
+          align-items: center;
+        }
+        .header-top > .month-nav {
+          justify-self: center;
+        }
+        .header-top > .sync-btn {
+          justify-self: end;
+        }
         .summary,
         .panel {
           max-width: var(--app-max-content);
@@ -2738,6 +2772,29 @@
           border-radius: var(--r-xl);
           max-height: 85dvh;
           animation: fadeScaleIn var(--dur-medium) var(--ease-spring);
+        }
+
+        /* Sidebar collapse (Apple-Mail style toggle). The class lives on
+           <html> because the inline boot script in <head> sets it before
+           <body> exists, which avoids a flash of expanded sidebar on
+           every page load. Drawer slides out left, content reclaims the
+           reserved column, bottom bar follows. */
+        .drawer,
+        .app-shell,
+        .bottom-bar {
+          transition:
+            transform var(--dur-slow) var(--ease-spring),
+            padding-left var(--dur-slow) var(--ease-spring),
+            left var(--dur-slow) var(--ease-spring);
+        }
+        html.sidebar-collapsed .drawer {
+          transform: translateX(calc(-1 * var(--app-sidebar-width)));
+        }
+        html.sidebar-collapsed .app-shell {
+          padding-left: 0;
+        }
+        html.sidebar-collapsed .bottom-bar {
+          left: 0;
         }
       }
 

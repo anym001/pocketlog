@@ -316,6 +316,21 @@
       // styles.css (see "ADAPTIVE LAYOUT" block).
       const _mqTablet = window.matchMedia('(min-width: 768px)');
 
+      // Apple-Mail style sidebar toggle (tablet only). The collapsed
+      // class lives on <html> because the inline restore in index.html
+      // runs before <body> exists; CSS targets html.sidebar-collapsed.
+      function toggleSidebar() {
+        const collapsed = document.documentElement.classList.toggle(
+          'sidebar-collapsed'
+        );
+        try {
+          localStorage.setItem(
+            'pocketlog.sidebarCollapsed',
+            collapsed ? '1' : '0'
+          );
+        } catch (e) {}
+      }
+
       function openDrawer() {
         if (_mqTablet.matches) return;
         rememberModalFocus('drawer');
