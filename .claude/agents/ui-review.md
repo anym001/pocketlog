@@ -11,7 +11,7 @@ You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVEN
 - Mobile-first base (iPhone, < 768 px) untouched and visually identical to before the change
 - `env(safe-area-inset-*)` used wherever content can be clipped by iPhone notch/home bar
 - No fixed pixel widths that break on small screens
-- Adaptive layout (≥ 768 px sidebar, ≥ 1024 px wider content) uses tokens `--app-sidebar-width`, `--app-max-content`, `--app-max-content-lg`, `--app-max-shell` — breakpoint literals only inside `@media` (CSS limitation, documented in `:root`)
+- Adaptive layout (≥ 768 px sidebar, ≥ 1024 px wider content) uses tokens `--app-sidebar-width`, `--app-max-content`, `--app-max-content-lg` — breakpoint literals only inside `@media` (CSS limitation, documented in `:root`). The drawer is `position: fixed` on tablet and the shell pads `padding-left: var(--app-sidebar-width)` to reserve the column.
 - When `@media (min-width: 768px)` changes, `window.matchMedia('(min-width: 768px)')` in `app.js` must match (single source of truth in CSS, mirrored in JS)
 - Delete affordance on `.tx-row` is swipe-to-reveal only (`.tx-action`); do not add hover/pointer-only delete buttons — the swipe action stays the single mechanism across all viewports
 

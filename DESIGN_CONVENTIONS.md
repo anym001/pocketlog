@@ -53,9 +53,8 @@ die Breakpoint-Werte selbst müssen literal in `@media` stehen
   (iPad Querformat / Mac — breitere Content-Spalte, größere Charts). Der
   iPhone-Pfad < 768 px bleibt unverändert.
 - **Layout-Tokens:**
-  - `--app-sidebar-width` (Drawer-Breite im Sidebar-Modus)
+  - `--app-sidebar-width` (Drawer-Breite im Sidebar-Modus, links fix)
   - `--app-max-content` / `--app-max-content-lg` (Content-Spalte ≥ 768 / 1024)
-  - `--app-max-shell` (Gesamt-Bühne, zentriert)
 - **App-Shell:** `<main class="app-shell">` umschließt Header, Summary,
   Panels und Bottom-Bar. Auf Mobile `display: contents` (kein visueller
   Effekt). Ab 768 px wird es zum Grid mit Sidebar-Spalte + Content-Spalte.

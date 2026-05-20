@@ -165,7 +165,6 @@
         --app-sidebar-width: 260px;
         --app-max-content: 640px; /* content column ≥ 768px */
         --app-max-content-lg: 720px; /* content column ≥ 1024px */
-        --app-max-shell: 1100px; /* sidebar + content stage cap */
 
         /* Layering — semantic z-index tiers. Intra-component stacks
        (cards, transactions, modals' inner gradient) keep literal 1/2. */
@@ -2660,69 +2659,72 @@
         body {
           max-width: none;
         }
+
+        /* Reserve a column on the left for the sidebar — no grid, no
+           max-width on the shell so landscape iPads don't show ambient
+           margins. The drawer itself is position: fixed and lives
+           outside the normal flow, so this padding is the only thing
+           that keeps the content from sliding under it.
+           display: block overrides the mobile `display: contents`, which
+           would otherwise swallow the padding (contents-elements don't
+           generate their own box). */
         .app-shell {
-          display: grid;
-          grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
-          max-width: var(--app-max-shell);
-          margin-inline: auto;
-          position: relative;
+          display: block;
+          padding-left: var(--app-sidebar-width);
         }
 
-        /* Drawer becomes a persistent sticky sidebar. The mobile overlay,
-           hamburger trigger and drawer head (which only carries the
-           close button) are no longer needed. grid-row: 1 / -1 spans
-           every content row so the sidebar visually fills the column. */
+        /* Drawer = persistent sidebar pinned to the viewport edge. */
         .drawer {
-          position: sticky;
+          position: fixed;
           top: 0;
-          left: auto;
-          bottom: auto;
-          width: 100%;
+          left: 0;
+          bottom: 0;
+          width: var(--app-sidebar-width);
           height: 100dvh;
-          min-height: 100vh; /* iPad-Safari sticky + 100dvh fallback */
+          min-height: 100vh; /* iPad-Safari 100dvh quirk fallback */
           transform: none;
           transition: none;
           box-shadow: none;
           border-right: var(--border-hairline-strong);
-          grid-column: 1;
-          grid-row: 1 / -1;
-          align-self: start;
         }
         .drawer.open {
           transform: none;
           box-shadow: none;
         }
+        /* Mobile overlay, hamburger trigger and the drawer-head's close
+           button are no longer needed. The "PocketLog" title stays —
+           it's the sidebar's brand mark. */
         .drawer-overlay,
         .hamburger-btn,
-        .drawer-head {
+        .drawer-close-btn {
           display: none;
         }
-        /* Drawer subpanels keep their nested navigation; no head means
-           subpanels need their own safe-area top padding. */
-        .drawer-panel {
-          padding-top: var(--space-16);
+        .drawer-head {
+          justify-content: flex-start;
         }
 
-        /* Header / summary / panels stack in the content column. */
-        .header,
+        /* Header / summary / panels keep their natural block flow inside
+           the padded shell. Inner content stays capped at the panel
+           column width so list rows, month nav and summary cards all
+           line up under each other instead of stretching across wide
+           landscape iPads. */
+        .header-top,
         .summary,
-        .panel,
-        .bottom-bar {
-          grid-column: 2;
-        }
         .panel {
           max-width: var(--app-max-content);
           margin-inline: auto;
-          /* Bottom bar stays floating in tablet mode too; keep the same
-             reserve so list rows aren't hidden behind it. */
         }
 
-        /* Bottom bar stays floating but only over the content column. */
+        /* Bottom bar stays floating but only over the content column —
+           pin its left edge to the sidebar's right edge so it never
+           slides under the drawer. Width tracks the same max as the
+           panel column so it lines up with the list above it. */
         .bottom-bar {
-          left: auto;
-          right: var(--space-20);
+          left: var(--app-sidebar-width);
+          right: 0;
           transform: none;
-          width: min(calc(var(--app-max-content) - 2 * var(--space-20)), calc(100vw - var(--app-sidebar-width) - 2 * var(--space-20)));
+          width: auto;
+          max-width: calc(var(--app-max-content) - 2 * var(--space-20));
           margin-inline: auto;
         }
 
@@ -2740,8 +2742,13 @@
       }
 
       @media (min-width: 1024px) {
+        .header-top,
+        .summary,
         .panel {
           max-width: var(--app-max-content-lg);
+        }
+        .bottom-bar {
+          max-width: calc(var(--app-max-content-lg) - 2 * var(--space-20));
         }
         .report-canvas-wrap,
         .report-canvas-wrap canvas {
