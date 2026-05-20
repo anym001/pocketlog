@@ -17,6 +17,8 @@ frontend renders gracefully.
 """
 from typing import Sequence, Union
 
+import re
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -24,6 +26,14 @@ revision: str = "0005_category_icon_ids"
 down_revision: Union[str, None] = "0004_user_settings"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+
+def _dialect_is_sqlite() -> bool:
+    return op.get_bind().dialect.name == "sqlite"
+
+
+# Mirrors the MariaDB REGEXP `^[a-z0-9][a-z0-9-]*$` used below.
+_VALID_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
 # Mapping from previously-stored emoji glyphs to the icon IDs in the new
@@ -99,14 +109,16 @@ EMOJI_TO_ID: dict[str, str] = {
 
 def upgrade() -> None:
     # Widen first so the longer slugs (`shopping-cart`, `film-strip`, …)
-    # fit before we rewrite any rows.
-    op.alter_column(
-        "categories",
-        "icon",
-        existing_type=sa.String(8),
-        type_=sa.String(64),
-        existing_nullable=False,
-    )
+    # fit before we rewrite any rows. batch_alter_table is required on
+    # SQLite for any ALTER COLUMN; on MariaDB it just emits a direct
+    # ALTER TABLE.
+    with op.batch_alter_table("categories") as batch:
+        batch.alter_column(
+            "icon",
+            existing_type=sa.String(8),
+            type_=sa.String(64),
+            existing_nullable=False,
+        )
 
     # Remap stored emoji glyphs to the new icon IDs.
     for emoji, slug in EMOJI_TO_ID.items():
@@ -121,12 +133,26 @@ def upgrade() -> None:
     # unknown IDs as that glyph too, but storing the canonical slug keeps
     # the DB self-consistent and lets the API validation pass on later
     # edits.
-    op.execute(
-        sa.text(
-            "UPDATE categories SET icon = 'package' "
-            "WHERE icon NOT REGEXP '^[a-z0-9][a-z0-9-]*$'"
+    #
+    # REGEXP is MariaDB-only; on SQLite we fetch the affected rows and
+    # filter in Python.
+    if _dialect_is_sqlite():
+        bind = op.get_bind()
+        rows = bind.execute(sa.text("SELECT id, icon FROM categories")).fetchall()
+        bad_ids = [row.id for row in rows if not _VALID_SLUG.match(row.icon or "")]
+        if bad_ids:
+            bind.execute(
+                sa.text("UPDATE categories SET icon = 'package' WHERE id IN :ids")
+                .bindparams(sa.bindparam("ids", expanding=True)),
+                {"ids": bad_ids},
+            )
+    else:
+        op.execute(
+            sa.text(
+                "UPDATE categories SET icon = 'package' "
+                "WHERE icon NOT REGEXP '^[a-z0-9][a-z0-9-]*$'"
+            )
         )
-    )
 
 
 def downgrade() -> None:
@@ -151,13 +177,17 @@ def downgrade() -> None:
             )
         )
     # Anything left that's longer than 8 chars (other Phosphor IDs) → box.
+    # SQLite uses LENGTH() for character count (TEXT semantics); MariaDB
+    # has both LENGTH (bytes) and CHAR_LENGTH (characters), and only the
+    # latter is correct for multi-byte slugs.
+    length_fn = "LENGTH" if _dialect_is_sqlite() else "CHAR_LENGTH"
     op.execute(
-        sa.text("UPDATE categories SET icon = '📦' WHERE CHAR_LENGTH(icon) > 8")
+        sa.text(f"UPDATE categories SET icon = '📦' WHERE {length_fn}(icon) > 8")
     )
-    op.alter_column(
-        "categories",
-        "icon",
-        existing_type=sa.String(64),
-        type_=sa.String(8),
-        existing_nullable=False,
-    )
+    with op.batch_alter_table("categories") as batch:
+        batch.alter_column(
+            "icon",
+            existing_type=sa.String(64),
+            type_=sa.String(8),
+            existing_nullable=False,
+        )

@@ -13,6 +13,10 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 
+# SQLite dev/test databases (DATABASE_URL=sqlite:///…)
+backend/*.db
+backend/*.db-journal
+
 # Editor / OS
 .vscode/
 .idea/

@@ -23,6 +23,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        render_as_batch=DATABASE_URL.startswith("sqlite"),
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -35,7 +36,15 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        is_sqlite = connection.dialect.name == "sqlite"
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            # SQLite's ALTER TABLE is severely limited; batch mode
+            # recreates tables under the hood so alter_column / drop_column
+            # work the same way on both dialects.
+            render_as_batch=is_sqlite,
+        )
         with context.begin_transaction():
             context.run_migrations()
 

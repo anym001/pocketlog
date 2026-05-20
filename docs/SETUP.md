@@ -49,3 +49,57 @@ let API = (localStorage.getItem(API_BASE_KEY) || '').trim().replace(/\/+$/, '');
 API = API ? API + '/api' : '/api';
 const data = await api('GET', '/transactions?year=2026&month=5');
 ```
+
+## Entwicklung & Tests mit SQLite
+
+Für lokale Entwicklung und die pytest-Suite kann PocketLog gegen ein
+SQLite-File-Backend laufen — keine MariaDB nötig.
+
+> **Nicht für Produktion.** SQLite ist single-writer und für die
+> Multi-User-Concurrency-Anforderungen von PocketLog nicht geeignet.
+> Produktions-Setups bleiben bei MariaDB.
+
+Wenn die Env-Variable `DATABASE_URL` gesetzt ist, hat sie Vorrang vor
+den `DB_*`-Variablen. Beispiel:
+
+```bash
+cd backend
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt    # production + pytest/httpx
+
+# Migrationen gegen frische SQLite-DB laufen lassen
+DATABASE_URL="sqlite:///./pocketlog-dev.db" .venv/bin/alembic upgrade head
+
+# Dev-Server starten (AUTH_SECRET leer = Auth-Check übersprungen, nur lokal!)
+DATABASE_URL="sqlite:///./pocketlog-dev.db" \
+  .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+### Tests laufen lassen
+
+```bash
+cd backend
+.venv/bin/pytest                  # alle Smoke-Tests
+.venv/bin/pytest -x -v            # erster Fehler stoppt, mit Detail
+```
+
+Die Suite nutzt eine eigene SQLite-DB (`backend/test-pocketlog.db`,
+automatisch erstellt und nach dem Run entfernt). Jeder Test bekommt
+einen einzigartigen `X-Authentik-Username`, damit Daten zwischen Tests
+isoliert bleiben.
+
+### Migrations-Hinweis für künftige Revisionen
+
+Neue Alembic-Revisionen müssen auf beiden Dialekten laufen — die CI/Dev-
+Welt nutzt SQLite, die Produktion MariaDB. Konkrete Stolpersteine:
+
+- `UPDATE ... JOIN` und andere MariaDB-Erweiterungen über
+  `op.get_bind().dialect.name == "sqlite"`-Zweig nach SQLite-Subqueries
+  umsetzen (siehe `0002_user_id_fk.py`).
+- `REGEXP`, `CHAR_LENGTH` und ähnliche Funktionen sind MariaDB-only;
+  SQLite-Pfad nutzt Python-Loop bzw. `LENGTH` (siehe
+  `0005_category_icon_ids.py`).
+- Schema-Mutationen wie `drop_constraint`, `alter_column`, `drop_column`
+  IMMER in einen `with op.batch_alter_table(...) as batch:`-Block packen.
+  Auf SQLite ist das Pflicht; auf MariaDB ist es ein transparenter
+  Wrapper, der direkt ALTER TABLE emittiert.
