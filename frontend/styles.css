@@ -152,7 +152,6 @@
         --icon-list-sm: 38px; /* .cat-icon (category-breakdown icon) */
         --swipe-action-w: 92px; /* .tx-action reveal width on swipe-to-delete */
         --cat-bar-h: 5px; /* .cat-bar progress-bar height */
-        --r-fab: 18px; /* FAB radius (between --r-md 16 and --r-lg 22) */
         --bottom-bar-clearance: 66px; /* space content panels reserve under the floating bottom bar */
 
         /* Adaptive layout — tablet/desktop shell. The breakpoints themselves
@@ -982,7 +981,10 @@
         background: var(--glass-thin);
         -webkit-backdrop-filter: var(--blur-regular);
         backdrop-filter: var(--blur-regular);
-        border-radius: var(--r-fab);
+        /* Match the search-wrap shape — both share the same floating
+           glass capsule, so the FAB is the circular end-cap of that
+           strip (Apple-Mail / Notes style). */
+        border-radius: var(--r-pill);
         border: var(--border-hairline);
         /* Match the search-icon tone in the adjoining search-wrap so the
            floating chrome on the bottom bar reads as a single object. */
