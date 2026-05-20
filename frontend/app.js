@@ -319,10 +319,18 @@
       // Apple-Mail style sidebar toggle (tablet only). The collapsed
       // class lives on <html> because the inline restore in index.html
       // runs before <body> exists; CSS targets html.sidebar-collapsed.
+      // The aria-pressed sync mirrors the visual state for screen readers
+      // — the icon swap (arrows-in ↔ arrows-out) is purely CSS-driven.
+      function _syncSidebarTogglePressed(collapsed) {
+        const btn = document.querySelector('.sidebar-toggle-btn');
+        if (btn) btn.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+      }
+
       function toggleSidebar() {
         const collapsed = document.documentElement.classList.toggle(
           'sidebar-collapsed'
         );
+        _syncSidebarTogglePressed(collapsed);
         try {
           localStorage.setItem(
             'pocketlog.sidebarCollapsed',
@@ -330,6 +338,13 @@
           );
         } catch (e) {}
       }
+
+      // app.js is loaded with `defer`, so the DOM is ready — sync the
+      // aria-pressed attribute with the class state set by the inline
+      // head boot script.
+      _syncSidebarTogglePressed(
+        document.documentElement.classList.contains('sidebar-collapsed')
+      );
 
       function openDrawer() {
         if (_mqTablet.matches) return;
@@ -347,7 +362,10 @@
         document.body.style.overflow = '';
         releaseFocusTrap('drawer');
         restoreModalFocus('drawer');
-        setTimeout(_drawerResetPanels, 380);
+        // _drawerStack and sub-panel data-state are deliberately kept:
+        // re-opening the drawer should land back on the last sub-panel
+        // the user was on (e.g. Auswertungen), not always reset to the
+        // top level. _drawerResetPanels is reserved for explicit resets.
       }
 
       // Rotate / resize crossing the tablet breakpoint while a mobile

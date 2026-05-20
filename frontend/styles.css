@@ -1058,6 +1058,18 @@
       .sidebar-toggle-btn {
         display: none;
       }
+      /* State-dependent icons (Apple Mail pattern). The button keeps both
+         glyphs in the DOM and CSS picks one to show based on the
+         sidebar-collapsed class on <html>. */
+      .sidebar-toggle-btn .st-expand {
+        display: none;
+      }
+      html.sidebar-collapsed .sidebar-toggle-btn .st-collapse {
+        display: none;
+      }
+      html.sidebar-collapsed .sidebar-toggle-btn .st-expand {
+        display: inline;
+      }
 
       /* ====== DRAWER ====== */
       .drawer-overlay {
