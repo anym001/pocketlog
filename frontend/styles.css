@@ -869,7 +869,7 @@
         padding: var(--space-2) var(--space-8);
         font-size: var(--fs-micro);
         font-weight: 500;
-        color: var(--text2);
+        color: var(--text);
         line-height: 1.4;
       }
       .t-amount {
