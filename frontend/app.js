@@ -637,7 +637,7 @@
                   return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
-          <div class="t-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="t-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <span class="visually-hidden">${cat.name}</span>
           <div class="t-info">
             <div class="t-note">${note}</div>
@@ -683,7 +683,7 @@
       aria-label="Kategorie „${r.name}“ bearbeiten"
       onclick="openModalForCategory(${r.id})"
       onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
-      <span class="cat-view-icon" style="background:color-mix(in oklab, ${r.color} 13%, transparent); color:${r.color}">${catIconSvg(r.icon)}</span>
+      <span class="cat-view-icon" style="--cat-color:${r.color}">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${r.name}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
       <button
@@ -1100,7 +1100,7 @@
           ? `role="button" tabindex="0" onclick="drillDownCategory(${catId})" onkeydown="handleRowActivate(event, () => drillDownCategory(${catId}))"`
           : '';
         return `<div class="cat-row" ${drill}>
-          <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="cat-info">
             <div class="cat-name">${cat.name}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${cat.color}"></div></div>
@@ -1119,7 +1119,7 @@
         return `<div class="report-tx-row" role="button" tabindex="0"
           onclick="editTransaction(${t.id})"
           onkeydown="handleRowActivate(event, () => editTransaction(${t.id}))">
-          <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="report-tx-main">
             <div class="report-tx-desc">${t.desc || cat.name}</div>
             <div class="report-tx-meta">${cat.name} · ${dateLbl}</div>
@@ -1424,7 +1424,7 @@
           ? `role="button" tabindex="0" data-tag-drill="${attrName}"`
           : '';
         return `<div class="cat-row" ${drill}>
-          <div class="cat-icon" style="background:color-mix(in oklab, ${color} 13%, transparent); color:${color}">#</div>
+          <div class="cat-icon" style="--cat-color:${color}">#</div>
           <div class="cat-info">
             <div class="cat-name">${_escText(name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>

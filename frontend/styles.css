@@ -363,6 +363,18 @@
         background: radial-gradient(closest-side, rgba(255, 220, 180, 0.1), transparent 70%);
       }
 
+      /* Dark mode: category palette is tuned for light backgrounds, so
+         glyph contrast collapses on the dark canvas (a dark brown / forest
+         icon on near-black looks black). Override the icon color to
+         --text (same hue as the note next to it) so the glyph reads
+         clearly; the cat-color stays as the background tint, keeping
+         categories visually distinguishable. */
+      html[data-dark='true'] .t-icon,
+      html[data-dark='true'] .cat-view-icon,
+      html[data-dark='true'] .cat-icon {
+        color: var(--text);
+      }
+
       @keyframes ambient-drift {
         0% {
           transform: translate3d(-4%, -2%, 0) scale(1);
@@ -669,8 +681,8 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        background: var(--surface-tint);
-        color: var(--text);
+        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
+        color: var(--cat-color, var(--text));
         box-shadow:
           inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
           inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
@@ -813,8 +825,12 @@
         justify-content: center;
         font-size: var(--btn-icon-size);
         flex-shrink: 0;
-        background: var(--surface-tint);
-        color: var(--text);
+        /* --cat-color is set inline per row. Background stays a soft tint
+           in both themes; the glyph itself reads as cat-color in light
+           mode and switches to --text in dark mode (override below) so
+           the dark-on-dark category palette doesn't disappear. */
+        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
+        color: var(--cat-color, var(--text));
         box-shadow:
           inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
           inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
@@ -887,6 +903,8 @@
         justify-content: center;
         font-size: var(--fs-icon-sm);
         flex-shrink: 0;
+        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
+        color: var(--cat-color, var(--text));
         box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.6);
         border: var(--border-hairline);
       }
