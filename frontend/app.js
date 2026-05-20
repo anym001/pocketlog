@@ -1609,12 +1609,16 @@
         rememberModalFocus('booking');
         currentTags = tx?.tags ? [...tx.tags] : [];
         document.getElementById('inputAmount').value =
-          tx?.amount != null ? Number(tx.amount).toFixed(2) : '';
+          tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
         document.getElementById('inputDesc').value = tx?.desc || '';
         document.getElementById('inputDate').value =
           tx?.date || new Date().toISOString().split('T')[0];
         const catSel = document.getElementById('inputCat');
-        catSel.innerHTML = categories
+        // Alphabetical de_DE sort — consistent with renderCategories()
+        // and renderCategoryView() so the user sees the same order
+        // wherever they look at categories.
+        catSel.innerHTML = [...categories]
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
           .map((c) => `<option value="${c.id}">${c.name}</option>`)
           .join('');
         if (tx) catSel.value = tx.category_id;
@@ -1686,10 +1690,27 @@
           type === 'out' ? 'Ausgabe speichern' : 'Einnahme speichern';
       }
 
+      // The amount field is type="text" so iOS shows the decimal keypad
+      // (which uses a comma on de_DE), so we accept both `,` and `.` as
+      // the decimal separator here. Used by both the on-blur normalize
+      // and by the save handler.
+      function parseAmount(raw) {
+        if (raw == null) return NaN;
+        return parseFloat(String(raw).trim().replace(',', '.'));
+      }
+
+      // Display the amount in the input with the German decimal comma so
+      // it matches what the user typed on the iOS decimal keypad and the
+      // formatted output everywhere else (fmtCurrency). No thousand
+      // separator — keeps round-tripping through parseAmount() lossless.
+      function _formatAmountInput(n) {
+        return n.toFixed(2).replace('.', ',');
+      }
+
       function normalizeAmountInput() {
         const inp = document.getElementById('inputAmount');
-        const n = parseFloat(inp.value);
-        if (!isNaN(n)) inp.value = n.toFixed(2);
+        const n = parseAmount(inp.value);
+        if (!isNaN(n)) inp.value = _formatAmountInput(n);
       }
 
       function removeTag(t) {
@@ -1710,7 +1731,7 @@
       }
 
       async function addTransaction() {
-        const amount = parseFloat(document.getElementById('inputAmount').value);
+        const amount = parseAmount(document.getElementById('inputAmount').value);
         const desc = document.getElementById('inputDesc').value.trim();
         const cat = parseInt(document.getElementById('inputCat').value);
         const date = document.getElementById('inputDate').value;
