@@ -1609,7 +1609,7 @@
         rememberModalFocus('booking');
         currentTags = tx?.tags ? [...tx.tags] : [];
         document.getElementById('inputAmount').value =
-          tx?.amount != null ? Number(tx.amount).toFixed(2) : '';
+          tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
         document.getElementById('inputDesc').value = tx?.desc || '';
         document.getElementById('inputDate').value =
           tx?.date || new Date().toISOString().split('T')[0];
@@ -1695,10 +1695,18 @@
         return parseFloat(String(raw).trim().replace(',', '.'));
       }
 
+      // Display the amount in the input with the German decimal comma so
+      // it matches what the user typed on the iOS decimal keypad and the
+      // formatted output everywhere else (fmtCurrency). No thousand
+      // separator — keeps round-tripping through parseAmount() lossless.
+      function _formatAmountInput(n) {
+        return n.toFixed(2).replace('.', ',');
+      }
+
       function normalizeAmountInput() {
         const inp = document.getElementById('inputAmount');
         const n = parseAmount(inp.value);
-        if (!isNaN(n)) inp.value = n.toFixed(2);
+        if (!isNaN(n)) inp.value = _formatAmountInput(n);
       }
 
       function removeTag(t) {
