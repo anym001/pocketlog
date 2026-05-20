@@ -152,7 +152,6 @@
         --icon-list-sm: 38px; /* .cat-icon (category-breakdown icon) */
         --swipe-action-w: 92px; /* .tx-action reveal width on swipe-to-delete */
         --cat-bar-h: 5px; /* .cat-bar progress-bar height */
-        --r-fab: 18px; /* FAB radius (between --r-md 16 and --r-lg 22) */
         --bottom-bar-clearance: 66px; /* space content panels reserve under the floating bottom bar */
 
         /* Adaptive layout — tablet/desktop shell. The breakpoints themselves
@@ -558,39 +557,21 @@
         isolation: isolate;
         flex-shrink: 0;
       }
+      /* Same chrome as a .transaction row — plain bg-canvas, hairline,
+         soft shadow. The earlier tinted background and specular sheen
+         made the summary cards read as a different material than the
+         list rows directly below them. */
       .summary-card {
         position: relative;
-        background: color-mix(in oklab, var(--text) 4%, var(--bg-canvas));
+        background: var(--bg-canvas);
         border: var(--border-hairline);
         border-radius: var(--r-md);
         padding: var(--space-10) var(--space-14);
         box-shadow: var(--shadow-soft);
-        overflow: hidden;
-        isolation: isolate;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: var(--space-8);
-      }
-      /* Specular sheen on every glass card */
-      .summary-card::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        background: linear-gradient(
-          155deg,
-          rgba(255, 255, 255, 0.55) 0%,
-          rgba(255, 255, 255, 0.05) 35%,
-          transparent 70%
-        );
-        pointer-events: none;
-        z-index: 1;
-        mix-blend-mode: overlay;
-      }
-      .summary-card > * {
-        position: relative;
-        z-index: 2;
       }
       .summary-card .label {
         font-size: var(--fs-micro);
@@ -1000,7 +981,10 @@
         background: var(--glass-thin);
         -webkit-backdrop-filter: var(--blur-regular);
         backdrop-filter: var(--blur-regular);
-        border-radius: var(--r-fab);
+        /* Match the search-wrap shape — both share the same floating
+           glass capsule, so the FAB is the circular end-cap of that
+           strip (Apple-Mail / Notes style). */
+        border-radius: var(--r-pill);
         border: var(--border-hairline);
         /* Match the search-icon tone in the adjoining search-wrap so the
            floating chrome on the bottom bar reads as a single object. */
@@ -1016,14 +1000,6 @@
         overflow: hidden;
         isolation: isolate;
         position: relative;
-      }
-      .fab::before {
-        content: '';
-        position: absolute;
-        inset: 1px;
-        border-radius: calc(var(--r-fab) - 1px);
-        background: linear-gradient(170deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%);
-        pointer-events: none;
       }
       .fab:active {
         transform: scale(0.92);
@@ -1770,11 +1746,19 @@
         background: none;
       }
 
-      /* Category icon picker (Phosphor sprite, see frontend/icons/categories/sprite.svg) */
+      /* Category icon picker (Phosphor sprite, see frontend/icons/categories/sprite.svg).
+         The sprite sets fill="currentColor" on its outer <svg>, but <use>
+         clones the <symbol> shadow tree without inheriting attributes
+         from the sprite's outer wrapper — so the cloned <path> falls
+         back to SVG's default fill (black). Pinning fill: currentColor
+         here on the rendering <svg> lets the glyph pick up the color
+         we set on its container (.t-icon, .cat-view-icon, .cat-icon),
+         which is also what the dark-mode override depends on. */
       .cat-glyph {
         width: 60%;
         height: 60%;
         display: block;
+        fill: currentColor;
       }
       .cat-pill-glyph {
         display: inline-flex;

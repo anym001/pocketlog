@@ -611,12 +611,16 @@
           aria-label="Seitenleiste umschalten"
           title="Seitenleiste umschalten"
         >
-          <!-- Two state-dependent icons (Apple Mail pattern): "arrows-in"
-               appears while the sidebar is visible (click → collapses),
-               "arrows-out" appears while the sidebar is hidden (click →
-               expands). CSS swaps them via html.sidebar-collapsed. -->
-          <svg class="ui-icon st-icon st-collapse" aria-hidden="true"><use href="#icon-arrows-in" /></svg>
-          <svg class="ui-icon st-icon st-expand" aria-hidden="true"><use href="#icon-arrows-out" /></svg>
+          <!-- Two state-dependent icons. Mental model: the icon hints
+               at what's about to happen to the *content area* on click.
+               Sidebar visible → click hides it → content expands →
+               arrows-out (st-collapse class). Sidebar hidden → click
+               brings it back → content shrinks → arrows-in (st-expand
+               class). The class names are kept symbolic ("collapse" =
+               the collapse-action button, "expand" = the expand-action
+               button) so the CSS swap rules stay readable. -->
+          <svg class="ui-icon st-icon st-collapse" aria-hidden="true"><use href="#icon-arrows-out" /></svg>
+          <svg class="ui-icon st-icon st-expand" aria-hidden="true"><use href="#icon-arrows-in" /></svg>
         </button>
         <div class="month-nav">
           <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">
