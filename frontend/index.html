@@ -29,6 +29,17 @@
         var isDark = manual === 'dark' || (manual !== 'light' && prefersDark);
         html.setAttribute('data-dark', isDark ? 'true' : 'false');
       })();
+      // Restore the sidebar-collapsed state before first paint so the
+      // tablet sidebar doesn't animate in on every page load. The class
+      // sits on <html> because <body> doesn't exist yet at head-parse
+      // time; CSS targets html.sidebar-collapsed for the same reason.
+      (function () {
+        try {
+          if (localStorage.getItem('pocketlog.sidebarCollapsed') === '1') {
+            document.documentElement.classList.add('sidebar-collapsed');
+          }
+        } catch (e) {}
+      })();
     </script>
     <script src="/vendor/chart.umd.min.js"></script>
     <script src="/db.js" defer></script>
@@ -133,6 +144,34 @@
           <circle cx="12" cy="5" r="2" />
           <circle cx="12" cy="12" r="2" />
           <circle cx="12" cy="19" r="2" />
+        </symbol>
+        <symbol
+          id="icon-arrows-in"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="4" y1="4" x2="10" y2="10" />
+          <polyline points="4 10 10 10 10 4" />
+          <line x1="20" y1="20" x2="14" y2="14" />
+          <polyline points="20 14 14 14 14 20" />
+        </symbol>
+        <symbol
+          id="icon-arrows-out"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="4" y1="4" x2="10" y2="10" />
+          <polyline points="4 10 4 4 10 4" />
+          <line x1="20" y1="20" x2="14" y2="14" />
+          <polyline points="20 14 20 20 14 20" />
         </symbol>
       </defs>
     </svg>
@@ -564,6 +603,20 @@
       <div class="header-top">
         <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
           <svg class="ui-icon" aria-hidden="true"><use href="#icon-menu" /></svg>
+        </button>
+        <button
+          class="sidebar-toggle-btn"
+          onclick="toggleSidebar()"
+          aria-pressed="false"
+          aria-label="Seitenleiste umschalten"
+          title="Seitenleiste umschalten"
+        >
+          <!-- Two state-dependent icons (Apple Mail pattern): "arrows-in"
+               appears while the sidebar is visible (click → collapses),
+               "arrows-out" appears while the sidebar is hidden (click →
+               expands). CSS swaps them via html.sidebar-collapsed. -->
+          <svg class="ui-icon st-icon st-collapse" aria-hidden="true"><use href="#icon-arrows-in" /></svg>
+          <svg class="ui-icon st-icon st-expand" aria-hidden="true"><use href="#icon-arrows-out" /></svg>
         </button>
         <div class="month-nav">
           <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">

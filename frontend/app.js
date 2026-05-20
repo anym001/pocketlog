@@ -316,6 +316,36 @@
       // styles.css (see "ADAPTIVE LAYOUT" block).
       const _mqTablet = window.matchMedia('(min-width: 768px)');
 
+      // Apple-Mail style sidebar toggle (tablet only). The collapsed
+      // class lives on <html> because the inline restore in index.html
+      // runs before <body> exists; CSS targets html.sidebar-collapsed.
+      // The aria-pressed sync mirrors the visual state for screen readers
+      // — the icon swap (arrows-in ↔ arrows-out) is purely CSS-driven.
+      function _syncSidebarTogglePressed(collapsed) {
+        const btn = document.querySelector('.sidebar-toggle-btn');
+        if (btn) btn.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+      }
+
+      function toggleSidebar() {
+        const collapsed = document.documentElement.classList.toggle(
+          'sidebar-collapsed'
+        );
+        _syncSidebarTogglePressed(collapsed);
+        try {
+          localStorage.setItem(
+            'pocketlog.sidebarCollapsed',
+            collapsed ? '1' : '0'
+          );
+        } catch (e) {}
+      }
+
+      // app.js is loaded with `defer`, so the DOM is ready — sync the
+      // aria-pressed attribute with the class state set by the inline
+      // head boot script.
+      _syncSidebarTogglePressed(
+        document.documentElement.classList.contains('sidebar-collapsed')
+      );
+
       function openDrawer() {
         if (_mqTablet.matches) return;
         rememberModalFocus('drawer');
@@ -332,7 +362,10 @@
         document.body.style.overflow = '';
         releaseFocusTrap('drawer');
         restoreModalFocus('drawer');
-        setTimeout(_drawerResetPanels, 380);
+        // _drawerStack and sub-panel data-state are deliberately kept:
+        // re-opening the drawer should land back on the last sub-panel
+        // the user was on (e.g. Auswertungen), not always reset to the
+        // top level. _drawerResetPanels is reserved for explicit resets.
       }
 
       // Rotate / resize crossing the tablet breakpoint while a mobile
@@ -604,7 +637,7 @@
                   return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
-          <div class="t-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="t-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <span class="visually-hidden">${cat.name}</span>
           <div class="t-info">
             <div class="t-note">${note}</div>
@@ -650,7 +683,7 @@
       aria-label="Kategorie „${r.name}“ bearbeiten"
       onclick="openModalForCategory(${r.id})"
       onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
-      <span class="cat-view-icon" style="background:color-mix(in oklab, ${r.color} 13%, transparent); color:${r.color}">${catIconSvg(r.icon)}</span>
+      <span class="cat-view-icon" style="--cat-color:${r.color}">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${r.name}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
       <button
@@ -1067,7 +1100,7 @@
           ? `role="button" tabindex="0" onclick="drillDownCategory(${catId})" onkeydown="handleRowActivate(event, () => drillDownCategory(${catId}))"`
           : '';
         return `<div class="cat-row" ${drill}>
-          <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="cat-info">
             <div class="cat-name">${cat.name}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${cat.color}"></div></div>
@@ -1086,7 +1119,7 @@
         return `<div class="report-tx-row" role="button" tabindex="0"
           onclick="editTransaction(${t.id})"
           onkeydown="handleRowActivate(event, () => editTransaction(${t.id}))">
-          <div class="cat-icon" style="background:color-mix(in oklab, ${cat.color} 13%, transparent); color:${cat.color}">${catIconSvg(cat.icon)}</div>
+          <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="report-tx-main">
             <div class="report-tx-desc">${t.desc || cat.name}</div>
             <div class="report-tx-meta">${cat.name} · ${dateLbl}</div>
@@ -1391,7 +1424,7 @@
           ? `role="button" tabindex="0" data-tag-drill="${attrName}"`
           : '';
         return `<div class="cat-row" ${drill}>
-          <div class="cat-icon" style="background:color-mix(in oklab, ${color} 13%, transparent); color:${color}">#</div>
+          <div class="cat-icon" style="--cat-color:${color}">#</div>
           <div class="cat-info">
             <div class="cat-name">${_escText(name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
