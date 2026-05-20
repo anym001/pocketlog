@@ -1686,9 +1686,18 @@
           type === 'out' ? 'Ausgabe speichern' : 'Einnahme speichern';
       }
 
+      // The amount field is type="text" so iOS shows the decimal keypad
+      // (which uses a comma on de_DE), so we accept both `,` and `.` as
+      // the decimal separator here. Used by both the on-blur normalize
+      // and by the save handler.
+      function parseAmount(raw) {
+        if (raw == null) return NaN;
+        return parseFloat(String(raw).trim().replace(',', '.'));
+      }
+
       function normalizeAmountInput() {
         const inp = document.getElementById('inputAmount');
-        const n = parseFloat(inp.value);
+        const n = parseAmount(inp.value);
         if (!isNaN(n)) inp.value = n.toFixed(2);
       }
 
@@ -1710,7 +1719,7 @@
       }
 
       async function addTransaction() {
-        const amount = parseFloat(document.getElementById('inputAmount').value);
+        const amount = parseAmount(document.getElementById('inputAmount').value);
         const desc = document.getElementById('inputDesc').value.trim();
         const cat = parseInt(document.getElementById('inputCat').value);
         const date = document.getElementById('inputDate').value;
