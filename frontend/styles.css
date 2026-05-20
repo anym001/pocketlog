@@ -2642,50 +2642,6 @@
          Mobile-first base above is untouched. Two literal breakpoints
          (CSS limitation; tokens documented in :root above). */
 
-      /* Hover-only affordances. Touch devices (`hover: none` or coarse
-         pointer) never see this — swipe-to-delete stays the only delete
-         mechanism on iPhone/iPad. Only the transaction list gets the
-         shortcut; categories and tags have explicit delete buttons in
-         their management subpanels. */
-      @media (hover: hover) and (pointer: fine) {
-        .tx-row .tx-hover-delete {
-          position: absolute;
-          right: var(--space-12);
-          top: 50%;
-          transform: translateY(-50%);
-          width: var(--btn-chrome-size);
-          height: var(--btn-chrome-size);
-          border: none;
-          background: var(--glass-thin);
-          -webkit-backdrop-filter: var(--blur-thin);
-          backdrop-filter: var(--blur-thin);
-          border-radius: 50%;
-          color: var(--red);
-          font-size: var(--btn-icon-size);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity var(--dur-medium) var(--ease-soft);
-          z-index: 3;
-        }
-        .tx-row:hover .tx-hover-delete {
-          opacity: 1;
-          pointer-events: auto;
-        }
-        .tx-row.swiped .tx-hover-delete,
-        .tx-row.dragging .tx-hover-delete {
-          display: none;
-        }
-        .tx-hover-delete:focus-visible {
-          opacity: 1;
-          outline: none;
-          box-shadow: var(--focus-ring);
-        }
-      }
-
       @keyframes fadeScaleIn {
         from {
           opacity: 0;
