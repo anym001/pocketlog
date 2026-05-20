@@ -1614,7 +1614,11 @@
         document.getElementById('inputDate').value =
           tx?.date || new Date().toISOString().split('T')[0];
         const catSel = document.getElementById('inputCat');
-        catSel.innerHTML = categories
+        // Alphabetical de_DE sort — consistent with renderCategories()
+        // and renderCategoryView() so the user sees the same order
+        // wherever they look at categories.
+        catSel.innerHTML = [...categories]
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
           .map((c) => `<option value="${c.id}">${c.name}</option>`)
           .join('');
         if (tx) catSel.value = tx.category_id;
