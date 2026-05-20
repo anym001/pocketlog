@@ -2700,20 +2700,115 @@
       }
 
       // ── INFO PANEL ────────────────────────────────────────────────────────────────
+      // Beste-Aufwand-Erkennung. UA-Strings sind notorisch unzuverlässig —
+      // diese Werte sind ausschließlich für Debug-Anzeige gedacht, niemals
+      // als Logik-Schalter.
+      function _detectPlatform() {
+        const ua = navigator.userAgent || '';
+        const touch = navigator.maxTouchPoints || 0;
+        const fmt = (a, b, c) => `${a}.${b}${c ? '.' + c : ''}`;
+        let m;
+        // iPad: 'iPad'-Marker (älteres iOS) ODER 'Macintosh' + Touch (iPadOS 13+).
+        if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) {
+          m = ua.match(/(?:CPU OS|iPhone OS) (\d+)[._](\d+)(?:[._](\d+))?/);
+          return m ? `iPad · iPadOS ${fmt(m[1], m[2], m[3])}` : 'iPad';
+        }
+        if (/iPhone/.test(ua)) {
+          m = ua.match(/iPhone OS (\d+)[._](\d+)(?:[._](\d+))?/);
+          return m ? `iPhone · iOS ${fmt(m[1], m[2], m[3])}` : 'iPhone';
+        }
+        if (/Android/.test(ua)) {
+          const v = ua.match(/Android (\d+(?:\.\d+)*)/);
+          // Modell steht hinter dem zweiten Semikolon und vor ' Build/' bzw. ')'.
+          const mm = ua.match(/Android[^;]*;[^;]*;\s*([^;)]+?)(?:\s+Build|\))/)
+                  || ua.match(/;\s*([^;)]+)\s+Build\//);
+          const model = mm ? mm[1].trim() : '';
+          return `Android${v ? ' ' + v[1] : ''}${model ? ' · ' + model : ''}`;
+        }
+        if (/Macintosh/.test(ua)) {
+          m = ua.match(/Mac OS X (\d+)[._](\d+)(?:[._](\d+))?/);
+          return m ? `Mac · macOS ${fmt(m[1], m[2], m[3])}` : 'Mac';
+        }
+        if (/Windows NT/.test(ua)) {
+          m = ua.match(/Windows NT (\d+\.\d+)/);
+          const map = { '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7' };
+          return m ? `Windows ${map[m[1]] || m[1]}` : 'Windows';
+        }
+        if (/CrOS/.test(ua)) return 'ChromeOS';
+        if (/Linux/.test(ua)) return 'Linux';
+        return 'Unbekannt';
+      }
+
+      function _detectBrowser() {
+        const ua = navigator.userAgent || '';
+        let m;
+        // iOS-Alternativbrowser sind alle WebKit, lassen sich aber am
+        // herstellerspezifischen Token erkennen — wichtig vor dem Safari-Match.
+        if ((m = ua.match(/CriOS\/(\d+(?:\.\d+)?)/))) return 'Chrome iOS ' + m[1];
+        if ((m = ua.match(/FxiOS\/(\d+(?:\.\d+)?)/))) return 'Firefox iOS ' + m[1];
+        if ((m = ua.match(/EdgiOS\/(\d+(?:\.\d+)?)/))) return 'Edge iOS ' + m[1];
+        if ((m = ua.match(/Edg\/(\d+(?:\.\d+)?)/))) return 'Edge ' + m[1];
+        if ((m = ua.match(/OPR\/(\d+(?:\.\d+)?)/))) return 'Opera ' + m[1];
+        if ((m = ua.match(/Firefox\/(\d+(?:\.\d+)?)/))) return 'Firefox ' + m[1];
+        if (/Chrome\//.test(ua) && !/Edg|OPR/.test(ua)) {
+          m = ua.match(/Chrome\/(\d+(?:\.\d+)?)/);
+          return m ? 'Chrome ' + m[1] : 'Chrome';
+        }
+        if (/Safari\//.test(ua) && (m = ua.match(/Version\/(\d+(?:\.\d+)?)/))) {
+          return 'Safari ' + m[1];
+        }
+        return '–';
+      }
+
+      function _detectDisplayMode() {
+        if (window.matchMedia('(display-mode: standalone)').matches) return 'PWA (standalone)';
+        if (window.matchMedia('(display-mode: minimal-ui)').matches) return 'PWA (minimal-ui)';
+        if (window.matchMedia('(display-mode: fullscreen)').matches) return 'Vollbild';
+        // iOS-Safari nutzt die nicht-standardisierte navigator.standalone-Flag
+        // statt display-mode, bis heute.
+        if (navigator.standalone === true) return 'PWA (Home-Bildschirm)';
+        return 'Browser-Tab';
+      }
+
+      function _detectPointer() {
+        const coarse = window.matchMedia('(pointer: coarse)').matches;
+        const fine = window.matchMedia('(pointer: fine)').matches;
+        const hover = window.matchMedia('(hover: hover)').matches;
+        const parts = [];
+        if (coarse && fine) parts.push('Touch + Maus');
+        else if (coarse) parts.push('Touch');
+        else if (fine) parts.push('Maus/Trackpad');
+        else parts.push('Unbekannt');
+        const touchPts = navigator.maxTouchPoints || 0;
+        if (touchPts > 0) parts.push(`max ${touchPts} Touch-Punkte`);
+        if (!hover) parts.push('kein Hover');
+        return parts.join(' · ');
+      }
+
       async function renderInfoPanel() {
         const set = (id, value) => {
           const el = document.getElementById(id);
           if (el) el.textContent = value;
         };
 
+        const dpr = window.devicePixelRatio || 1;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const sw = window.screen ? window.screen.width : 0;
+        const sh = window.screen ? window.screen.height : 0;
+
         set('infoBackendVersion', 'Wird geladen…');
         set('infoSwVersion', '–');
         set('infoOnline', navigator.onLine ? 'Online' : 'Offline');
+        set('infoPlatform', _detectPlatform());
+        set('infoBrowser', _detectBrowser());
+        set('infoDisplayMode', _detectDisplayMode());
+        set('infoPointer', _detectPointer());
+        set('infoViewport', `${vw} × ${vh} px`);
+        set('infoScreen', sw && sh ? `${sw} × ${sh} px` : '–');
+        set('infoDpr', `${dpr}× (${Math.round(dpr * 100) / 100})`);
+        set('infoPhysical', `${Math.round(vw * dpr)} × ${Math.round(vh * dpr)} px`);
         set('infoLang', navigator.language || '–');
-        set(
-          'infoViewport',
-          `${window.innerWidth}×${window.innerHeight} px @ ${window.devicePixelRatio || 1}×`
-        );
         set('infoUserAgent', navigator.userAgent || '–');
 
         // Service-Worker-Status + Cache-Version
