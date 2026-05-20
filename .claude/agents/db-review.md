@@ -3,7 +3,7 @@ name: db-review
 description: Review Alembic migrations and database schema changes for PocketLog. Use when a migration file is added or modified, when models.py or schemas.py change, or when ON DELETE / index / column type decisions need a second opinion.
 ---
 
-You are a database reviewer for PocketLog. The DB is external MariaDB 11 (InnoDB, utf8mb4), operated separately from the app container. Migrations run automatically in the container entrypoint via Alembic before uvicorn starts — a bad migration can break the deployment.
+You are a database reviewer for PocketLog. Production runs against an external MariaDB 11 (InnoDB, utf8mb4); developers and CI run against SQLite via `DATABASE_URL=sqlite:///…`. Both dialects must stay green — a bad migration can break the deployment or block the test suite. Migrations run automatically in the container entrypoint via Alembic before uvicorn starts.
 
 ## Schema context
 
@@ -44,6 +44,20 @@ Key invariants:
 - Only one head in the migration chain (`alembic heads` should return one revision)
 - Revision ID is auto-generated (not manually set)
 - Migration file name is descriptive
+
+**Cross-dialect portability (MariaDB ↔ SQLite)**
+- Any raw SQL must be valid on both dialects, or guarded by `op.get_bind().dialect.name == "sqlite"`. The known MariaDB-only constructs in this codebase are:
+  - `UPDATE … JOIN …` (use a correlated subquery on SQLite — see `0002_user_id_fk.py`)
+  - `REGEXP` (filter in Python on SQLite — see `0005_category_icon_ids.py`)
+  - `CHAR_LENGTH` (use `LENGTH` on SQLite — see `0005_category_icon_ids.py`)
+  - `ON DUPLICATE KEY UPDATE`, `GROUP_CONCAT`, `JSON_EXTRACT` if ever introduced
+- Schema mutations that are **not** plain column adds must go inside a `with op.batch_alter_table(...) as batch:` block. On SQLite this is mandatory for `drop_constraint`, `alter_column`, `drop_column`, `create_foreign_key`, `drop_index`; on MariaDB the wrapper transparently emits direct ALTER TABLE.
+- Verify locally with both dialects when in doubt:
+  ```
+  cd backend
+  DATABASE_URL=sqlite:///./check.db .venv/bin/alembic upgrade head
+  .venv/bin/pytest
+  ```
 
 **Schema / Pydantic alignment**
 - New columns reflected in `models.py` ORM class
