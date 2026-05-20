@@ -277,7 +277,7 @@
       }
 
       const _drawerStack = [];
-      const _drawerSubs = ['dpReports', 'dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay', 'dpAdmin'];
+      const _drawerSubs = ['dpReports', 'dpSettings', 'dpCats', 'dpTags', 'dpImport', 'dpDisplay', 'dpAdmin', 'dpInfo'];
 
       function drawerNav(panelId) {
         const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
@@ -289,6 +289,7 @@
         if (panelId === 'dpTags') renderTagList();
         if (panelId === 'dpImport') loadApiBaseInput();
         if (panelId === 'dpDisplay') syncDefaultViewRadios();
+        if (panelId === 'dpInfo') renderInfoPanel();
       }
 
       function drawerBack() {
@@ -2696,6 +2697,199 @@
 
       async function resetAllData() {
         await _runReset('/admin/all-data', 'Alle Daten gelöscht.');
+      }
+
+      // ── INFO PANEL ────────────────────────────────────────────────────────────────
+      // Beste-Aufwand-Erkennung. UA-Strings sind notorisch unzuverlässig —
+      // diese Werte sind ausschließlich für Debug-Anzeige gedacht, niemals
+      // als Logik-Schalter.
+      function _detectPlatform() {
+        const ua = navigator.userAgent || '';
+        const touch = navigator.maxTouchPoints || 0;
+        const fmt = (a, b, c) => `${a}.${b}${c ? '.' + c : ''}`;
+        let m;
+        // iPad: 'iPad'-Marker (älteres iOS) ODER 'Macintosh' + Touch (iPadOS 13+).
+        // OS-Version absichtlich nicht — im Desktop-Spoof-UA nicht extrahierbar,
+        // im Legacy-Fall nur noch Edge-Case. Konsistent „iPad" zeigen.
+        if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) return 'iPad';
+        if (/iPhone/.test(ua)) {
+          m = ua.match(/iPhone OS (\d+)[._](\d+)(?:[._](\d+))?/);
+          return m ? `iPhone · iOS ${fmt(m[1], m[2], m[3])}` : 'iPhone';
+        }
+        if (/Android/.test(ua)) {
+          const v = ua.match(/Android (\d+(?:\.\d+)*)/);
+          // Modell steht hinter dem zweiten Semikolon und vor ' Build/' bzw. ')'.
+          const mm = ua.match(/Android[^;]*;[^;]*;\s*([^;)]+?)(?:\s+Build|\))/)
+                  || ua.match(/;\s*([^;)]+)\s+Build\//);
+          const model = mm ? mm[1].trim() : '';
+          return `Android${v ? ' ' + v[1] : ''}${model ? ' · ' + model : ''}`;
+        }
+        // macOS-Version friert Safari seit v14 auf 10_15_7 ein — Wert ist
+        // nicht real, daher nur Plattformname.
+        if (/Macintosh/.test(ua)) return 'Mac';
+        if (/Windows NT/.test(ua)) {
+          m = ua.match(/Windows NT (\d+\.\d+)/);
+          const map = { '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7' };
+          return m ? `Windows ${map[m[1]] || m[1]}` : 'Windows';
+        }
+        if (/CrOS/.test(ua)) return 'ChromeOS';
+        if (/Linux/.test(ua)) return 'Linux';
+        return 'Unbekannt';
+      }
+
+      function _detectBrowser() {
+        const ua = navigator.userAgent || '';
+        let m;
+        // iOS-Alternativbrowser sind alle WebKit, lassen sich aber am
+        // herstellerspezifischen Token erkennen — wichtig vor dem Safari-Match.
+        if ((m = ua.match(/CriOS\/(\d+(?:\.\d+)?)/))) return 'Chrome iOS ' + m[1];
+        if ((m = ua.match(/FxiOS\/(\d+(?:\.\d+)?)/))) return 'Firefox iOS ' + m[1];
+        if ((m = ua.match(/EdgiOS\/(\d+(?:\.\d+)?)/))) return 'Edge iOS ' + m[1];
+        if ((m = ua.match(/Edg\/(\d+(?:\.\d+)?)/))) return 'Edge ' + m[1];
+        if ((m = ua.match(/OPR\/(\d+(?:\.\d+)?)/))) return 'Opera ' + m[1];
+        if ((m = ua.match(/Firefox\/(\d+(?:\.\d+)?)/))) return 'Firefox ' + m[1];
+        if (/Chrome\//.test(ua) && !/Edg|OPR/.test(ua)) {
+          m = ua.match(/Chrome\/(\d+(?:\.\d+)?)/);
+          return m ? 'Chrome ' + m[1] : 'Chrome';
+        }
+        if (/Safari\//.test(ua) && (m = ua.match(/Version\/(\d+(?:\.\d+)?)/))) {
+          return 'Safari ' + m[1];
+        }
+        return '–';
+      }
+
+      function _detectDisplayMode() {
+        if (window.matchMedia('(display-mode: standalone)').matches) return 'PWA (standalone)';
+        if (window.matchMedia('(display-mode: minimal-ui)').matches) return 'PWA (minimal-ui)';
+        if (window.matchMedia('(display-mode: fullscreen)').matches) return 'Vollbild';
+        // iOS-Safari nutzt die nicht-standardisierte navigator.standalone-Flag
+        // statt display-mode, bis heute.
+        if (navigator.standalone === true) return 'PWA (Home-Bildschirm)';
+        return 'Browser-Tab';
+      }
+
+      function _detectPointer() {
+        const coarse = window.matchMedia('(pointer: coarse)').matches;
+        const fine = window.matchMedia('(pointer: fine)').matches;
+        const hover = window.matchMedia('(hover: hover)').matches;
+        const parts = [];
+        if (coarse && fine) parts.push('Touch + Maus');
+        else if (coarse) parts.push('Touch');
+        else if (fine) parts.push('Maus/Trackpad');
+        else parts.push('Unbekannt');
+        const touchPts = navigator.maxTouchPoints || 0;
+        if (touchPts > 0) parts.push(`max ${touchPts} Touch-Punkte`);
+        if (!hover) parts.push('kein Hover');
+        return parts.join(' · ');
+      }
+
+      // Jede renderInfoPanel-Invocation bekommt eine Sequenznummer; async
+      // Antworten (Backend-Version, Health-Probe) überschreiben das DOM nur
+      // dann, wenn sie noch zum aktuellen Durchgang gehören. Verhindert,
+      // dass eine alte, langsame Antwort einen neueren Stand überschreibt,
+      // wenn der User das Panel schnell zweimal öffnet.
+      let _infoPanelSeq = 0;
+
+      async function renderInfoPanel() {
+        const mySeq = ++_infoPanelSeq;
+        const set = (id, value) => {
+          if (mySeq !== _infoPanelSeq) return;
+          const el = document.getElementById(id);
+          if (el) el.textContent = value;
+        };
+
+        const dpr = window.devicePixelRatio || 1;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const sw = window.screen ? window.screen.width : 0;
+        const sh = window.screen ? window.screen.height : 0;
+        // Browser-Zoom näherungsweise aus outerWidth/innerWidth. Auf macOS
+        // Safari/Firefox zählt das Fenster-Chrome minimal mit, daher runden.
+        // visualViewport.scale fängt Pinch-Zoom auf Touch-Geräten ein.
+        const zoomRatio = window.outerWidth && vw ? window.outerWidth / vw : 1;
+        const zoomPct = Math.round(zoomRatio * 100);
+        const pinch = window.visualViewport ? window.visualViewport.scale : 1;
+        const zoomParts = [`${zoomPct}%`];
+        if (pinch && Math.abs(pinch - 1) > 0.01) {
+          zoomParts.push(`Pinch ${Math.round(pinch * 100) / 100}×`);
+        }
+
+        set('infoBackendVersion', 'Wird geladen…');
+        set('infoSwVersion', '–');
+        set('infoOnline', navigator.onLine ? 'Prüfe Backend…' : 'Offline');
+        set('infoPlatform', _detectPlatform());
+        set('infoBrowser', _detectBrowser());
+        set('infoDisplayMode', _detectDisplayMode());
+        set('infoPointer', _detectPointer());
+        set('infoViewport', `${vw} × ${vh} px`);
+        set('infoScreen', sw && sh ? `${sw} × ${sh} px` : '–');
+        set('infoDpr', `${Math.round(dpr * 100) / 100}×`);
+        set('infoZoom', zoomParts.join(' · '));
+        set('infoPhysical', `${Math.round(vw * dpr)} × ${Math.round(vh * dpr)} px`);
+        set('infoLang', navigator.language || '–');
+        set('infoUserAgent', navigator.userAgent || '–');
+
+        // Service-Worker-Status + Cache-Version
+        if ('serviceWorker' in navigator) {
+          try {
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (!reg) {
+              set('infoSwState', 'Nicht registriert');
+            } else {
+              const sw = reg.active || reg.waiting || reg.installing;
+              const state = sw ? sw.state : 'unbekannt';
+              const controlled = navigator.serviceWorker.controller ? ' · steuert' : '';
+              set('infoSwState', `${state}${controlled}`);
+            }
+          } catch (e) {
+            set('infoSwState', 'Fehler');
+          }
+          try {
+            const keys = await caches.keys();
+            const shellKey = keys.find((k) => k.startsWith('pocketlog-shell-'));
+            set('infoSwVersion', shellKey ? shellKey.replace('pocketlog-shell-', '') : '–');
+          } catch (e) {
+            set('infoSwVersion', '–');
+          }
+        } else {
+          set('infoSwState', 'Nicht unterstützt');
+        }
+
+        // Outbox-Stand
+        try {
+          const pending = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+          set('infoOutbox', String(pending));
+        } catch (e) {
+          set('infoOutbox', '–');
+        }
+
+        // Backend-Health-Probe – ehrlicher als navigator.onLine, das nur
+        // sagt, ob irgendein Netzwerk-Interface da ist. Läuft nur beim
+        // Öffnen des Panels (kein Polling) und nur wenn der Browser
+        // überhaupt online meldet — sonst wäre der Fetch sicher umsonst.
+        if (navigator.onLine) {
+          try {
+            const res = await fetch(API + '/health', { cache: 'no-store' });
+            set('infoOnline', res.ok ? 'Online · Backend erreichbar' : `Online · HTTP ${res.status}`);
+          } catch (e) {
+            set('infoOnline', 'Online · Backend unerreichbar');
+          }
+        }
+
+        // Backend-Version – ohne api()-Helper, da /api/version öffentlich ist
+        // und keinen Auth-Header braucht. Direkter Fetch vermeidet außerdem,
+        // dass die SW-Outbox bei Offline-Zustand eine Schreib-Operation queued.
+        try {
+          const res = await fetch(API + '/version', { headers: { Accept: 'application/json' } });
+          if (res.ok) {
+            const data = await res.json();
+            set('infoBackendVersion', data.version || '–');
+          } else {
+            set('infoBackendVersion', 'HTTP ' + res.status);
+          }
+        } catch (e) {
+          set('infoBackendVersion', 'Offline');
+        }
       }
 
       // ── INIT ──────────────────────────────────────────────────────────────────────

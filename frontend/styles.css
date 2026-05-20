@@ -1194,6 +1194,43 @@
         color: var(--text3);
         margin-bottom: var(--space-12);
       }
+      .info-list {
+        margin: 0;
+        padding: 0;
+      }
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: var(--space-16);
+        padding: var(--space-8) 0;
+        border-bottom: var(--border-hairline);
+      }
+      .info-row:last-child {
+        border-bottom: none;
+      }
+      .info-row dt {
+        color: var(--text3);
+        font-size: var(--fs-caption);
+        flex: 0 0 auto;
+      }
+      .info-row dd {
+        margin: 0;
+        color: var(--text);
+        font-size: var(--fs-caption);
+        text-align: right;
+        word-break: break-word;
+      }
+      .info-row-stack {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-4);
+      }
+      .info-row-stack dd {
+        text-align: left;
+        font-size: var(--fs-micro);
+        color: var(--text2);
+      }
       .drawer-nav-item {
         display: flex;
         align-items: center;

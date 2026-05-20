@@ -235,6 +235,10 @@
               Verwaltung
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpInfo')">
+              Info
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
           </nav>
         </div>
 
@@ -439,6 +443,113 @@
               Entfernt Buchungen, Kategorien oder beides serverseitig. Aktion lässt sich nicht
               rückgängig machen.
             </p>
+          </div>
+        </div>
+
+        <!-- Panel 2f: Info -->
+        <div class="drawer-panel" id="dpInfo" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Info</span>
+          </div>
+          <div class="drawer-section">
+            <h3>Versionen</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>App (Backend)</dt>
+                <dd id="infoBackendVersion">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Service Worker</dt>
+                <dd id="infoSwVersion">–</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Status</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>Verbindung</dt>
+                <dd id="infoOnline">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>SW-Status</dt>
+                <dd id="infoSwState">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Offline-Outbox</dt>
+                <dd id="infoOutbox">–</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Gerät</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>Plattform</dt>
+                <dd id="infoPlatform">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Browser</dt>
+                <dd id="infoBrowser">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Modus</dt>
+                <dd id="infoDisplayMode">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Eingabe</dt>
+                <dd id="infoPointer">–</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Anzeige</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>Viewport</dt>
+                <dd id="infoViewport">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Bildschirm</dt>
+                <dd id="infoScreen">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Pixel-Dichte</dt>
+                <dd id="infoDpr">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Zoom</dt>
+                <dd id="infoZoom">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Physisch</dt>
+                <dd id="infoPhysical">–</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Umgebung</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>Sprache</dt>
+                <dd id="infoLang">–</dd>
+              </div>
+              <div class="info-row info-row-stack">
+                <dt>User-Agent</dt>
+                <dd id="infoUserAgent">–</dd>
+              </div>
+            </dl>
           </div>
         </div>
       </div>
