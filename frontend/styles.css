@@ -984,7 +984,9 @@
         backdrop-filter: var(--blur-regular);
         border-radius: var(--r-fab);
         border: var(--border-hairline);
-        color: var(--text);
+        /* Match the search-icon tone in the adjoining search-wrap so the
+           floating chrome on the bottom bar reads as a single object. */
+        color: var(--text3);
         font-size: var(--fs-icon-lg);
         font-weight: 300;
         cursor: pointer;
