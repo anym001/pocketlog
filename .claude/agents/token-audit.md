@@ -28,7 +28,7 @@ You are a CSS token auditor for PocketLog. PocketLog uses a strict token system 
 - Z-index → `--z-dropdown`, `--z-modal`, `--z-toast`
 - Transitions → `--dur-fast`, `--dur-normal`, `--dur-slow`
 - Focus ring → `--focus-ring`
-- Adaptive layout → `--app-sidebar-width`, `--app-max-content`, `--app-max-content-lg`
+- Adaptive layout → `--app-sidebar-width` (list/table widths follow the content pane on tablet — no max-width caps, per Apple HIG / Mail behavior)
 
 ## What is allowed
 
