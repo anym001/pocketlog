@@ -22,8 +22,16 @@ iPhone/iPad/Mac (installierte PWA)
 PocketLog/
 ├── unraid/
 │   └── pocketlog.xml                 ← Community-Apps-Template für die Unraid-GUI
-├── swag/
-│   └── pocketlog.subdomain.conf      ← SWAG-Snippet, proxy_pass → pocketlog:8000
+├── swag/                              ← Referenzkopien der SWAG-Configs (Stand Live-Setup)
+│   ├── pocketlog.subdomain.conf      ← App-Conf, gehört in /config/nginx/proxy-confs/
+│   ├── ssl.conf                       ← TLS + globale Security-Header (HSTS, XFO, …)
+│   ├── proxy.conf                     ← SWAG-Default Proxy-Header
+│   ├── internal.conf                  ← LAN-Only Allowlist (10/8, 172.16/12, 192.168/16, …)
+│   ├── geoblock.conf, maxmind.conf    ← GeoIP2-Whitelist (LAN + zugelassene Länder)
+│   ├── authentik-server.conf          ← Authentik-Outpost-Mount
+│   ├── authentik-location.conf        ← Forward-Auth-Subrequest + Login-Redirect
+│   ├── errors.conf                    ← Custom-Error-Pages
+│   └── resolver.conf                  ← Docker-DNS (127.0.0.11)
 ├── frontend/                         ← reine Source-Files, werden ins Image kopiert
 │   ├── index.html                    ← PWA-Shell (Markup + Inline-Theme-Bootstrap)
 │   ├── styles.css                    ← komplettes CSS (Tokens, Layout, Komponenten)
