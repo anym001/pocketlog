@@ -7,11 +7,12 @@ from datetime import date as date_type
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import crud, models, schemas
 from .database import get_db
@@ -35,6 +36,50 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/api/openapi.json",
 )
+
+
+# Content-Security-Policy — set in the backend because SWAG's ssl.conf does
+# not configure one. The remaining security headers (HSTS, X-Frame-Options,
+# X-Content-Type-Options, Referrer-Policy, X-Download-Options) are already
+# emitted by SWAG via /config/nginx/ssl.conf and are intentionally NOT set
+# here to avoid duplicate response headers (nginx `add_header` appends to
+# upstream headers, not replaces).
+#
+# CSP notes:
+# - 'unsafe-inline' for script/style is required because index.html ships an
+#   inline theme-bootstrap script and the app uses `onclick="..."` attributes
+#   plus inline `style="--cat-color:..."`. A nonce-based policy would be
+#   stricter but requires refactoring every inline handler.
+# - frame-ancestors 'none' tightens SWAG's X-Frame-Options SAMEORIGIN for
+#   PocketLog only and is the modern, authoritative anti-clickjacking
+#   directive (browsers honour it over X-Frame-Options when both are present).
+# - connect-src 'self' constrains fetch/XHR to same-origin; the configurable
+#   "API-Basis-URL" feature works only inside the same origin, which matches
+#   the supported same-origin deployment.
+CSP_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "manifest-src 'self'; "
+    "worker-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'none'; "
+    "form-action 'self'; "
+    "object-src 'none'"
+)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("Content-Security-Policy", CSP_POLICY)
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 def get_current_user(
