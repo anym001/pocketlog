@@ -522,13 +522,18 @@ def _build_transaction(row: dict, db: Session, user_id: int) -> models.Transacti
     cat = get_or_create_category(db, user_id, r.get("category") or "Sonstiges")
 
     tags_raw = r.get("tags") or ""
+    # CSV import is best-effort: bad tags are skipped silently rather than
+    # failing the whole row (mirrors the existing per-row error model in
+    # import_csv). The schema validator above takes the stricter path.
     seen: set[str] = set()
     tags: list[str] = []
     for raw in tags_raw.split(","):
-        tag = raw.strip()
+        tag = schemas._TAG_CONTROL_CHARS.sub("", raw).strip()
         if not tag or len(tag) > schemas.MAX_TAG_LENGTH:
             continue
-        key = tag.lower()
+        # casefold (not lower) — see schemas._normalise_tags for the
+        # Straße/STRASSE rationale.
+        key = tag.casefold()
         if key in seen:
             continue
         seen.add(key)

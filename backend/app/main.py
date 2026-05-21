@@ -369,6 +369,10 @@ def export_csv(user: CurrentUser, db: DB):
     writer = csv.writer(buf, delimiter=";")
     writer.writerow(["date", "type", "amount", "description", "category", "tags"])
     for t in txs:
+        # Each tag is escaped individually, so the joined string can only
+        # start with a formula-trigger if the first tag did — which then
+        # already carries the leading quote. The outer _csv_safe is kept
+        # as defence-in-depth in case the per-tag rule ever changes.
         joined_tags = ",".join(_csv_safe(tag) for tag in (t.tags or []))
         writer.writerow(
             [

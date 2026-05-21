@@ -60,6 +60,42 @@ def test_tags_are_stripped_and_deduped(client):
     assert r.json()["tags"] == ["alpha", "beta"]
 
 
+def test_tags_dedupe_uses_casefold_for_eszett(client):
+    """Dedupe must match crud.list_tags (also casefold). ß → ss means
+    Straße and STRASSE collapse — otherwise list_tags would show one
+    entry but the tx would carry two distinct tags."""
+    cat_id = client.get("/api/categories").json()[0]["id"]
+    payload = _make_tx(["Straße", "STRASSE"])
+    payload["category_id"] = cat_id
+    r = client.post("/api/transactions", json=payload)
+    assert r.status_code == 201, r.text
+    assert r.json()["tags"] == ["Straße"]
+
+
+def test_control_chars_stripped_from_tags(client):
+    cat_id = client.get("/api/categories").json()[0]["id"]
+    payload = _make_tx(["foo\x00bar", "baz\nqux"])
+    payload["category_id"] = cat_id
+    r = client.post("/api/transactions", json=payload)
+    assert r.status_code == 201, r.text
+    assert r.json()["tags"] == ["foobar", "bazqux"]
+
+
+def test_csv_import_strips_control_chars_from_tags(client):
+    body = (
+        "date;type;amount;description;category;tags\n"
+        "2026-05-20;out;1.00;ctrl-csv;Sonstiges;foo\x00bar,clean\n"
+    )
+    r = client.post(
+        "/api/import/csv",
+        files={"file": ("import.csv", body.encode("utf-8"), "text/csv")},
+    )
+    assert r.status_code == 200
+    txs = client.get("/api/transactions?year=2026&month=5").json()
+    target = next(t for t in txs if t["desc"] == "ctrl-csv")
+    assert target["tags"] == ["foobar", "clean"]
+
+
 # ── CSV export formula-injection (M-2) ────────────────────────────────────
 
 

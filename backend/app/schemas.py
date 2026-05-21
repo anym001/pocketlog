@@ -1,3 +1,4 @@
+import re
 from datetime import date as date_type
 from decimal import Decimal
 from typing import Literal
@@ -11,6 +12,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # endpoint's max_length=64.
 MAX_TAGS_PER_TX = 20
 MAX_TAG_LENGTH = 64
+
+# C0 + DEL. Stripped from tags so a payload with a NUL byte or a stray
+# newline doesn't reach the JSON column or the DOM via _escText.
+_TAG_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
 # -------- Categories --------
@@ -79,12 +84,15 @@ class TransactionIn(BaseModel):
         for raw in value:
             if not isinstance(raw, str):
                 raise ValueError("tags must be strings")
-            tag = raw.strip()
+            tag = _TAG_CONTROL_CHARS.sub("", raw).strip()
             if not tag:
                 raise ValueError("tag must not be empty")
             if len(tag) > MAX_TAG_LENGTH:
                 raise ValueError(f"tag too long (max {MAX_TAG_LENGTH})")
-            key = tag.lower()
+            # casefold (not lower) so the dedupe matches list_tags in
+            # crud.py — otherwise `Straße` and `STRASSE` would be one
+            # entry in the tag list but two distinct tags on a tx.
+            key = tag.casefold()
             if key in seen:
                 continue
             seen.add(key)
@@ -101,6 +109,9 @@ class TransactionUpdate(TransactionIn):
 
 
 class TransactionOut(BaseModel):
+    # No _normalise_tags here on purpose: legacy rows from before the cap
+    # may carry more than MAX_TAGS_PER_TX entries, and a 422 on read would
+    # brick the UI for those users. The cap is enforced on write only.
     id: int
     amount: Decimal
     description: str = Field(serialization_alias="desc")

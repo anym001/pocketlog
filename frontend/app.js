@@ -2721,13 +2721,19 @@
       // Server data is untouched. Useful when switching Authentik
       // identities on the same device, or when local state looks stale.
       async function clearAppCache() {
-        let pending = 0;
+        // null = unknown (count failed). Treated like "pending exists"
+        // in the confirm copy so the user can't lose offline writes
+        // without warning when the outbox lookup itself is broken.
+        let pending = null;
         try {
           pending = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
         } catch (_) {}
-        const msg = pending
-          ? `Cache wird gelöscht. ${pending} noch nicht synchronisierte Änderungen gehen dabei verloren. Fortfahren?`
-          : 'Cache wird gelöscht. App-Daten werden beim nächsten Laden neu geholt. Fortfahren?';
+        const msg =
+          pending === null
+            ? 'Cache wird gelöscht. Möglicherweise nicht synchronisierte Änderungen gehen dabei verloren. Fortfahren?'
+            : pending > 0
+              ? `Cache wird gelöscht. ${pending} noch nicht synchronisierte Änderungen gehen dabei verloren. Fortfahren?`
+              : 'Cache wird gelöscht. App-Daten werden beim nächsten Laden neu geholt. Fortfahren?';
         if (!window.confirm(msg)) return;
 
         try {
