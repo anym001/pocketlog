@@ -46,10 +46,9 @@ curl -H "X-Authentik-Username: test" \
 API-Aufruf-Muster im Frontend:
 
 ```js
-// Default same-origin; per Settings auf andere Domain umstellbar
-const API_BASE_KEY = 'pocketlog.apiBase';
-let API = (localStorage.getItem(API_BASE_KEY) || '').trim().replace(/\/+$/, '');
-API = API ? API + '/api' : '/api';
+// Hardcoded same-origin. PWA und Backend sitzen hinter demselben SWAG-vhost;
+// CSP `connect-src 'self'` würde Cross-Origin ohnehin blockieren.
+const API = '/api';
 const data = await api('GET', '/transactions?year=2026&month=5');
 ```
 

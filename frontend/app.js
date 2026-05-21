@@ -7,15 +7,14 @@
       };
 
       // ── API-BASIS ─────────────────────────────────────────────────────────────────
-      // Standardmäßig same-origin ("/api"). Über die Settings kann eine vollständige
-      // Basis-URL gesetzt werden (z.B. https://pocketlog.deinedomain.de). Das Suffix
-      // /api wird hier ergänzt.
-      const API_BASE_KEY = 'pocketlog.apiBase';
-      function readApiBase() {
-        const raw = (localStorage.getItem(API_BASE_KEY) || '').trim().replace(/\/+$/, '');
-        return raw ? raw + '/api' : '/api';
-      }
-      let API = readApiBase();
+      // Same-origin. The PWA and the FastAPI backend live behind the same
+      // SWAG vhost — there is no supported deployment where they sit on
+      // different origins, and CSP `connect-src 'self'` would block such
+      // a setup anyway.
+      const API = '/api';
+      // Drop any leftover apiBase setting from older app versions so the
+      // localStorage doesn't accumulate dead keys.
+      try { localStorage.removeItem('pocketlog.apiBase'); } catch (e) {}
 
       let currentMonth = new Date().getMonth();
       let currentYear = new Date().getFullYear();
@@ -287,7 +286,6 @@
         document.getElementById('drawer').classList.add('sub-active');
         if (panelId === 'dpCats') renderCategories();
         if (panelId === 'dpTags') renderTagList();
-        if (panelId === 'dpImport') loadApiBaseInput();
         if (panelId === 'dpDisplay') syncDefaultViewRadios();
         if (panelId === 'dpInfo') renderInfoPanel();
       }
@@ -2448,10 +2446,6 @@
         await loadAndRender();
       }
 
-      function loadApiBaseInput() {
-        document.getElementById('cfg-api').value = localStorage.getItem(API_BASE_KEY) || '';
-      }
-
       function saveDefaultView(view) {
         localStorage.setItem('pocketlog.defaultView', view);
         pushSettings({ default_view: view });
@@ -2541,34 +2535,6 @@
         }
       }
 
-      async function saveApiBase() {
-        const raw = document.getElementById('cfg-api').value.trim().replace(/\/+$/, '');
-        if (raw && !/^https?:\/\//i.test(raw)) {
-          showApiStatus('URL muss mit http:// oder https:// beginnen.', 'err');
-          return;
-        }
-        if (raw) localStorage.setItem(API_BASE_KEY, raw);
-        else localStorage.removeItem(API_BASE_KEY);
-        API = readApiBase();
-        try {
-          const r = await fetch(API + '/health');
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          showApiStatus('Verbunden – ' + (raw || 'same-origin'), 'ok');
-          await loadCategories();
-          await loadAndRender();
-        } catch (e) {
-          showApiStatus('Erreichbarkeit konnte nicht geprüft werden: ' + e.message, 'err');
-        }
-      }
-
-      function showApiStatus(msg, kind) {
-        const el = document.getElementById('apiStatus');
-        el.textContent = msg;
-        el.className = 'status-msg ' + (kind === 'ok' ? 'ok' : 'err');
-        setTimeout(() => {
-          if (el.textContent === msg) el.textContent = '';
-        }, 5000);
-      }
 
       async function updateSyncBadge() {
         const btn = document.getElementById('syncBtn');
