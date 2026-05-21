@@ -176,3 +176,37 @@ def test_startup_without_auth_secret_with_opt_out_succeeds(tmp_path):
         text=True,
     )
     assert proc.returncode == 0, proc.stderr
+
+
+def test_docs_disabled_by_default(client):
+    """Swagger UI and the OpenAPI schema leak the full API surface and
+    Swagger's "Try it out" issues real backend requests, so both are off
+    unless ENABLE_DOCS=1 is set explicitly."""
+    assert client.get("/api/docs").status_code == 404
+    assert client.get("/api/openapi.json").status_code == 404
+
+
+def test_docs_enabled_with_opt_in(tmp_path):
+    """ENABLE_DOCS=1 mounts both endpoints again — verified by importing
+    the module in a subprocess so the current pytest process's already-
+    loaded `app` instance isn't disturbed."""
+    import subprocess
+    import sys
+
+    env = {
+        **os.environ,
+        "ENABLE_DOCS": "1",
+        "DATABASE_URL": f"sqlite:///{tmp_path}/probe.db",
+    }
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import app.main; print(app.main.app.docs_url); print(app.main.app.openapi_url)",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip().splitlines() == ["/api/docs", "/api/openapi.json"]

@@ -52,11 +52,16 @@ if not AUTH_SECRET:
 # invisible character (trailing space, RTL override, ZWJ).
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._@+\-]{1,150}$")
 
+# Swagger UI and the OpenAPI schema are off by default. Both leak the full
+# API surface and Swagger's "Try it out" issues real requests against this
+# backend. Opt in with ENABLE_DOCS=1 when debugging — never in production.
+DOCS_ENABLED = os.environ.get("ENABLE_DOCS") == "1"
+
 app = FastAPI(
     title="PocketLog API",
-    docs_url="/api/docs",
+    docs_url="/api/docs" if DOCS_ENABLED else None,
     redoc_url=None,
-    openapi_url="/api/openapi.json",
+    openapi_url="/api/openapi.json" if DOCS_ENABLED else None,
 )
 
 

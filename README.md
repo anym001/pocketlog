@@ -69,7 +69,8 @@ Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
 ## API testen
 
 - Health: `https://pocketlog.<deinedomain>/api/health`
-- Swagger UI: `https://pocketlog.<deinedomain>/api/docs`
+- Swagger UI: `/api/docs` ist standardmäßig deaktiviert. Zum Debuggen den
+  Container mit `ENABLE_DOCS=1` starten; in Produktion bleibt es aus.
 
 ## Image-Builds (GitHub Actions → ghcr.io)
 
