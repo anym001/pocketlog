@@ -133,6 +133,11 @@ SWAG (Authentik Forward Auth) setzt `X-Authentik-Username`; injiziert außerdem 
 `get_current_user()` in `main.py` prüft beide Header (timing-safe); gibt das `User`-ORM-Objekt zurück.
 Alle Queries filtern nach `user_id`. → Setup-Details: [`docs/SETUP.md`](docs/SETUP.md)
 
+### Threat-Model
+
+- **Multi-User auf Backend-Ebene** — beliebig viele Authentik-Identitäten teilen sich die DB; jede Query filtert nach `user_id`.
+- **Ein User pro Gerät** — gleiche PWA-Installation wird nicht zwischen verschiedenen Authentik-Accounts geteilt. Daraus folgt: Service-Worker-Cache und IndexedDB-Outbox müssen nicht user-scopiert sein. Defense-in-Depth: bei 401 leert der SW den API-Cache, plus „Cache leeren"-Button in der Verwaltung.
+
 ### SWAG-Setup (extern, Referenz)
 
 PocketLog läuft hinter `linuxserver/swag`. Die SWAG-Default-Snippets liegen

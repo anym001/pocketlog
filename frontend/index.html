@@ -469,6 +469,19 @@
             <span class="drawer-sub-title">Verwaltung</span>
           </div>
           <div class="drawer-section">
+            <button class="save-btn" onclick="clearAppCache()">
+              Cache leeren
+            </button>
+            <p
+              style="
+                font-size: var(--fs-caption);
+                color: var(--text3);
+                margin: var(--space-10) 0 var(--space-16);
+              "
+            >
+              Verwirft den lokalen Cache und nicht synchronisierte Änderungen. Server-Daten bleiben
+              unverändert.
+            </p>
             <button class="save-btn btn-destructive" onclick="openResetModal()">
               Daten löschen
             </button>

@@ -55,6 +55,16 @@
     return items.length;
   }
 
+  async function clear() {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
   // Spielt die Outbox ab. Liefert die Anzahl erfolgreich abgearbeiteter Einträge.
   // Entries, die mit 4xx ablehnen, werden verworfen (keine Endlosschleife).
   // Netzfehler lassen den Eintrag stehen.
@@ -81,5 +91,5 @@
     return done;
   }
 
-  global.PocketLogOutbox = { enqueue, all, remove, count, drain };
+  global.PocketLogOutbox = { enqueue, all, remove, count, drain, clear };
 })(self);

@@ -2751,6 +2751,38 @@
         await _runReset('/admin/all-data', 'Alle Daten gelöscht.');
       }
 
+      // Wipes the Service-Worker API cache and the IndexedDB outbox.
+      // Server data is untouched. Useful when switching Authentik
+      // identities on the same device, or when local state looks stale.
+      async function clearAppCache() {
+        let pending = 0;
+        try {
+          pending = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+        } catch (_) {}
+        const msg = pending
+          ? `Cache wird gelöscht. ${pending} noch nicht synchronisierte Änderungen gehen dabei verloren. Fortfahren?`
+          : 'Cache wird gelöscht. App-Daten werden beim nächsten Laden neu geholt. Fortfahren?';
+        if (!window.confirm(msg)) return;
+
+        try {
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(
+              keys.filter((k) => k.startsWith('pocketlog-api-')).map((k) => caches.delete(k))
+            );
+          }
+          if (window.PocketLogOutbox) {
+            await window.PocketLogOutbox.clear();
+          }
+          closeDrawer();
+          updateSyncBadge();
+          await loadAndRender();
+          toast('Cache geleert.', 'ok');
+        } catch (e) {
+          toast('Cache konnte nicht geleert werden: ' + e.message, 'error');
+        }
+      }
+
       // ── INFO PANEL ────────────────────────────────────────────────────────────────
       // Beste-Aufwand-Erkennung. UA-Strings sind notorisch unzuverlässig —
       // diese Werte sind ausschließlich für Debug-Anzeige gedacht, niemals
