@@ -22,16 +22,14 @@ iPhone/iPad/Mac (installierte PWA)
 PocketLog/
 ├── unraid/
 │   └── pocketlog.xml                 ← Community-Apps-Template für die Unraid-GUI
-├── swag/                              ← Referenzkopien der SWAG-Configs (Stand Live-Setup)
+├── swag/                              ← Nur die Site-spezifischen SWAG-Configs
 │   ├── pocketlog.subdomain.conf      ← App-Conf, gehört in /config/nginx/proxy-confs/
-│   ├── ssl.conf                       ← TLS + globale Security-Header (HSTS, XFO, …)
-│   ├── proxy.conf                     ← SWAG-Default Proxy-Header
 │   ├── internal.conf                  ← LAN-Only Allowlist (10/8, 172.16/12, 192.168/16, …)
 │   ├── geoblock.conf, maxmind.conf    ← GeoIP2-Whitelist (LAN + zugelassene Länder)
-│   ├── authentik-server.conf          ← Authentik-Outpost-Mount
-│   ├── authentik-location.conf        ← Forward-Auth-Subrequest + Login-Redirect
-│   ├── errors.conf                    ← Custom-Error-Pages
-│   └── resolver.conf                  ← Docker-DNS (127.0.0.11)
+│   └── errors.conf                    ← Custom-Error-Pages (linuxserver.io snippet)
+│   (ssl.conf, proxy.conf, resolver.conf, authentik-{server,location}.conf
+│    sind SWAG-Defaults aus dem Image und liegen nicht im Repo — siehe
+│    „Auth-Konzept" weiter unten für die relevanten Annahmen.)
 ├── frontend/                         ← reine Source-Files, werden ins Image kopiert
 │   ├── index.html                    ← PWA-Shell (Markup + Inline-Theme-Bootstrap)
 │   ├── styles.css                    ← komplettes CSS (Tokens, Layout, Komponenten)
@@ -134,6 +132,32 @@ nicht direkt wieder auferstehen lässt.
 SWAG (Authentik Forward Auth) setzt `X-Authentik-Username`; injiziert außerdem `X-Auth-Secret`.
 `get_current_user()` in `main.py` prüft beide Header (timing-safe); gibt das `User`-ORM-Objekt zurück.
 Alle Queries filtern nach `user_id`. → Setup-Details: [`docs/SETUP.md`](docs/SETUP.md)
+
+### SWAG-Setup (extern, Referenz)
+
+PocketLog läuft hinter `linuxserver/swag`. Die SWAG-Default-Snippets liegen
+nicht im Repo (Container-Image), sind aber für Reviews relevant:
+
+**Globale Security-Header aus `ssl.conf`** (gelten für ALLE Apps am Proxy):
+- `Strict-Transport-Security: max-age=15768000; includeSubDomains; preload`
+- `Referrer-Policy: same-origin`
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN` — Backend-CSP setzt `frame-ancestors 'none'` strikter
+- `Permissions-Policy: interest-cohort=()` (nur FLoC-Opt-out)
+- `X-XSS-Protection: 1; mode=block`, `X-Robots-Tag`, `X-Download-Options: noopen`, `Alt-Svc`
+- TLS 1.2/1.3, Mozilla intermediate cipher suite, HTTP/2 + HTTP/3 (QUIC) aktiv
+
+→ Diese Header NICHT in der App nochmal setzen — nginx `add_header` ist additiv und würde Doppel-Header senden. Einzig **Content-Security-Policy** wird in der FastAPI-Middleware (`backend/app/main.py`) gesetzt, weil SWAG keine liefert.
+
+**Forward-Auth aus `authentik-{server,location}.conf`**:
+- `/outpost.goauthentik.io/*` ist auf den Authentik-Outpost gemountet
+- `auth_request /outpost.goauthentik.io/auth/nginx` läuft pro Request; bei 401 → Redirect zum Login (inkl. MFA via Authentik-Flow)
+- Nach erfolgreicher Auth setzt SWAG mehrere Header: `X-authentik-username`, `-email`, `-groups`, `-name`, `-uid`. Backend nutzt nur **username**; `Authorization` wird in `pocketlog.subdomain.conf` explizit geleert.
+
+**Site-spezifische Layer** (im Repo unter `swag/`):
+- `geoblock.conf` + `maxmind.conf` — return 404 außerhalb LAN + Länder-Whitelist
+- `internal.conf` — zusätzlich harte LAN-Allowlist (10/8, 172.16/12, 192.168/16, IPv6 ULA/link-local)
+- `errors.conf` — Custom-Error-Pages
 
 ## Offline / PWA
 - `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell und GET /api/*, cache-first für Icons, Fonts und das Chart.js-Vendor-Bundle; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version.
