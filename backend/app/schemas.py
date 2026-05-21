@@ -1,8 +1,21 @@
+import re
 from datetime import date as date_type
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# Bounds for the tags array on a single transaction. The list cap keeps a
+# rogue payload from filling the JSON column with thousands of items
+# (each tag would then have to be rendered, aggregated and serialised on
+# every read); the item-length cap matches the dedicated /api/tags
+# endpoint's max_length=64.
+MAX_TAGS_PER_TX = 20
+MAX_TAG_LENGTH = 64
+
+# C0 + DEL. Stripped from tags so a payload with a NUL byte or a stray
+# newline doesn't reach the JSON column or the DOM via _escText.
+_TAG_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
 # -------- Categories --------
@@ -59,6 +72,33 @@ class TransactionIn(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    @field_validator("tags")
+    @classmethod
+    def _normalise_tags(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        if len(value) > MAX_TAGS_PER_TX:
+            raise ValueError(f"too many tags (max {MAX_TAGS_PER_TX})")
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            if not isinstance(raw, str):
+                raise ValueError("tags must be strings")
+            tag = _TAG_CONTROL_CHARS.sub("", raw).strip()
+            if not tag:
+                raise ValueError("tag must not be empty")
+            if len(tag) > MAX_TAG_LENGTH:
+                raise ValueError(f"tag too long (max {MAX_TAG_LENGTH})")
+            # casefold (not lower) so the dedupe matches list_tags in
+            # crud.py — otherwise `Straße` and `STRASSE` would be one
+            # entry in the tag list but two distinct tags on a tx.
+            key = tag.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(tag)
+        return cleaned
+
 
 class TransactionCreate(TransactionIn):
     pass
@@ -69,6 +109,9 @@ class TransactionUpdate(TransactionIn):
 
 
 class TransactionOut(BaseModel):
+    # No _normalise_tags here on purpose: legacy rows from before the cap
+    # may carry more than MAX_TAGS_PER_TX entries, and a 422 on read would
+    # brick the UI for those users. The cap is enforced on write only.
     id: int
     amount: Decimal
     description: str = Field(serialization_alias="desc")

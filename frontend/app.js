@@ -7,15 +7,14 @@
       };
 
       // ── API-BASIS ─────────────────────────────────────────────────────────────────
-      // Standardmäßig same-origin ("/api"). Über die Settings kann eine vollständige
-      // Basis-URL gesetzt werden (z.B. https://pocketlog.deinedomain.de). Das Suffix
-      // /api wird hier ergänzt.
-      const API_BASE_KEY = 'pocketlog.apiBase';
-      function readApiBase() {
-        const raw = (localStorage.getItem(API_BASE_KEY) || '').trim().replace(/\/+$/, '');
-        return raw ? raw + '/api' : '/api';
-      }
-      let API = readApiBase();
+      // Same-origin. The PWA and the FastAPI backend live behind the same
+      // SWAG vhost — there is no supported deployment where they sit on
+      // different origins, and CSP `connect-src 'self'` would block such
+      // a setup anyway.
+      const API = '/api';
+      // Drop any leftover apiBase setting from older app versions so the
+      // localStorage doesn't accumulate dead keys.
+      try { localStorage.removeItem('pocketlog.apiBase'); } catch (e) {}
 
       let currentMonth = new Date().getMonth();
       let currentYear = new Date().getFullYear();
@@ -287,7 +286,6 @@
         document.getElementById('drawer').classList.add('sub-active');
         if (panelId === 'dpCats') renderCategories();
         if (panelId === 'dpTags') renderTagList();
-        if (panelId === 'dpImport') loadApiBaseInput();
         if (panelId === 'dpDisplay') syncDefaultViewRadios();
         if (panelId === 'dpInfo') renderInfoPanel();
       }
@@ -599,7 +597,7 @@
       function renderTransactions(txs, el = document.getElementById('transactionList')) {
         if (!txs.length) {
           el.innerHTML = _searchQuery
-            ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>Keine Buchungen passen zu „${_searchQuery}“.<br>Andere Schreibweise versuchen.</p></div>`
+            ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>Keine Buchungen passen zu „${_escText(_searchQuery)}“.<br>Andere Schreibweise versuchen.</p></div>`
             : `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong> um eine hinzuzufügen.</p></div>`;
           return;
         }
@@ -631,16 +629,16 @@
                 .map((t) => {
                   const cat = getCatById(t.category_id);
                   const tagsHtml = (t.tags || [])
-                    .map((tg) => `<span class="t-tag">${tg}</span>`)
+                    .map((tg) => `<span class="t-tag">${_escText(tg)}</span>`)
                     .join('');
                   const note = (t.desc || '').trim();
                   return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
         <div class="transaction">
           <div class="t-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
-          <span class="visually-hidden">${cat.name}</span>
+          <span class="visually-hidden">${_escText(cat.name)}</span>
           <div class="t-info">
-            <div class="t-note">${note}</div>
+            <div class="t-note">${_escText(note)}</div>
             <div class="t-tags">${tagsHtml}</div>
           </div>
           <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type === 'out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
@@ -680,16 +678,16 @@
           .map(
             (r) => `
     <div class="cat-view-row" role="button" tabindex="0"
-      aria-label="Kategorie „${r.name}“ bearbeiten"
+      aria-label="Kategorie „${_escAttr(r.name)}“ bearbeiten"
       onclick="openModalForCategory(${r.id})"
       onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
       <span class="cat-view-icon" style="--cat-color:${r.color}">${catIconSvg(r.icon)}</span>
-      <span class="cat-view-name">${r.name}</span>
+      <span class="cat-view-name">${_escText(r.name)}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
       <button
         type="button"
         class="cat-view-more"
-        aria-label="Buchungen in „${r.name}“ ansehen"
+        aria-label="Buchungen in „${_escAttr(r.name)}“ ansehen"
         onclick="event.stopPropagation(); showTransactionsForCategory(${r.id})"
       ><svg class="ui-icon" aria-hidden="true"><use href="#icon-more-vertical"/></svg></button>
     </div>
@@ -1102,7 +1100,7 @@
         return `<div class="cat-row" ${drill}>
           <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="cat-info">
-            <div class="cat-name">${cat.name}</div>
+            <div class="cat-name">${_escText(cat.name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${cat.color}"></div></div>
           </div>
           <div class="cat-amount">${fmtCurrency(-Math.abs(amount))}</div>
@@ -1121,8 +1119,8 @@
           onkeydown="handleRowActivate(event, () => editTransaction(${t.id}))">
           <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="report-tx-main">
-            <div class="report-tx-desc">${t.desc || cat.name}</div>
-            <div class="report-tx-meta">${cat.name} · ${dateLbl}</div>
+            <div class="report-tx-desc">${_escText(t.desc || cat.name)}</div>
+            <div class="report-tx-meta">${_escText(cat.name)} · ${dateLbl}</div>
           </div>
           <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtSignedCurrency(sign)}</div>
         </div>`;
@@ -1581,7 +1579,7 @@
                   return `<tr class="is-clickable" role="button" tabindex="0"
                     onclick="drillDownCategory(${r.catId}, '${monthFrom}', '${monthTo}')"
                     onkeydown="handleRowActivate(event, () => drillDownCategory(${r.catId}, '${monthFrom}', '${monthTo}'))">
-                    <td><span class="forecast-cat-name"><span class="forecast-cat-dot" style="background:${cat.color}"></span>${cat.name}</span></td>
+                    <td><span class="forecast-cat-name"><span class="forecast-cat-dot" style="background:${cat.color}"></span>${_escText(cat.name)}</span></td>
                     <td class="num">${fmtCurrency(r.avg)}</td>
                     <td class="num">${fmtCurrency(r.current)}</td>
                     <td class="num"><span class="forecast-status ${s.cls}">${s.label}</span></td>
@@ -1619,7 +1617,7 @@
         // wherever they look at categories.
         catSel.innerHTML = [...categories]
           .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
-          .map((c) => `<option value="${c.id}">${c.name}</option>`)
+          .map((c) => `<option value="${c.id}">${_escText(c.name)}</option>`)
           .join('');
         if (tx) catSel.value = tx.category_id;
         setType(tx?.type || 'out', document.querySelector('.type-btn.out'));
@@ -1724,9 +1722,12 @@
         wrap.innerHTML = currentTags
           .map(
             (t) =>
-              `<span class="tag-pill">${t}<button type="button" onclick="removeTag('${t.replace(/'/g, "\\'")}')" aria-label="Tag „${t}“ entfernen">${ICON_SVG.close}</button></span>`
+              `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-tag="${_escAttr(t)}" aria-label="Tag „${_escAttr(t)}“ entfernen">${ICON_SVG.close}</button></span>`
           )
           .join('');
+        wrap.querySelectorAll('[data-remove-tag]').forEach((el) => {
+          el.addEventListener('click', () => removeTag(el.dataset.removeTag));
+        });
         wrap.appendChild(btn);
       }
 
@@ -1834,9 +1835,12 @@
         box.innerHTML = top
           .map(
             (t) =>
-              `<button type="button" class="tag-suggestion" onclick="addTagFromSuggestion('${t.replace(/'/g, "\\'")}')">+ ${t}</button>`
+              `<button type="button" class="tag-suggestion" data-add-tag="${_escAttr(t)}">+ ${_escText(t)}</button>`
           )
           .join('');
+        box.querySelectorAll('[data-add-tag]').forEach((el) => {
+          el.addEventListener('click', () => addTagFromSuggestion(el.dataset.addTag));
+        });
       }
 
       function addTagFromSuggestion(t) {
@@ -1900,10 +1904,12 @@
         box.innerHTML = filtered
           .map((t) => {
             const isSel = selected.has(t.toLowerCase());
-            const safe = t.replace(/'/g, "\\'");
-            return `<button type="button" class="tag-picker-chip${isSel ? ' selected' : ''}" onclick="togglePickerTag('${safe}')">${t}</button>`;
+            return `<button type="button" class="tag-picker-chip${isSel ? ' selected' : ''}" data-pick-tag="${_escAttr(t)}">${_escText(t)}</button>`;
           })
           .join('');
+        box.querySelectorAll('[data-pick-tag]').forEach((el) => {
+          el.addEventListener('click', () => togglePickerTag(el.dataset.pickTag));
+        });
       }
       function togglePickerTag(t) {
         const i = pickerSelection.findIndex((x) => x.toLowerCase() === t.toLowerCase());
@@ -1950,10 +1956,10 @@
           .map(
             (c) => `
     <div class="tag-pill cat-pill-edit" role="button" tabindex="0"
-      aria-label="Kategorie „${c.name}“ bearbeiten"
+      aria-label="Kategorie „${_escAttr(c.name)}“ bearbeiten"
       style="border-color:color-mix(in oklab, ${c.color} 40%, transparent)"
       onclick="openCatModal(${c.id})"
-      onkeydown="handleRowActivate(event, () => openCatModal(${c.id}))"><span class="cat-pill-glyph" style="color:${c.color}">${catIconSvg(c.icon)}</span>${c.name}</div>
+      onkeydown="handleRowActivate(event, () => openCatModal(${c.id}))"><span class="cat-pill-glyph" style="color:${c.color}">${catIconSvg(c.icon)}</span>${_escText(c.name)}</div>
   `
           )
           .join('');
@@ -2266,10 +2272,10 @@
           return;
         }
         box.innerHTML = availableTags
-          .map((t) => {
-            const safe = t.replace(/"/g, '&quot;');
-            return `<div class="tag-pill cat-pill-edit" data-tag="${safe}">${t}</div>`;
-          })
+          .map(
+            (t) =>
+              `<div class="tag-pill cat-pill-edit" data-tag="${_escAttr(t)}">${_escText(t)}</div>`
+          )
           .join('');
         box.querySelectorAll('[data-tag]').forEach((el) => {
           el.addEventListener('click', () => openTagModal(el.dataset.tag));
@@ -2440,10 +2446,6 @@
         await loadAndRender();
       }
 
-      function loadApiBaseInput() {
-        document.getElementById('cfg-api').value = localStorage.getItem(API_BASE_KEY) || '';
-      }
-
       function saveDefaultView(view) {
         localStorage.setItem('pocketlog.defaultView', view);
         pushSettings({ default_view: view });
@@ -2533,34 +2535,6 @@
         }
       }
 
-      async function saveApiBase() {
-        const raw = document.getElementById('cfg-api').value.trim().replace(/\/+$/, '');
-        if (raw && !/^https?:\/\//i.test(raw)) {
-          showApiStatus('URL muss mit http:// oder https:// beginnen.', 'err');
-          return;
-        }
-        if (raw) localStorage.setItem(API_BASE_KEY, raw);
-        else localStorage.removeItem(API_BASE_KEY);
-        API = readApiBase();
-        try {
-          const r = await fetch(API + '/health');
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          showApiStatus('Verbunden – ' + (raw || 'same-origin'), 'ok');
-          await loadCategories();
-          await loadAndRender();
-        } catch (e) {
-          showApiStatus('Erreichbarkeit konnte nicht geprüft werden: ' + e.message, 'err');
-        }
-      }
-
-      function showApiStatus(msg, kind) {
-        const el = document.getElementById('apiStatus');
-        el.textContent = msg;
-        el.className = 'status-msg ' + (kind === 'ok' ? 'ok' : 'err');
-        setTimeout(() => {
-          if (el.textContent === msg) el.textContent = '';
-        }, 5000);
-      }
 
       async function updateSyncBadge() {
         const btn = document.getElementById('syncBtn');
@@ -2741,6 +2715,44 @@
 
       async function resetAllData() {
         await _runReset('/admin/all-data', 'Alle Daten gelöscht.');
+      }
+
+      // Wipes the Service-Worker API cache and the IndexedDB outbox.
+      // Server data is untouched. Useful when switching Authentik
+      // identities on the same device, or when local state looks stale.
+      async function clearAppCache() {
+        // null = unknown (count failed). Treated like "pending exists"
+        // in the confirm copy so the user can't lose offline writes
+        // without warning when the outbox lookup itself is broken.
+        let pending = null;
+        try {
+          pending = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+        } catch (_) {}
+        const msg =
+          pending === null
+            ? 'Cache wird gelöscht. Möglicherweise nicht synchronisierte Änderungen gehen dabei verloren. Fortfahren?'
+            : pending > 0
+              ? `Cache wird gelöscht. ${pending} noch nicht synchronisierte Änderungen gehen dabei verloren. Fortfahren?`
+              : 'Cache wird gelöscht. App-Daten werden beim nächsten Laden neu geholt. Fortfahren?';
+        if (!window.confirm(msg)) return;
+
+        try {
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(
+              keys.filter((k) => k.startsWith('pocketlog-api-')).map((k) => caches.delete(k))
+            );
+          }
+          if (window.PocketLogOutbox) {
+            await window.PocketLogOutbox.clear();
+          }
+          closeDrawer();
+          updateSyncBadge();
+          await loadAndRender();
+          toast('Cache geleert.', 'ok');
+        } catch (e) {
+          toast('Cache konnte nicht geleert werden: ' + e.message, 'error');
+        }
       }
 
       // ── INFO PANEL ────────────────────────────────────────────────────────────────

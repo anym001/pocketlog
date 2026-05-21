@@ -22,12 +22,15 @@ kann normal über die Authentik-Flow-Policy konfiguriert werden).
 - SWAG injiziert zusätzlich einen statischen Header `X-Auth-Secret: <token>`
   in jeden Backend-Request (`swag/pocketlog.subdomain.conf`)
 - FastAPI prüft in `get_current_user()` (`backend/app/main.py`):
-  1. Wenn `AUTH_SECRET`-ENV gesetzt: `X-Auth-Secret` muss matchen
-     (timing-safe via `hmac.compare_digest`), sonst 401
-  2. `X-Authentik-Username` muss vorhanden sein, sonst 401
+  1. `X-Auth-Secret` muss zu `AUTH_SECRET` matchen (timing-safe via
+     `hmac.compare_digest`), sonst 401
+  2. `X-Authentik-Username` muss dem Allowlist-Regex entsprechen
+     (`[A-Za-z0-9._@+-]{1,150}`), sonst 401
   3. Lookup oder Lazy-Insert in `users`; gibt das `User`-ORM-Objekt zurück
-- `AUTH_SECRET`-ENV leer/ungesetzt: Backend warnt beim Start und überspringt
-  den Check (Port 8000 darf dann nur intern erreichbar sein)
+- **`AUTH_SECRET` ist Pflicht** – ohne den Wert verweigert der Container den
+  Start (`SystemExit`). Nur für lokale Dev-Setups, in denen Port 8000
+  garantiert nicht öffentlich erreichbar ist, kann `ALLOW_NO_AUTH_SECRET=1`
+  gesetzt werden; der Backend warnt dann beim Start und überspringt den Check
 - Alle DB-Queries filtern nach `user_id` – Multi-User-fähig ohne extra Login-Code
 
 ## Lokales Testen (ohne Authentik/SWAG)
@@ -43,10 +46,9 @@ curl -H "X-Authentik-Username: test" \
 API-Aufruf-Muster im Frontend:
 
 ```js
-// Default same-origin; per Settings auf andere Domain umstellbar
-const API_BASE_KEY = 'pocketlog.apiBase';
-let API = (localStorage.getItem(API_BASE_KEY) || '').trim().replace(/\/+$/, '');
-API = API ? API + '/api' : '/api';
+// Hardcoded same-origin. PWA und Backend sitzen hinter demselben SWAG-vhost;
+// CSP `connect-src 'self'` würde Cross-Origin ohnehin blockieren.
+const API = '/api';
 const data = await api('GET', '/transactions?year=2026&month=5');
 ```
 
@@ -70,8 +72,10 @@ python3 -m venv .venv
 # Migrationen gegen frische SQLite-DB laufen lassen
 DATABASE_URL="sqlite:///./pocketlog-dev.db" .venv/bin/alembic upgrade head
 
-# Dev-Server starten (AUTH_SECRET leer = Auth-Check übersprungen, nur lokal!)
+# Dev-Server starten — entweder ein Dev-Secret setzen oder den Check
+# explizit deaktivieren (nur, wenn Port 8000 garantiert nicht öffentlich ist).
 DATABASE_URL="sqlite:///./pocketlog-dev.db" \
+  ALLOW_NO_AUTH_SECRET=1 \
   .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 

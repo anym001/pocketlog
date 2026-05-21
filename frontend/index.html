@@ -330,28 +330,6 @@
             <span class="drawer-sub-title">Import/Export</span>
           </div>
           <div class="drawer-section">
-            <div class="settings-section" style="margin-bottom: var(--space-16)">
-              <div class="form-group" style="margin-bottom: var(--space-8)">
-                <label for="cfg-api">API-Basis-URL</label>
-                <input
-                  type="url"
-                  id="cfg-api"
-                  placeholder="z.B. https://pocketlog.deinedomain.de"
-                />
-              </div>
-              <p
-                style="
-                  font-size: var(--fs-micro);
-                  color: var(--text3);
-                  margin: 0 0 var(--space-12);
-                "
-              >
-                Leer lassen, wenn die App auf derselben Domain wie das Backend läuft. Das Suffix
-                <code>/api</code> wird automatisch ergänzt.
-              </p>
-              <button class="save-btn primary" onclick="saveApiBase()">Speichern</button>
-              <div class="status-msg" id="apiStatus"></div>
-            </div>
             <div class="settings-section">
               <button class="save-btn" onclick="exportCSV()">Als CSV exportieren</button>
               <button
@@ -469,6 +447,19 @@
             <span class="drawer-sub-title">Verwaltung</span>
           </div>
           <div class="drawer-section">
+            <button class="save-btn" onclick="clearAppCache()">
+              Cache leeren
+            </button>
+            <p
+              style="
+                font-size: var(--fs-caption);
+                color: var(--text3);
+                margin: var(--space-10) 0 var(--space-16);
+              "
+            >
+              Verwirft den lokalen Cache und nicht synchronisierte Änderungen. Server-Daten bleiben
+              unverändert.
+            </p>
             <button class="save-btn btn-destructive" onclick="openResetModal()">
               Daten löschen
             </button>

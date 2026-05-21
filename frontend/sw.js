@@ -88,8 +88,19 @@ function isApi(url) {
 async function networkFirst(request, cacheName) {
   try {
     const fresh = await fetch(request);
-    const cache = await caches.open(cacheName);
-    cache.put(request, fresh.clone());
+    // Auth boundary: a 401 on /api/* means the session expired or a
+    // different Authentik identity is signed in. Drop the API cache so
+    // the next online request repopulates it from scratch — never serve
+    // a previous identity's data from cache. Threat model is one user
+    // per device, so we don't keep per-user buckets.
+    if (cacheName === API_CACHE && fresh.status === 401) {
+      await caches.delete(API_CACHE);
+    } else if (fresh.ok) {
+      // Only cache successful responses. Caching 4xx/5xx would let a
+      // transient error linger as the offline fallback.
+      const cache = await caches.open(cacheName);
+      cache.put(request, fresh.clone());
+    }
     return fresh;
   } catch (e) {
     const cached = await caches.match(request);

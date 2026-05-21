@@ -34,6 +34,14 @@ COPY frontend/vendor ./static/vendor
 # previous cached shell.
 RUN sed -i "s/'__APP_VERSION__'/'${APP_VERSION}'/" /app/static/sw.js
 
+# Drop privileges. The runtime needs read-only access to /app — the DB is
+# external, static files are served read-only, alembic only writes to the
+# database, and uvicorn logs to stdout. Port 8000 is above the privileged
+# range so no extra capability is required.
+RUN useradd --create-home --uid 1000 pocketlog \
+ && chown -R pocketlog:pocketlog /app
+USER pocketlog
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

@@ -3,7 +3,7 @@
 The whole suite runs against a file-backed SQLite database. The database
 URL and the AUTH_SECRET are set **before** any `app.*` module is
 imported, so the engine in `app.database` resolves to SQLite and the
-auth middleware doesn't demand a shared secret.
+auth check runs against the test secret below.
 """
 import os
 import uuid
@@ -13,10 +13,13 @@ import pytest
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TEST_DB_PATH = BACKEND_DIR / "test-pocketlog.db"
+TEST_AUTH_SECRET = "test-auth-secret-do-not-use-in-prod"
 
 # Must run before any `from app...` import elsewhere.
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
-os.environ.setdefault("AUTH_SECRET", "")
+# Set a deterministic shared secret so the auth-check path is exercised
+# end-to-end, mirroring the real SWAG → backend flow.
+os.environ.setdefault("AUTH_SECRET", TEST_AUTH_SECRET)
 # Required keys the production builder reads — ignored on the SQLite path
 # but app.database._build_url is only consulted when DATABASE_URL is
 # empty, so technically these aren't needed. We set them anyway to keep
@@ -63,7 +66,13 @@ def username():
 
 @pytest.fixture
 def client(app, username):
-    """TestClient pre-loaded with the auth header the backend expects."""
+    """TestClient pre-loaded with the auth headers the backend expects."""
     from fastapi.testclient import TestClient
 
-    return TestClient(app, headers={"X-Authentik-Username": username})
+    return TestClient(
+        app,
+        headers={
+            "X-Authentik-Username": username,
+            "X-Auth-Secret": os.environ["AUTH_SECRET"],
+        },
+    )

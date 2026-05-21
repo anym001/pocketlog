@@ -3,38 +3,110 @@ import hmac
 import io
 import logging
 import os
+import re
 from datetime import date as date_type
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import crud, models, schemas
 from .database import get_db
 
 logger = logging.getLogger("uvicorn.error")
 
-# Shared secret between SWAG and the backend. When set, every request must
-# carry a matching X-Auth-Secret header (401 otherwise). Guards against direct
-# access to port 8000 with a forged X-Authentik-Username header.
+# Shared secret between SWAG and the backend. Every request must carry a
+# matching X-Auth-Secret header — guards against direct access to port
+# 8000 with a forged X-Authentik-Username header. The backend refuses to
+# start without a secret unless ALLOW_NO_AUTH_SECRET=1 is set explicitly
+# (intended for local dev where port 8000 is never exposed).
 AUTH_SECRET = os.environ.get("AUTH_SECRET", "").strip()
 if not AUTH_SECRET:
+    if os.environ.get("ALLOW_NO_AUTH_SECRET") != "1":
+        raise SystemExit(
+            "AUTH_SECRET is not set. The backend refuses to start without a "
+            "shared secret with SWAG. Generate one with `openssl rand -hex 32` "
+            "and set it both as the AUTH_SECRET environment variable on this "
+            "container and as the X-Auth-Secret value in SWAG's "
+            "pocketlog.subdomain.conf. To explicitly run without a secret "
+            "(local dev only — never expose port 8000), set "
+            "ALLOW_NO_AUTH_SECRET=1."
+        )
     logger.warning(
-        "AUTH_SECRET is not set – the backend blindly trusts the "
-        "X-Authentik-Username header. Port 8000 must only be reachable "
-        "through SWAG in this configuration."
+        "AUTH_SECRET is not set and ALLOW_NO_AUTH_SECRET=1 — the backend "
+        "blindly trusts the X-Authentik-Username header. Port 8000 must "
+        "only be reachable through SWAG in this configuration."
     )
+
+# Allowlist for the X-Authentik-Username header. Authentik usernames are
+# ASCII slugs (letters, digits, dot, underscore, dash) plus @ and + for
+# email-style logins. Length is bound to the DB column (VARCHAR(150)).
+# Rejecting whitespace, NUL bytes, control characters and Unicode prevents
+# the auto-create flow in crud.get_or_create_user from materialising a
+# second user row that differs from the legitimate one only by an
+# invisible character (trailing space, RTL override, ZWJ).
+USERNAME_RE = re.compile(r"^[A-Za-z0-9._@+\-]{1,150}$")
+
+# Swagger UI and the OpenAPI schema are off by default. Both leak the full
+# API surface and Swagger's "Try it out" issues real requests against this
+# backend. Opt in with ENABLE_DOCS=1 when debugging — never in production.
+DOCS_ENABLED = os.environ.get("ENABLE_DOCS") == "1"
 
 app = FastAPI(
     title="PocketLog API",
-    docs_url="/api/docs",
+    docs_url="/api/docs" if DOCS_ENABLED else None,
     redoc_url=None,
-    openapi_url="/api/openapi.json",
+    openapi_url="/api/openapi.json" if DOCS_ENABLED else None,
 )
+
+
+# Content-Security-Policy — set in the backend because SWAG's ssl.conf does
+# not configure one. The remaining security headers (HSTS, X-Frame-Options,
+# X-Content-Type-Options, Referrer-Policy, X-Download-Options) are already
+# emitted by SWAG via /config/nginx/ssl.conf and are intentionally NOT set
+# here to avoid duplicate response headers (nginx `add_header` appends to
+# upstream headers, not replaces).
+#
+# CSP notes:
+# - 'unsafe-inline' for script/style is required because index.html ships an
+#   inline theme-bootstrap script and the app uses `onclick="..."` attributes
+#   plus inline `style="--cat-color:..."`. A nonce-based policy would be
+#   stricter but requires refactoring every inline handler.
+# - frame-ancestors 'none' tightens SWAG's X-Frame-Options SAMEORIGIN for
+#   PocketLog only and is the modern, authoritative anti-clickjacking
+#   directive (browsers honour it over X-Frame-Options when both are present).
+# - connect-src 'self' constrains fetch/XHR to same-origin; the configurable
+#   "API-Basis-URL" feature works only inside the same origin, which matches
+#   the supported same-origin deployment.
+CSP_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "manifest-src 'self'; "
+    "worker-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'none'; "
+    "form-action 'self'; "
+    "object-src 'none'"
+)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("Content-Security-Policy", CSP_POLICY)
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 def get_current_user(
@@ -44,9 +116,13 @@ def get_current_user(
 ) -> models.User:
     if AUTH_SECRET and not (x_auth_secret and hmac.compare_digest(x_auth_secret, AUTH_SECRET)):
         raise HTTPException(status_code=401, detail="invalid auth secret")
-    if not x_authentik_username:
-        raise HTTPException(status_code=401, detail="missing X-Authentik-Username header")
-    return crud.get_or_create_user(db, x_authentik_username)
+    # Strip leading/trailing whitespace so an accidental space in the
+    # Authentik header doesn't create a parallel user row, then enforce
+    # the allowlist.
+    username = (x_authentik_username or "").strip()
+    if not username or not USERNAME_RE.match(username):
+        raise HTTPException(status_code=401, detail="invalid X-Authentik-Username header")
+    return crud.get_or_create_user(db, username)
 
 
 CurrentUser = Annotated[models.User, Depends(get_current_user)]
@@ -248,6 +324,7 @@ def put_settings(payload: schemas.SettingsUpdate, user: CurrentUser, db: DB):
 # ---------- CSV-Import ----------
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB
+MAX_IMPORT_ROWS = 10_000
 
 
 @app.post("/api/import/csv", response_model=schemas.ImportResult)
@@ -265,10 +342,23 @@ async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
             text = raw.decode("cp1252")
         except UnicodeDecodeError:
             raise HTTPException(status_code=400, detail="encoding not utf-8/cp1252")
-    return crud.import_csv(db, user.id, text)
+    return crud.import_csv(db, user.id, text, max_rows=MAX_IMPORT_ROWS)
 
 
 # ---------- CSV-Export ----------
+
+# Excel, Numbers and LibreOffice evaluate cell contents that start with =, +,
+# -, @ or a leading tab/CR as a formula. A user-controlled field that begins
+# with one of those characters would execute when the file is re-opened. Prefix
+# a single quote so the cell is forced to text without losing information.
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: str) -> str:
+    if value and value[0] in _CSV_FORMULA_PREFIXES:
+        return "'" + value
+    return value
+
 
 @app.get("/api/export/csv")
 def export_csv(user: CurrentUser, db: DB):
@@ -279,14 +369,19 @@ def export_csv(user: CurrentUser, db: DB):
     writer = csv.writer(buf, delimiter=";")
     writer.writerow(["date", "type", "amount", "description", "category", "tags"])
     for t in txs:
+        # Each tag is escaped individually, so the joined string can only
+        # start with a formula-trigger if the first tag did — which then
+        # already carries the leading quote. The outer _csv_safe is kept
+        # as defence-in-depth in case the per-tag rule ever changes.
+        joined_tags = ",".join(_csv_safe(tag) for tag in (t.tags or []))
         writer.writerow(
             [
                 t.date.isoformat(),
                 t.type,
                 f"{t.amount:.2f}",
-                t.description,
-                categories.get(t.category_id, ""),
-                ",".join(t.tags or []),
+                _csv_safe(t.description),
+                _csv_safe(categories.get(t.category_id, "")),
+                _csv_safe(joined_tags),
             ]
         )
     buf.seek(0)
