@@ -31,7 +31,7 @@
   <Config Name="DB_PASSWORD" Target="DB_PASSWORD" Default="" Mode="" Description="Passwort des DB-Users." Type="Variable" Display="always" Required="true" Mask="true"/>
 
   <!-- Shared Secret zwischen SWAG und Backend -->
-  <Config Name="AUTH_SECRET" Target="AUTH_SECRET" Default="" Mode="" Description="Geheimes Token (z.B. openssl rand -hex 32). Identisch zu proxy_set_header X-Auth-Secret in swag/pocketlog.subdomain.conf setzen. Leer lassen = Check deaktiviert (Port 8000 muss dann zwingend intern bleiben)." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="AUTH_SECRET" Target="AUTH_SECRET" Default="" Mode="" Description="Geheimes Token (z.B. openssl rand -hex 32). Identisch zu proxy_set_header X-Auth-Secret in swag/pocketlog.subdomain.conf setzen. Pflichtfeld – ohne Wert verweigert der Container den Start." Type="Variable" Display="always" Required="true" Mask="true"/>
 
   <Config Name="TZ" Target="TZ" Default="Europe/Berlin" Mode="" Description="Zeitzone." Type="Variable" Display="advanced" Required="false" Mask="false">Europe/Berlin</Config>
 </Container>

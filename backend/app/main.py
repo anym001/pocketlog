@@ -20,15 +20,27 @@ from .database import get_db
 
 logger = logging.getLogger("uvicorn.error")
 
-# Shared secret between SWAG and the backend. When set, every request must
-# carry a matching X-Auth-Secret header (401 otherwise). Guards against direct
-# access to port 8000 with a forged X-Authentik-Username header.
+# Shared secret between SWAG and the backend. Every request must carry a
+# matching X-Auth-Secret header — guards against direct access to port
+# 8000 with a forged X-Authentik-Username header. The backend refuses to
+# start without a secret unless ALLOW_NO_AUTH_SECRET=1 is set explicitly
+# (intended for local dev where port 8000 is never exposed).
 AUTH_SECRET = os.environ.get("AUTH_SECRET", "").strip()
 if not AUTH_SECRET:
+    if os.environ.get("ALLOW_NO_AUTH_SECRET") != "1":
+        raise SystemExit(
+            "AUTH_SECRET is not set. The backend refuses to start without a "
+            "shared secret with SWAG. Generate one with `openssl rand -hex 32` "
+            "and set it both as the AUTH_SECRET environment variable on this "
+            "container and as the X-Auth-Secret value in SWAG's "
+            "pocketlog.subdomain.conf. To explicitly run without a secret "
+            "(local dev only — never expose port 8000), set "
+            "ALLOW_NO_AUTH_SECRET=1."
+        )
     logger.warning(
-        "AUTH_SECRET is not set – the backend blindly trusts the "
-        "X-Authentik-Username header. Port 8000 must only be reachable "
-        "through SWAG in this configuration."
+        "AUTH_SECRET is not set and ALLOW_NO_AUTH_SECRET=1 — the backend "
+        "blindly trusts the X-Authentik-Username header. Port 8000 must "
+        "only be reachable through SWAG in this configuration."
     )
 
 # Allowlist for the X-Authentik-Username header. Authentik usernames are
