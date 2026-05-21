@@ -522,7 +522,20 @@ def _build_transaction(row: dict, db: Session, user_id: int) -> models.Transacti
     cat = get_or_create_category(db, user_id, r.get("category") or "Sonstiges")
 
     tags_raw = r.get("tags") or ""
-    tags = [t.strip() for t in tags_raw.split(",") if t.strip()] or None
+    seen: set[str] = set()
+    tags: list[str] = []
+    for raw in tags_raw.split(","):
+        tag = raw.strip()
+        if not tag or len(tag) > schemas.MAX_TAG_LENGTH:
+            continue
+        key = tag.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        tags.append(tag)
+        if len(tags) >= schemas.MAX_TAGS_PER_TX:
+            break
+    tags = tags or None
 
     return models.Transaction(
         user_id=user_id,
@@ -535,7 +548,7 @@ def _build_transaction(row: dict, db: Session, user_id: int) -> models.Transacti
     )
 
 
-def import_csv(db: Session, user_id: int, text: str) -> dict:
+def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> dict:
     # Auto-detect delimiter (; , \t)
     sample = text[:4096]
     try:
@@ -554,6 +567,16 @@ def import_csv(db: Session, user_id: int, text: str) -> dict:
     errors: list[dict] = []
 
     for idx, row in enumerate(reader, start=2):
+        if idx - 1 > max_rows:
+            # Stop the loop before allocating a transaction for the next
+            # row, then surface the truncation as an error entry. The
+            # 5 MB byte cap upstream protects RAM, the row cap protects
+            # the worker process from minute-long parse loops.
+            errors.append({
+                "row": idx,
+                "reason": f"Limit von {max_rows} Zeilen überschritten – Rest übersprungen.",
+            })
+            break
         try:
             tx = _build_transaction(row, db, user_id)
             if tx is None:

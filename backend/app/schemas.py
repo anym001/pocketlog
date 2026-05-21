@@ -2,7 +2,15 @@ from datetime import date as date_type
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# Bounds for the tags array on a single transaction. The list cap keeps a
+# rogue payload from filling the JSON column with thousands of items
+# (each tag would then have to be rendered, aggregated and serialised on
+# every read); the item-length cap matches the dedicated /api/tags
+# endpoint's max_length=64.
+MAX_TAGS_PER_TX = 20
+MAX_TAG_LENGTH = 64
 
 
 # -------- Categories --------
@@ -58,6 +66,30 @@ class TransactionIn(BaseModel):
     tags: list[str] | None = None
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("tags")
+    @classmethod
+    def _normalise_tags(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        if len(value) > MAX_TAGS_PER_TX:
+            raise ValueError(f"too many tags (max {MAX_TAGS_PER_TX})")
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            if not isinstance(raw, str):
+                raise ValueError("tags must be strings")
+            tag = raw.strip()
+            if not tag:
+                raise ValueError("tag must not be empty")
+            if len(tag) > MAX_TAG_LENGTH:
+                raise ValueError(f"tag too long (max {MAX_TAG_LENGTH})")
+            key = tag.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(tag)
+        return cleaned
 
 
 class TransactionCreate(TransactionIn):

@@ -324,6 +324,7 @@ def put_settings(payload: schemas.SettingsUpdate, user: CurrentUser, db: DB):
 # ---------- CSV-Import ----------
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB
+MAX_IMPORT_ROWS = 10_000
 
 
 @app.post("/api/import/csv", response_model=schemas.ImportResult)
@@ -341,10 +342,23 @@ async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
             text = raw.decode("cp1252")
         except UnicodeDecodeError:
             raise HTTPException(status_code=400, detail="encoding not utf-8/cp1252")
-    return crud.import_csv(db, user.id, text)
+    return crud.import_csv(db, user.id, text, max_rows=MAX_IMPORT_ROWS)
 
 
 # ---------- CSV-Export ----------
+
+# Excel, Numbers and LibreOffice evaluate cell contents that start with =, +,
+# -, @ or a leading tab/CR as a formula. A user-controlled field that begins
+# with one of those characters would execute when the file is re-opened. Prefix
+# a single quote so the cell is forced to text without losing information.
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: str) -> str:
+    if value and value[0] in _CSV_FORMULA_PREFIXES:
+        return "'" + value
+    return value
+
 
 @app.get("/api/export/csv")
 def export_csv(user: CurrentUser, db: DB):
@@ -355,14 +369,15 @@ def export_csv(user: CurrentUser, db: DB):
     writer = csv.writer(buf, delimiter=";")
     writer.writerow(["date", "type", "amount", "description", "category", "tags"])
     for t in txs:
+        joined_tags = ",".join(_csv_safe(tag) for tag in (t.tags or []))
         writer.writerow(
             [
                 t.date.isoformat(),
                 t.type,
                 f"{t.amount:.2f}",
-                t.description,
-                categories.get(t.category_id, ""),
-                ",".join(t.tags or []),
+                _csv_safe(t.description),
+                _csv_safe(categories.get(t.category_id, "")),
+                _csv_safe(joined_tags),
             ]
         )
     buf.seek(0)
