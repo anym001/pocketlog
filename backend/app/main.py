@@ -3,6 +3,7 @@ import hmac
 import io
 import logging
 import os
+import re
 from datetime import date as date_type
 from pathlib import Path
 from typing import Annotated
@@ -29,6 +30,15 @@ if not AUTH_SECRET:
         "X-Authentik-Username header. Port 8000 must only be reachable "
         "through SWAG in this configuration."
     )
+
+# Allowlist for the X-Authentik-Username header. Authentik usernames are
+# ASCII slugs (letters, digits, dot, underscore, dash) plus @ and + for
+# email-style logins. Length is bound to the DB column (VARCHAR(150)).
+# Rejecting whitespace, NUL bytes, control characters and Unicode prevents
+# the auto-create flow in crud.get_or_create_user from materialising a
+# second user row that differs from the legitimate one only by an
+# invisible character (trailing space, RTL override, ZWJ).
+USERNAME_RE = re.compile(r"^[A-Za-z0-9._@+\-]{1,150}$")
 
 app = FastAPI(
     title="PocketLog API",
@@ -89,9 +99,13 @@ def get_current_user(
 ) -> models.User:
     if AUTH_SECRET and not (x_auth_secret and hmac.compare_digest(x_auth_secret, AUTH_SECRET)):
         raise HTTPException(status_code=401, detail="invalid auth secret")
-    if not x_authentik_username:
-        raise HTTPException(status_code=401, detail="missing X-Authentik-Username header")
-    return crud.get_or_create_user(db, x_authentik_username)
+    # Strip leading/trailing whitespace so an accidental space in the
+    # Authentik header doesn't create a parallel user row, then enforce
+    # the allowlist.
+    username = (x_authentik_username or "").strip()
+    if not username or not USERNAME_RE.match(username):
+        raise HTTPException(status_code=401, detail="invalid X-Authentik-Username header")
+    return crud.get_or_create_user(db, username)
 
 
 CurrentUser = Annotated[models.User, Depends(get_current_user)]
