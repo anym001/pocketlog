@@ -48,14 +48,18 @@ def test_wrong_auth_secret_is_rejected(app):
     assert r.status_code == 401
 
 
-def test_auth_secret_check_runs_before_username_validation(app):
-    """When both headers are bad the secret check fires first — order
-    matters because a wrong secret means the request has bypassed SWAG
-    entirely, so leaking 'username invalid' there would tell an attacker
-    they got past the shared-secret guard."""
-    r = _client(app, username="x" * 200, secret="wrong").get("/api/categories")
-    assert r.status_code == 401
-    assert r.json().get("detail") == "invalid auth secret"
+def test_unauthorized_detail_is_generic(app):
+    """Both rejection paths return the same generic detail — a direct
+    probe must not learn which header was wrong (would reveal how far
+    the request got past the SWAG/Authentik boundary)."""
+    wrong_secret = _client(app, username="alice", secret="wrong").get("/api/categories")
+    bad_username = _client(app, username="x" * 200, secret=AUTH_SECRET).get(
+        "/api/categories"
+    )
+    assert wrong_secret.status_code == 401
+    assert bad_username.status_code == 401
+    assert wrong_secret.json().get("detail") == "unauthorized"
+    assert bad_username.json().get("detail") == "unauthorized"
 
 
 @pytest.mark.parametrize(

@@ -97,7 +97,10 @@ async function networkFirst(request, cacheName) {
       await caches.delete(API_CACHE);
     } else if (fresh.ok) {
       // Only cache successful responses. Caching 4xx/5xx would let a
-      // transient error linger as the offline fallback.
+      // transient error linger as the offline fallback. If the backend
+      // ever starts emitting ETag/Last-Modified, 304 Not Modified will
+      // arrive here as `ok === false` and must be treated explicitly —
+      // the cached version is still valid in that case.
       const cache = await caches.open(cacheName);
       cache.put(request, fresh.clone());
     }

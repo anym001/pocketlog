@@ -64,7 +64,10 @@ def list_categories(db: Session, user_id: int) -> list[models.Category]:
 
 
 def get_or_create_category(db: Session, user_id: int, name: str) -> models.Category:
-    name = (name or "").strip() or "Sonstiges"
+    # CSV import path lands here with raw cell content — apply the same
+    # control-char strip as schemas._normalise_name so a CSV with a NUL
+    # in the category column can't insert an unreachable row.
+    name = schemas._CONTROL_CHARS.sub("", name or "").strip() or "Sonstiges"
     cat = db.scalar(
         select(models.Category).where(
             and_(models.Category.user_id == user_id, models.Category.name == name)
@@ -517,7 +520,8 @@ def _build_transaction(row: dict, db: Session, user_id: int) -> models.Transacti
     if amount == 0:
         raise ValueError("Betrag darf nicht 0 sein")
 
-    desc = (r.get("description") or r.get("desc") or "").strip()[:255]
+    desc_raw = r.get("description") or r.get("desc") or ""
+    desc = schemas._CONTROL_CHARS.sub("", desc_raw).strip()[:255]
 
     cat = get_or_create_category(db, user_id, r.get("category") or "Sonstiges")
 

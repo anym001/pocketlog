@@ -114,14 +114,17 @@ def get_current_user(
     x_authentik_username: Annotated[str | None, Header()] = None,
     x_auth_secret: Annotated[str | None, Header()] = None,
 ) -> models.User:
+    # Both branches return the same generic detail so a direct probe on
+    # port 8000 can't tell which header was wrong — that would leak how
+    # far the request got past the auth boundary.
     if AUTH_SECRET and not (x_auth_secret and hmac.compare_digest(x_auth_secret, AUTH_SECRET)):
-        raise HTTPException(status_code=401, detail="invalid auth secret")
+        raise HTTPException(status_code=401, detail="unauthorized")
     # Strip leading/trailing whitespace so an accidental space in the
     # Authentik header doesn't create a parallel user row, then enforce
     # the allowlist.
     username = (x_authentik_username or "").strip()
     if not username or not USERNAME_RE.match(username):
-        raise HTTPException(status_code=401, detail="invalid X-Authentik-Username header")
+        raise HTTPException(status_code=401, detail="unauthorized")
     return crud.get_or_create_user(db, username)
 
 
