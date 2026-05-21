@@ -96,6 +96,76 @@ def test_csv_import_strips_control_chars_from_tags(client):
     assert target["tags"] == ["foobar", "clean"]
 
 
+# ── Control chars in description and name (L-1) ───────────────────────────
+
+
+def test_control_chars_stripped_from_description(client):
+    cat_id = client.get("/api/categories").json()[0]["id"]
+    r = client.post(
+        "/api/transactions",
+        json={
+            "amount": "1.00",
+            "desc": "Café\x00 Bar\nLunch",
+            "category_id": cat_id,
+            "date": "2026-05-20",
+            "type": "out",
+        },
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["desc"] == "Café BarLunch"
+
+
+def test_control_chars_stripped_from_category_name(client):
+    r = client.post(
+        "/api/categories",
+        json={"name": "Hello\x00World", "icon": "house", "color": "#123456"},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["name"] == "HelloWorld"
+
+
+def test_category_name_rejected_when_empty_after_strip(client):
+    r = client.post(
+        "/api/categories",
+        json={"name": "\x00\x01\x02", "icon": "house", "color": "#123456"},
+    )
+    assert r.status_code == 422
+
+
+def test_tag_rename_strips_control_chars(client):
+    cat_id = client.get("/api/categories").json()[0]["id"]
+    client.post(
+        "/api/transactions",
+        json={
+            "amount": "1.00",
+            "desc": "for-rename",
+            "category_id": cat_id,
+            "date": "2026-05-20",
+            "type": "out",
+            "tags": ["old"],
+        },
+    )
+    r = client.put("/api/tags/old", json={"new_name": "fresh\x00name"})
+    assert r.status_code == 200
+    tags = {t["name"] for t in client.get("/api/tags").json()}
+    assert "freshname" in tags
+
+
+def test_csv_import_strips_control_chars_from_description(client):
+    body = (
+        "date;type;amount;description;category;tags\n"
+        "2026-05-20;out;1.00;Café\x00 Bar;Sonstiges;\n"
+    )
+    r = client.post(
+        "/api/import/csv",
+        files={"file": ("import.csv", body.encode("utf-8"), "text/csv")},
+    )
+    assert r.status_code == 200
+    assert r.json()["imported"] == 1
+    txs = client.get("/api/transactions?year=2026&month=5").json()
+    assert any(t["desc"] == "Café Bar" for t in txs)
+
+
 # ── CSV export formula-injection (M-2) ────────────────────────────────────
 
 

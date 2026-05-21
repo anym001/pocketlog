@@ -2717,10 +2717,11 @@
         await _runReset('/admin/all-data', 'Alle Daten gelöscht.');
       }
 
+      // ── CACHE-CLEAR ───────────────────────────────────────────────────────────────
       // Wipes the Service-Worker API cache and the IndexedDB outbox.
       // Server data is untouched. Useful when switching Authentik
       // identities on the same device, or when local state looks stale.
-      async function clearAppCache() {
+      async function openCacheModal() {
         // null = unknown (count failed). Treated like "pending exists"
         // in the confirm copy so the user can't lose offline writes
         // without warning when the outbox lookup itself is broken.
@@ -2730,12 +2731,27 @@
         } catch (_) {}
         const msg =
           pending === null
-            ? 'Cache wird gelöscht. Möglicherweise nicht synchronisierte Änderungen gehen dabei verloren. Fortfahren?'
+            ? 'Möglicherweise nicht synchronisierte Änderungen gehen dabei verloren.'
             : pending > 0
-              ? `Cache wird gelöscht. ${pending} noch nicht synchronisierte Änderungen gehen dabei verloren. Fortfahren?`
-              : 'Cache wird gelöscht. App-Daten werden beim nächsten Laden neu geholt. Fortfahren?';
-        if (!window.confirm(msg)) return;
+              ? `${pending} noch nicht synchronisierte Änderungen gehen dabei verloren.`
+              : 'App-Daten werden beim nächsten Laden neu geholt.';
+        document.getElementById('cacheModalMsg').textContent = msg;
+        document.getElementById('cacheModalOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
 
+      function closeCacheModal() {
+        document.getElementById('cacheModalOverlay').classList.remove('open');
+        if (!document.getElementById('drawer').classList.contains('open')) {
+          document.body.style.overflow = '';
+        }
+      }
+
+      function closeCacheModalOutside(e) {
+        if (e.target === document.getElementById('cacheModalOverlay')) closeCacheModal();
+      }
+
+      async function confirmClearAppCache() {
         try {
           if ('caches' in window) {
             const keys = await caches.keys();
@@ -2746,6 +2762,7 @@
           if (window.PocketLogOutbox) {
             await window.PocketLogOutbox.clear();
           }
+          closeCacheModal();
           closeDrawer();
           updateSyncBadge();
           await loadAndRender();

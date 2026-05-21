@@ -447,7 +447,7 @@
             <span class="drawer-sub-title">Verwaltung</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" onclick="clearAppCache()">
+            <button class="save-btn" onclick="openCacheModal()">
               Cache leeren
             </button>
             <p
@@ -457,7 +457,7 @@
                 margin: var(--space-10) 0 var(--space-16);
               "
             >
-              Verwirft den lokalen Cache und nicht synchronisierte Änderungen. Server-Daten bleiben
+              Verwirft den API-Cache und nicht synchronisierte Änderungen. Server-Daten bleiben
               unverändert.
             </p>
             <button class="save-btn btn-destructive" onclick="openResetModal()">
@@ -947,6 +947,27 @@
         </div>
         <div class="modal-body">
           <div id="iconPickerSections"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CACHE-CLEAR MODAL -->
+    <div class="modal-overlay" id="cacheModalOverlay" onclick="closeCacheModalOutside(event)">
+      <div class="modal">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeCacheModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2>Cache wirklich leeren?</h2>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-msg" id="cacheModalMsg"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" id="cacheModalConfirm" onclick="confirmClearAppCache()">
+            Cache leeren
+          </button>
+          <button class="confirm-cancel" onclick="closeCacheModal()">Abbrechen</button>
         </div>
       </div>
     </div>

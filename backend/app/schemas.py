@@ -13,9 +13,24 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 MAX_TAGS_PER_TX = 20
 MAX_TAG_LENGTH = 64
 
-# C0 + DEL. Stripped from tags so a payload with a NUL byte or a stray
-# newline doesn't reach the JSON column or the DOM via _escText.
-_TAG_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+# C0 + DEL. Stripped from every user-controlled string field so a NUL
+# byte or a stray newline never reaches the JSON column, the CSV export
+# or the DOM via _escText.
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+# Backwards-compatible alias used by crud._build_transaction.
+_TAG_CONTROL_CHARS = _CONTROL_CHARS
+
+
+def _strip_control(value: str) -> str:
+    return _CONTROL_CHARS.sub("", value)
+
+
+def _strip_control_required(value: str) -> str:
+    """For fields that must not be empty after stripping (e.g. names)."""
+    cleaned = _CONTROL_CHARS.sub("", value).strip()
+    if not cleaned:
+        raise ValueError("must not be empty")
+    return cleaned
 
 
 # -------- Categories --------
@@ -28,6 +43,11 @@ class CategoryBase(BaseModel):
     # release. Unknown IDs render as the default `package` glyph client-side.
     icon: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$", default="package")
     color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", default="#9e9b96")
+
+    @field_validator("name", mode="after")
+    @classmethod
+    def _normalise_name(cls, value: str) -> str:
+        return _strip_control_required(value)
 
 
 class CategoryCreate(CategoryBase):
@@ -48,9 +68,19 @@ class CategoryOut(CategoryBase):
 class TagCreate(BaseModel):
     name: str = Field(min_length=1, max_length=64)
 
+    @field_validator("name", mode="after")
+    @classmethod
+    def _normalise_name(cls, value: str) -> str:
+        return _strip_control_required(value)
+
 
 class TagRename(BaseModel):
     new_name: str = Field(min_length=1, max_length=64)
+
+    @field_validator("new_name", mode="after")
+    @classmethod
+    def _normalise_new_name(cls, value: str) -> str:
+        return _strip_control_required(value)
 
 
 class TagOut(BaseModel):
@@ -71,6 +101,13 @@ class TransactionIn(BaseModel):
     tags: list[str] | None = None
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("description", mode="after")
+    @classmethod
+    def _normalise_description(cls, value: str) -> str:
+        # Description is allowed to be empty (default=""), so strip control
+        # chars silently without the not-empty check.
+        return _strip_control(value)
 
     @field_validator("tags")
     @classmethod
