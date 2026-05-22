@@ -25,13 +25,14 @@
       // Welche Auswertung gerade aktiv ist (Quelle der Wahrheit für panel-charts).
       // Persistiert in localStorage, damit ein Reload den letzten Stand zeigt.
       const REPORT_STORAGE_KEY = 'pocketlog.report';
-      const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'tags', 'forecast', 'top'];
+      const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'tags', 'trend', 'forecast', 'top'];
       const REPORT_TITLES = {
         overview: 'Übersicht',
         month: 'Monatsverlauf',
         year: 'Jahresverlauf',
         categories: 'Kategorien-Analyse',
         tags: 'Tag-Analyse',
+        trend: 'Trend',
         forecast: 'Durchschnitt und Prognose',
         top: 'Größte Ausgaben',
       };
@@ -54,7 +55,42 @@
       // die nur in dieser Granularität sinnvoll sind. null = frei wählbar.
       let _rangeLock = null;
       // Chart.js-Instanzen pro Report, getrennt damit destroy() keine fremde Instanz trifft.
-      const chartInsts = { month: null, year: null, categories: null, tags: null, sparkline: null };
+      const chartInsts = { month: null, year: null, categories: null, tags: null, trend: null, sparkline: null };
+
+      // ── TREND-STATE ───────────────────────────────────────────────────────────────
+      const TREND_STORAGE_KEY = 'pocketlog.trend';
+      const TREND_RANGE_KEY = 'pocketlog.trend.range';
+      let _trendKind = 'category';          // 'category' | 'tag'
+      let _trendSelection = [];              // ['cat:42'] heute, später bis zu 3
+      let _trendPickerOpen = false;
+      let _trendPickerFilter = '';
+      let _earliestTxDate = null;            // Session-Cache
+      let _trendYearFrom = null;             // integer, z.B. 2022
+      let _trendYearTo = null;               // integer, z.B. 2026
+      (function _restoreTrendState() {
+        try {
+          const raw = localStorage.getItem(TREND_STORAGE_KEY);
+          if (raw) {
+            const s = JSON.parse(raw);
+            if (s.kind === 'category' || s.kind === 'tag') _trendKind = s.kind;
+            if (Array.isArray(s.selection)) {
+              _trendSelection = s.selection
+                .filter((e) => typeof e === 'string' && (e.startsWith('cat:') || e.startsWith('tag:')))
+                .slice(0, 3);
+            }
+          }
+        } catch (e) {}
+        try {
+          const raw = localStorage.getItem(TREND_RANGE_KEY);
+          if (raw) {
+            const r = JSON.parse(raw);
+            if (r && Number.isInteger(r.yearFrom) && Number.isInteger(r.yearTo)) {
+              _trendYearFrom = r.yearFrom;
+              _trendYearTo = r.yearTo;
+            }
+          }
+        } catch (e) {}
+      })();
       // Pro-Jahr-Cache der Transaktionen. Bei jedem write geleert.
       const _txCacheByYear = new Map();
       function invalidateReportCache() {
@@ -1036,7 +1072,11 @@
         try {
           localStorage.setItem(REPORT_STORAGE_KEY, id);
         } catch (e) {}
-        const locks = { month: 'month', year: 'year' };
+        document.body.setAttribute('data-report', id);
+        if (id === 'trend') {
+          await _ensureTrendDefaultRange();
+        }
+        const locks = { month: 'month', year: 'year', trend: 'custom' };
         setRangeLock(locks[id] || null);
         if (_rangeLock && reportRange.kind !== _rangeLock) {
           reportRange.kind = _rangeLock;
@@ -1064,6 +1104,7 @@
         else if (id === 'year') await renderReportYear(body, txs);
         else if (id === 'categories') renderReportCategories(body, txs);
         else if (id === 'tags') renderReportTags(body, txs);
+        else if (id === 'trend') await renderReportTrend(body, txs);
         else if (id === 'forecast') await renderReportForecast(body);
         else if (id === 'top') renderReportTop(body, txs);
       }
@@ -1489,6 +1530,520 @@
         document.body.classList.add('searching');
         await _setSearchPanelActive(true);
         applySearch();
+      }
+
+      // ── REPORTS — TREND ───────────────────────────────────────────────────────────
+
+      function _persistTrendState() {
+        try {
+          localStorage.setItem(
+            TREND_STORAGE_KEY,
+            JSON.stringify({ kind: _trendKind, selection: _trendSelection })
+          );
+        } catch (e) {}
+      }
+
+      function _persistTrendRange() {
+        try {
+          localStorage.setItem(
+            TREND_RANGE_KEY,
+            JSON.stringify({ yearFrom: _trendYearFrom, yearTo: _trendYearTo })
+          );
+        } catch (e) {}
+      }
+
+      async function _findEarliestTxDate() {
+        if (_earliestTxDate) return _earliestTxDate;
+        const today = new Date();
+        let year = today.getFullYear();
+        let earliest = null;
+        let consecutiveEmpty = 0;
+        const floor = year - 20;
+        while (consecutiveEmpty < 2 && year >= floor) {
+          const yearTxs = await _loadYearTxs(year);
+          if (!yearTxs.length) {
+            consecutiveEmpty++;
+          } else {
+            consecutiveEmpty = 0;
+            for (const t of yearTxs) {
+              if (!earliest || t.date < earliest) earliest = t.date;
+            }
+          }
+          year--;
+        }
+        if (!earliest) {
+          // Noch keine Buchung — default ein Jahr zurück, damit der Picker eine sinnvolle Range zeigt.
+          const fallback = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+          earliest = _iso(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
+        }
+        _earliestTxDate = earliest;
+        return earliest;
+      }
+
+      async function _ensureTrendDefaultRange() {
+        if (_trendYearFrom && _trendYearTo) {
+          reportRange.kind = 'custom';
+          reportRange.from = `${_trendYearFrom}-01-01`;
+          reportRange.to = `${_trendYearTo}-12-31`;
+          return;
+        }
+        const earliest = await _findEarliestTxDate();
+        const today = new Date();
+        _trendYearFrom = parseInt(earliest.slice(0, 4), 10);
+        _trendYearTo = today.getFullYear();
+        reportRange.kind = 'custom';
+        reportRange.from = `${_trendYearFrom}-01-01`;
+        reportRange.to = `${_trendYearTo}-12-31`;
+        _persistTrendRange();
+      }
+
+      function _monthSpan(fromIso, toIso) {
+        const fy = parseInt(fromIso.slice(0, 4), 10);
+        const fm = parseInt(fromIso.slice(5, 7), 10);
+        const ty = parseInt(toIso.slice(0, 4), 10);
+        const tm = parseInt(toIso.slice(5, 7), 10);
+        return (ty - fy) * 12 + (tm - fm) + 1;
+      }
+
+      function _autoGranularity(fromIso, toIso) {
+        const months = _monthSpan(fromIso, toIso);
+        if (months < 24) return 'month';
+        if (months <= 60) return 'quarter';
+        return 'year';
+      }
+
+      function _bucketKey(iso, granularity) {
+        const y = iso.slice(0, 4);
+        const m = parseInt(iso.slice(5, 7), 10);
+        if (granularity === 'year') return y;
+        if (granularity === 'quarter') return `${y}-Q${Math.floor((m - 1) / 3) + 1}`;
+        return `${y}-${String(m).padStart(2, '0')}`;
+      }
+
+      function _bucketLabel(key, granularity) {
+        if (granularity === 'year') return key;
+        if (granularity === 'quarter') {
+          const [y, q] = key.split('-');
+          return `${q} ${y}`;
+        }
+        const [y, m] = key.split('-');
+        return `${MONTHS_SHORT[parseInt(m, 10) - 1]} ${y.slice(2)}`;
+      }
+
+      function _bucketAxis(fromIso, toIso, granularity) {
+        const fy = parseInt(fromIso.slice(0, 4), 10);
+        const fm = parseInt(fromIso.slice(5, 7), 10);
+        const ty = parseInt(toIso.slice(0, 4), 10);
+        const tm = parseInt(toIso.slice(5, 7), 10);
+        const keys = [];
+        if (granularity === 'year') {
+          for (let y = fy; y <= ty; y++) keys.push(String(y));
+          return keys;
+        }
+        if (granularity === 'quarter') {
+          let y = fy;
+          let q = Math.floor((fm - 1) / 3);
+          const endQ = Math.floor((tm - 1) / 3);
+          while (y < ty || (y === ty && q <= endQ)) {
+            keys.push(`${y}-Q${q + 1}`);
+            q++;
+            if (q > 3) { q = 0; y++; }
+          }
+          return keys;
+        }
+        let y = fy;
+        let m = fm;
+        while (y < ty || (y === ty && m <= tm)) {
+          keys.push(`${y}-${String(m).padStart(2, '0')}`);
+          m++;
+          if (m > 12) { m = 1; y++; }
+        }
+        return keys;
+      }
+
+      function _movingAverage(values, window) {
+        if (window <= 1) return values.slice();
+        const result = [];
+        const half = Math.floor(window / 2);
+        for (let i = 0; i < values.length; i++) {
+          const start = Math.max(0, i - half);
+          const end = Math.min(values.length - 1, i + half);
+          let sum = 0;
+          for (let j = start; j <= end; j++) sum += values[j];
+          result.push(sum / (end - start + 1));
+        }
+        return result;
+      }
+
+      // Stabile Hue wie _tagColor, aber mit klemmender Helligkeit, damit
+      // Light- und Dark-Mode beide Kontrast zur Chart-Linie haben.
+      function _tagLineColor(name) {
+        let h = 0;
+        for (let i = 0; i < name.length; i++) {
+          h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+        }
+        return `hsl(${Math.abs(h) % 360}deg 55% 50%)`;
+      }
+
+      function _trendEntityFromId(id) {
+        if (!id) return null;
+        if (id.startsWith('cat:')) {
+          const catId = parseInt(id.slice(4), 10);
+          const cat = categories.find((c) => c.id === catId);
+          if (!cat) return null;
+          return { kind: 'category', id, catId, name: cat.name, color: cat.color };
+        }
+        if (id.startsWith('tag:')) {
+          const name = id.slice(4);
+          return { kind: 'tag', id, name, color: _tagLineColor(name) };
+        }
+        return null;
+      }
+
+      function _trendMatchesEntity(t, entity) {
+        if (t.type !== 'out') return false;
+        if (entity.kind === 'category') return t.category_id === entity.catId;
+        return Array.isArray(t.tags) && t.tags.includes(entity.name);
+      }
+
+      function _pickDefaultTrendEntity(txs, kind) {
+        if (kind === 'category') {
+          for (const r of _totalsByCategory(txs, 'out')) {
+            if (categories.find((c) => c.id === r.catId)) return `cat:${r.catId}`;
+          }
+        } else {
+          const top = _totalsByTag(txs, 'out')[0];
+          if (top) return `tag:${top.name}`;
+        }
+        return null;
+      }
+
+      function _trendSeries(txs, entityId, granularity, bucketKeys) {
+        const entity = _trendEntityFromId(entityId);
+        if (!entity) return null;
+        const sums = new Map(bucketKeys.map((k) => [k, 0]));
+        for (const t of txs) {
+          if (!_trendMatchesEntity(t, entity)) continue;
+          const key = _bucketKey(t.date, granularity);
+          if (sums.has(key)) sums.set(key, sums.get(key) + t.amount);
+        }
+        return {
+          entity,
+          label: entity.kind === 'tag' ? `#${entity.name}` : entity.name,
+          color: entity.color,
+          data: bucketKeys.map((k) => sums.get(k) || 0),
+        };
+      }
+
+      function _monthlyTotals(txs, entity) {
+        const sums = new Map();
+        for (const t of txs) {
+          if (!_trendMatchesEntity(t, entity)) continue;
+          const key = t.date.slice(0, 7);
+          sums.set(key, (sums.get(key) || 0) + t.amount);
+        }
+        return sums;
+      }
+
+      function _trendStats(monthlyMap, fromIso, toIso) {
+        const months = _bucketAxis(fromIso, toIso, 'month');
+        if (!months.length) return null;
+        let total = 0;
+        let peak = null;
+        for (const k of months) {
+          const v = monthlyMap.get(k) || 0;
+          total += v;
+          if (peak === null || v > peak.value) peak = { key: k, value: v };
+        }
+        const mean = total / months.length;
+        const yearGroups = new Map();
+        for (const k of months) {
+          const y = k.slice(0, 4);
+          if (!yearGroups.has(y)) yearGroups.set(y, []);
+          yearGroups.get(y).push(monthlyMap.get(k) || 0);
+        }
+        const years = Array.from(yearGroups.entries()).filter(([, list]) => list.length >= 6);
+        let yoy = null;
+        if (years.length >= 2) {
+          const first = years[0];
+          const last = years[years.length - 1];
+          if (first[0] !== last[0]) {
+            const firstMean = first[1].reduce((s, v) => s + v, 0) / first[1].length;
+            const lastMean = last[1].reduce((s, v) => s + v, 0) / last[1].length;
+            const pct = firstMean > 0 ? ((lastMean - firstMean) / firstMean) * 100 : null;
+            yoy = { firstYear: first[0], lastYear: last[0], firstMean, lastMean, pct };
+          }
+        }
+        return { mean, peak, yoy, monthCount: months.length };
+      }
+
+      function _trendPeakLabel(key) {
+        const [y, m] = key.split('-');
+        return `${MONTHS[parseInt(m, 10) - 1]} ${y}`;
+      }
+
+      function _trendChipMarkup(id, name, color, selected) {
+        const sel = selected ? 'is-selected' : '';
+        return `<button type="button" class="trend-chip ${sel}" data-trend-id="${_escAttr(id)}">
+          <span class="dot" style="background:${color}"></span>${_escText(name)}
+        </button>`;
+      }
+
+      function _trendPickerOptions(txs, kind) {
+        const options = [];
+        if (kind === 'category') {
+          const ranked = _totalsByCategory(txs, 'out');
+          const seen = new Set();
+          for (const r of ranked) {
+            const cat = categories.find((c) => c.id === r.catId);
+            if (!cat) continue;
+            seen.add(r.catId);
+            options.push({ id: `cat:${r.catId}`, label: cat.name, color: cat.color });
+          }
+          const rest = categories
+            .filter((c) => !seen.has(c.id))
+            .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+          for (const c of rest) {
+            options.push({ id: `cat:${c.id}`, label: c.name, color: c.color });
+          }
+        } else {
+          for (const r of _totalsByTag(txs, 'out')) {
+            options.push({ id: `tag:${r.name}`, label: `#${r.name}`, color: _tagLineColor(r.name) });
+          }
+        }
+        return options;
+      }
+
+      function _trendStatsMarkup(stats) {
+        if (!stats || stats.monthCount === 0) return '';
+        const meanCard = `<div class="stat-card">
+          <div class="trend-stat-label">Mittelwert</div>
+          <div class="trend-stat-value">${fmtCurrency(stats.mean)}</div>
+          <div class="trend-stat-sub">pro Monat</div>
+        </div>`;
+        const peakCard = stats.peak && stats.peak.value > 0
+          ? `<div class="stat-card">
+              <div class="trend-stat-label">Höchster Monat</div>
+              <div class="trend-stat-value">${fmtCurrency(stats.peak.value)}</div>
+              <div class="trend-stat-sub">${_trendPeakLabel(stats.peak.key)}</div>
+            </div>`
+          : '';
+        const yoyCard = stats.yoy && stats.yoy.pct !== null
+          ? `<div class="stat-card wide">
+              <div class="trend-stat-label">Veränderung pro Jahr</div>
+              <div class="trend-stat-value">${stats.yoy.firstYear} → ${stats.yoy.lastYear}
+                <span class="trend-stat-delta">${stats.yoy.pct >= 0 ? '+' : ''}${stats.yoy.pct.toFixed(0)} %</span>
+              </div>
+              <div class="trend-stat-sub">⌀ ${fmtCurrency(stats.yoy.firstMean)} → ⌀ ${fmtCurrency(stats.yoy.lastMean)} pro Monat</div>
+            </div>`
+          : '';
+        return `<div class="trend-stats">${meanCard}${peakCard}${yoyCard}</div>`;
+      }
+
+      function setTrendKind(kind) {
+        if (kind !== 'category' && kind !== 'tag') return;
+        if (_trendKind === kind) return;
+        _trendKind = kind;
+        _trendSelection = [];
+        _trendPickerOpen = false;
+        _trendPickerFilter = '';
+        _persistTrendState();
+        renderReport();
+      }
+
+      function selectTrendEntity(id) {
+        _trendSelection = [id];
+        _trendPickerOpen = false;
+        _trendPickerFilter = '';
+        _persistTrendState();
+        renderReport();
+      }
+
+      function toggleTrendPicker(open) {
+        _trendPickerOpen = open === undefined ? !_trendPickerOpen : !!open;
+        const activeRow = document.getElementById('trendActiveRow');
+        const picker = document.getElementById('trendPickerOpen');
+        if (activeRow) activeRow.hidden = _trendPickerOpen;
+        if (picker) picker.hidden = !_trendPickerOpen;
+        if (_trendPickerOpen && picker) {
+          const input = picker.querySelector('input');
+          if (input) input.focus();
+        }
+      }
+
+      function filterTrendChips(value) {
+        _trendPickerFilter = value;
+        const q = value.trim().toLowerCase();
+        document.querySelectorAll('#trendPickerChips .trend-chip').forEach((el) => {
+          const name = (el.textContent || '').trim().toLowerCase();
+          el.style.display = !q || name.includes(q) ? '' : 'none';
+        });
+      }
+
+      async function setTrendYear(field, value) {
+        const today = new Date().getFullYear();
+        const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+        value = Math.round(Math.max(minYear, Math.min(today, value)));
+        if (field === 'from') {
+          _trendYearFrom = value;
+          if (_trendYearTo < _trendYearFrom) _trendYearTo = _trendYearFrom;
+        } else {
+          _trendYearTo = value;
+          if (_trendYearFrom > _trendYearTo) _trendYearFrom = _trendYearTo;
+        }
+        reportRange.kind = 'custom';
+        reportRange.from = `${_trendYearFrom}-01-01`;
+        reportRange.to = `${_trendYearTo}-12-31`;
+        _persistTrendRange();
+        await renderReport('trend');
+      }
+
+      async function renderReportTrend(body, txs) {
+        // Beim ersten Öffnen oder nach Kategorie-Löschung: Selection neu setzen
+        let selected = _trendSelection[0] ? _trendEntityFromId(_trendSelection[0]) : null;
+        if (selected && selected.kind !== _trendKind) selected = null;
+        if (!selected) {
+          const def = _pickDefaultTrendEntity(txs, _trendKind);
+          if (def) {
+            _trendSelection = [def];
+            _persistTrendState();
+            selected = _trendEntityFromId(def);
+          } else {
+            _trendSelection = [];
+          }
+        }
+
+        const today = new Date().getFullYear();
+        const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+
+        const yearPickerMarkup = `<div class="range-custom trend-year-picker">
+            <label class="range-custom-field">
+              <span>Von</span>
+              <input type="number" min="${minYear}" max="${today}" value="${_trendYearFrom || today}" onchange="setTrendYear('from', +this.value)" />
+            </label>
+            <label class="range-custom-field">
+              <span>Bis</span>
+              <input type="number" min="${minYear}" max="${today}" value="${_trendYearTo || today}" onchange="setTrendYear('to', +this.value)" />
+            </label>
+          </div>`;
+
+        const options = _trendPickerOptions(txs, _trendKind);
+        const chipsMarkup = options
+          .map((o) => _trendChipMarkup(o.id, o.label, o.color, selected && o.id === selected.id))
+          .join('');
+        const searchPlaceholder = _trendKind === 'category' ? 'Kategorie suchen' : 'Tag suchen';
+
+        const segmentedMarkup = `<div class="segmented" role="tablist" aria-label="Trend-Auswahl">
+            <button type="button" role="tab" aria-selected="${_trendKind === 'category'}" class="${_trendKind === 'category' ? 'is-active' : ''}" onclick="setTrendKind('category')">Kategorien</button>
+            <button type="button" role="tab" aria-selected="${_trendKind === 'tag'}" class="${_trendKind === 'tag' ? 'is-active' : ''}" onclick="setTrendKind('tag')">Tags</button>
+          </div>`;
+
+        const activeMarkup = selected
+          ? `<div class="trend-active-row" id="trendActiveRow"${_trendPickerOpen ? ' hidden' : ''}>
+              <div class="trend-active-info">
+                <span class="trend-active-dot" style="background:${selected.color}"></span>
+                <div class="trend-active-text">
+                  <div class="trend-active-label">${_escText(selected.kind === 'tag' ? `#${selected.name}` : selected.name)}</div>
+                  <span class="trend-active-sub">Größter Posten im Zeitraum</span>
+                </div>
+              </div>
+              <button type="button" class="trend-switch-btn" onclick="toggleTrendPicker(true)">Wechseln</button>
+            </div>`
+          : '';
+
+        const pickerOpenMarkup = `<div class="trend-picker-open" id="trendPickerOpen"${_trendPickerOpen || !selected ? '' : ' hidden'}>
+            <div class="search-wrap">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-search" /></svg>
+              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(_trendPickerFilter)}" oninput="filterTrendChips(this.value)" autocomplete="off" />
+            </div>
+            <div class="tag-picker-chips" id="trendPickerChips">${chipsMarkup}</div>
+          </div>`;
+
+        if (!selected) {
+          body.innerHTML = `
+            ${yearPickerMarkup}
+            <div class="report-section">${segmentedMarkup}${pickerOpenMarkup}</div>
+            <div class="report-section">${_emptyState(_trendKind === 'category' ? 'Keine Kategorien mit Ausgaben im Zeitraum.' : 'Keine Tags mit Ausgaben im Zeitraum.')}</div>
+          `;
+          _bindTrendChipHandlers(body);
+          return;
+        }
+
+        const granularity = _autoGranularity(reportRange.from, reportRange.to);
+        const bucketKeys = _bucketAxis(reportRange.from, reportRange.to, granularity);
+        const bucketLabels = bucketKeys.map((k) => _bucketLabel(k, granularity));
+        const series = _trendSeries(txs, selected.id, granularity, bucketKeys);
+        const monthlyMap = _monthlyTotals(txs, selected);
+        const stats = _trendStats(monthlyMap, reportRange.from, reportRange.to);
+
+        body.innerHTML = `
+          ${yearPickerMarkup}
+          <div class="report-section">${segmentedMarkup}${activeMarkup}${pickerOpenMarkup}</div>
+          <div class="report-section">
+            <div class="report-canvas-wrap"><canvas id="trendChart" role="img" aria-labelledby="reportTitle" aria-describedby="trendChartSummary"></canvas></div>
+            <p id="trendChartSummary" class="visually-hidden" aria-live="polite">${_escText(series.label)}, Mittelwert ${fmtCurrency(stats?.mean || 0)} pro Monat.</p>
+          </div>
+          ${_trendStatsMarkup(stats)}
+        `;
+        _bindTrendChipHandlers(body);
+
+        const c = getChartColors();
+        const datasets = [
+          {
+            label: series.label,
+            data: series.data,
+            borderColor: series.color,
+            backgroundColor: 'transparent',
+            tension: 0.25,
+            pointRadius: 3,
+            borderWidth: 2.5,
+            fill: false,
+          },
+        ];
+        if (granularity !== 'year') {
+          const window = granularity === 'month' ? 3 : 2;
+          const smoothed = _movingAverage(series.data, window);
+          datasets.push({
+            label: `${series.label} (Glättung)`,
+            data: smoothed,
+            borderColor: series.color,
+            borderDash: [4, 3],
+            backgroundColor: 'transparent',
+            tension: 0,
+            pointRadius: 0,
+            borderWidth: 1.5,
+            fill: false,
+          });
+        }
+
+        chartInsts.trend = new Chart(document.getElementById('trendChart'), {
+          type: 'line',
+          data: { labels: bucketLabels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `${ctx.dataset.label}: ${fmtCurrency(ctx.parsed.y)}`,
+                },
+              },
+            },
+            scales: {
+              x: { ticks: { color: c.text, font: { size: 10 }, maxRotation: 0, autoSkip: true }, grid: { color: c.grid } },
+              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' }, grid: { color: c.grid } },
+            },
+          },
+        });
+      }
+
+      function _bindTrendChipHandlers(scope) {
+        scope.querySelectorAll('[data-trend-id]').forEach((el) => {
+          el.addEventListener('click', () => selectTrendEntity(el.dataset.trendId));
+          el.addEventListener('keydown', (ev) => handleRowActivate(ev, () => selectTrendEntity(el.dataset.trendId)));
+        });
       }
 
       // ── REPORTS — FORECAST ────────────────────────────────────────────────────────

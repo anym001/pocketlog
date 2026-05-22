@@ -2219,6 +2219,29 @@
       .range-stepper[hidden] {
         display: none;
       }
+
+      /* Trend-Analyse: globaler Range-Picker komplett ausgeblendet —
+         Trend rendert einen eigenen Jahres-Picker inline im Report-Body. */
+      body[data-report='trend'] #rangeKindTabs,
+      body[data-report='trend'] #rangeStepper,
+      body[data-report='trend'] #rangeCustom {
+        display: none;
+      }
+
+      /* Trend-eigener Jahres-Picker: volle Breite wie die Sections darunter */
+      .trend-year-picker {
+        width: 100%;
+        margin-bottom: var(--space-14);
+      }
+      .trend-year-picker input[type="number"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+        text-align: right;
+      }
+      .trend-year-picker input[type="number"]::-webkit-inner-spin-button,
+      .trend-year-picker input[type="number"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+      }
       .range-custom-field {
         display: flex;
         flex-direction: row;
@@ -2323,6 +2346,172 @@
       .report-canvas-wrap canvas {
         max-height: 240px;
       }
+
+      /* ====== TREND REPORT ====== */
+      .trend-active-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-12);
+        margin-top: var(--space-12);
+      }
+      .trend-active-info {
+        display: flex;
+        align-items: center;
+        gap: var(--space-12);
+        flex: 1;
+        min-width: 0;
+      }
+      .trend-active-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: var(--r-pill);
+        flex-shrink: 0;
+      }
+      .trend-active-text {
+        min-width: 0;
+        flex: 1;
+      }
+      .trend-active-label {
+        font-size: var(--fs-body);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .trend-active-sub {
+        display: block;
+        font-size: var(--fs-caption);
+        color: var(--text3);
+        margin-top: 2px;
+      }
+      .trend-switch-btn {
+        background: transparent;
+        border: 0;
+        color: var(--accent);
+        font-family: inherit;
+        font-size: var(--fs-callout);
+        font-weight: 600;
+        cursor: pointer;
+        padding: var(--space-8) var(--space-4);
+        min-height: var(--btn-chrome-size);
+        flex-shrink: 0;
+      }
+      .trend-switch-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-sm);
+      }
+      .trend-picker-open {
+        margin-top: var(--space-12);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-12);
+      }
+      .trend-picker-open .search-wrap {
+        background: var(--surface-tint);
+        border-radius: var(--r-pill);
+        display: flex;
+        align-items: center;
+        gap: var(--space-8);
+        padding: 0 var(--space-12);
+        min-height: var(--btn-chrome-size);
+      }
+      .trend-picker-open .search-wrap .ui-icon {
+        width: 16px;
+        height: 16px;
+        color: var(--text3);
+        flex-shrink: 0;
+      }
+      .trend-picker-open .search-wrap input {
+        flex: 1;
+        background: transparent;
+        border: 0;
+        outline: 0;
+        font-family: inherit;
+        font-size: var(--fs-callout);
+        color: var(--text);
+        padding: var(--space-8) 0;
+      }
+      .trend-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-8);
+        background: transparent;
+        border: var(--border-hairline-strong);
+        border-radius: var(--r-pill);
+        padding: var(--space-8) var(--space-12);
+        font-size: var(--fs-footnote);
+        font-weight: 500;
+        color: var(--text);
+        cursor: pointer;
+        font-family: inherit;
+        min-height: var(--btn-chrome-size);
+      }
+      .trend-chip .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: var(--r-pill);
+        flex-shrink: 0;
+      }
+      .trend-chip.is-selected {
+        background: color-mix(in oklab, var(--accent) 18%, transparent);
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      .trend-chip:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .trend-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-8);
+        margin-bottom: var(--space-14);
+      }
+      .trend-stats .stat-card {
+        background: color-mix(in oklab, var(--text) 4%, var(--bg-canvas));
+        border: var(--border-hairline);
+        border-radius: var(--r-lg);
+        padding: var(--space-12) var(--space-14);
+        box-shadow: var(--shadow-soft);
+      }
+      .trend-stats .stat-card.wide {
+        grid-column: 1 / -1;
+      }
+      .trend-stat-label {
+        font-size: var(--fs-micro);
+        color: var(--text3);
+        font-weight: 500;
+        margin-bottom: var(--space-4);
+      }
+      .trend-stat-value {
+        font-family: var(--font-display);
+        font-size: var(--fs-headline);
+        line-height: 1.1;
+        color: var(--text);
+        letter-spacing: -0.02em;
+      }
+      .trend-stat-sub {
+        font-size: var(--fs-caption);
+        color: var(--text2);
+        margin-top: var(--space-4);
+      }
+      .trend-stat-delta {
+        display: inline-flex;
+        align-items: center;
+        font-size: var(--fs-footnote);
+        font-weight: 600;
+        color: var(--accent-2);
+        background: var(--accent-tint);
+        padding: 2px var(--space-8);
+        border-radius: var(--r-pill);
+        margin-left: var(--space-8);
+        vertical-align: middle;
+        font-family: var(--font-body);
+        letter-spacing: 0;
+      }
+
       .report-sparkline-wrap {
         height: 64px;
         margin-bottom: var(--space-8);
