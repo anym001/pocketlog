@@ -302,6 +302,7 @@
       // Charts-Panel.
       function openReport(id) {
         if (!REPORT_IDS.includes(id)) id = 'overview';
+        if (id === 'trend') _trendPickerOpen = false;
         currentReport = id;
         try {
           localStorage.setItem(REPORT_STORAGE_KEY, id);
@@ -1581,13 +1582,15 @@
       }
 
       async function _ensureTrendDefaultRange() {
+        // _earliestTxDate immer auflösen — der Jahres-Picker im Render
+        // braucht minYear, auch wenn die Range aus localStorage kommt.
+        const earliest = await _findEarliestTxDate();
         if (_trendYearFrom && _trendYearTo) {
           reportRange.kind = 'custom';
           reportRange.from = `${_trendYearFrom}-01-01`;
           reportRange.to = `${_trendYearTo}-12-31`;
           return;
         }
-        const earliest = await _findEarliestTxDate();
         const today = new Date();
         _trendYearFrom = parseInt(earliest.slice(0, 4), 10);
         _trendYearTo = today.getFullYear();
@@ -1762,7 +1765,11 @@
           if (!yearGroups.has(y)) yearGroups.set(y, []);
           yearGroups.get(y).push(monthlyMap.get(k) || 0);
         }
-        const years = Array.from(yearGroups.entries()).filter(([, list]) => list.length >= 6);
+        // Schwelle bewusst niedrig (≥3 Monate), damit das laufende Jahr ab Q2
+        // sichtbar wird — der renderReportTrend-Callsite kappt toIso auf heute,
+        // also rechnet jeder Jahresmittelwert nur über tatsächlich verfügbare
+        // Monate (Projektion auf Monatsbasis statt Verwässerung durch Nullen).
+        const years = Array.from(yearGroups.entries()).filter(([, list]) => list.length >= 3);
         let yoy = null;
         if (years.length >= 2) {
           const first = years[0];
@@ -1915,15 +1922,22 @@
 
         const today = new Date().getFullYear();
         const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+        const yearOptions = (selectedYear) => {
+          let html = '';
+          for (let y = minYear; y <= today; y++) {
+            html += `<option value="${y}"${y === selectedYear ? ' selected' : ''}>${y}</option>`;
+          }
+          return html;
+        };
 
         const yearPickerMarkup = `<div class="range-custom trend-year-picker">
             <label class="range-custom-field">
               <span>Von</span>
-              <input type="number" min="${minYear}" max="${today}" value="${_trendYearFrom || today}" onchange="setTrendYear('from', +this.value)" />
+              <select aria-label="Von Jahr" onchange="setTrendYear('from', +this.value)">${yearOptions(_trendYearFrom || today)}</select>
             </label>
             <label class="range-custom-field">
               <span>Bis</span>
-              <input type="number" min="${minYear}" max="${today}" value="${_trendYearTo || today}" onchange="setTrendYear('to', +this.value)" />
+              <select aria-label="Bis Jahr" onchange="setTrendYear('to', +this.value)">${yearOptions(_trendYearTo || today)}</select>
             </label>
           </div>`;
 
@@ -1969,12 +1983,19 @@
           return;
         }
 
-        const granularity = _autoGranularity(reportRange.from, reportRange.to);
-        const bucketKeys = _bucketAxis(reportRange.from, reportRange.to, granularity);
+        // Granularität fix Monat — Legende skaliert über autoSkip/maxTicksLimit.
+        // Bei toIso > heute auf den aktuellen Monat kappen, damit weder die
+        // Chart-Linie auf null abstürzt noch der laufende Jahres-Mittelwert
+        // durch zukünftige Nullmonate verwässert wird.
+        const granularity = 'month';
+        const todayDate = new Date();
+        const todayIso = _iso(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+        const effectiveTo = reportRange.to > todayIso ? todayIso : reportRange.to;
+        const bucketKeys = _bucketAxis(reportRange.from, effectiveTo, granularity);
         const bucketLabels = bucketKeys.map((k) => _bucketLabel(k, granularity));
         const series = _trendSeries(txs, selected.id, granularity, bucketKeys);
         const monthlyMap = _monthlyTotals(txs, selected);
-        const stats = _trendStats(monthlyMap, reportRange.from, reportRange.to);
+        const stats = _trendStats(monthlyMap, reportRange.from, effectiveTo);
 
         body.innerHTML = `
           ${yearPickerMarkup}
@@ -2000,9 +2021,11 @@
             fill: false,
           },
         ];
-        if (granularity !== 'year') {
-          const window = granularity === 'month' ? 3 : 2;
-          const smoothed = _movingAverage(series.data, window);
+        // Glättungs-Fenster wächst mit dem Zeitraum, damit die zweite Linie
+        // auch über mehrere Jahre noch glättet statt 1:1 auf der Rohlinie zu liegen.
+        const maWindow = bucketKeys.length > 60 ? 12 : bucketKeys.length > 24 ? 6 : 3;
+        if (bucketKeys.length >= maWindow * 2) {
+          const smoothed = _movingAverage(series.data, maWindow);
           datasets.push({
             label: `${series.label} (Glättung)`,
             data: smoothed,
@@ -2032,7 +2055,7 @@
               },
             },
             scales: {
-              x: { ticks: { color: c.text, font: { size: 10 }, maxRotation: 0, autoSkip: true }, grid: { color: c.grid } },
+              x: { ticks: { color: c.text, font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { color: c.grid } },
               y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' }, grid: { color: c.grid } },
             },
           },
