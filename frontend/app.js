@@ -303,9 +303,6 @@
       function openReport(id) {
         if (!REPORT_IDS.includes(id)) id = 'overview';
         if (id === 'trend') _trendPickerOpen = false;
-        // Trend forces reportRange.kind = 'custom' internally; reset to 'month'
-        // when leaving so subsequent reports don't inherit 'Eigen' as active tab.
-        if (currentReport === 'trend' && id !== 'trend') reportRange.kind = 'month';
         currentReport = id;
         try {
           localStorage.setItem(REPORT_STORAGE_KEY, id);
@@ -1080,7 +1077,7 @@
         if (id === 'trend') {
           await _ensureTrendDefaultRange();
         }
-        const locks = { month: 'month', year: 'year', trend: 'custom' };
+        const locks = { month: 'month', year: 'year' };
         setRangeLock(locks[id] || null);
         if (_rangeLock && reportRange.kind !== _rangeLock) {
           reportRange.kind = _rangeLock;
@@ -1099,7 +1096,10 @@
         const body = document.getElementById('reportBody');
         body.innerHTML = '';
 
-        const txs = await loadRangeTxs(reportRange.from, reportRange.to);
+        // Trend uses its own private year range and never touches reportRange.
+        const rangeFrom = id === 'trend' ? `${_trendYearFrom}-01-01` : reportRange.from;
+        const rangeTo   = id === 'trend' ? `${_trendYearTo}-12-31`   : reportRange.to;
+        const txs = await loadRangeTxs(rangeFrom, rangeTo);
         _reportTxPool = txs;
         document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
 
@@ -1588,18 +1588,10 @@
         // _earliestTxDate immer auflösen — der Jahres-Picker im Render
         // braucht minYear, auch wenn die Range aus localStorage kommt.
         const earliest = await _findEarliestTxDate();
-        if (_trendYearFrom && _trendYearTo) {
-          reportRange.kind = 'custom';
-          reportRange.from = `${_trendYearFrom}-01-01`;
-          reportRange.to = `${_trendYearTo}-12-31`;
-          return;
-        }
+        if (_trendYearFrom && _trendYearTo) return;
         const today = new Date();
         _trendYearFrom = parseInt(earliest.slice(0, 4), 10);
         _trendYearTo = today.getFullYear();
-        reportRange.kind = 'custom';
-        reportRange.from = `${_trendYearFrom}-01-01`;
-        reportRange.to = `${_trendYearTo}-12-31`;
         _persistTrendRange();
       }
 
@@ -1913,9 +1905,6 @@
           _trendYearTo = value;
           if (_trendYearFrom > _trendYearTo) _trendYearFrom = _trendYearTo;
         }
-        reportRange.kind = 'custom';
-        reportRange.from = `${_trendYearFrom}-01-01`;
-        reportRange.to = `${_trendYearTo}-12-31`;
         _persistTrendRange();
         await renderReport('trend');
       }
@@ -2005,12 +1994,14 @@
         const granularity = 'month';
         const todayDate = new Date();
         const todayIso = _iso(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
-        const effectiveTo = reportRange.to > todayIso ? todayIso : reportRange.to;
-        const bucketKeys = _bucketAxis(reportRange.from, effectiveTo, granularity);
+        const trendFromIso = `${_trendYearFrom}-01-01`;
+        const trendToIso   = `${_trendYearTo}-12-31`;
+        const effectiveTo = trendToIso > todayIso ? todayIso : trendToIso;
+        const bucketKeys = _bucketAxis(trendFromIso, effectiveTo, granularity);
         const bucketLabels = bucketKeys.map((k) => _bucketLabel(k, granularity));
         const series = _trendSeries(txs, selected.id, granularity, bucketKeys);
         const monthlyMap = _monthlyTotals(txs, selected);
-        const stats = _trendStats(monthlyMap, reportRange.from, effectiveTo);
+        const stats = _trendStats(monthlyMap, trendFromIso, effectiveTo);
 
         body.innerHTML = `
           ${yearPickerMarkup}
