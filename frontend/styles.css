@@ -2228,19 +2228,41 @@
         display: none;
       }
 
-      /* Trend-eigener Jahres-Picker: volle Breite wie die Sections darunter */
+      /* Trend-eigener Jahres-Picker: volle Breite wie die Sections darunter.
+         <select> übernimmt das Styling der .range-custom-field-Inputs und
+         öffnet auf iOS den nativen Wheel-Picker (auf Desktop ein Dropdown).
+         font-size bewusst 16px — alles darunter triggert iOS-Auto-Zoom beim
+         Fokus auf <select>. */
       .trend-year-picker {
         width: 100%;
         margin-bottom: var(--space-14);
       }
-      .trend-year-picker input[type="number"] {
-        -moz-appearance: textfield;
-        appearance: textfield;
-        text-align: right;
-      }
-      .trend-year-picker input[type="number"]::-webkit-inner-spin-button,
-      .trend-year-picker input[type="number"]::-webkit-outer-spin-button {
+      .trend-year-picker select {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        padding: 0 var(--space-12) 0 0;
+        font-size: var(--fs-body);
+        font-weight: 600;
+        color: var(--text);
+        font-family: inherit;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
         -webkit-appearance: none;
+        appearance: none;
+        text-align: right;
+        text-align-last: right;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right center;
+        background-size: 12px 12px;
+      }
+      .trend-year-picker select:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-xs);
       }
       .range-custom-field {
         display: flex;
