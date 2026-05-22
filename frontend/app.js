@@ -303,6 +303,9 @@
       function openReport(id) {
         if (!REPORT_IDS.includes(id)) id = 'overview';
         if (id === 'trend') _trendPickerOpen = false;
+        // Trend forces reportRange.kind = 'custom' internally; reset to 'month'
+        // when leaving so subsequent reports don't inherit 'Eigen' as active tab.
+        if (currentReport === 'trend' && id !== 'trend') reportRange.kind = 'month';
         currentReport = id;
         try {
           localStorage.setItem(REPORT_STORAGE_KEY, id);
