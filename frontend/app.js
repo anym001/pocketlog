@@ -65,16 +65,29 @@
       let _trendPickerOpen = false;
       let _trendPickerFilter = '';
       let _earliestTxDate = null;            // Session-Cache
+      let _trendYearFrom = null;             // integer, z.B. 2022
+      let _trendYearTo = null;               // integer, z.B. 2026
       (function _restoreTrendState() {
         try {
           const raw = localStorage.getItem(TREND_STORAGE_KEY);
-          if (!raw) return;
-          const s = JSON.parse(raw);
-          if (s.kind === 'category' || s.kind === 'tag') _trendKind = s.kind;
-          if (Array.isArray(s.selection)) {
-            _trendSelection = s.selection
-              .filter((e) => typeof e === 'string' && (e.startsWith('cat:') || e.startsWith('tag:')))
-              .slice(0, 3);
+          if (raw) {
+            const s = JSON.parse(raw);
+            if (s.kind === 'category' || s.kind === 'tag') _trendKind = s.kind;
+            if (Array.isArray(s.selection)) {
+              _trendSelection = s.selection
+                .filter((e) => typeof e === 'string' && (e.startsWith('cat:') || e.startsWith('tag:')))
+                .slice(0, 3);
+            }
+          }
+        } catch (e) {}
+        try {
+          const raw = localStorage.getItem(TREND_RANGE_KEY);
+          if (raw) {
+            const r = JSON.parse(raw);
+            if (r && Number.isInteger(r.yearFrom) && Number.isInteger(r.yearTo)) {
+              _trendYearFrom = r.yearFrom;
+              _trendYearTo = r.yearTo;
+            }
           }
         } catch (e) {}
       })();
@@ -975,7 +988,6 @@
         }
         reportRange.from = from;
         reportRange.to = to;
-        if (currentReport === 'trend') _persistTrendRange();
         renderReport();
       }
 
@@ -1535,7 +1547,7 @@
         try {
           localStorage.setItem(
             TREND_RANGE_KEY,
-            JSON.stringify({ from: reportRange.from, to: reportRange.to })
+            JSON.stringify({ yearFrom: _trendYearFrom, yearTo: _trendYearTo })
           );
         } catch (e) {}
       }
@@ -1569,23 +1581,19 @@
       }
 
       async function _ensureTrendDefaultRange() {
-        try {
-          const raw = localStorage.getItem(TREND_RANGE_KEY);
-          if (raw) {
-            const r = JSON.parse(raw);
-            if (r && r.from && r.to) {
-              reportRange.kind = 'custom';
-              reportRange.from = r.from;
-              reportRange.to = r.to;
-              return;
-            }
-          }
-        } catch (e) {}
+        if (_trendYearFrom && _trendYearTo) {
+          reportRange.kind = 'custom';
+          reportRange.from = `${_trendYearFrom}-01-01`;
+          reportRange.to = `${_trendYearTo}-12-31`;
+          return;
+        }
         const earliest = await _findEarliestTxDate();
         const today = new Date();
+        _trendYearFrom = parseInt(earliest.slice(0, 4), 10);
+        _trendYearTo = today.getFullYear();
         reportRange.kind = 'custom';
-        reportRange.from = earliest;
-        reportRange.to = _iso(today.getFullYear(), today.getMonth(), today.getDate());
+        reportRange.from = `${_trendYearFrom}-01-01`;
+        reportRange.to = `${_trendYearTo}-12-31`;
         _persistTrendRange();
       }
 
@@ -1872,6 +1880,24 @@
         });
       }
 
+      async function setTrendYear(field, value) {
+        const today = new Date().getFullYear();
+        const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+        value = Math.round(Math.max(minYear, Math.min(today, value)));
+        if (field === 'from') {
+          _trendYearFrom = value;
+          if (_trendYearTo < _trendYearFrom) _trendYearTo = _trendYearFrom;
+        } else {
+          _trendYearTo = value;
+          if (_trendYearFrom > _trendYearTo) _trendYearFrom = _trendYearTo;
+        }
+        reportRange.kind = 'custom';
+        reportRange.from = `${_trendYearFrom}-01-01`;
+        reportRange.to = `${_trendYearTo}-12-31`;
+        _persistTrendRange();
+        await renderReport('trend');
+      }
+
       async function renderReportTrend(body, txs) {
         // Beim ersten Öffnen oder nach Kategorie-Löschung: Selection neu setzen
         let selected = _trendSelection[0] ? _trendEntityFromId(_trendSelection[0]) : null;
@@ -1886,6 +1912,20 @@
             _trendSelection = [];
           }
         }
+
+        const today = new Date().getFullYear();
+        const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+
+        const yearPickerMarkup = `<div class="range-custom trend-year-picker">
+            <label class="range-custom-field">
+              <span>Von</span>
+              <input type="number" min="${minYear}" max="${today}" value="${_trendYearFrom || today}" onchange="setTrendYear('from', +this.value)" />
+            </label>
+            <label class="range-custom-field">
+              <span>Bis</span>
+              <input type="number" min="${minYear}" max="${today}" value="${_trendYearTo || today}" onchange="setTrendYear('to', +this.value)" />
+            </label>
+          </div>`;
 
         const options = _trendPickerOptions(txs, _trendKind);
         const chipsMarkup = options
@@ -1921,6 +1961,7 @@
 
         if (!selected) {
           body.innerHTML = `
+            ${yearPickerMarkup}
             <div class="report-section">${segmentedMarkup}${pickerOpenMarkup}</div>
             <div class="report-section">${_emptyState(_trendKind === 'category' ? 'Keine Kategorien mit Ausgaben im Zeitraum.' : 'Keine Tags mit Ausgaben im Zeitraum.')}</div>
           `;
@@ -1936,6 +1977,7 @@
         const stats = _trendStats(monthlyMap, reportRange.from, reportRange.to);
 
         body.innerHTML = `
+          ${yearPickerMarkup}
           <div class="report-section">${segmentedMarkup}${activeMarkup}${pickerOpenMarkup}</div>
           <div class="report-section">
             <div class="report-canvas-wrap"><canvas id="trendChart" role="img" aria-labelledby="reportTitle" aria-describedby="trendChartSummary"></canvas></div>

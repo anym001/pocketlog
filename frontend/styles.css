@@ -2209,7 +2209,8 @@
         backdrop-filter: var(--blur-thin);
         border: var(--border-hairline);
         border-radius: var(--r-pill);
-        width: 100%;
+        width: fit-content;
+        align-self: center;
         box-shadow: inset 0 0.5px 0 var(--hairline);
       }
       .range-custom[hidden] {
@@ -2219,12 +2220,27 @@
         display: none;
       }
 
-      /* Trend-Analyse: Standard-Range-Picker (Segmented + Stepper) wird
-         ausgeblendet, die Von/Bis-Pill ist permanent sichtbar (kind wird
-         beim Betreten der View intern auf 'custom' gezwungen). */
+      /* Trend-Analyse: globaler Range-Picker komplett ausgeblendet —
+         Trend rendert einen eigenen Jahres-Picker inline im Report-Body. */
       body[data-report='trend'] #rangeKindTabs,
-      body[data-report='trend'] #rangeStepper {
+      body[data-report='trend'] #rangeStepper,
+      body[data-report='trend'] #rangeCustom {
         display: none;
+      }
+
+      /* Trend-eigener Jahres-Picker: volle Breite wie die Sections darunter */
+      .trend-year-picker {
+        width: 100%;
+        margin-bottom: var(--space-14);
+      }
+      .trend-year-picker input[type="number"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+        text-align: right;
+      }
+      .trend-year-picker input[type="number"]::-webkit-inner-spin-button,
+      .trend-year-picker input[type="number"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
       }
       .range-custom-field {
         display: flex;
