@@ -2376,6 +2376,10 @@
         gap: var(--space-12);
         margin-top: var(--space-12);
       }
+      .trend-active-row[hidden],
+      .trend-picker-open[hidden] {
+        display: none;
+      }
       .trend-active-info {
         display: flex;
         align-items: center;

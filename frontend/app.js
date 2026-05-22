@@ -1796,7 +1796,7 @@
         </button>`;
       }
 
-      function _trendPickerOptions(txs, kind) {
+      function _trendPickerOptions(txs, kind, selectedId) {
         const options = [];
         if (kind === 'category') {
           const ranked = _totalsByCategory(txs, 'out');
@@ -1818,7 +1818,19 @@
             options.push({ id: `tag:${r.name}`, label: `#${r.name}`, color: _tagLineColor(r.name) });
           }
         }
-        return options;
+        // Top 10 nach Summe. Wenn die aktive Auswahl außerhalb der Top 10
+        // liegt, den letzten Slot durch sie ersetzen — sonst wäre die im
+        // active-row sichtbare Auswahl im aufgeklappten Picker nicht zu sehen.
+        const TOP_N = 10;
+        const limited = options.slice(0, TOP_N);
+        if (selectedId && !limited.some((o) => o.id === selectedId)) {
+          const selectedOpt = options.find((o) => o.id === selectedId);
+          if (selectedOpt) {
+            limited.pop();
+            limited.push(selectedOpt);
+          }
+        }
+        return limited;
       }
 
       function _trendStatsMarkup(stats) {
@@ -1941,7 +1953,7 @@
             </label>
           </div>`;
 
-        const options = _trendPickerOptions(txs, _trendKind);
+        const options = _trendPickerOptions(txs, _trendKind, selected && selected.id);
         const chipsMarkup = options
           .map((o) => _trendChipMarkup(o.id, o.label, o.color, selected && o.id === selected.id))
           .join('');
