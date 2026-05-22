@@ -1106,7 +1106,7 @@
         else if (id === 'categories') renderReportCategories(body, txs);
         else if (id === 'tags') renderReportTags(body, txs);
         else if (id === 'trend') await renderReportTrend(body, txs);
-        else if (id === 'forecast') await renderReportForecast(body);
+        else if (id === 'forecast') await renderReportForecast(body, txs);
         else if (id === 'top') renderReportTop(body, txs);
       }
 
@@ -2071,92 +2071,124 @@
 
       // ── REPORTS — FORECAST ────────────────────────────────────────────────────────
 
-      async function renderReportForecast(body) {
-        const a = reportRange.anchor;
-        // Zielmonat = Monat des Range-Starts (auch bei Quartal/Jahr/Custom).
-        const targetY = parseInt(reportRange.from.slice(0, 4), 10);
-        const targetM = parseInt(reportRange.from.slice(5, 7), 10) - 1;
+      async function renderReportForecast(body, rangeTxs) {
+        const today = new Date();
+        const todayY = today.getFullYear();
+        const todayM = today.getMonth();
+        const msDay = 86400000;
 
-        // Historie: 6 Monate vor dem Zielmonat.
-        const histStart = new Date(targetY, targetM - 6, 1);
-        const histEnd = new Date(targetY, targetM, 0);
-        const histTxs = await loadRangeTxs(
-          _iso(histStart.getFullYear(), histStart.getMonth(), 1),
-          _iso(histEnd.getFullYear(), histEnd.getMonth(), histEnd.getDate())
-        );
+        // Historie: letzte 12 vollständige Monate vor dem aktuellen Monat.
+        // Anker bewusst „heute", nicht der Zielmonat — so basiert die
+        // Prognose auf den jüngsten echten Daten, auch wenn der User in
+        // die Zukunft schaut.
+        const histEndDate = new Date(todayY, todayM, 0);
+        const histStartDate = new Date(todayY, todayM - 12, 1);
+        const histStartIso = _iso(histStartDate.getFullYear(), histStartDate.getMonth(), 1);
+        const histEndIso = _iso(histEndDate.getFullYear(), histEndDate.getMonth(), histEndDate.getDate());
+        const histTxs = await loadRangeTxs(histStartIso, histEndIso);
+        const histOut = histTxs.filter((t) => t.type === 'out');
 
-        if (histTxs.length === 0 || (histEnd - histStart) / (1000 * 60 * 60 * 24) < 28) {
+        if (histOut.length === 0) {
           body.innerHTML = _emptyState('Noch nicht genug Daten für eine Prognose. Mindestens vier Wochen Buchungen werden benötigt.');
           return;
         }
 
-        // Aktueller Zielmonat-Pool.
-        const monthFrom = _iso(targetY, targetM, 1);
-        const monthTo = _iso(targetY, targetM, _daysInMonth(targetY, targetM));
-        const monthTxs = await loadRangeTxs(monthFrom, monthTo);
-        const monthOut = monthTxs.filter((t) => t.type === 'out').reduce((s, t) => s + t.amount, 0);
+        const histDays = Math.round((histEndDate - histStartDate) / msDay) + 1;
+        const dailyAvg = histOut.reduce((s, t) => s + t.amount, 0) / histDays;
 
-        // Tage-Abrechnung: wenn der Zielmonat in der Zukunft liegt, daysPassed = daysTotal.
-        const today = new Date();
-        const daysTotal = _daysInMonth(targetY, targetM);
+        // Gewählter Zeitraum aus dem Time-Picker.
+        const rangeFromIso = reportRange.from;
+        const rangeToIso = reportRange.to;
+        const rangeFromDate = new Date(rangeFromIso + 'T00:00:00');
+        const rangeToDate = new Date(rangeToIso + 'T00:00:00');
+        const daysTotal = Math.round((rangeToDate - rangeFromDate) / msDay) + 1;
+        const todayStartOfDay = new Date(todayY, todayM, today.getDate());
         let daysPassed;
-        if (today.getFullYear() < targetY || (today.getFullYear() === targetY && today.getMonth() < targetM)) {
+        if (todayStartOfDay < rangeFromDate) {
           daysPassed = 0;
-        } else if (today.getFullYear() > targetY || (today.getFullYear() === targetY && today.getMonth() > targetM)) {
+        } else if (todayStartOfDay >= rangeToDate) {
           daysPassed = daysTotal;
         } else {
-          daysPassed = today.getDate();
+          daysPassed = Math.round((todayStartOfDay - rangeFromDate) / msDay) + 1;
+        }
+        if (daysPassed > daysTotal) daysPassed = daysTotal;
+
+        const rangeOut = (rangeTxs || []).filter((t) => t.type === 'out');
+        const rangeSum = rangeOut.reduce((s, t) => s + t.amount, 0);
+
+        // Prognose: vergangene Tage = Ist, restliche Tage = Tagesdurchschnitt.
+        let projected;
+        if (daysPassed === 0) {
+          projected = dailyAvg * daysTotal;
+        } else if (daysPassed >= daysTotal) {
+          projected = rangeSum;
+        } else {
+          projected = rangeSum + dailyAvg * (daysTotal - daysPassed);
         }
 
-        // Per-Kategorie Ø der Historie.
+        // Pro Kategorie: Ø skaliert auf Range-Länge, Status pace-bereinigt.
         const histByCat = {};
-        for (const t of histTxs) {
-          if (t.type !== 'out') continue;
+        for (const t of histOut) {
           histByCat[t.category_id] = (histByCat[t.category_id] || 0) + t.amount;
         }
-        const avgOut = Object.values(histByCat).reduce((s, v) => s + v, 0) / 6;
-        const projected = daysPassed > 0 ? (monthOut * daysTotal) / daysPassed : avgOut;
-
-        // Aktuelle Ausgaben pro Kategorie im Zielmonat.
         const curByCat = {};
-        for (const t of monthTxs) {
-          if (t.type !== 'out') continue;
+        for (const t of rangeOut) {
           curByCat[t.category_id] = (curByCat[t.category_id] || 0) + t.amount;
         }
-
         const rows = Object.entries(histByCat)
-          .map(([id, sum6]) => ({ catId: parseInt(id, 10), avg: sum6 / 6, current: curByCat[id] || 0 }))
+          .map(([id, sum]) => ({
+            catId: parseInt(id, 10),
+            avg: (sum / histDays) * daysTotal,
+            current: curByCat[id] || 0,
+          }))
           .sort((a, b) => b.avg - a.avg);
 
         const statusFor = (cur, avg) => {
-          if (avg <= 0) return { label: '', cls: '' };
-          const ratio = cur / avg;
+          if (avg <= 0 || daysPassed === 0) return { label: '', cls: '' };
+          const pace = (cur / daysPassed) * daysTotal;
+          const ratio = pace / avg;
           if (ratio < 0.9) return { label: 'unter Ø', cls: 'is-ok' };
           if (ratio < 1.1) return { label: 'auf Ø', cls: 'is-neutral' };
           return { label: 'über Ø', cls: 'is-warn' };
         };
 
-        const monthLabel = `${MONTHS[targetM]} ${targetY}`;
+        // Labels skalieren mit Time-Picker-Kind.
+        const kind = reportRange.kind;
+        const cardLabel = kind === 'month' ? 'Voraussichtliche Monats-Ausgaben'
+          : kind === 'quarter' ? 'Voraussichtliche Quartals-Ausgaben'
+          : kind === 'year' ? 'Voraussichtliche Jahres-Ausgaben'
+          : 'Voraussichtliche Ausgaben';
+        const avgColLabel = kind === 'month' ? 'Ø Monat'
+          : kind === 'quarter' ? 'Ø Quartal'
+          : kind === 'year' ? 'Ø Jahr'
+          : 'Ø Zeitraum';
+        const periodLabel = kind === 'custom'
+          ? (() => {
+              const fmt = (iso) => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
+              return `${fmt(rangeFromIso)} – ${fmt(rangeToIso)}`;
+            })()
+          : _rangeStepperLabel();
+
         body.innerHTML = `
           <div class="report-section">
             <div class="forecast-card">
-              <div class="forecast-card-label">Voraussichtliche Monats-Ausgaben</div>
+              <div class="forecast-card-label">${cardLabel}</div>
               <div class="forecast-card-value">${fmtCurrency(projected)}</div>
-              <div class="forecast-card-hint">${monthLabel} · Tag ${daysPassed} von ${daysTotal} · Basis: letzte 6 Monate</div>
+              <div class="forecast-card-hint">${periodLabel} · Tag ${daysPassed} von ${daysTotal} · Basis: letzte 12 Monate</div>
             </div>
           </div>
           <div class="report-section">
             <h3 class="report-section-title">Pro Kategorie</h3>
             <table class="forecast-table">
-              <thead><tr><th>Kategorie</th><th class="num">Ø Monat</th><th class="num">Aktuell</th><th class="num">Status</th></tr></thead>
+              <thead><tr><th>Kategorie</th><th class="num">${avgColLabel}</th><th class="num">Aktuell</th><th class="num">Status</th></tr></thead>
               <tbody>
                 ${rows.map((r) => {
                   const cat = getCatById(r.catId);
                   if (!cat) return '';
                   const s = statusFor(r.current, r.avg);
                   return `<tr class="is-clickable" role="button" tabindex="0"
-                    onclick="drillDownCategory(${r.catId}, '${monthFrom}', '${monthTo}')"
-                    onkeydown="handleRowActivate(event, () => drillDownCategory(${r.catId}, '${monthFrom}', '${monthTo}'))">
+                    onclick="drillDownCategory(${r.catId}, '${rangeFromIso}', '${rangeToIso}')"
+                    onkeydown="handleRowActivate(event, () => drillDownCategory(${r.catId}, '${rangeFromIso}', '${rangeToIso}'))">
                     <td><span class="forecast-cat-name"><span class="forecast-cat-dot" style="background:${cat.color}"></span>${_escText(cat.name)}</span></td>
                     <td class="num">${fmtCurrency(r.avg)}</td>
                     <td class="num">${fmtCurrency(r.current)}</td>
