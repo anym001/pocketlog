@@ -2397,13 +2397,12 @@
         const lower = new Set(availableTags.map((t) => t.toLowerCase()));
         let changed = false;
         for (const t of tags) {
-          const v = (t || '').trim();
+          const v = (t || '').trim().toLowerCase();
           if (!v) continue;
-          const key = v.toLowerCase();
-          tagCounts.set(key, (tagCounts.get(key) || 0) + 1);
-          if (!lower.has(key)) {
+          tagCounts.set(v, (tagCounts.get(v) || 0) + 1);
+          if (!lower.has(v)) {
             availableTags.push(v);
-            lower.add(key);
+            lower.add(v);
             changed = true;
           }
         }
@@ -2428,7 +2427,7 @@
         try {
           const tags = await api('GET', '/tags');
           const list = Array.isArray(tags) ? tags : [];
-          availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
+          availableTags = list.map((t) => (typeof t === 'string' ? t : t.name).toLowerCase());
           tagCounts.clear();
           for (const t of list) {
             if (typeof t === 'string') continue;
@@ -2469,7 +2468,8 @@
 
       function addTagFromSuggestion(t) {
         if (!t) return;
-        if (!currentTags.includes(t)) currentTags.push(t);
+        const v = t.toLowerCase();
+        if (!currentTags.includes(v)) currentTags.push(v);
         renderTagPills();
         renderTagSuggestions();
       }
@@ -2553,7 +2553,7 @@
         if (!val) return;
         const key = val.toLowerCase();
         const existing = availableTags.find((t) => t.toLowerCase() === key);
-        const name = existing || val;
+        const name = existing || key;
         if (!existing) {
           availableTags.push(name);
           availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
