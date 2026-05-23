@@ -1277,6 +1277,7 @@
       .drawer-nav-item.active {
         color: var(--accent);
         font-weight: 600;
+        box-shadow: inset 3px 0 var(--accent);
       }
       .drawer-nav-chevron {
         color: var(--text3);
