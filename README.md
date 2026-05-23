@@ -61,7 +61,7 @@ Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
 ## Funktionsumfang
 
 - **Transaktionen** – Einnahmen & Ausgaben mit Datum, Betrag, Kategorie, Tags
-- **Kategorien** – frei definierbar (Name, Emoji, Farbe); beim ersten Aufruf werden Standardkategorien angelegt
+- **Kategorien** – frei definierbar (Name, Icon, Farbe); beim ersten Aufruf werden Standardkategorien angelegt
 - **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen über die Einstellungen
 - **CSV-Import / -Export** – Import aus anderen Tools (UTF-8 oder CP1252, max. 5 MB); Export aller Transaktionen als Semikolon-CSV
 - **Offline-Fähigkeit** – Service Worker cached die App-Shell, POST/PUT/DELETE landen in einer Outbox und werden beim nächsten Online-Sein automatisch gesendet
@@ -81,24 +81,3 @@ manuelles Tagging nötig. Tags:
 
 - `:latest` — letzter Stand von `main`
 - `:X.Y.Z` — automatisch gesetzt vom Workflow (z.B. `v0.1.4`)
-
-**Einmalig nach dem ersten erfolgreichen Workflow-Run:** GitHub legt das
-Package zunächst mit der Sichtbarkeit des Repos an (also privat, falls dein
-Repo privat ist). Unter
-*GitHub → Profil → Packages → pocketlog → Package settings →
-Change package visibility* auf **Public** stellen. Danach pullt Unraid ohne
-Authentifizierung. Das Repo selbst kann dabei privat bleiben — Package- und
-Repo-Sichtbarkeit sind unabhängig.
-
-Updaten auf Unraid: bestehendes Image im Container-Reiter mit *Force Update*
-neu ziehen, oder dauerhaft per [Watchtower](https://containrrr.dev/watchtower/)
-automatisieren.
-
-## Endpunkt-URL in der App ändern
-
-Standardmäßig spricht die installierte PWA mit demselben Host, von dem sie
-geladen wurde (same-origin). Wer die App auf einer anderen URL hostet oder den
-Server umzieht, trägt unter **Einstellungen → Server → API-Basis-URL** die
-volle Backend-URL ein (z.B. `https://pocketlog.deinedomain.de`). Der Pfad
-`/api` wird automatisch ergänzt; ein Klick auf *Speichern* prüft die
-Erreichbarkeit.
