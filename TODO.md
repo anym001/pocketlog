@@ -5,20 +5,9 @@ anfasst, ihn hier bitte gleich streichen.
 
 ## Features
 
-- Echte App-Icons. Die aktuellen sind farbige Platzhalter, generiert mit einem
-  Python-Snippet — kein Branding, keine Maskable-Sicherheitszone.
 - Wiederkehrende Buchungen (monatlich, wöchentlich).
 - Budget-Grenzen pro Kategorie inkl. Warnung im UI.
 - Push-Benachrichtigungen bei Budget-Überschreitung.
-- Statistik-/Diagrammansichten über mehrere Monate / das gesamte Jahr.
-- **Tablet-/Desktop-Layout.** Aktuell hat `body` ein hartes
-  `max-width: 430px` (`frontend/index.html`) — auf iPad und Mac sieht der
-  Nutzer also nur eine 430-px-Spalte mit viel Leerraum, obwohl iPhone +
-  iPad + Mac laut Architektur-Diagramm in `CLAUDE.md` Ziel-Plattformen
-  sind. Mindestens ein `@media (min-width: 768px)`-Branch fehlt — z. B.
-  zweispaltig (Liste + Detail), breitere Karten oder Dashboard-Anordnung.
-  Eigener Plan/Spike, nicht im selben PR mit Bugfixes
-  (Design-Review #15).
 
 ## PWA / Offline
 
@@ -39,16 +28,6 @@ Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
   Authentik, also kein Uptime-Check von außen ohne Token. Bei Bedarf in SWAG
   einen Location-Block für `/api/health` ohne `authentik-location.conf`
   anlegen.
-- **Stärkerer Aktiv-Marker im Drawer-Mainmenü.** Aktuell wird der aktive
-  Eintrag in `.drawer-nav-item.active` (`frontend/index.html`) nur über
-  `color: var(--accent)` + `font-weight: 600` markiert. Farbe allein
-  verstößt gegen WCAG 1.4.1 ("Use of Color") und ist gegen den
-  Glas-Hintergrund schwach erkennbar. Ein zweites, formbasiertes Signal
-  ergänzen — z. B. Akzent-Bar links (`box-shadow: inset 3px 0
-  var(--accent)`, macOS-Sidebar-Look), Hintergrund-Pill mit
-  `var(--accent-tint)` (iOS-Settings-Look) oder Trailing-Checkmark.
-  Design-Review #16, dort als "nicht kritisch" markiert, weil der Marker
-  ohnehin nur kurz sichtbar ist (Drawer schließt nach Auswahl).
 - **SVG-Sprite in eigene Datei auslagern.** Aktuell sitzt der Inline-Sprite
   (`icon-menu`, `icon-chevron-left/-right`, `icon-close`, `icon-search`,
   `icon-plus`) direkt am `<body>`-Anfang in `frontend/index.html`. Bei
