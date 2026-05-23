@@ -17,10 +17,6 @@ Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
   `pytest`-Step davor könnte z.B. den Schema-Roundtrip (Frontend-Body →
   Pydantic → DB-Spalte → Response) oder den CSV-Import-Parser absichern.
   Hängt davon ab, ob automatisierte Tests dauerhaft gepflegt werden sollen.
-- **`/api/health` für externes Monitoring freigeben.** Liegt aktuell hinter
-  Authentik, also kein Uptime-Check von außen ohne Token. Bei Bedarf in SWAG
-  einen Location-Block für `/api/health` ohne `authentik-location.conf`
-  anlegen.
 - **SVG-Sprite in eigene Datei auslagern.** Aktuell sitzt der Inline-Sprite
   (`icon-menu`, `icon-chevron-left/-right`, `icon-close`, `icon-search`,
   `icon-plus`) direkt am `<body>`-Anfang in `frontend/index.html`. Bei
