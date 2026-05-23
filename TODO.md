@@ -5,8 +5,6 @@ anfasst, ihn hier bitte gleich streichen.
 
 ## Features
 
-- Echte App-Icons. Die aktuellen sind farbige Platzhalter, generiert mit einem
-  Python-Snippet — kein Branding, keine Maskable-Sicherheitszone.
 - Wiederkehrende Buchungen (monatlich, wöchentlich).
 - Budget-Grenzen pro Kategorie inkl. Warnung im UI.
 - Push-Benachrichtigungen bei Budget-Überschreitung.
