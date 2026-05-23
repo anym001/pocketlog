@@ -33,6 +33,10 @@ jobs:
             IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
             NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
           fi
+          # Enforce minimum version for the 0.2.0 milestone
+          if [[ "$NEW_TAG" < "v0.2.0" ]]; then
+            NEW_TAG="v0.2.0"
+          fi
           echo "new_tag=${NEW_TAG}"         >> $GITHUB_OUTPUT
           echo "version=${NEW_TAG#v}"       >> $GITHUB_OUTPUT
           echo "previous_tag=${LATEST:--}"  >> $GITHUB_OUTPUT
