@@ -1,13 +1,15 @@
 name: Build and publish image
 
-# On every push to main:
-#   1. Auto-increment patch version (v0.1.0 → v0.1.1)
-#   2. Create git tag + GitHub release
-#   3. Build and push Docker image to ghcr.io (:latest + :X.Y.Z)
+# Triggered two ways:
+#   1. Push to main → auto-increment patch (v0.2.0 → v0.2.1), tag, build
+#   2. Manual tag push (v*) → build that exact version, no new tag created
+#      Use this to release a minor/major bump:
+#        git tag v0.3.0 && git push origin v0.3.0
 
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 jobs:
@@ -23,25 +25,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Calculate next version
+      - name: Calculate version
         id: version
         run: |
-          LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-          if [ -z "$LATEST" ]; then
-            NEW_TAG="v0.2.0"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            # Triggered by a manual tag push — use that tag as-is, skip auto-tag
+            NEW_TAG="${GITHUB_REF#refs/tags/}"
+            echo "create_tag=false" >> $GITHUB_OUTPUT
           else
-            IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
-            NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+            # Triggered by a push to main — auto-increment patch
+            LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+            if [ -z "$LATEST" ]; then
+              NEW_TAG="v0.2.0"
+            else
+              IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+              NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+            fi
+            echo "create_tag=true" >> $GITHUB_OUTPUT
           fi
-          # Enforce minimum version for the 0.2.0 milestone
-          if [[ "$NEW_TAG" < "v0.2.0" ]]; then
-            NEW_TAG="v0.2.0"
-          fi
-          echo "new_tag=${NEW_TAG}"         >> $GITHUB_OUTPUT
-          echo "version=${NEW_TAG#v}"       >> $GITHUB_OUTPUT
-          echo "previous_tag=${LATEST:--}"  >> $GITHUB_OUTPUT
+          echo "new_tag=${NEW_TAG}"     >> $GITHUB_OUTPUT
+          echo "version=${NEW_TAG#v}"   >> $GITHUB_OUTPUT
 
       - name: Create git tag
+        if: steps.version.outputs.create_tag == 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
