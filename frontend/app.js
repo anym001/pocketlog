@@ -496,7 +496,7 @@
       }
       // ── LOAD & RENDER ─────────────────────────────────────────────────────────────
       function normalizeTx(t) {
-        return { ...t, amount: Number(t.amount), tags: t.tags || [] };
+        return { ...t, amount: Number(t.amount), tags: (t.tags || []).map((tag) => tag.toLowerCase()) };
       }
 
       async function loadAndRender() {
