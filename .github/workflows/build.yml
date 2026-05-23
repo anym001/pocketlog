@@ -36,7 +36,7 @@ jobs:
             # Triggered by a push to main — auto-increment patch
             LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
             if [ -z "$LATEST" ]; then
-              NEW_TAG="v0.2.0"
+              NEW_TAG="v0.1.0"
             else
               IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
               NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
