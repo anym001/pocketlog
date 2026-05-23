@@ -9,13 +9,6 @@ anfasst, ihn hier bitte gleich streichen.
 - Budget-Grenzen pro Kategorie inkl. Warnung im UI.
 - Push-Benachrichtigungen bei Budget-Überschreitung.
 
-## PWA / Offline
-
-- Service-Worker Background-Sync nutzt aktuell fix `/api` als Basis. Bei
-  konfigurierter externer Backend-URL flusht nur die fenstergetriggerte
-  `syncNow()` — Hintergrund-Sync bei geschlossenem Tab erst beim nächsten
-  Öffnen.
-
 ## Nice-to-haves
 
 Nicht dringend, eher Komfort/Reifegrad. Reihenfolge egal.
