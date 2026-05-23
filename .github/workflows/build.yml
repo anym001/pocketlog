@@ -1,7 +1,7 @@
 name: Build and publish image
 
 # Triggered two ways:
-#   1. Push to main → auto-increment patch (v0.2.0 → v0.2.1), tag, build
+#   1. Push to main → auto-increment patch (vX.Y.Z → vX.Y.Z+1), tag, build
 #   2. Manual tag push (v*) → build that exact version, no new tag created
 #      Use this to release a minor/major bump:
 #        git tag v0.3.0 && git push origin v0.3.0
