@@ -2229,7 +2229,7 @@
       // ── MODAL ─────────────────────────────────────────────────────────────────────
       function openModal(tx) {
         rememberModalFocus('booking');
-        currentTags = tx?.tags ? [...tx.tags] : [];
+        currentTags = tx?.tags ? tx.tags.map((t) => t.toLowerCase()) : [];
         document.getElementById('inputAmount').value =
           tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
         document.getElementById('inputDesc').value = tx?.desc || '';
