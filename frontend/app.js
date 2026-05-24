@@ -3021,11 +3021,14 @@
         setSyncAria('Wird synchronisiert…');
 
         let flushed = 0;
+        let failed = 0;
         let networkErr = navigator.onLine === false;
 
         if (!networkErr && window.PocketLogOutbox) {
           try {
-            flushed = await window.PocketLogOutbox.drain(API);
+            const r = await window.PocketLogOutbox.drain(API);
+            flushed = r.ok;
+            failed = r.failed;
           } catch (e) {
             networkErr = true;
             console.error('Sync (drain) fehlgeschlagen:', e);
@@ -3066,7 +3069,13 @@
 
         setSyncBadge(0);
         setSyncAria('Gespeichert');
-        if (flushed > 0) await loadTags();
+        if (failed > 0) {
+          const msg = failed === 1
+            ? '1 Buchung konnte nicht gespeichert werden.'
+            : `${failed} Buchungen konnten nicht gespeichert werden.`;
+          toast(msg, 'error');
+        }
+        if (flushed > 0 || failed > 0) await loadTags();
         await loadAndRender();
       }
 
@@ -3257,6 +3266,13 @@
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', (ev) => {
           if (ev.data?.type === 'SYNC_DONE') {
+            const failed = ev.data.failed || 0;
+            if (failed > 0) {
+              const msg = failed === 1
+                ? '1 Buchung konnte nicht gespeichert werden.'
+                : `${failed} Buchungen konnten nicht gespeichert werden.`;
+              toast(msg, 'error');
+            }
             loadTags();
             loadAndRender();
           }
@@ -3385,6 +3401,7 @@
           }
           if (window.PocketLogOutbox) {
             await window.PocketLogOutbox.clear();
+            await window.PocketLogOutbox.failedClear();
           }
           closeCacheModal();
           closeDrawer();
