@@ -3,8 +3,11 @@
 
 (function (global) {
   const DB_NAME = 'pocketlog';
-  const DB_VERSION = 1;
+  // v2 adds the `failed` dead-letter store for 4xx responses so we
+  // never silently drop user data on replay.
+  const DB_VERSION = 2;
   const STORE = 'outbox';
+  const FAILED_STORE = 'failed';
 
   function open() {
     return new Promise((resolve, reject) => {
@@ -13,6 +16,9 @@
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) {
           db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+        }
+        if (!db.objectStoreNames.contains(FAILED_STORE)) {
+          db.createObjectStore(FAILED_STORE, { keyPath: 'id', autoIncrement: true });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -65,31 +71,93 @@
     });
   }
 
-  // Spielt die Outbox ab. Liefert die Anzahl erfolgreich abgearbeiteter Einträge.
-  // Entries, die mit 4xx ablehnen, werden verworfen (keine Endlosschleife).
-  // Netzfehler lassen den Eintrag stehen.
+  async function failedAdd(entry) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(FAILED_STORE, 'readwrite');
+      tx.objectStore(FAILED_STORE).add({ ...entry, ts: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function failedAll() {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(FAILED_STORE, 'readonly');
+      const req = tx.objectStore(FAILED_STORE).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function failedCount() {
+    const items = await failedAll();
+    return items.length;
+  }
+
+  async function failedClear() {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(FAILED_STORE, 'readwrite');
+      tx.objectStore(FAILED_STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  // Spielt die Outbox ab. Liefert {ok, failed}:
+  //   ok     – Anzahl erfolgreich abgearbeiteter Einträge
+  //   failed – Anzahl Einträge, die der Server mit 4xx abgelehnt hat
+  //            (Validation, Not Found …). Diese landen im Failed-Store,
+  //            damit sie nicht stillschweigend verschwinden.
+  // 5xx- und Netzfehler brechen die Schleife ab — der Eintrag bleibt
+  // im Outbox und wird beim nächsten Sync erneut versucht.
   async function drain(apiBase) {
     const items = await all();
-    let done = 0;
+    let ok = 0;
+    let failed = 0;
     for (const item of items) {
+      let res;
       try {
-        const res = await fetch(apiBase + item.path, {
+        res = await fetch(apiBase + item.path, {
           method: item.method,
           headers: item.body ? { 'Content-Type': 'application/json' } : {},
           body: item.body ? JSON.stringify(item.body) : undefined,
         });
-        if (res.ok || (res.status >= 400 && res.status < 500)) {
-          await remove(item.id);
-          done++;
-        } else {
-          break; // 5xx oder Netzwerk: später erneut versuchen
-        }
       } catch (e) {
         break; // offline / Netz weg
       }
+      if (res.ok) {
+        await remove(item.id);
+        ok++;
+      } else if (res.status >= 400 && res.status < 500) {
+        const detail = await res.text().catch(() => '');
+        await failedAdd({
+          method: item.method,
+          path: item.path,
+          body: item.body,
+          status: res.status,
+          detail: detail.slice(0, 500),
+        });
+        await remove(item.id);
+        failed++;
+      } else {
+        break; // 5xx: später erneut versuchen
+      }
     }
-    return done;
+    return { ok, failed };
   }
 
-  global.PocketLogOutbox = { enqueue, all, remove, count, drain, clear };
+  global.PocketLogOutbox = {
+    enqueue,
+    all,
+    remove,
+    count,
+    drain,
+    clear,
+    failedAll,
+    failedCount,
+    failedClear,
+  };
 })(self);

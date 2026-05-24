@@ -107,6 +107,10 @@ class Transaction(Base):
     __tablename__ = "transactions"
     __table_args__ = (
         Index("ix_transactions_user_date", "user_id", "date"),
+        # FK on category_id triggers an InnoDB FK-check on every category
+        # DELETE; without this index that check is a full table scan on
+        # transactions.
+        Index("ix_transactions_category_id", "category_id"),
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
     )
 

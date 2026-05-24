@@ -128,6 +128,20 @@ async function handleWrite(request) {
   try {
     return await fetch(request.clone());
   } catch (e) {
+    // Outbox replays writes as JSON. Anything else — multipart file
+    // uploads (CSV-Import), urlencoded forms — can't round-trip through
+    // IndexedDB, so we must NOT silently queue them with an empty body.
+    // Surface a 503 so the caller sees the failure and can retry online.
+    const contentType = request.headers.get('Content-Type') || '';
+    const isQueueable =
+      request.method === 'DELETE' ||
+      contentType.includes('application/json');
+    if (!isQueueable) {
+      return new Response(JSON.stringify({ offline: true }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const body = request.method === 'DELETE'
       ? null
       : await request.clone().json().catch(() => null);
@@ -178,10 +192,10 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('sync', (event) => {
   if (event.tag === 'pocketlog-outbox') {
     event.waitUntil(
-      self.PocketLogOutbox.drain('/api').then((flushed) => {
-        if (flushed > 0) {
+      self.PocketLogOutbox.drain('/api').then(({ ok, failed }) => {
+        if (ok > 0 || failed > 0) {
           self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
-            clients.forEach((c) => c.postMessage({ type: 'SYNC_DONE', flushed }));
+            clients.forEach((c) => c.postMessage({ type: 'SYNC_DONE', ok, failed }));
           });
         }
       })

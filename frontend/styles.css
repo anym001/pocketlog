@@ -2565,8 +2565,7 @@
         border-bottom: none;
       }
       .report-tx-row:focus-visible {
-        outline: var(--focus-ring);
-        outline-offset: 2px;
+        box-shadow: var(--focus-ring);
         border-radius: var(--r-sm);
       }
       .report-tx-main {
@@ -2702,8 +2701,7 @@
         background: var(--surface-tint);
       }
       .forecast-table tr.is-clickable:focus-visible {
-        outline: var(--focus-ring);
-        outline-offset: -2px;
+        box-shadow: var(--focus-ring);
         border-radius: var(--r-sm);
       }
       .forecast-table .num {
