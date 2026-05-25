@@ -216,6 +216,14 @@
         --blur-thin: blur(18px) saturate(180%);
         --blur-regular: blur(28px) saturate(180%);
         --blur-thick: blur(40px) saturate(200%);
+        --blur-overlay: blur(4px); /* Weak blur for the drawer scrim — see .drawer-overlay */
+
+        /* Overlay scrims — modal/drawer backdrops on top of content. Dark
+           enough to dim, soft enough to keep underlying content recognisable. */
+        --overlay-bg: rgba(20, 14, 8, 0.35);
+        /* Specular highlight on the top edge of glass surfaces (modal etc.)
+           — a soft white sheen that emulates a curved bevel under light. */
+        --specular-highlight: rgba(255, 255, 255, 0.45);
 
         /* Themed shadows used outside of the generic --shadow-* set. */
         --shadow-header:
@@ -748,7 +756,7 @@
         transition: none;
       }
       .tx-row.swiped .transaction {
-        transform: translateX(-92px);
+        transform: translateX(calc(-1 * var(--swipe-action-w)));
       }
 
       .tx-action {
@@ -1010,6 +1018,10 @@
       .fab:active {
         transform: scale(0.92);
       }
+      .fab:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-floating-strip), var(--focus-ring);
+      }
       .fab.search-exit {
         font-size: var(--fs-icon-md);
         font-weight: 400;
@@ -1051,6 +1063,7 @@
       .sidebar-toggle-btn:active {
         opacity: 0.6;
       }
+      .hamburger-btn:focus-visible,
       .sidebar-toggle-btn:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
@@ -1078,11 +1091,11 @@
         position: fixed;
         inset: 0;
         z-index: var(--z-drawer-backdrop);
-        background: rgba(20, 14, 8, 0.35);
+        background: var(--overlay-bg);
         /* Deliberately weaker than --blur-dim: the drawer overlay only
            needs to hint at the inert content underneath without obscuring it. */
-        -webkit-backdrop-filter: blur(4px);
-        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: var(--blur-overlay);
+        backdrop-filter: var(--blur-overlay);
         opacity: 0;
         pointer-events: none;
         transition: opacity var(--dur-slow) ease;
@@ -1200,6 +1213,10 @@
         color: var(--text);
         transform: scale(0.94);
       }
+      .drawer-close-btn:focus-visible {
+        outline: none;
+        box-shadow: inset 0 0.5px 0 var(--hairline), var(--focus-ring);
+      }
 
       .drawer-section {
         padding: var(--space-20) var(--space-20) 0;
@@ -1274,10 +1291,18 @@
       .drawer-nav-item:active {
         background: var(--glass-thin);
       }
+      .drawer-nav-item:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-sm);
+      }
       .drawer-nav-item.active {
         color: var(--accent);
         font-weight: 600;
         box-shadow: inset 3px 0 var(--accent);
+      }
+      .drawer-nav-item.active:focus-visible {
+        box-shadow: inset 3px 0 var(--accent), var(--focus-ring);
       }
       .drawer-nav-chevron {
         color: var(--text3);
@@ -1344,7 +1369,7 @@
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(20, 14, 8, 0.35);
+        background: var(--overlay-bg);
         -webkit-backdrop-filter: var(--blur-dim);
         backdrop-filter: var(--blur-dim);
         z-index: var(--z-modal);
@@ -1389,8 +1414,8 @@
         border-radius: inherit;
         background: linear-gradient(
           180deg,
-          rgba(255, 255, 255, 0.45) 0%,
-          rgba(255, 255, 255, 0) 25%
+          var(--specular-highlight) 0%,
+          transparent 25%
         );
         pointer-events: none;
         mix-blend-mode: overlay;
@@ -1506,14 +1531,30 @@
         color: var(--on-accent);
         box-shadow:
           0 2px 8px color-mix(in oklab, var(--accent) 35%, transparent),
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
+          inset 0 0.5px 0 var(--hairline);
       }
       .type-btn.active.in {
         background: linear-gradient(135deg, var(--green), var(--green-2));
         color: var(--on-accent);
         box-shadow:
           0 2px 8px color-mix(in oklab, var(--green) 35%, transparent),
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
+          inset 0 0.5px 0 var(--hairline);
+      }
+      .type-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .type-btn.active.out:focus-visible {
+        box-shadow:
+          0 2px 8px color-mix(in oklab, var(--accent) 35%, transparent),
+          inset 0 0.5px 0 var(--hairline),
+          var(--focus-ring);
+      }
+      .type-btn.active.in:focus-visible {
+        box-shadow:
+          0 2px 8px color-mix(in oklab, var(--green) 35%, transparent),
+          inset 0 0.5px 0 var(--hairline),
+          var(--focus-ring);
       }
 
       .form-group {
@@ -1905,7 +1946,7 @@
         width: 100%;
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
         color: var(--on-accent);
-        border: 0.5px solid rgba(255, 255, 255, 0.25);
+        border: 0.5px solid var(--hairline);
         border-radius: var(--r-md);
         padding: var(--space-16);
         font-size: var(--fs-body);
@@ -1916,18 +1957,26 @@
         transition: transform var(--dur-base) var(--ease-spring);
         letter-spacing: -0.01em;
         box-shadow:
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
-          inset 0 -0.5px 0 rgba(0, 0, 0, 0.08),
+          inset 0 0.5px 0 var(--hairline),
+          inset 0 -0.5px 0 var(--edge-dark),
           0 6px 18px -4px color-mix(in oklab, var(--accent) 50%, transparent);
       }
       .submit-btn:active {
         transform: scale(0.985);
       }
+      .submit-btn:focus-visible {
+        outline: none;
+        box-shadow:
+          inset 0 0.5px 0 var(--hairline),
+          inset 0 -0.5px 0 var(--edge-dark),
+          var(--focus-ring),
+          0 6px 18px -4px color-mix(in oklab, var(--accent) 50%, transparent);
+      }
       .submit-btn.green {
         background: linear-gradient(135deg, var(--green), var(--green-2));
         box-shadow:
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
-          inset 0 -0.5px 0 rgba(0, 0, 0, 0.08),
+          inset 0 0.5px 0 var(--hairline),
+          inset 0 -0.5px 0 var(--edge-dark),
           0 6px 18px -4px color-mix(in oklab, var(--green) 50%, transparent);
       }
       .submit-btn.btn-destructive,
@@ -2028,9 +2077,9 @@
       .save-btn.primary {
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
         color: var(--on-accent);
-        border-color: rgba(255, 255, 255, 0.25);
+        border-color: var(--hairline);
         box-shadow:
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
+          inset 0 0.5px 0 var(--hairline),
           0 6px 18px -4px color-mix(in oklab, var(--accent) 45%, transparent);
       }
       .save-btn.primary:hover {
@@ -2155,6 +2204,10 @@
       .segmented button[aria-disabled='true'] {
         opacity: 0.4;
         cursor: not-allowed;
+      }
+      .segmented button:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
 
       .range-stepper {
@@ -2781,9 +2834,7 @@
         font-size: var(--fs-footnote);
         line-height: 1.4;
         color: var(--text);
-        box-shadow:
-          0 2px 8px rgba(20, 20, 19, 0.08),
-          0 12px 28px -8px rgba(20, 20, 19, 0.18);
+        box-shadow: var(--shadow-elevated);
         pointer-events: auto;
         animation: toast-in 0.28s var(--ease-spring);
       }

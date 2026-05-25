@@ -30,8 +30,8 @@
         overview: 'Übersicht',
         month: 'Monatsverlauf',
         year: 'Jahresverlauf',
-        categories: 'Kategorien-Analyse',
-        tags: 'Tag-Analyse',
+        categories: 'Kategorienanalyse',
+        tags: 'Taganalyse',
         trend: 'Trend',
         forecast: 'Durchschnitt und Prognose',
         top: 'Größte Ausgaben',
@@ -96,7 +96,7 @@
       function invalidateReportCache() {
         _txCacheByYear.clear();
       }
-      // Beim Drill-Down aus der Kategorien-Analyse merken, wohin „Abbrechen" zurückspringt.
+      // Beim Drill-Down aus der Kategorienanalyse merken, wohin „Abbrechen" zurückspringt.
       let _searchExitTarget = null;
       // Letzte vom aktiven Report geladene Transaktionen — wird von editTransaction
       // konsultiert, damit ein Klick auf eine Top-Liste die echte Buchung findet
@@ -496,7 +496,11 @@
       }
       // ── LOAD & RENDER ─────────────────────────────────────────────────────────────
       function normalizeTx(t) {
-        return { ...t, amount: Number(t.amount), tags: (t.tags || []).map((tag) => tag.toLowerCase()) };
+        // Tags keep their server-side case here. Comparisons that need
+        // case-insensitive matching lowercase per use-site — eager
+        // normalisation here would silently rewrite CSV-imported tags
+        // like "Reise" to "reise" on every save.
+        return { ...t, amount: Number(t.amount), tags: (t.tags || []).slice() };
       }
 
       async function loadAndRender() {
@@ -635,7 +639,7 @@
         if (!txs.length) {
           el.innerHTML = _searchQuery
             ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>Keine Buchungen passen zu „${_escText(_searchQuery)}“.<br>Andere Schreibweise versuchen.</p></div>`
-            : `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong> um eine hinzuzufügen.</p></div>`;
+            : `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong>, um eine hinzuzufügen.</p></div>`;
           return;
         }
         // Group by date
@@ -750,7 +754,10 @@
       }
 
       // ── SWIPE-TO-DELETE ───────────────────────────────────────────────────────────
-      const SWIPE_ACTION_WIDTH = 88;
+      // Must match the CSS token --swipe-action-w. The CSS owns the visible
+      // delete-button width; this constant clamps the drag to the same value
+      // so the rest position when the user releases matches their finger.
+      const SWIPE_ACTION_WIDTH = 92;
       const SWIPE_OPEN_THRESHOLD = 40; // Pixel, ab denen die Action offen einrastet
       const TAP_TOLERANCE = 6; // Pixel-Slop, unter dem ein Pointer-Down als Tap zählt
 
@@ -1211,7 +1218,7 @@
           </div>
 
           <div class="report-tiles">
-            <button type="button" class="report-tile" onclick="openReport('categories')">Kategorien-Analyse</button>
+            <button type="button" class="report-tile" onclick="openReport('categories')">Kategorienanalyse</button>
             <button type="button" class="report-tile" onclick="openReport('year')">Jahresverlauf</button>
             <button type="button" class="report-tile" onclick="openReport('forecast')">Prognose</button>
           </div>
@@ -2229,7 +2236,7 @@
       // ── MODAL ─────────────────────────────────────────────────────────────────────
       function openModal(tx) {
         rememberModalFocus('booking');
-        currentTags = tx?.tags ? tx.tags.map((t) => t.toLowerCase()) : [];
+        currentTags = tx?.tags ? tx.tags.slice() : [];
         document.getElementById('inputAmount').value =
           tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
         document.getElementById('inputDesc').value = tx?.desc || '';
@@ -2361,7 +2368,7 @@
         const cat = parseInt(document.getElementById('inputCat').value);
         const date = document.getElementById('inputDate').value;
         if (!amount || !date) {
-          toast('Betrag und Datum sind Pflichtfelder.', 'error');
+          toast('Gib Betrag und Datum ein.', 'error');
           return;
         }
         const body = {
@@ -2427,7 +2434,7 @@
         try {
           const tags = await api('GET', '/tags');
           const list = Array.isArray(tags) ? tags : [];
-          availableTags = list.map((t) => (typeof t === 'string' ? t : t.name).toLowerCase());
+          availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
           tagCounts.clear();
           for (const t of list) {
             if (typeof t === 'string') continue;
@@ -2468,8 +2475,8 @@
 
       function addTagFromSuggestion(t) {
         if (!t) return;
-        const v = t.toLowerCase();
-        if (!currentTags.includes(v)) currentTags.push(v);
+        const key = t.toLowerCase();
+        if (!currentTags.some((x) => x.toLowerCase() === key)) currentTags.push(t);
         renderTagPills();
         renderTagSuggestions();
       }
@@ -2553,7 +2560,7 @@
         if (!val) return;
         const key = val.toLowerCase();
         const existing = availableTags.find((t) => t.toLowerCase() === key);
-        const name = existing || key;
+        const name = existing || val;
         if (!existing) {
           availableTags.push(name);
           availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
@@ -3302,7 +3309,7 @@
           const parts = [`${r.imported} Buchungen importiert`];
           if (r.skipped) parts.push(`${r.skipped} übersprungen`);
           if (r.errors && r.errors.length) {
-            parts.push(`${r.errors.length} Fehler (Details in der Browser-Console)`);
+            parts.push(`${r.errors.length} Zeilen übersprungen`);
             console.warn('CSV-Import: Fehlerhafte Zeilen', r.errors);
           }
           status.textContent = parts.join(' · ');
