@@ -189,7 +189,7 @@
     <div class="drawer-overlay" id="drawerOverlay" aria-hidden="true" onclick="closeDrawer()"></div>
 
     <!-- DRAWER -->
-    <div class="drawer" id="drawer" role="dialog" aria-label="Menü">
+    <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Menü">
       <div class="drawer-head">
         <h2 class="drawer-head-title">Pocket<span>Log</span></h2>
         <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">
@@ -206,14 +206,14 @@
               data-panel="categories"
               onclick="showPanel('categories')"
             >
-              Kategorien-Übersicht
+              Kategorienübersicht
             </button>
             <button
               class="drawer-nav-item"
               data-panel="transactions"
               onclick="showPanel('transactions')"
             >
-              Buchungs-Übersicht
+              Buchungsübersicht
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpReports')">
               Auswertungen
@@ -238,8 +238,8 @@
             <button class="drawer-nav-item" onclick="openReport('overview')">Übersicht</button>
             <button class="drawer-nav-item" onclick="openReport('month')">Monatsverlauf</button>
             <button class="drawer-nav-item" onclick="openReport('year')">Jahresverlauf</button>
-            <button class="drawer-nav-item" onclick="openReport('categories')">Kategorien-Analyse</button>
-            <button class="drawer-nav-item" onclick="openReport('tags')">Tag-Analyse</button>
+            <button class="drawer-nav-item" onclick="openReport('categories')">Kategorienanalyse</button>
+            <button class="drawer-nav-item" onclick="openReport('tags')">Taganalyse</button>
             <button class="drawer-nav-item" onclick="openReport('trend')">Trend</button>
             <button class="drawer-nav-item" onclick="openReport('forecast')">Durchschnitt und Prognose</button>
             <button class="drawer-nav-item" onclick="openReport('top')">Größte Ausgaben</button>
@@ -420,7 +420,7 @@
                   value="transactions"
                   onchange="saveDefaultView(this.value)"
                 />
-                Buchungs-Übersicht
+                Buchungsübersicht
               </label>
               <label class="radio-row">
                 <input
@@ -429,7 +429,7 @@
                   value="categories"
                   onchange="saveDefaultView(this.value)"
                 />
-                Kategorien-Übersicht
+                Kategorienübersicht
               </label>
             </div>
           </div>
@@ -511,11 +511,11 @@
                 <dd id="infoOnline">–</dd>
               </div>
               <div class="info-row">
-                <dt>SW-Status</dt>
+                <dt>Service-Worker-Status</dt>
                 <dd id="infoSwState">–</dd>
               </div>
               <div class="info-row">
-                <dt>Offline-Outbox</dt>
+                <dt>Ausstehende Änderungen</dt>
                 <dd id="infoOutbox">–</dd>
               </div>
             </dl>
@@ -577,7 +577,7 @@
                 <dd id="infoLang">–</dd>
               </div>
               <div class="info-row info-row-stack">
-                <dt>User-Agent</dt>
+                <dt>Browser-Kennung</dt>
                 <dd id="infoUserAgent">–</dd>
               </div>
             </dl>
@@ -662,10 +662,10 @@
 
       <div class="range-picker">
         <div class="segmented" role="tablist" aria-label="Zeitraum" id="rangeKindTabs">
-          <button role="tab" type="button" data-kind="month" onclick="setRangeKind('month')">Monat</button>
-          <button role="tab" type="button" data-kind="quarter" onclick="setRangeKind('quarter')">Quartal</button>
-          <button role="tab" type="button" data-kind="year" onclick="setRangeKind('year')">Jahr</button>
-          <button role="tab" type="button" data-kind="custom" onclick="setRangeKind('custom')">Eigen</button>
+          <button role="tab" type="button" aria-selected="true" data-kind="month" onclick="setRangeKind('month')">Monat</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="quarter" onclick="setRangeKind('quarter')">Quartal</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="year" onclick="setRangeKind('year')">Jahr</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="custom" onclick="setRangeKind('custom')">Eigen</button>
         </div>
         <div class="range-stepper" id="rangeStepper">
           <button type="button" onclick="shiftRange(-1)" aria-label="Zurück">
@@ -727,12 +727,12 @@
 
     <!-- TRANSACTION ADD/EDIT MODAL -->
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2>Neue Buchung</h2>
+          <h2 id="modalTitle">Neue Buchung</h2>
         </div>
         <div class="modal-body">
           <div class="type-toggle">
@@ -805,7 +805,7 @@
 
     <!-- TAG ADD/EDIT MODAL -->
     <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tagModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
@@ -833,12 +833,12 @@
 
     <!-- TAG PICKER MODAL -->
     <div class="modal-overlay" id="tagPickerOverlay" onclick="closeTagPickerOutside(event)">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tagPickerTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeTagPicker()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2>Tag wählen</h2>
+          <h2 id="tagPickerTitle">Tag wählen</h2>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -893,7 +893,7 @@
 
     <!-- CATEGORY ADD/EDIT MODAL -->
     <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
@@ -939,12 +939,12 @@
 
     <!-- CATEGORY ICON PICKER -->
     <div class="modal-overlay" id="iconPickerOverlay" onclick="closeIconPickerOutside(event)">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="iconPickerTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeIconPicker()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2>Icon wählen</h2>
+          <h2 id="iconPickerTitle">Icon wählen</h2>
         </div>
         <div class="modal-body">
           <div id="iconPickerSections"></div>
@@ -954,12 +954,12 @@
 
     <!-- CACHE-CLEAR MODAL -->
     <div class="modal-overlay" id="cacheModalOverlay" onclick="closeCacheModalOutside(event)">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cacheModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeCacheModal()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2>Cache wirklich leeren?</h2>
+          <h2 id="cacheModalTitle">Cache wirklich leeren?</h2>
         </div>
         <div class="modal-body">
           <p class="confirm-msg" id="cacheModalMsg"></p>
@@ -975,12 +975,12 @@
 
     <!-- RESET / DATA-DELETE MODAL -->
     <div class="modal-overlay" id="resetModalOverlay" onclick="closeResetModalOutside(event)">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeResetModal()" aria-label="Schließen">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2>Daten wirklich löschen?</h2>
+          <h2 id="resetModalTitle">Daten wirklich löschen?</h2>
         </div>
         <div class="modal-body">
           <p class="confirm-msg">
