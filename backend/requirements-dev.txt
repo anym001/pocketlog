@@ -1,0 +1,6 @@
+# Inherits the production dependencies so a single
+# `pip install -r requirements-dev.txt` gives a ready-to-run dev/test env.
+-r requirements.txt
+
+pytest==9.0.3
+httpx==0.28.1
