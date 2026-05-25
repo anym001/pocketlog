@@ -194,6 +194,13 @@ Harte Kurzregeln: Mobile-first 430 px · `env(safe-area-inset-*)` · nur **DM Se
 - Schemaänderungen: Alembic-Revision generieren, nicht manuell ALTER TABLE
 - StaticFiles-Mount IMMER zuletzt registrieren, damit `/api/*` vorher matcht
 
+### Konventionen Alembic-Migrationen
+
+Migrationen laufen im Container-Entrypoint **vor** uvicorn. Ein Crash blockiert das gesamte Deployment, und MariaDB committet DDL auto-transactionally — eine halb gelaufene Migration hinterlässt also bleibenden Zustand, den der nächste Startversuch wieder findet. Daraus folgen zwei harte Regeln:
+
+- **Revision-IDs ≤ 24 Zeichen.** `alembic_version.version_num` ist `VARCHAR(32)`, harte Obergrenze. Konvention: 24, damit Puffer für Tippfehler/Suffixe bleibt. Wird per pytest geprüft (`backend/tests/test_migrations.py`).
+- **DDL immer idempotent.** Jedes `op.create_index` / `op.create_table` / `op.add_column` / `op.drop_*` davor mit `sa.inspect(op.get_bind())` prüfen, ob die Operation schon angewendet ist, und im Trefferfall `return`. Beispiel: `0007_tx_category_idx.py`. Grund: ein halb-applied Container muss sich beim Neustart selbst erholen können, ohne dass jemand händisch SQL ausführt.
+
 ## Subagents (`.claude/agents/`)
 
 PocketLog hat projektspezifische Claude-Code-Subagents für Review-Aufgaben:
