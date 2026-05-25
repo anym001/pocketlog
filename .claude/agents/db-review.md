@@ -42,8 +42,9 @@ Key invariants:
 
 **Alembic hygiene**
 - Only one head in the migration chain (`alembic heads` should return one revision)
-- Revision ID is auto-generated (not manually set)
-- Migration file name is descriptive
+- Revision file name is descriptive AND matches the revision id (file `0007_foo.py` → `revision = "0007_foo"`)
+- **Revision id ≤ 24 chars.** Hard cap on MariaDB is 32 (`alembic_version.version_num VARCHAR(32)`); convention 24 reserves headroom. Oversize ids crash-loop the container on deploy because MariaDB rejects the version-row write under STRICT_TRANS_TABLES (error 1406) while the DDL itself has already auto-committed. There is a pytest guard (`backend/tests/test_migrations.py`) — if it fails, do NOT bypass it, shorten the id.
+- **DDL must be idempotent.** Wrap every `op.create_index` / `op.create_table` / `op.add_column` / `op.drop_*` with an `sa.inspect(op.get_bind())` check that returns early if the operation has already been applied. MariaDB auto-commits DDL, so a half-applied migration is a real state every restart has to survive without manual SQL. Pattern lives in `0007_tx_category_idx.py`.
 
 **Cross-dialect portability (MariaDB ↔ SQLite)**
 - Any raw SQL must be valid on both dialects, or guarded by `op.get_bind().dialect.name == "sqlite"`. The known MariaDB-only constructs in this codebase are:
