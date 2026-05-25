@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 from datetime import date as date_type, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -8,6 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import models, schemas
+
+logger = logging.getLogger("uvicorn.error")
 
 DEFAULT_CATEGORIES: list[dict] = [
     {"name": "Lebensmittel", "icon": "shopping-cart", "color": "#c8623a"},
@@ -602,12 +605,16 @@ def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> 
 
     try:
         db.commit()
-    except IntegrityError as e:
+    except IntegrityError:
+        # The raw exception contains MariaDB column/constraint names, which
+        # would leak schema details to the API client. Log the detail
+        # server-side and return a generic message.
+        logger.exception("CSV import IntegrityError for user_id=%s", user_id)
         db.rollback()
         return {
             "imported": 0,
             "skipped": imported + skipped,
-            "errors": [{"row": 0, "reason": f"DB-Konflikt: {e.orig}"}],
+            "errors": [{"row": 0, "reason": "Datenbankkonflikt beim Speichern. Bitte erneut versuchen."}],
         }
 
     return {"imported": imported, "skipped": skipped, "errors": errors}
