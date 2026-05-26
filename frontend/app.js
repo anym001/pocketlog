@@ -493,10 +493,9 @@
       }
       // ── LOAD & RENDER ─────────────────────────────────────────────────────────────
       function normalizeTx(t) {
-        // Tags keep their server-side case here. Comparisons that need
-        // case-insensitive matching lowercase per use-site — eager
-        // normalisation here would silently rewrite CSV-imported tags
-        // like "Reise" to "reise" on every save.
+        // Tags come pre-resolved from the server (M2M-backed since
+        // 0008_transaction_tags) — each name is the canonical row in
+        // the tags table, so no client-side casing fix-up is needed.
         return { ...t, amount: Number(t.amount), tags: (t.tags || []).slice() };
       }
 
@@ -2226,12 +2225,7 @@
       // ── MODAL ─────────────────────────────────────────────────────────────────────
       function openModal(tx) {
         rememberModalFocus('booking');
-        currentTags = tx?.tags
-          ? tx.tags.map((t) => {
-              const tLow = t.toLowerCase();
-              return availableTags.find((a) => a.toLowerCase() === tLow) ?? t;
-            })
-          : [];
+        currentTags = tx?.tags ? tx.tags.slice() : [];
         document.getElementById('inputAmount').value =
           tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
         document.getElementById('inputDesc').value = tx?.desc || '';
