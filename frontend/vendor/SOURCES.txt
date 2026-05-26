@@ -1,0 +1,26 @@
+Vendored frontend dependencies for PocketLog.
+
+PocketLog ships all third-party assets from its own origin (no CDNs,
+no tracking — see CLAUDE.md §Drittanbieter & Privacy). This file
+documents where each file in this directory came from, so its identity
+and integrity can be verified at any time without trusting the build
+machine.
+
+Verify locally with: sha256sum -c SOURCES.txt --ignore-missing
+
+
+chart.umd.min.js
+----------------
+- Library:  Chart.js
+- Version:  4.4.1
+- License:  MIT (see banner at the top of the file)
+- Source:   https://github.com/chartjs/Chart.js/releases/tag/v4.4.1
+            npm tarball: https://registry.npmjs.org/chart.js/-/chart.js-4.4.1.tgz
+            file inside tarball: package/dist/chart.umd.js.min  (the minified UMD bundle)
+- Modifications: trailing `//# sourceMappingURL=chart.umd.js.map` removed
+                 because the .map file is not shipped (would 404 in devtools)
+- SHA256:   0ee28337f25838a7a5d6b1e8b2b02279ab10e80e17c217a99893a7a717f2ba05
+            (after the sourceMappingURL strip — pristine npm bundle has a
+             different hash)
+
+0ee28337f25838a7a5d6b1e8b2b02279ab10e80e17c217a99893a7a717f2ba05  chart.umd.min.js
