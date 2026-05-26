@@ -114,16 +114,27 @@ description VARCHAR(255)       -- im JSON heißt das Feld "desc" (Pydantic-Alias
 category_id INT FK -> categories.id (ON DELETE RESTRICT) INDEX
 date DATE
 type ENUM('in','out')
-tags JSON                      -- Array von Strings
+-- Tags liegen NICHT mehr als JSON-Array in dieser Tabelle (entfernt
+-- in Migration 0008). Stattdessen Many-to-Many via transaction_tags.
 
--- tags                         -- eigenständige (deklarierte) Tags, unabhängig
-                                -- vom JSON-Array in transactions; ermöglicht
-                                -- „Tag erstellen" ohne Buchung + dauerhaftes
-                                -- Tag-Listing für den Picker
+-- tags                         -- alle Tags des Users; einzige Source of
+                                -- Truth für Tag-Namen. Jeder Tag existiert
+                                -- pro User genau einmal (case-insensitive
+                                -- via casefold-Lookup in crud._resolve_tags).
 id INT PK AUTO_INCREMENT
 user_id INT FK -> users.id (ON DELETE CASCADE) INDEX
 name VARCHAR(64)
 UNIQUE (user_id, name)
+
+-- transaction_tags              -- Junction; jede Verbindung Buchung↔Tag.
+                                -- Rename eines Tags ändert tags.name
+                                -- einmal und ist überall sichtbar.
+                                -- Delete eines Tags → ON DELETE CASCADE
+                                -- entfernt nur die Verknüpfungen, die
+                                -- Buchung selbst bleibt.
+transaction_id INT FK -> transactions.id (ON DELETE CASCADE)
+tag_id         INT FK -> tags.id (ON DELETE CASCADE) INDEX
+PRIMARY KEY (transaction_id, tag_id)
 
 -- user_settings                -- UI-Präferenzen, gespiegelt aus localStorage
 user_id INT PK FK -> users.id (ON DELETE CASCADE)

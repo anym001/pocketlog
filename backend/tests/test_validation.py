@@ -56,7 +56,8 @@ def test_tags_are_stripped_and_deduped(client):
     payload["category_id"] = cat_id
     r = client.post("/api/transactions", json=payload)
     assert r.status_code == 201, r.text
-    # First occurrence wins, case-fold dedupe drops "Alpha".
+    # First occurrence wins, case-fold dedupe drops "Alpha". Tags are
+    # returned alphabetically (M2M order_by since 0008_transaction_tags).
     assert r.json()["tags"] == ["alpha", "beta"]
 
 
@@ -78,7 +79,8 @@ def test_control_chars_stripped_from_tags(client):
     payload["category_id"] = cat_id
     r = client.post("/api/transactions", json=payload)
     assert r.status_code == 201, r.text
-    assert r.json()["tags"] == ["foobar", "bazqux"]
+    # Alphabetical (M2M order_by since 0008_transaction_tags).
+    assert r.json()["tags"] == ["bazqux", "foobar"]
 
 
 def test_csv_import_strips_control_chars_from_tags(client):
@@ -93,7 +95,7 @@ def test_csv_import_strips_control_chars_from_tags(client):
     assert r.status_code == 200
     txs = client.get("/api/transactions?year=2026&month=5").json()
     target = next(t for t in txs if t["desc"] == "ctrl-csv")
-    assert target["tags"] == ["foobar", "clean"]
+    assert target["tags"] == ["clean", "foobar"]
 
 
 # ── Control chars in description and name (L-1) ───────────────────────────

@@ -4,9 +4,9 @@ import logging
 from datetime import date as date_type, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import and_, delete, extract, select
+from sqlalchemy import and_, case, delete, extract, func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from . import models, schemas
 
@@ -150,6 +150,14 @@ def delete_category(db: Session, user_id: int, category_id: int) -> bool:
 
 # ---------- Transactions ----------
 
+# Transaction.tags already has lazy='selectin' on the relationship, so
+# every list endpoint gets the tags batched in via a single extra IN
+# query. The explicit selectinload here is defensive — it makes the
+# eager-load policy visible at the call site and survives if the
+# relationship default ever changes.
+_TX_TAGS_LOAD = selectinload(models.Transaction.tags)
+
+
 def list_transactions(
     db: Session, user_id: int, year: int, month: int | None = None
 ) -> list[models.Transaction]:
@@ -161,7 +169,9 @@ def list_transactions(
     )
     if month is not None:
         q = q.where(extract("month", models.Transaction.date) == month)
-    q = q.order_by(models.Transaction.date.desc(), models.Transaction.id.desc())
+    q = q.options(_TX_TAGS_LOAD).order_by(
+        models.Transaction.date.desc(), models.Transaction.id.desc()
+    )
     return list(db.scalars(q))
 
 
@@ -169,6 +179,7 @@ def list_all_transactions(db: Session, user_id: int) -> list[models.Transaction]
     q = (
         select(models.Transaction)
         .where(models.Transaction.user_id == user_id)
+        .options(_TX_TAGS_LOAD)
         .order_by(models.Transaction.date.desc(), models.Transaction.id.desc())
     )
     return list(db.scalars(q))
@@ -185,7 +196,9 @@ def list_transactions_by_range(
         q = q.where(models.Transaction.date >= date_from)
     if date_to is not None:
         q = q.where(models.Transaction.date <= date_to)
-    q = q.order_by(models.Transaction.date.desc(), models.Transaction.id.desc())
+    q = q.options(_TX_TAGS_LOAD).order_by(
+        models.Transaction.date.desc(), models.Transaction.id.desc()
+    )
     return list(db.scalars(q))
 
 
@@ -203,12 +216,74 @@ def _check_category_owned(db: Session, user_id: int, category_id: int) -> bool:
     )
 
 
+def _build_tag_cache(db: Session, user_id: int) -> dict[str, models.Tag]:
+    """One SELECT of every tag the user owns, keyed by case-fold name.
+
+    Tag counts per user are small (tens to a few hundred), so caching
+    the whole set once per write is cheaper than N point-lookups — and
+    crucial for CSV import where _resolve_tags runs per row."""
+    return {
+        tag.name.casefold(): tag
+        for tag in db.scalars(
+            select(models.Tag).where(models.Tag.user_id == user_id)
+        )
+    }
+
+
+def _resolve_tags_cached(
+    db: Session,
+    user_id: int,
+    names: list[str] | None,
+    cache: dict[str, models.Tag],
+) -> list[models.Tag]:
+    """Resolve a list of tag-name strings to ORM rows using an
+    externally-managed cache. Newly created tags are inserted into the
+    cache so later calls in the same batch reuse them. Case-folded
+    lookup matches schemas._normalise_tags."""
+    if not names:
+        return []
+    out: list[models.Tag] = []
+    seen: set[object] = set()
+    for raw in names:
+        if not isinstance(raw, str):
+            continue
+        name = raw.strip()
+        if not name:
+            continue
+        folded = name.casefold()
+        tag = cache.get(folded)
+        if tag is None:
+            tag = models.Tag(user_id=user_id, name=name[: schemas.MAX_TAG_LENGTH])
+            db.add(tag)
+            db.flush()
+            cache[folded] = tag
+        key = tag.id if tag.id is not None else id(tag)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(tag)
+    return out
+
+
+def _resolve_tags(
+    db: Session, user_id: int, names: list[str] | None
+) -> list[models.Tag]:
+    """One-shot resolver for single create/update calls. CSV import
+    builds the cache once and uses _resolve_tags_cached directly."""
+    return _resolve_tags_cached(
+        db, user_id, names, _build_tag_cache(db, user_id)
+    )
+
+
 def create_transaction(
     db: Session, user_id: int, payload: schemas.TransactionCreate
 ) -> models.Transaction:
     if not _check_category_owned(db, user_id, payload.category_id):
         raise ValueError("unknown_category")
-    tx = models.Transaction(user_id=user_id, **payload.model_dump(by_alias=False))
+    data = payload.model_dump(by_alias=False)
+    tag_names = data.pop("tags", None)
+    tx = models.Transaction(user_id=user_id, **data)
+    tx.tags = _resolve_tags(db, user_id, tag_names)
     db.add(tx)
     db.commit()
     db.refresh(tx)
@@ -230,57 +305,67 @@ def update_transaction(
         return None
     if not _check_category_owned(db, user_id, payload.category_id):
         raise ValueError("unknown_category")
-    for k, v in payload.model_dump(by_alias=False).items():
+    data = payload.model_dump(by_alias=False)
+    tag_names = data.pop("tags", None)
+    for k, v in data.items():
         setattr(tx, k, v)
+    # Replacing the collection lets SQLAlchemy diff old vs new and
+    # emit the minimal INSERT/DELETE set on the junction table.
+    tx.tags = _resolve_tags(db, user_id, tag_names)
     db.commit()
     db.refresh(tx)
     return tx
 
 
 def list_tags(db: Session, user_id: int) -> list[dict]:
-    # Names: all-time pool (standalone tags + tags ever seen on a tx).
+    # Names: every tag the user has — both standalone (no transactions
+    # attached) and tags currently linked to one or more transactions.
     # Counts: only transactions from the last 30 days, so suggestions
     # surface tags that are currently relevant rather than long-stale.
-    # Standalone (declared) tags from the tags table — these win on casing
-    # when both a standalone entry and a tx-derived entry exist for the
-    # same case-folded key.
-    by_key: dict[str, str] = {}
-    counts: dict[str, int] = {}
     cutoff = date_type.today() - timedelta(days=30)
 
-    for name in db.scalars(
-        select(models.Tag.name).where(models.Tag.user_id == user_id)
-    ):
-        name = (name or "").strip()
-        if name:
-            by_key[name.casefold()] = name
-
-    rows = db.execute(
-        select(models.Transaction.tags, models.Transaction.date).where(
-            and_(
-                models.Transaction.user_id == user_id,
-                models.Transaction.tags.is_not(None),
-            )
-        )
+    # Single grouped query: LEFT JOIN keeps standalone tags with count 0;
+    # the CASE ... date >= cutoff windows the count without filtering
+    # out unused tags. Returned as a list of (name, count) pairs sorted
+    # case-insensitively to match the alphabetical UI.
+    recent = case(
+        (models.Transaction.date >= cutoff, 1), else_=0
     )
-    for tags, tx_date in rows:
-        if not tags:
-            continue
-        in_window = tx_date is not None and tx_date >= cutoff
-        for t in tags:
-            if not isinstance(t, str):
-                continue
-            t = t.strip()
-            if not t:
-                continue
-            key = t.casefold()
-            by_key.setdefault(key, t)
-            if in_window:
-                counts[key] = counts.get(key, 0) + 1
-    return [
-        {"name": by_key[k], "count": counts.get(k, 0)}
-        for k in sorted(by_key.keys())
-    ]
+    count_expr = func.coalesce(func.sum(recent), 0)
+    rows = db.execute(
+        select(models.Tag.name, count_expr)
+        .select_from(models.Tag)
+        .join(
+            models.transaction_tags,
+            models.transaction_tags.c.tag_id == models.Tag.id,
+            isouter=True,
+        )
+        .join(
+            models.Transaction,
+            models.Transaction.id == models.transaction_tags.c.transaction_id,
+            isouter=True,
+        )
+        .where(models.Tag.user_id == user_id)
+        .group_by(models.Tag.id, models.Tag.name)
+        .order_by(func.lower(models.Tag.name))
+    ).all()
+    return [{"name": name, "count": int(count or 0)} for name, count in rows]
+
+
+def _find_tag_by_name(
+    db: Session, user_id: int, name: str
+) -> models.Tag | None:
+    """Case-insensitive tag lookup. ``casefold`` runs Python-side
+    because some MariaDB collations (utf8mb4_general_ci) treat
+    ``ß ≠ ss``, which would let two tag rows coexist that the rest of
+    the codebase considers identical."""
+    folded = name.casefold()
+    for tag in db.scalars(
+        select(models.Tag).where(models.Tag.user_id == user_id)
+    ):
+        if tag.name.casefold() == folded:
+            return tag
+    return None
 
 
 def create_tag(db: Session, user_id: int, name: str) -> models.Tag:
@@ -298,58 +383,41 @@ def create_tag(db: Session, user_id: int, name: str) -> models.Tag:
     return tag
 
 
-def _tx_with_tag(db: Session, user_id: int) -> list[models.Transaction]:
-    return list(
-        db.scalars(
-            select(models.Transaction).where(
-                and_(
-                    models.Transaction.user_id == user_id,
-                    models.Transaction.tags.is_not(None),
-                )
-            )
-        )
-    )
-
-
-def _get_standalone_tag(
-    db: Session, user_id: int, name: str
-) -> models.Tag | None:
-    return db.scalar(
-        select(models.Tag).where(
-            and_(models.Tag.user_id == user_id, models.Tag.name == name)
-        )
-    )
-
-
 def rename_tag(db: Session, user_id: int, old_name: str, new_name: str) -> int:
     old_name = (old_name or "").strip()
     new_name = (new_name or "").strip()
     if not old_name or not new_name:
         raise ValueError("empty_name")
-    if old_name == new_name:
+
+    old_tag = _find_tag_by_name(db, user_id, old_name)
+    if old_tag is None:
         return 0
 
-    # Update the standalone Tag entry if one exists. If a Tag with the
-    # target name is already present, drop the old row (the target wins).
-    old_tag = _get_standalone_tag(db, user_id, old_name)
-    if old_tag is not None:
-        existing = _get_standalone_tag(db, user_id, new_name)
-        if existing is not None and existing.id != old_tag.id:
-            db.delete(old_tag)
-        else:
+    target = _find_tag_by_name(db, user_id, new_name)
+    if target is not None and target.id == old_tag.id:
+        # Same row, casing-only change. Apply it and report no
+        # transactions as "affected" — the displayed name updates
+        # automatically because every linked row reads it through the
+        # M2M relationship.
+        if old_tag.name != new_name[:64]:
             old_tag.name = new_name[:64]
+            db.commit()
+        return 0
 
-    affected = 0
-    for tx in _tx_with_tag(db, user_id):
-        if not tx.tags or old_name not in tx.tags:
-            continue
-        new_tags: list[str] = []
-        for t in tx.tags:
-            v = new_name if t == old_name else t
-            if v not in new_tags:
-                new_tags.append(v)
-        tx.tags = new_tags or None
-        affected += 1
+    affected = len(old_tag.transactions)
+
+    if target is None:
+        # Plain rename — no collision, just update the row.
+        old_tag.name = new_name[:64]
+    else:
+        # A different tag with the target name already exists. Merge:
+        # link every transaction from old_tag to target (skip ones
+        # already linked), then drop old_tag. ON DELETE CASCADE on the
+        # junction takes care of the now-orphaned old links.
+        for tx in list(old_tag.transactions):
+            if target not in tx.tags:
+                tx.tags.append(target)
+        db.delete(old_tag)
 
     try:
         db.commit()
@@ -363,19 +431,12 @@ def delete_tag(db: Session, user_id: int, name: str) -> int:
     name = (name or "").strip()
     if not name:
         return 0
-
-    tag = _get_standalone_tag(db, user_id, name)
-    if tag is not None:
-        db.delete(tag)
-
-    affected = 0
-    for tx in _tx_with_tag(db, user_id):
-        if not tx.tags or name not in tx.tags:
-            continue
-        new_tags = [t for t in tx.tags if t != name]
-        tx.tags = new_tags or None
-        affected += 1
-
+    tag = _find_tag_by_name(db, user_id, name)
+    if tag is None:
+        return 0
+    affected = len(tag.transactions)
+    # ON DELETE CASCADE on the junction removes the link rows.
+    db.delete(tag)
     db.commit()
     return affected
 
@@ -493,7 +554,12 @@ def _parse_amount(s: str) -> Decimal:
         raise ValueError(f"Betrag nicht erkennbar: {s!r}")
 
 
-def _build_transaction(row: dict, db: Session, user_id: int) -> models.Transaction | None:
+def _build_transaction(
+    row: dict,
+    db: Session,
+    user_id: int,
+    tag_cache: dict[str, models.Tag],
+) -> models.Transaction | None:
     r = {_norm_key(k): (v or "").strip() for k, v in row.items() if k is not None}
     if not r:
         return None
@@ -533,7 +599,7 @@ def _build_transaction(row: dict, db: Session, user_id: int) -> models.Transacti
     # failing the whole row (mirrors the existing per-row error model in
     # import_csv). The schema validator above takes the stricter path.
     seen: set[str] = set()
-    tags: list[str] = []
+    tag_names: list[str] = []
     for raw in tags_raw.split(","):
         tag = schemas._TAG_CONTROL_CHARS.sub("", raw).strip()
         if not tag or len(tag) > schemas.MAX_TAG_LENGTH:
@@ -544,20 +610,20 @@ def _build_transaction(row: dict, db: Session, user_id: int) -> models.Transacti
         if key in seen:
             continue
         seen.add(key)
-        tags.append(tag)
-        if len(tags) >= schemas.MAX_TAGS_PER_TX:
+        tag_names.append(tag)
+        if len(tag_names) >= schemas.MAX_TAGS_PER_TX:
             break
-    tags = tags or None
 
-    return models.Transaction(
+    tx = models.Transaction(
         user_id=user_id,
         amount=amount,
         description=desc,
         category_id=cat.id,
         date=date_val,
         type=tx_type,
-        tags=tags,
     )
+    tx.tags = _resolve_tags_cached(db, user_id, tag_names, tag_cache)
+    return tx
 
 
 def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> dict:
@@ -578,6 +644,10 @@ def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> 
     skipped = 0
     errors: list[dict] = []
 
+    # One tag-cache for the whole import — keeps row-by-row tag
+    # resolution at O(distinct tags) instead of O(rows × tags).
+    tag_cache = _build_tag_cache(db, user_id)
+
     for idx, row in enumerate(reader, start=2):
         if idx - 1 > max_rows:
             # Stop the loop before allocating a transaction for the next
@@ -590,7 +660,7 @@ def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> 
             })
             break
         try:
-            tx = _build_transaction(row, db, user_id)
+            tx = _build_transaction(row, db, user_id, tag_cache)
             if tx is None:
                 skipped += 1
                 continue

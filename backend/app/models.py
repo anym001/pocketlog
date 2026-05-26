@@ -4,20 +4,55 @@ from decimal import Decimal
 from sqlalchemy import (
     CHAR,
     DECIMAL,
-    JSON,
     TIMESTAMP,
+    Column,
     Date,
     Enum,
     ForeignKey,
     Index,
     Integer,
+    PrimaryKeyConstraint,
     String,
+    Table,
     UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
+
+
+# Junction table between transactions and tags. Migration 0008 holds the
+# DDL; this declaration just lets ORM-level operations (.append, .remove,
+# selectinload) work against the same rows.
+transaction_tags = Table(
+    "transaction_tags",
+    Base.metadata,
+    Column(
+        "transaction_id",
+        Integer,
+        ForeignKey(
+            "transactions.id",
+            ondelete="CASCADE",
+            name="fk_tx_tags_transaction",
+        ),
+        nullable=False,
+    ),
+    Column(
+        "tag_id",
+        Integer,
+        ForeignKey(
+            "tags.id", ondelete="CASCADE", name="fk_tx_tags_tag"
+        ),
+        nullable=False,
+    ),
+    PrimaryKeyConstraint(
+        "transaction_id", "tag_id", name="pk_transaction_tags"
+    ),
+    Index("ix_transaction_tags_tag_id", "tag_id"),
+    mysql_engine="InnoDB",
+    mysql_charset="utf8mb4",
+)
 
 
 class User(Base):
@@ -109,6 +144,13 @@ class Tag(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False)
 
     user: Mapped[User] = relationship(back_populates="tags")
+    # Back-reference only — the junction is the authoritative source.
+    # Used by rename_tag/delete_tag in crud.py to walk affected
+    # transactions without a manual JOIN.
+    transactions: Mapped[list["Transaction"]] = relationship(
+        secondary=transaction_tags,
+        back_populates="tags",
+    )
 
 
 class Transaction(Base):
@@ -133,7 +175,18 @@ class Transaction(Base):
     )
     date: Mapped[date_type] = mapped_column(Date, nullable=False)
     type: Mapped[str] = mapped_column(Enum("in", "out", name="tx_type"), nullable=False)
-    tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     user: Mapped[User] = relationship(back_populates="transactions")
     category: Mapped[Category] = relationship(back_populates="transactions")
+    # Many-to-many tags via the transaction_tags junction. selectin
+    # loading because list_transactions/_by_range serialise every row's
+    # tags — a default lazy='select' would N+1 on every page.
+    # order_by keeps the array stable across reads; the previous JSON
+    # column preserved insertion order, which has no semantic meaning,
+    # so alphabetical is both stable and matches the tag list UI.
+    tags: Mapped[list["Tag"]] = relationship(
+        secondary=transaction_tags,
+        back_populates="transactions",
+        lazy="selectin",
+        order_by="Tag.name",
+    )
