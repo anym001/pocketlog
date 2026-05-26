@@ -56,16 +56,22 @@ function isNetworkFirstShell(url) {
 }
 
 self.addEventListener('install', (event) => {
+  // skipWaiting must run AFTER precaching settles. Calling it outside
+  // waitUntil() races: the new SW could activate and start serving
+  // requests while the SHELL.map promises are still in flight, and
+  // a cache-first lookup that hits a not-yet-cached URL would 404.
   event.waitUntil(
-    caches.open(CACHE).then((c) =>
-      Promise.all(
-        SHELL.map((url) =>
-          c.add(url).catch(() => undefined) // fehlende optionale Ressourcen ignorieren
+    caches
+      .open(CACHE)
+      .then((c) =>
+        Promise.all(
+          SHELL.map((url) =>
+            c.add(url).catch(() => undefined) // fehlende optionale Ressourcen ignorieren
+          )
         )
       )
-    )
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -118,10 +124,17 @@ async function networkFirst(request, cacheName) {
 async function cacheFirst(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
-  const res = await fetch(request);
-  const cache = await caches.open(CACHE);
-  cache.put(request, res.clone());
-  return res;
+  // Offline and not in cache: the fetch will throw. Surface that as a
+  // proper 503 instead of leaking an unhandled rejection — keeps
+  // browser devtools quiet and matches the network-first error shape.
+  try {
+    const res = await fetch(request);
+    const cache = await caches.open(CACHE);
+    cache.put(request, res.clone());
+    return res;
+  } catch (e) {
+    return new Response('', { status: 503, statusText: 'Offline' });
+  }
 }
 
 async function handleWrite(request) {

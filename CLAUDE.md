@@ -81,6 +81,7 @@ POST   /api/categories
 PUT    /api/categories/{id}
 DELETE /api/categories/{id}              ← nur wenn keine TX referenziert
 GET    /api/tags                         ← alle Tags des Users als [{name, count}] (alphabetisch sortiert; count = Anzahl Transaktionen mit diesem Tag in den letzten 30 Tagen)
+POST   /api/tags                         ← neuen eigenständigen Tag anlegen (ohne Buchung) — landet in der tags-Tabelle und ist sofort im Picker sichtbar
 PUT    /api/tags/{name}                  ← umbenennen in allen Transaktionen
 DELETE /api/tags/{name}                  ← aus allen Transaktionen entfernen
 GET    /api/settings                     ← {theme, default_view}, legt Default-Row beim 1. Aufruf an
@@ -110,10 +111,19 @@ id INT PK AUTO_INCREMENT
 user_id INT FK -> users.id (ON DELETE CASCADE)  -- composite-index mit date
 amount DECIMAL(12,2)
 description VARCHAR(255)       -- im JSON heißt das Feld "desc" (Pydantic-Alias)
-category_id INT FK -> categories.id (ON DELETE RESTRICT)
+category_id INT FK -> categories.id (ON DELETE RESTRICT) INDEX
 date DATE
 type ENUM('in','out')
 tags JSON                      -- Array von Strings
+
+-- tags                         -- eigenständige (deklarierte) Tags, unabhängig
+                                -- vom JSON-Array in transactions; ermöglicht
+                                -- „Tag erstellen" ohne Buchung + dauerhaftes
+                                -- Tag-Listing für den Picker
+id INT PK AUTO_INCREMENT
+user_id INT FK -> users.id (ON DELETE CASCADE) INDEX
+name VARCHAR(64)
+UNIQUE (user_id, name)
 
 -- user_settings                -- UI-Präferenzen, gespiegelt aus localStorage
 user_id INT PK FK -> users.id (ON DELETE CASCADE)

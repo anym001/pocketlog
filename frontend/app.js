@@ -33,7 +33,7 @@
         categories: 'Kategorienanalyse',
         tags: 'Taganalyse',
         trend: 'Trend',
-        forecast: 'Durchschnitt und Prognose',
+        forecast: 'Prognose',
         top: 'Größte Ausgaben',
       };
       let currentReport = (() => {
@@ -205,12 +205,9 @@
           }
 
           const yes = document.createElement('button');
-          yes.className = 'submit-btn confirm-yes';
+          yes.className = 'submit-btn confirm-yes' + (destructive ? ' btn-destructive' : '');
           yes.type = 'button';
           yes.textContent = confirmLabel;
-          if (destructive)
-            yes.style.cssText =
-              'background:transparent;color:var(--accent);border:1px solid var(--accent)';
           modal.appendChild(yes);
 
           const no = document.createElement('button');
@@ -628,13 +625,6 @@
         );
       }
 
-      function getMonthTxs() {
-        return transactions.filter((t) => {
-          const d = new Date(t.date + 'T12:00:00');
-          return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-        });
-      }
-
       function renderTransactions(txs, el = document.getElementById('transactionList')) {
         if (!txs.length) {
           el.innerHTML = _searchQuery
@@ -991,7 +981,7 @@
         const to = document.getElementById('rangeTo').value;
         if (!from || !to) return;
         if (from > to) {
-          toast('Bis-Datum muss nach Von-Datum liegen.');
+          toast('Enddatum muss nach Startdatum liegen.');
           return;
         }
         reportRange.from = from;
@@ -1307,7 +1297,7 @@
             plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
             scales: {
               x: { ticks: { color: c.text, font: { size: 10 } }, grid: { color: c.grid } },
-              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' }, grid: { color: c.grid } },
+              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => fmtCurrency(v) }, grid: { color: c.grid } },
             },
           },
         });
@@ -1368,7 +1358,7 @@
             plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
             scales: {
               x: { ticks: { color: c.text, font: { size: 10 } }, grid: { color: c.grid } },
-              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' }, grid: { color: c.grid } },
+              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => fmtCurrency(v) }, grid: { color: c.grid } },
             },
           },
         });
@@ -1486,7 +1476,7 @@
       function renderReportTags(body, txs) {
         const sorted = _totalsByTag(txs, 'out');
         if (!sorted.length) {
-          body.innerHTML = _emptyState('Keine getaggten Ausgaben im Zeitraum.');
+          body.innerHTML = _emptyState('Keine Ausgaben mit Tags im Zeitraum.');
           return;
         }
         const total = sorted.reduce((s, t) => s + t.amount, 0);
@@ -2077,7 +2067,7 @@
             },
             scales: {
               x: { ticks: { color: c.text, font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { color: c.grid } },
-              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => v + '€' }, grid: { color: c.grid } },
+              y: { ticks: { color: c.text, font: { size: 10 }, callback: (v) => fmtCurrency(v) }, grid: { color: c.grid } },
             },
           },
         });
@@ -3025,7 +3015,7 @@
         btn.classList.remove('error');
         dot.classList.remove('error');
         dot.classList.add('syncing');
-        setSyncAria('Wird synchronisiert…');
+        setSyncAria('Wird synchronisiert');
 
         let flushed = 0;
         let failed = 0;
@@ -3059,7 +3049,7 @@
           btn.classList.add('error');
           dot.classList.add('error');
           setSyncBadge(remaining);
-          const msg = 'Offline – Änderungen werden gespeichert…';
+          const msg = 'Offline – Änderungen werden gespeichert';
           setSyncAria(msg);
           toast(msg, 'error');
           return;
@@ -3189,7 +3179,7 @@
         const pending = await window.PocketLogOutbox.count();
         if (pending > 0) {
           setSyncBadge(pending);
-          setSyncAria('Änderungen werden gespeichert…');
+          setSyncAria('Änderungen werden gespeichert');
         } else {
           btn.classList.remove('error');
           dot.classList.remove('error');
@@ -3295,7 +3285,7 @@
         const file = ev.target.files && ev.target.files[0];
         if (!file) return;
         const status = document.getElementById('importStatus');
-        status.textContent = 'Wird importiert…';
+        status.textContent = 'Wird importiert';
         status.className = 'status-msg';
         const fd = new FormData();
         fd.append('file', file);
@@ -3346,7 +3336,8 @@
           await api('DELETE', path);
           closeResetModal();
           closeDrawer();
-          // Categories repopulate with defaults on next GET when wiped.
+          // Reload categories from the server — admin/all-data leaves
+          // them gone (default re-seed only fires at user creation).
           await loadCategories();
           await loadTags();
           await loadAndRender();
@@ -3531,7 +3522,7 @@
           zoomParts.push(`Pinch ${Math.round(pinch * 100) / 100}×`);
         }
 
-        set('infoBackendVersion', 'Wird geladen…');
+        set('infoBackendVersion', 'Wird geladen');
         set('infoSwVersion', '–');
         set('infoOnline', navigator.onLine ? 'Prüfe Backend…' : 'Offline');
         set('infoPlatform', _detectPlatform());
@@ -3555,7 +3546,7 @@
             } else {
               const sw = reg.active || reg.waiting || reg.installing;
               const state = sw ? sw.state : 'unbekannt';
-              const controlled = navigator.serviceWorker.controller ? ' · steuert' : '';
+              const controlled = navigator.serviceWorker.controller ? ' · aktiv' : '';
               set('infoSwState', `${state}${controlled}`);
             }
           } catch (e) {

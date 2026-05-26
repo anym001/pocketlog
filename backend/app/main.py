@@ -26,6 +26,18 @@ logger = logging.getLogger("uvicorn.error")
 # start without a secret unless ALLOW_NO_AUTH_SECRET=1 is set explicitly
 # (intended for local dev where port 8000 is never exposed).
 AUTH_SECRET = os.environ.get("AUTH_SECRET", "").strip()
+# The SWAG sample config ships with `REPLACE-ME-WITH-OPENSSL-RAND-HEX-32`
+# as a deliberately conspicuous placeholder. If that string ever ends up
+# in the AUTH_SECRET env, the operator forgot to generate a real secret;
+# refusing to start is safer than silently accepting it as the shared
+# token (which would let anyone who knows the template impersonate SWAG).
+if "REPLACE-ME" in AUTH_SECRET:
+    raise SystemExit(
+        "AUTH_SECRET still contains the placeholder 'REPLACE-ME…' from the "
+        "SWAG sample config. Generate a real secret with `openssl rand -hex 32` "
+        "and set it both on this container and in SWAG's "
+        "pocketlog.subdomain.conf."
+    )
 if not AUTH_SECRET:
     if os.environ.get("ALLOW_NO_AUTH_SECRET") != "1":
         raise SystemExit(
@@ -37,10 +49,18 @@ if not AUTH_SECRET:
             "(local dev only — never expose port 8000), set "
             "ALLOW_NO_AUTH_SECRET=1."
         )
+    # Banner-style so this can't get lost in the uvicorn startup chatter.
+    # Anyone running this configuration is one firewall mistake away from
+    # a credentialless takeover; the warning has to be hard to overlook
+    # when scanning `docker logs`.
     logger.warning(
-        "AUTH_SECRET is not set and ALLOW_NO_AUTH_SECRET=1 — the backend "
-        "blindly trusts the X-Authentik-Username header. Port 8000 must "
-        "only be reachable through SWAG in this configuration."
+        "\n"
+        "================================================================\n"
+        " ALLOW_NO_AUTH_SECRET=1 — running WITHOUT shared-secret auth.\n"
+        " The backend blindly trusts the X-Authentik-Username header.\n"
+        " Port 8000 must only be reachable through SWAG / Authentik in\n"
+        " this configuration. Never expose it to the public internet.\n"
+        "================================================================"
     )
 
 # Allowlist for the X-Authentik-Username header. Authentik usernames are
