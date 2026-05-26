@@ -2226,7 +2226,12 @@
       // ── MODAL ─────────────────────────────────────────────────────────────────────
       function openModal(tx) {
         rememberModalFocus('booking');
-        currentTags = tx?.tags ? tx.tags.slice() : [];
+        currentTags = tx?.tags
+          ? tx.tags.map((t) => {
+              const tLow = t.toLowerCase();
+              return availableTags.find((a) => a.toLowerCase() === tLow) ?? t;
+            })
+          : [];
         document.getElementById('inputAmount').value =
           tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
         document.getElementById('inputDesc').value = tx?.desc || '';
