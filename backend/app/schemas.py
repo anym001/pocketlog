@@ -155,9 +155,27 @@ class TransactionOut(BaseModel):
     category_id: int
     date: date_type
     type: Literal["in", "out"]
-    tags: list[str] | None = None
+    # Always a list (possibly empty) — the previous JSON column could be
+    # NULL, but the M2M relationship is always a (possibly empty) list,
+    # so the response shape is now consistent. The frontend already
+    # treats `null` and `[]` the same (`t.tags || []`), so this is
+    # backwards compatible at the consumer side.
+    tags: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _extract_tag_names(cls, value):
+        # When constructed from the ORM, value is a list of Tag entities;
+        # pull .name. When constructed from a dict / test fixture, value
+        # is already list[str]. Handle both transparently so the schema
+        # works on both code paths.
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [t.name if hasattr(t, "name") else t for t in value]
+        return value
 
 
 # -------- User Settings --------
