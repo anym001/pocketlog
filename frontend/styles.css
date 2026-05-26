@@ -461,10 +461,17 @@
         justify-content: center;
         transition: transform var(--dur-medium) var(--ease-spring);
       }
-      .month-nav button:hover,
       .month-nav button:active {
         color: var(--text);
         transform: scale(0.94);
+      }
+      /* :hover guarded so touch devices don't get a sticky hover state
+         after tap; touch gets feedback via :active above. */
+      @media (hover: hover) and (pointer: fine) {
+        .month-nav button:hover {
+          color: var(--text);
+          transform: scale(0.94);
+        }
       }
       .month-nav button:focus-visible {
         outline: none;
@@ -496,9 +503,13 @@
         justify-content: center;
         flex-shrink: 0;
       }
-      .sync-btn:hover,
       .sync-btn:active {
         transform: scale(0.94);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .sync-btn:hover {
+          transform: scale(0.94);
+        }
       }
       .sync-btn:focus-visible {
         outline: none;
@@ -2068,11 +2079,13 @@
         box-shadow: var(--shadow-soft);
         letter-spacing: -0.01em;
       }
-      .save-btn:hover {
-        color: var(--accent);
-      }
       .save-btn:active {
         transform: scale(0.985);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .save-btn:hover {
+          color: var(--accent);
+        }
       }
       .save-btn.primary {
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -2082,8 +2095,10 @@
           inset 0 0.5px 0 var(--hairline),
           0 6px 18px -4px color-mix(in oklab, var(--accent) 45%, transparent);
       }
-      .save-btn.primary:hover {
-        color: var(--on-accent);
+      @media (hover: hover) and (pointer: fine) {
+        .save-btn.primary:hover {
+          color: var(--on-accent);
+        }
       }
 
       .status-msg {
@@ -2668,9 +2683,13 @@
         line-height: 1.25;
         transition: background var(--dur-base) var(--ease-soft);
       }
-      .report-tile:hover,
       .report-tile:active {
         background: var(--glass-thick);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .report-tile:hover {
+          background: var(--glass-thick);
+        }
       }
 
       .donut-wrap {
@@ -2749,9 +2768,13 @@
         cursor: pointer;
         transition: background var(--dur-base) var(--ease-soft);
       }
-      .forecast-table tr.is-clickable:hover,
       .forecast-table tr.is-clickable:active {
         background: var(--surface-tint);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .forecast-table tr.is-clickable:hover {
+          background: var(--surface-tint);
+        }
       }
       .forecast-table tr.is-clickable:focus-visible {
         box-shadow: var(--focus-ring);

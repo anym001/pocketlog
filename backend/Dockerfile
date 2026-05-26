@@ -32,7 +32,10 @@ COPY frontend/vendor ./static/vendor
 # activate-hook can prune stale caches automatically. Without this, sw.js
 # bytes never change across releases and the browser keeps serving the
 # previous cached shell.
-RUN sed -i "s/'__APP_VERSION__'/'${APP_VERSION}'/" /app/static/sw.js
+# Pipe delimiter for sed because APP_VERSION may legitimately contain
+# slashes (branch-based tags, e.g. `feature/foo`); a `/` delimiter would
+# unparseably collide with them.
+RUN sed -i "s|'__APP_VERSION__'|'${APP_VERSION}'|" /app/static/sw.js
 
 # Drop privileges. The runtime needs read-only access to /app — the DB is
 # external, static files are served read-only, alembic only writes to the

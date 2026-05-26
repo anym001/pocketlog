@@ -1,0 +1,40 @@
+Self-hosted webfonts for PocketLog.
+
+PocketLog ships all third-party assets from its own origin (no CDNs,
+no tracking — see CLAUDE.md §Drittanbieter & Privacy). This file
+documents where each .woff2 here came from, so its identity and
+integrity can be verified at any time.
+
+License for all files in this directory: SIL Open Font License 1.1
+(see OFL.txt next to this file for the full license text + copyright
+holders for each family).
+
+Verify locally with: sha256sum -c SOURCES.txt --ignore-missing
+
+
+DM Sans (variable, weights 300–700)
+-----------------------------------
+- Source:        https://github.com/googlefonts/dm-fonts
+                 (release: https://github.com/googlefonts/dm-fonts/releases/tag/v1.103)
+- Google Fonts:  https://fonts.google.com/specimen/DM+Sans
+- Subset:        Two woff2 files — `latin` covers German (incl. ä/ö/ü/ß + €);
+                 `latin-ext` adds Polish/Czech/Turkish so non-German
+                 transaction descriptions don't drop into the system font.
+                 Subsets and unicode-range declarations mirror Google
+                 Fonts' v1 API output for DM Sans (variable axis wght 300..700).
+
+DM Serif Display (regular, weight 400)
+--------------------------------------
+- Source:        https://github.com/googlefonts/dm-fonts
+                 (release: https://github.com/googlefonts/dm-fonts/releases/tag/v1.103)
+- Google Fonts:  https://fonts.google.com/specimen/DM+Serif+Display
+- Subset:        latin + latin-ext, same rationale as above.
+
+
+SHA256 manifest (verifiable with `sha256sum -c`)
+------------------------------------------------
+
+219b02c7d8884817d3d6ad4c8771f2c000ce4c5669a67ef4e2e5617ffa25c4cc  dm-sans-latin-ext.woff2
+468d56b6b25b05b70190b6c233d773f6f1770e8579827ce022a57f03fa8002fb  dm-sans-latin.woff2
+dfea1d6549e78df6e55d942c1d1eba5e2f809496205bc0b3a9d684f268b60011  dm-serif-display-latin-ext.woff2
+f273cf2c9ce9bc7d6b0f4fcb8aee72f8cf5a249991308b6a144217e0760c5d3f  dm-serif-display-latin.woff2

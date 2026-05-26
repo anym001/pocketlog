@@ -22,12 +22,20 @@ from .database import Base
 
 class User(Base):
     __tablename__ = "users"
+    # The unique constraint is named explicitly so it matches what
+    # MariaDB created at table-creation time (alembic 0002). Without
+    # this, alembic --autogenerate keeps proposing a "drop and recreate"
+    # of the constraint just to give it a deterministic name.
     __table_args__ = (
+        UniqueConstraint("username", name="uq_users_username"),
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
+    # Uniqueness lives in __table_args__ above so it has a stable name —
+    # column-level `unique=True` would let SQLAlchemy auto-name it and
+    # diverge from what alembic 0002 emitted on production.
+    username: Mapped[str] = mapped_column(String(150), nullable=False)
 
     categories: Mapped[list["Category"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
