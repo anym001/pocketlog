@@ -79,16 +79,37 @@ CSP_POLICY = (
 )
 
 
+_SHELL_NO_CACHE_PATHS = frozenset({
+    "/",
+    "/index.html",
+    "/app.js",
+    "/sw.js",
+    "/db.js",
+    "/styles.css",
+    "/manifest.webmanifest",
+})
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers.setdefault("Content-Security-Policy", CSP_POLICY)
+        path = request.url.path
         # Auth-Endpoints: niemals cachen. Defense-in-depth gegen SW-Caches,
         # Browser-HTTP-Cache, SWAG-Proxies oder zukünftige CDNs — eine
         # stale Antwort hier kann den Frontend in eine View setzen, zu
         # der die echte Session nicht passt.
-        if request.url.path.startswith("/api/auth/"):
+        if path.startswith("/api/auth/"):
             response.headers["Cache-Control"] = "no-store"
+        elif path in _SHELL_NO_CACHE_PATHS:
+            # Shell-Files immer revalidieren. Vor allem /sw.js — iOS
+            # Safari hält den alten Worker sonst tagelang fest, und ein
+            # stale SW kann die /api/auth/me-Response cachen oder das
+            # Frontend an einen eingefrorenen DOM-State binden, obwohl
+            # die Session längst weg ist (genau das Symptom, das PR #80
+            # zwar im SW-Code, aber nicht in der HTTP-Cache-Schicht
+            # adressiert hat).
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
         return response
 
 

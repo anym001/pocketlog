@@ -51,6 +51,23 @@ Setzt für den einen Admin Passwort + Lockout zurück und markiert ihn als
 falls (über die DB direkt) mehrere Admins existieren. `--password` füllt
 das Passwort interaktiv ein, falls weggelassen.
 
+### Notfall-Recovery: festhängender Force-Change-View
+
+Wenn der einzige Admin in der Force-Change-View festhängt — Passwort ist
+bereits gesetzt, aber `force_change_password=1` lässt sich aus dem
+Browser nicht clearen (z. B. weil ein alter Service Worker eine veraltete
+`/api/auth/me`-Response cached) — clearet dieses Kommando nur das Flag,
+ohne Passwort oder Sessions anzufassen:
+
+```bash
+docker exec -it pocketlog python -m app.cli clear-force-change-password
+```
+
+`--username U` adressiert einen bestimmten Account; sonst greift dieselbe
+Regel wie bei `reset-admin-password` (genau ein Admin → automatisch
+gewählt). Der laufende Browser-Tab muss danach nur einmal neu geladen
+werden — die bestehende Session bleibt gültig.
+
 ## Brute-Force- & CSRF-Schutz (Kurzfassung)
 
 - Login zählt Fehlversuche pro User. Ab dem 5. Versuch greift ein
