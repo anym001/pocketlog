@@ -265,13 +265,15 @@ class UserMe(BaseModel):
     username: str
     is_admin: bool
     force_change_password: bool
-    has_password: bool
     csrf_token: str
 
 
 class ChangePasswordRequest(BaseModel):
-    # None when the user has no password yet (migration path, password_hash IS
-    # NULL). The backend skips verification in that case.
+    # ``None`` whenever the user is in force-change-password state: the
+    # backend ignores the value there because the existing password is
+    # administrative (admin reset, CLI bootstrap, or NULL after the
+    # migration). In the voluntary self-service path the value is required
+    # and verified.
     current_password: str | None = Field(
         default=None, max_length=MAX_PASSWORD_LENGTH
     )

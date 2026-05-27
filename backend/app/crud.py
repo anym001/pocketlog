@@ -127,6 +127,11 @@ def deactivate_user(db: Session, user: models.User) -> None:
 
 def activate_user(db: Session, user: models.User) -> None:
     user.is_active = True
+    # Brute-Force-State mit clearen: ein gesperrter, dann deaktivierter
+    # User würde sonst nach dem Reaktivieren in einen ererbten Lockout
+    # laufen, ohne dass ein Login-Versuch noch passt.
+    user.failed_login_count = 0
+    user.lockout_until = None
     db.commit()
 
 

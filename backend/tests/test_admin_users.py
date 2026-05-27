@@ -100,13 +100,42 @@ def test_admin_reset_password_forces_change_and_kills_sessions(
 
 def test_admin_cannot_delete_self(admin_client, admin_user):
     res = admin_client.delete(f"/api/admin/users/{admin_user.id}")
-    assert res.status_code == 400
+    assert res.status_code == 403
     assert res.json()["detail"] == "cannot_modify_self"
 
 
 def test_admin_cannot_deactivate_self(admin_client, admin_user):
     res = admin_client.post(f"/api/admin/users/{admin_user.id}/deactivate")
-    assert res.status_code == 400
+    assert res.status_code == 403
+
+
+def test_admin_cannot_reset_own_password(admin_client, admin_user):
+    """Würde den Admin sofort in den Force-Change-View dumpen UND alle
+    eigenen Sessions wegwerfen — UX-Falle. Self-Service-Pfad ist dafür da."""
+    res = admin_client.post(
+        f"/api/admin/users/{admin_user.id}/reset-password",
+        json={"new_password": "shiny-new-password-2026"},
+    )
+    assert res.status_code == 403
+    assert res.json()["detail"] == "cannot_modify_self"
+
+
+def test_admin_cannot_delete_other_admin(app, admin_client, db_session):
+    """Symmetrisch zu deactivate: ein zweiter Admin darf nicht per
+    DELETE entfernt werden."""
+    from app import crud
+
+    other_admin = crud.create_user(
+        db_session,
+        username=f"second-admin-del-{uuid.uuid4().hex[:8]}",
+        password=TEST_PASSWORD,
+        is_admin=True,
+        force_change_password=False,
+    )
+
+    res = admin_client.delete(f"/api/admin/users/{other_admin.id}")
+    assert res.status_code == 403
+    assert res.json()["detail"] == "cannot_modify_admin"
 
 
 def test_admin_cannot_deactivate_other_admin(app, admin_client, db_session):
@@ -127,7 +156,7 @@ def test_admin_cannot_deactivate_other_admin(app, admin_client, db_session):
     )
 
     res = admin_client.post(f"/api/admin/users/{other_admin.id}/deactivate")
-    assert res.status_code == 400
+    assert res.status_code == 403
     assert res.json()["detail"] == "cannot_modify_admin"
 
 
@@ -160,19 +189,38 @@ def test_admin_deactivate_then_activate_restores_login(
 def test_admin_delete_user_cascades_data(
     admin_client, regular_user, db_session
 ):
-    """Löschen des Users cascadet auf seine Kategorien/Buchungen
-    (FK ON DELETE CASCADE) — die Row im users-table ist weg."""
-    from app import crud
+    """Löschen des Users cascadet auf seine Kategorien/Buchungen/Sessions
+    (FK ON DELETE CASCADE) — die Row im users-table ist weg, und mindestens
+    eine Child-Row, die vorher existiert hat, ist es auch."""
+    from app import auth, crud, models
+    from sqlalchemy import select
 
-    # ID raussziehen, bevor die Row gelöscht wird — sonst lädt
-    # SQLAlchemy beim Attribut-Zugriff nach und wirft ObjectDeletedError.
     target_id = regular_user.id
+    # Eine Session und mindestens eine Kategorie liegen über
+    # ``create_user`` schon an. Wir zählen vor und nach.
+    auth.create_session(db_session, regular_user, remember_me=False, user_agent=None)
+    db_session.commit()
+
+    categories_before = db_session.scalar(
+        select(models.Category).where(models.Category.user_id == target_id).limit(1)
+    )
+    sessions_before = db_session.scalar(
+        select(models.Session).where(models.Session.user_id == target_id).limit(1)
+    )
+    assert categories_before is not None
+    assert sessions_before is not None
 
     res = admin_client.delete(f"/api/admin/users/{target_id}")
     assert res.status_code == 204
 
     db_session.expire_all()
     assert crud.get_user_by_id(db_session, target_id) is None
+    assert db_session.scalar(
+        select(models.Category).where(models.Category.user_id == target_id).limit(1)
+    ) is None
+    assert db_session.scalar(
+        select(models.Session).where(models.Session.user_id == target_id).limit(1)
+    ) is None
 
 
 def test_admin_delete_unknown_user_is_404(admin_client):
