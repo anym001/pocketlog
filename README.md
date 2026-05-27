@@ -1,8 +1,13 @@
 # PocketLog
 
 Haushaltsbuch als Progressive Web App. Läuft auf iPhone / iPad / Mac, speichert
-Daten in deiner eigenen MariaDB und nutzt Authentik per Forward Auth (z.B. über
-SWAG) für die Anmeldung — die App selbst hat keinen Login.
+Daten in deiner eigenen MariaDB. Zwei Auth-Schichten:
+
+- **Domain-Tor:** Authentik per Forward Auth über SWAG (Passwort + MFA) – wie
+  alle anderen Apps an deinem Proxy.
+- **App-Login:** PocketLog hat seinen eigenen Username/Passwort-Login mit
+  Admin-Rolle und Setup-Flow für den ersten Admin. Authentik liefert keine
+  Identität mehr an die App.
 
 Ein einziger Container, statische PWA + FastAPI in einem Image. Die MariaDB
 betreibst du selbst (z.B. dein bestehender Unraid-MariaDB-Container).
@@ -40,6 +45,10 @@ Beim ersten Start spielt der Container die Schema-Migrationen automatisch ein.
    kopieren, SWAG neu laden.
 5. In **Authentik** einen Forward-Auth-Provider + Application für
    `pocketlog.<deinedomain>` anlegen und dem Outpost zuweisen.
+6. **App-Login einrichten:** Beim ersten Aufruf der App erscheint die
+   Setup-View. Lege darüber den ersten Admin an (Username + Passwort
+   mit mindestens 12 Zeichen). Danach läuft der reguläre Login direkt
+   im PocketLog-UI.
 
 ### Manuell ohne Template
 
@@ -55,7 +64,6 @@ Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
 | ENV `DB_NAME` | `pocketlog` |
 | ENV `DB_USER` | `pocketlog` |
 | ENV `DB_PASSWORD` | dein Passwort |
-| ENV `AUTH_SECRET` | gleiches Token wie in `pocketlog.subdomain.conf` (s. SWAG-Setup) |
 | ENV `TZ` | `Europe/Berlin` |
 
 ## Funktionsumfang

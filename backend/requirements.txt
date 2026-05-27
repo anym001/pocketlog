@@ -7,3 +7,4 @@ PyMySQL==1.1.1
 cryptography==44.0.0
 python-dotenv==1.0.1
 python-multipart==0.0.20
+argon2-cffi==23.1.0

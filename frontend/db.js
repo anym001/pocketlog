@@ -112,7 +112,20 @@
   //            (Validation, Not Found …). Diese landen im Failed-Store,
   //            damit sie nicht stillschweigend verschwinden.
   // 5xx- und Netzfehler brechen die Schleife ab — der Eintrag bleibt
-  // im Outbox und wird beim nächsten Sync erneut versucht.
+  // in der Outbox und wird beim nächsten Sync erneut versucht.
+  //
+  // 401 ist ein Sonderfall: bedeutet „Session abgelaufen / abgemeldet".
+  // Der Eintrag DARF NICHT als failed verworfen werden — der User muss
+  // sich erst neu einloggen, und dann läuft der Replay weiter. Wir
+  // brechen also wie bei 5xx ab, ohne den Eintrag zu konsumieren.
+  // Für state-changing Requests muss der Replay zudem den
+  // CSRF-Header mitschicken; das Token bekommen wir vom Client per
+  // setCsrfToken().
+  let _csrfToken = '';
+  function setCsrfToken(value) {
+    _csrfToken = typeof value === 'string' ? value : '';
+  }
+
   async function drain(apiBase) {
     const items = await all();
     let ok = 0;
@@ -120,9 +133,13 @@
     for (const item of items) {
       let res;
       try {
+        const headers = {};
+        if (item.body) headers['Content-Type'] = 'application/json';
+        if (_csrfToken) headers['X-CSRF-Token'] = _csrfToken;
         res = await fetch(apiBase + item.path, {
           method: item.method,
-          headers: item.body ? { 'Content-Type': 'application/json' } : {},
+          credentials: 'same-origin',
+          headers,
           body: item.body ? JSON.stringify(item.body) : undefined,
         });
       } catch (e) {
@@ -131,6 +148,10 @@
       if (res.ok) {
         await remove(item.id);
         ok++;
+      } else if (res.status === 401) {
+        // Session weg — Replay erst nach erneutem Login möglich.
+        // Eintrag bleibt erhalten, Loop bricht ab.
+        break;
       } else if (res.status >= 400 && res.status < 500) {
         const detail = await res.text().catch(() => '');
         await failedAdd({
@@ -159,5 +180,6 @@
     failedAll,
     failedCount,
     failedClear,
+    setCsrfToken,
   };
 })(self);
