@@ -3127,6 +3127,13 @@
         z-index: var(--z-modal, 1000);
         overflow-y: auto;
       }
+      /* Class selector beats the user-agent [hidden]{display:none} rule by
+         specificity, so without this override every .auth-view stays
+         visible and the last one in the DOM (forcePwView) covers the
+         others — making _showAuthView()'s toggle a no-op. */
+      .auth-view[hidden] {
+        display: none;
+      }
       .auth-card {
         width: 100%;
         max-width: 420px;
