@@ -83,6 +83,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers.setdefault("Content-Security-Policy", CSP_POLICY)
+        # Auth-Endpoints: niemals cachen. Defense-in-depth gegen SW-Caches,
+        # Browser-HTTP-Cache, SWAG-Proxies oder zukünftige CDNs — eine
+        # stale Antwort hier kann den Frontend in eine View setzen, zu
+        # der die echte Session nicht passt.
+        if request.url.path.startswith("/api/auth/"):
+            response.headers["Cache-Control"] = "no-store"
         return response
 
 
@@ -281,7 +287,12 @@ def setup_status(db: DB):
 
 
 @app.post("/api/auth/setup")
-def setup_admin(payload: schemas.SetupRequest, response: Response, db: DB):
+def setup_admin(
+    payload: schemas.SetupRequest,
+    request: Request,
+    response: Response,
+    db: DB,
+):
     needs, suggested = _needs_setup(db)
     if not needs:
         # Setup ist bereits abgeschlossen — kein Admin-Override-Pfad
@@ -316,7 +327,7 @@ def setup_admin(payload: schemas.SetupRequest, response: Response, db: DB):
             raise HTTPException(status_code=409, detail="setup_already_done")
 
     # Direkt einloggen, damit die App nicht in den Login-Flow zurückfällt.
-    user_agent = response.headers.get("user-agent")  # selten gesetzt, harmlos
+    user_agent = request.headers.get("user-agent")
     session, plain = auth.create_session(
         db, user, remember_me=False, user_agent=user_agent
     )
@@ -360,7 +371,6 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
             username=user.username,
             is_admin=user.is_admin,
             force_change_password=user.force_change_password,
-            has_password=user.password_hash is not None,
             csrf_token=session.csrf_token,
         )
     }
@@ -408,7 +418,6 @@ def auth_me(request: Request, response: Response, db: DB, user: RawCurrentUser):
         username=user.username,
         is_admin=user.is_admin,
         force_change_password=user.force_change_password,
-        has_password=user.password_hash is not None,
         csrf_token=csrf,
     )
 
@@ -421,23 +430,20 @@ def change_password(
     db: DB,
     user: RawCurrentUser,
 ):
-    if user.password_hash is None:
-        # Migration path: the user was promoted to admin before any password
-        # was set (password_hash IS NULL). There is nothing to verify — just
-        # allow them to choose their first password.
-        pass
-    elif payload.current_password is None or not auth.verify_password(
-        payload.current_password, user.password_hash
-    ):
-        # Kein Lockout-Trigger — der User ist authentifiziert, das ist
-        # kein Login-Brute-Force. 400 reicht.
-        raise HTTPException(
-            status_code=400, detail="current_password_wrong"
-        )
-    if payload.new_password == payload.current_password:
-        raise HTTPException(
-            status_code=400, detail="password_reused"
-        )
+    skip_verification = user.force_change_password or user.password_hash is None
+    if not skip_verification:
+        if payload.current_password is None or not auth.verify_password(
+            payload.current_password, user.password_hash
+        ):
+            # Kein Lockout-Trigger — der User ist authentifiziert, das ist
+            # kein Login-Brute-Force. 400 reicht.
+            raise HTTPException(
+                status_code=400, detail="current_password_wrong"
+            )
+        if payload.new_password == payload.current_password:
+            raise HTTPException(
+                status_code=400, detail="password_reused"
+            )
     crud.set_user_password(db, user, payload.new_password, force_change=False)
     # Alle anderen Sessions des Users invalidieren — bei einer
     # Passwort-Änderung kann der Auslöser eine Kompromittierung
@@ -493,11 +499,10 @@ def admin_create_user(
     return _user_to_admin_out(user)
 
 
-def _resolve_admin_target(
-    user_id: int, db: Session, admin: models.User
-) -> models.User:
-    """Helper: lädt den Ziel-User für eine Admin-Aktion und stellt die
-    Self-Schutz-Regeln zentral sicher. Wirft 404 wenn nicht gefunden."""
+def _resolve_admin_target(user_id: int, db: Session) -> models.User:
+    """Helper: lädt den Ziel-User für eine Admin-Aktion. Wirft 404 wenn
+    nicht gefunden. Self-Schutz-Regeln liegen in den Endpoints, weil sie
+    pro Aktion unterschiedlich sind."""
     target = crud.get_user_by_id(db, user_id)
     if target is None:
         raise HTTPException(status_code=404, detail="user_not_found")
@@ -511,7 +516,12 @@ def admin_reset_password(
     db: DB,
     admin: AdminUser,
 ):
-    target = _resolve_admin_target(user_id, db, admin)
+    target = _resolve_admin_target(user_id, db)
+    if target.id == admin.id:
+        # Würde den Admin in den Force-Change-View dumpen und alle eigenen
+        # Sessions wegwerfen — UX-Falle (sofortiger Self-Lockout). Wer
+        # sein Passwort ändern will, geht durch die Self-Service-View.
+        raise HTTPException(status_code=403, detail="cannot_modify_self")
     crud.set_user_password(db, target, payload.new_password, force_change=True)
     # Sicherheit: alle Sessions des betroffenen Users wegwerfen, damit
     # ein bereits eingeloggter Tab nicht weiterläuft.
@@ -521,13 +531,13 @@ def admin_reset_password(
 
 @app.post("/api/admin/users/{user_id}/deactivate", status_code=204)
 def admin_deactivate(user_id: int, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db, admin)
+    target = _resolve_admin_target(user_id, db)
     if target.id == admin.id:
-        raise HTTPException(status_code=400, detail="cannot_modify_self")
+        raise HTTPException(status_code=403, detail="cannot_modify_self")
     if target.is_admin:
         # Admins dürfen nicht deaktiviert werden — sonst landet die App
         # in einem Zustand mit null Admins.
-        raise HTTPException(status_code=400, detail="cannot_modify_admin")
+        raise HTTPException(status_code=403, detail="cannot_modify_admin")
     crud.deactivate_user(db, target)
     auth.revoke_all_user_sessions(db, target.id)
     return Response(status_code=204)
@@ -535,19 +545,26 @@ def admin_deactivate(user_id: int, db: DB, admin: AdminUser):
 
 @app.post("/api/admin/users/{user_id}/activate", status_code=204)
 def admin_activate(user_id: int, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db, admin)
+    target = _resolve_admin_target(user_id, db)
     if target.id == admin.id:
         # Self ist immer aktiv (sonst wäre admin oben gar nicht hier).
-        raise HTTPException(status_code=400, detail="cannot_modify_self")
+        raise HTTPException(status_code=403, detail="cannot_modify_self")
     crud.activate_user(db, target)
     return Response(status_code=204)
 
 
 @app.delete("/api/admin/users/{user_id}", status_code=204)
 def admin_delete_user(user_id: int, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db, admin)
+    target = _resolve_admin_target(user_id, db)
     if target.id == admin.id:
-        raise HTTPException(status_code=400, detail="cannot_modify_self")
+        raise HTTPException(status_code=403, detail="cannot_modify_self")
+    if target.is_admin:
+        # Symmetrisch zu deactivate: ein zweiter Admin (Testfixtures,
+        # zukünftige Mehr-Admin-Erweiterung) darf nicht per DELETE
+        # entfernt werden. Beim aktuellen Single-Admin-Modell kann das
+        # ohnehin nicht passieren, weil ``target.id == admin.id`` oben
+        # schon greift — aber die Regel macht das Modell konsistent.
+        raise HTTPException(status_code=403, detail="cannot_modify_admin")
     crud.delete_user(db, target)
     return Response(status_code=204)
 

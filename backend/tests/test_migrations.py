@@ -48,6 +48,57 @@ def _top_level_string_assignments(tree: ast.Module) -> dict[str, str]:
     return out
 
 
+def test_migration_0009_idempotent_against_populated_db(db_session):
+    """Re-running ``upgrade()`` of 0009_auth_local against an already-
+    migrated DB must be a no-op. The conftest already runs every
+    migration once; calling ``upgrade()`` again exercises the
+    ``sa.inspect()``-guards and the ``WHERE password_hash IS NULL``
+    re-flip.
+
+    The bind comes from the conftest's SQLite engine. Migration 0009
+    branches on ``bind.dialect.name``, so this exercises the SQLite
+    path; the MariaDB path is covered structurally by the same guards.
+    """
+    import importlib.util
+    import uuid
+
+    from alembic.operations import Operations
+    from alembic.runtime.migration import MigrationContext
+
+    from app import crud
+
+    user = crud.create_user(
+        db_session,
+        username=f"idem-{uuid.uuid4().hex[:8]}",
+        password="some-password-2026",
+        is_admin=True,
+        force_change_password=False,
+    )
+    bind = db_session.get_bind()
+
+    spec = importlib.util.spec_from_file_location(
+        "mig_0009",
+        MIGRATIONS_DIR / "0009_auth_local.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # MigrationContext.configure expects a Connection, not an Engine.
+    with bind.connect() as connection:
+        ctx = MigrationContext.configure(connection)
+        with Operations.context(ctx):
+            # Two extra re-runs; any non-idempotent DDL would raise.
+            mod.upgrade()
+            mod.upgrade()
+        # End the implicit DDL transaction Alembic opens.
+        connection.commit()
+
+    db_session.expire_all()
+    refreshed = crud.get_user_by_id(db_session, user.id)
+    assert refreshed is not None
+    assert refreshed.is_admin is True
+
+
 @pytest.mark.parametrize("path", _migration_files(), ids=lambda p: p.name)
 def test_revision_id_fits_alembic_version_column(path: Path) -> None:
     tree = ast.parse(path.read_text())
