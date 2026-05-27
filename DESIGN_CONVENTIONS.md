@@ -42,6 +42,30 @@ Referenz: [HIG: Layout](https://developer.apple.com/design/human-interface-guide
   (außer bewusst für Chart / Tag-Reihe). `overscroll-behavior-y: contain` auf
   Modal-Inhalten.
 
+## Sichtbarkeit & `[hidden]`-Attribut
+
+Das HTML-`hidden`-Attribut nutzt das User-Agent-Default `[hidden] { display: none }` — ohne `!important`. Jede spezifischere CSS-Regel schaltet es aus. Daraus zwei harte Regeln:
+
+- **Wenn die Klasse `display` setzt** (z. B. `.auth-view { display: flex }`),
+  IMMER `.foo[hidden] { display: none }` als Override ergänzen — sonst
+  bleibt das Element trotz `hidden` sichtbar. Andere Klassen wie
+  `.sync-badge`, `.range-custom`, `.range-stepper`, `.trend-active-row`
+  machen das vor.
+- **Wenn die Klasse `display` NICHT setzt** und das Element via
+  `data-state` / `class.open` ein- und ausgeblendet wird, **darf das
+  Element kein `hidden`-Attribut tragen** — sonst greift der
+  Browser-Default `display: none`, und Transform-/Opacity-Wechsel werden
+  nie sichtbar. Sichtbarkeit gehört dann komplett in die State-Klasse.
+- **Faustregel:** Pro Element entweder `[hidden]` UND passender CSS-Override,
+  ODER eine State-Klasse — niemals beides mischen.
+
+Hintergrund: Beide Varianten haben in v0.3.x je einen sichtbaren Bug
+ausgelöst — Auth-Force-Change-View permanent sichtbar (`.auth-view`
+hatte `display:flex` ohne `[hidden]`-Override) und das
+Benutzerverwaltungs-Drawer-Panel permanent unsichtbar (`.drawer-panel`
+hatte kein `display`, das JS togglte nur `data-state`, das `hidden`-Attribut
+ließ den Browser `display:none` ziehen).
+
 ## Adaptives Layout (Tablet & Desktop)
 
 Mobile-first bleibt Doktrin. iPad und Mac sind progressive Erweiterungen über
