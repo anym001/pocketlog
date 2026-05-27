@@ -213,10 +213,12 @@ def test_change_password_no_current_password_when_hash_is_null(app, db_session):
     client.cookies.set("pocketlog_csrf", session.csrf_token)
     client.headers["X-CSRF-Token"] = session.csrf_token
 
-    # /api/auth/me must report has_password=False.
+    # /api/auth/me must reflect the force-change state — the frontend
+    # uses that to render the force-change view, where the backend then
+    # ignores the (missing) current_password.
     me = client.get("/api/auth/me")
     assert me.status_code == 200
-    assert me.json()["has_password"] is False
+    assert me.json()["force_change_password"] is True
 
     # change-password without current_password must succeed.
     res = client.post(

@@ -3223,8 +3223,8 @@
       .admin-user-tag {
         background: var(--surface-tint);
         color: var(--text2);
-        padding: 2px var(--space-8);
-        border-radius: 999px;
+        padding: var(--space-2) var(--space-8);
+        border-radius: var(--r-pill);
       }
       .admin-user-tag.admin {
         background: var(--accent-tint);
@@ -3248,7 +3248,7 @@
         padding: var(--space-8) var(--space-12);
         border-radius: var(--r-md, 12px);
         cursor: pointer;
-        min-height: 44px;
+        min-height: var(--btn-chrome-size);
       }
       .admin-user-actions button.btn-destructive {
         color: var(--red, #b3261e);
