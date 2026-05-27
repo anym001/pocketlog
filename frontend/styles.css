@@ -3127,6 +3127,13 @@
         z-index: var(--z-modal, 1000);
         overflow-y: auto;
       }
+      /* Class selector beats the user-agent [hidden]{display:none} rule by
+         specificity, so without this override every .auth-view stays
+         visible and the last one in the DOM (forcePwView) covers the
+         others — making _showAuthView()'s toggle a no-op. */
+      .auth-view[hidden] {
+        display: none;
+      }
       .auth-card {
         width: 100%;
         max-width: 420px;
@@ -3192,28 +3199,6 @@
         margin: 0;
         line-height: 1.4;
       }
-      /* Sekundärer Text-Link unter dem Submit-Button — Notfall-Ausweg
-         aus der Force-Change-View, wenn die View zum echten Session-
-         State nicht passt. Bewusst unauffällig, damit die Force-Change-
-         Flow weiterhin der „happy path" ist. */
-      .auth-text-link {
-        appearance: none;
-        background: none;
-        border: 0;
-        color: var(--text-muted);
-        font-size: var(--fs-footnote);
-        text-decoration: underline;
-        text-underline-offset: 2px;
-        padding: var(--space-12) var(--space-16);
-        margin-top: calc(-1 * var(--space-4));
-        cursor: pointer;
-      }
-      .auth-text-link:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-        border-radius: var(--r-sm, 8px);
-      }
-
       /* ====== ADMIN USER LIST ====== */
       .admin-user-row {
         display: flex;
