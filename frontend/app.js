@@ -209,6 +209,31 @@
         } catch (_) {}
       }
 
+      // Passwort-Policy: 12 Zeichen + 4 Zeichenklassen. Spiegelt die
+      // Server-seitige Regel in schemas.validate_password_complexity —
+      // beide Stellen müssen synchron bleiben. Unicode-property-Regex,
+      // damit „Ä", „ß", „é" wie auf dem Server als Buchstaben zählen
+      // (und nicht als Sonderzeichen).
+      const PWD_MIN_LENGTH = 12;
+      function validateNewPassword(pw) {
+        if (pw.length < PWD_MIN_LENGTH) {
+          return `Das Passwort muss mindestens ${PWD_MIN_LENGTH} Zeichen lang sein.`;
+        }
+        if (!/\p{Lu}/u.test(pw)) {
+          return 'Das Passwort braucht mindestens einen Großbuchstaben.';
+        }
+        if (!/\p{Ll}/u.test(pw)) {
+          return 'Das Passwort braucht mindestens einen Kleinbuchstaben.';
+        }
+        if (!/\d/.test(pw)) {
+          return 'Das Passwort braucht mindestens eine Zahl.';
+        }
+        if (!/[^\p{L}\p{N}]/u.test(pw)) {
+          return 'Das Passwort braucht mindestens ein Sonderzeichen.';
+        }
+        return null;
+      }
+
       // ── FORMATTING ────────────────────────────────────────────────────────────────
       const fmtCurrency = (n) =>
         new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
@@ -3751,8 +3776,9 @@
           _setAuthError('pwModalError', 'Die neuen Passwörter stimmen nicht überein.');
           return;
         }
-        if (next.length < 12) {
-          _setAuthError('pwModalError', 'Das Passwort muss mindestens 12 Zeichen lang sein.');
+        const pwErr = validateNewPassword(next);
+        if (pwErr) {
+          _setAuthError('pwModalError', pwErr);
           return;
         }
         if (next === current) {
@@ -3896,9 +3922,9 @@
         _setAuthError('adminCreateError', '');
         const username = document.getElementById('adminCreateUsername').value.trim();
         const password = document.getElementById('adminCreatePassword').value;
-        if (password.length < 12) {
-          _setAuthError('adminCreateError',
-            'Das Passwort muss mindestens 12 Zeichen lang sein.');
+        const pwErr = validateNewPassword(password);
+        if (pwErr) {
+          _setAuthError('adminCreateError', pwErr);
           return;
         }
         try {
@@ -3946,9 +3972,9 @@
         _setAuthError('adminResetPwError', '');
         if (_resetPwTargetId == null) return;
         const pw = document.getElementById('adminResetPwInput').value;
-        if (pw.length < 12) {
-          _setAuthError('adminResetPwError',
-            'Das Passwort muss mindestens 12 Zeichen lang sein.');
+        const pwErr = validateNewPassword(pw);
+        if (pwErr) {
+          _setAuthError('adminResetPwError', pwErr);
           return;
         }
         try {
@@ -4096,8 +4122,9 @@
           _setAuthError('setupError', 'Die Passwörter stimmen nicht überein.');
           return;
         }
-        if (password.length < 12) {
-          _setAuthError('setupError', 'Das Passwort muss mindestens 12 Zeichen lang sein.');
+        const pwErr = validateNewPassword(password);
+        if (pwErr) {
+          _setAuthError('setupError', pwErr);
           return;
         }
         try {
@@ -4129,8 +4156,9 @@
           _setAuthError('forcePwError', 'Die neuen Passwörter stimmen nicht überein.');
           return;
         }
-        if (next.length < 12) {
-          _setAuthError('forcePwError', 'Das Passwort muss mindestens 12 Zeichen lang sein.');
+        const pwErr = validateNewPassword(next);
+        if (pwErr) {
+          _setAuthError('forcePwError', pwErr);
           return;
         }
         try {

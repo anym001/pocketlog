@@ -13,7 +13,7 @@ import pytest
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TEST_DB_PATH = BACKEND_DIR / "test-pocketlog.db"
-TEST_PASSWORD = "test-password-1234"
+TEST_PASSWORD = "Test-password-1234"
 
 # Must run before any `from app...` import elsewhere.
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"

@@ -43,7 +43,7 @@ def test_cli_reset_admin_password_happy_path(db_session, monkeypatch):
     # In der Test-Suite leben mehrere Admin-Rows parallel — wir geben
     # daher explizit den Username an, damit der CLI nicht abbricht. Der
     # Multi-Admin-Fehlerpfad wird separat geprüft.
-    new_password = "recovery-password-2026"
+    new_password = "Recovery-password-2026"
     rc = cli.main([
         "reset-admin-password",
         "--username", user.username,
@@ -93,7 +93,7 @@ def test_cli_reset_unknown_user_returns_1(db_session, monkeypatch):
     rc = cli.main([
         "reset-admin-password",
         "--username", f"no-such-user-{uuid.uuid4().hex[:8]}",
-        "--password", "valid-password-2026",
+        "--password", "Valid-password-2026",
     ])
     assert rc == 1
 

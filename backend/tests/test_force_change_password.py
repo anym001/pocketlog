@@ -53,7 +53,7 @@ def test_force_change_allows_me_and_change_password(app, db_session):
 def test_change_password_clears_flag_and_unlocks_api(app, db_session):
     client, user = _force_pw_client(app, db_session)
 
-    new_pw = "a-fresh-strong-password-2026"
+    new_pw = "A-fresh-strong-password-2026"
     res = client.post(
         "/api/auth/change-password",
         json={"current_password": TEST_PASSWORD, "new_password": new_pw},
@@ -96,7 +96,7 @@ def test_change_password_invalidates_other_sessions(app, db_session):
         "/api/auth/change-password",
         json={
             "current_password": TEST_PASSWORD,
-            "new_password": "rotated-password-9999",
+            "new_password": "Rotated-password-9999",
         },
     )
     assert res.status_code == 204
@@ -147,7 +147,7 @@ def test_change_password_rejects_wrong_current_in_voluntary_change(app, db_sessi
         "/api/auth/change-password",
         json={
             "current_password": "definitely-wrong",
-            "new_password": "valid-password-2026",
+            "new_password": "Valid-password-2026",
         },
     )
     assert res.status_code == 400
@@ -178,7 +178,7 @@ def test_force_change_skips_current_password_verification(app, db_session):
         "/api/auth/change-password",
         json={
             "current_password": "ignored-because-force-change-is-on",
-            "new_password": "valid-password-2026",
+            "new_password": "Valid-password-2026",
         },
     )
     assert res.status_code == 204
@@ -223,7 +223,7 @@ def test_change_password_no_current_password_when_hash_is_null(app, db_session):
     # change-password without current_password must succeed.
     res = client.post(
         "/api/auth/change-password",
-        json={"current_password": None, "new_password": "brand-new-password-2026"},
+        json={"current_password": None, "new_password": "Brand-new-password-2026"},
     )
     assert res.status_code == 204
 

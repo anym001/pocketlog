@@ -106,7 +106,7 @@ def test_admin_reset_clears_lockout(app, admin_client, regular_user, db_session)
 
     res = admin_client.post(
         f"/api/admin/users/{regular_user.id}/reset-password",
-        json={"new_password": "reset-by-admin-9999"},
+        json={"new_password": "Reset-by-admin-9999"},
     )
     assert res.status_code == 204
 
