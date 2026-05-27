@@ -4062,7 +4062,9 @@
 
       async function submitForcePassword() {
         _setAuthError('forcePwError', '');
-        const current = document.getElementById('forcePwCurrent').value;
+        const currentGroup = document.getElementById('forcePwCurrentGroup');
+        const hasPw = currentGroup && !currentGroup.hidden;
+        const current = hasPw ? document.getElementById('forcePwCurrent').value : null;
         const next = document.getElementById('forcePwNew').value;
         const confirm = document.getElementById('forcePwConfirm').value;
         if (next !== confirm) {
@@ -4073,7 +4075,7 @@
           _setAuthError('forcePwError', 'Das Passwort muss mindestens 12 Zeichen lang sein.');
           return;
         }
-        if (next === current) {
+        if (hasPw && next === current) {
           _setAuthError('forcePwError',
             'Das neue Passwort muss sich vom alten unterscheiden.');
           return;
@@ -4109,7 +4111,19 @@
         if (usernameLabel) usernameLabel.textContent = `Angemeldet als ${me.username}`;
         if (me.force_change_password) {
           _showAuthView('forcePw');
-          setTimeout(() => document.getElementById('forcePwCurrent')?.focus(), 50);
+          const currentGroup = document.getElementById('forcePwCurrentGroup');
+          const currentInput = document.getElementById('forcePwCurrent');
+          if (currentGroup && currentInput) {
+            if (me.has_password) {
+              currentGroup.hidden = false;
+              currentInput.required = true;
+              setTimeout(() => currentInput.focus(), 50);
+            } else {
+              currentGroup.hidden = true;
+              currentInput.required = false;
+              setTimeout(() => document.getElementById('forcePwNew')?.focus(), 50);
+            }
+          }
           return;
         }
         _showAuthView(null);
