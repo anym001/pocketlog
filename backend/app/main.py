@@ -421,10 +421,13 @@ def change_password(
     db: DB,
     user: RawCurrentUser,
 ):
-    if user.password_hash is None:
-        # Migration path: the user was promoted to admin before any password
-        # was set (password_hash IS NULL). There is nothing to verify — just
-        # allow them to choose their first password.
+    if user.force_change_password or user.password_hash is None:
+        # Forced-change state: the existing password is administrative
+        # (admin reset or CLI bootstrap) or doesn't exist yet (migration).
+        # Re-verifying it adds no identity proof — the user MUST change it
+        # before they can do anything else. Skipping verification here lets
+        # the migration / admin-reset paths complete without the user
+        # having to memorise a throwaway temp password.
         pass
     elif payload.current_password is None or not auth.verify_password(
         payload.current_password, user.password_hash
@@ -434,7 +437,7 @@ def change_password(
         raise HTTPException(
             status_code=400, detail="current_password_wrong"
         )
-    if payload.new_password == payload.current_password:
+    if payload.current_password is not None and payload.new_password == payload.current_password:
         raise HTTPException(
             status_code=400, detail="password_reused"
         )
