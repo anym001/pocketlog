@@ -8,7 +8,7 @@ from sqlalchemy import and_, case, delete, extract, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import models, schemas
+from . import auth, models, schemas
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -25,27 +25,114 @@ DEFAULT_CATEGORIES: list[dict] = [
 
 # ---------- Users ----------
 
-def get_or_create_user(db: Session, username: str) -> models.User:
-    user = db.scalar(select(models.User).where(models.User.username == username))
-    if user is not None:
-        return user
-    user = models.User(username=username)
+def get_user_by_username(db: Session, username: str) -> models.User | None:
+    return db.scalar(
+        select(models.User).where(models.User.username == username)
+    )
+
+
+def get_user_by_id(db: Session, user_id: int) -> models.User | None:
+    return db.get(models.User, user_id)
+
+
+def list_all_users(db: Session) -> list[models.User]:
+    return list(
+        db.scalars(select(models.User).order_by(models.User.id))
+    )
+
+
+def count_admins(db: Session) -> int:
+    return int(
+        db.scalar(
+            select(func.count())
+            .select_from(models.User)
+            .where(models.User.is_admin == True)  # noqa: E712
+        )
+        or 0
+    )
+
+
+def count_users(db: Session) -> int:
+    return int(
+        db.scalar(select(func.count()).select_from(models.User)) or 0
+    )
+
+
+def get_oldest_user(db: Session) -> models.User | None:
+    return db.scalar(
+        select(models.User).order_by(models.User.id.asc()).limit(1)
+    )
+
+
+def get_pending_admin(db: Session) -> models.User | None:
+    """Liefert den Admin, der noch sein Passwort vergeben muss (z. B.
+    nach der Migration). ``None`` wenn jeder Admin schon einen Hash
+    hat oder gar kein Admin existiert."""
+    return db.scalar(
+        select(models.User)
+        .where(models.User.is_admin == True)  # noqa: E712
+        .where(models.User.password_hash.is_(None))
+        .order_by(models.User.id.asc())
+        .limit(1)
+    )
+
+
+def create_user(
+    db: Session,
+    *,
+    username: str,
+    password: str,
+    is_admin: bool = False,
+    force_change_password: bool = True,
+) -> models.User:
+    """Legt einen neuen User samt Standard-Kategorien an. Wirft
+    ``IntegrityError`` bei Username-Kollision."""
+    user = models.User(
+        username=username,
+        password_hash=auth.hash_password(password),
+        is_admin=is_admin,
+        is_active=True,
+        force_change_password=force_change_password,
+    )
     db.add(user)
     try:
         db.commit()
     except IntegrityError:
-        # Concurrent insert from a parallel request — fetch the winner.
         db.rollback()
-        user = db.scalar(select(models.User).where(models.User.username == username))
-        if user is None:
-            raise
-        return user
+        raise
     db.refresh(user)
-    # Seed defaults exactly once, at user creation. Re-seeding on every
-    # categories fetch would resurrect them right after the "delete all data"
-    # reset, defeating the purpose of that action.
     _seed_default_categories(db, user.id)
     return user
+
+
+def set_user_password(
+    db: Session, user: models.User, new_password: str, *, force_change: bool
+) -> None:
+    """Setzt ein neues Passwort und resettet den Brute-Force-State.
+    ``force_change=True`` markiert den User für die Force-PW-View
+    (Admin-Reset), ``False`` löst das Flag (normaler Self-Service-
+    Change)."""
+    user.password_hash = auth.hash_password(new_password)
+    user.force_change_password = force_change
+    user.failed_login_count = 0
+    user.lockout_until = None
+    db.commit()
+    db.refresh(user)
+
+
+def deactivate_user(db: Session, user: models.User) -> None:
+    user.is_active = False
+    db.commit()
+
+
+def activate_user(db: Session, user: models.User) -> None:
+    user.is_active = True
+    db.commit()
+
+
+def delete_user(db: Session, user: models.User) -> None:
+    db.delete(user)
+    db.commit()
 
 
 # ---------- Categories ----------

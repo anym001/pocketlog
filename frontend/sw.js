@@ -137,10 +137,29 @@ async function cacheFirst(request) {
   }
 }
 
+// Endpunkte, die NIE in die Outbox dürfen. Auth-Operationen ergeben
+// offline keinen Sinn — ein Login-Versuch beim nächsten Reconnect mit
+// gestauten Credentials wäre eine kapitale Sicherheits-Lücke, und ein
+// Logout-Replay würde die frische Session des Users sofort wieder
+// abreißen.
+const NEVER_QUEUE_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/setup',
+  '/api/auth/change-password',
+]);
+
 async function handleWrite(request) {
   try {
     return await fetch(request.clone());
   } catch (e) {
+    const url = new URL(request.url);
+    if (NEVER_QUEUE_PATHS.has(url.pathname)) {
+      return new Response(JSON.stringify({ offline: true }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     // Outbox replays writes as JSON. Anything else — multipart file
     // uploads (CSV-Import), urlencoded forms — can't round-trip through
     // IndexedDB, so we must NOT silently queue them with an empty body.
@@ -158,7 +177,6 @@ async function handleWrite(request) {
     const body = request.method === 'DELETE'
       ? null
       : await request.clone().json().catch(() => null);
-    const url = new URL(request.url);
     await self.PocketLogOutbox.enqueue({
       method: request.method,
       path: url.pathname.replace(/^\/api/, '') + url.search,
@@ -213,5 +231,22 @@ self.addEventListener('sync', (event) => {
         }
       })
     );
+  }
+});
+
+// Eingehende Messages vom Frontend.
+// - SET_CSRF: aktueller CSRF-Token, den die Outbox beim Replay
+//             mitschicken muss. Wird bei jedem Login und bei
+//             init() gesetzt.
+// - CLEAR_API_CACHE: nach Logout — der API-Cache (Buchungsliste,
+//             Kategorien …) muss weg, damit beim nächsten Login
+//             keine alten Daten des vorigen Users zu sehen sind.
+self.addEventListener('message', (event) => {
+  const msg = event.data;
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.type === 'SET_CSRF' && self.PocketLogOutbox?.setCsrfToken) {
+    self.PocketLogOutbox.setCsrfToken(msg.token || '');
+  } else if (msg.type === 'CLEAR_API_CACHE') {
+    event.waitUntil(caches.delete(API_CACHE));
   }
 });
