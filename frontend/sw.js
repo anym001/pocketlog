@@ -91,7 +91,27 @@ function isApi(url) {
   return url.pathname.startsWith('/api/');
 }
 
+// Auth- und Health-Endpoints dürfen NIE aus dem Cache kommen. Ihre
+// Antworten bestimmen den Auth-State des Frontends (Login-, Setup- oder
+// Force-Change-View) — eine stale Cache-Response würde den User in einer
+// View festsetzen, zu der sein realer Session-State gar nicht mehr passt.
+// Health ist Online-Probe.
+const NEVER_CACHE_PATHS = new Set([
+  '/api/health',
+  '/api/auth/me',
+  '/api/auth/setup-status',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/setup',
+  '/api/auth/change-password',
+]);
+
+function isAuthPath(url) {
+  return url.pathname.startsWith('/api/auth/');
+}
+
 async function networkFirst(request, cacheName) {
+  const url = new URL(request.url);
   try {
     const fresh = await fetch(request);
     // Auth boundary: a 401 on /api/* means the session expired or a
@@ -101,17 +121,36 @@ async function networkFirst(request, cacheName) {
     // per device, so we don't keep per-user buckets.
     if (cacheName === API_CACHE && fresh.status === 401) {
       await caches.delete(API_CACHE);
+    } else if (fresh.status === 304) {
+      // The backend started emitting validators (ETag/Last-Modified).
+      // 304 has no body — we must serve the cached entry, or the page
+      // would receive an empty response and break.
+      const cached = await caches.match(request);
+      if (cached) return cached;
+      // No cache hit: rare race (deploy mid-flight). Force the page to
+      // retry by reporting it as a transient 503.
+      return new Response(JSON.stringify({ offline: true }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
     } else if (fresh.ok) {
       // Only cache successful responses. Caching 4xx/5xx would let a
-      // transient error linger as the offline fallback. If the backend
-      // ever starts emitting ETag/Last-Modified, 304 Not Modified will
-      // arrive here as `ok === false` and must be treated explicitly —
-      // the cached version is still valid in that case.
+      // transient error linger as the offline fallback.
       const cache = await caches.open(cacheName);
       cache.put(request, fresh.clone());
     }
     return fresh;
   } catch (e) {
+    // Auth-state-dependent endpoints must never serve stale responses
+    // from the cache-fallback branch. If the network is down, return a
+    // 503 so the page sees the failure and stays on whatever view it
+    // is — instead of being redirected based on a yesterday-old me.
+    if (isAuthPath(url)) {
+      return new Response(JSON.stringify({ offline: true }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const cached = await caches.match(request);
     if (cached) return cached;
     return new Response(JSON.stringify({ offline: true }), {
@@ -197,9 +236,10 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
 
   if (isApi(url)) {
-    // /api/health dient als Online-Probe — niemals aus dem Cache beantworten,
-    // sonst wirkt der Sync-Button selbst im Flugmodus erfolgreich.
-    if (req.method === 'GET' && url.pathname === '/api/health') {
+    // Auth- und Health-Endpoints: niemals aus dem Cache — der State
+    // muss live vom Server kommen, sonst landet der User in einer View,
+    // die nicht zu seiner echten Session passt.
+    if (req.method === 'GET' && NEVER_CACHE_PATHS.has(url.pathname)) {
       event.respondWith(fetch(req));
       return;
     }
@@ -238,15 +278,19 @@ self.addEventListener('sync', (event) => {
 // - SET_CSRF: aktueller CSRF-Token, den die Outbox beim Replay
 //             mitschicken muss. Wird bei jedem Login und bei
 //             init() gesetzt.
-// - CLEAR_API_CACHE: nach Logout — der API-Cache (Buchungsliste,
-//             Kategorien …) muss weg, damit beim nächsten Login
-//             keine alten Daten des vorigen Users zu sehen sind.
+// - CLEAR_API_CACHE: nach Logout oder 401-Reload — API-Cache und
+//             der vom SW gehaltene CSRF-Token müssen weg, damit
+//             beim nächsten Login keine alten Daten oder ein
+//             stale Token in die Outbox-Replays landen.
 self.addEventListener('message', (event) => {
   const msg = event.data;
   if (!msg || typeof msg !== 'object') return;
   if (msg.type === 'SET_CSRF' && self.PocketLogOutbox?.setCsrfToken) {
     self.PocketLogOutbox.setCsrfToken(msg.token || '');
   } else if (msg.type === 'CLEAR_API_CACHE') {
+    if (self.PocketLogOutbox?.setCsrfToken) {
+      self.PocketLogOutbox.setCsrfToken('');
+    }
     event.waitUntil(caches.delete(API_CACHE));
   }
 });

@@ -115,6 +115,20 @@
       // veralteter App-State bleibt im DOM.
       window._csrfToken = '';
 
+      // Auth-Boundary-Cleanup: vor jedem 401-induzierten Reload den
+      // API-Cache und den im SW gehaltenen CSRF-Token wegwerfen. Sonst
+      // würde der nächste Page-Load auf eine gecachte me-Response treffen
+      // (Force-Change-View ohne Session), oder die Outbox einen stale
+      // CSRF-Token mitschicken (403 beim Replay → silent Datenverlust).
+      function _resetAuthClientState() {
+        try {
+          if (navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
+          }
+        } catch (_) {}
+        window._csrfToken = '';
+      }
+
       async function api(method, path, body) {
         const headers = { 'Content-Type': 'application/json' };
         if (method !== 'GET' && window._csrfToken) {
@@ -124,7 +138,10 @@
         if (body) opts.body = JSON.stringify(body);
         const res = await fetch(API + path, opts);
         if (res.status === 401) {
-          if (!window._suppressAuthReload) location.reload();
+          if (!window._suppressAuthReload) {
+            _resetAuthClientState();
+            location.reload();
+          }
           throw new Error('session expired');
         }
         if (!res.ok) throw new Error(`API ${method} ${path} → ${res.status}`);
@@ -135,6 +152,10 @@
 
       // Auth-Endpoints umgehen api() — bei 401/429 wollen wir die Antwort
       // selbst behandeln, ohne in den location.reload()-Pfad zu fallen.
+      // ABER: wenn der Caller ``opts.reloadOn401 !== false`` lässt und
+      // eine 401 kommt, machen wir trotzdem den harten Reload — sonst
+      // bleibt der User in einer View hängen, zu der sein Session-State
+      // nicht mehr passt.
       async function authFetch(method, path, body, opts = {}) {
         const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
         if (opts.csrf !== false && method !== 'GET' && window._csrfToken) {
@@ -142,7 +163,12 @@
         }
         const init = { method, headers, credentials: 'same-origin' };
         if (body !== undefined) init.body = JSON.stringify(body);
-        return fetch(API + path, init);
+        const res = await fetch(API + path, init);
+        if (res.status === 401 && opts.reloadOn401 !== false) {
+          _resetAuthClientState();
+          location.reload();
+        }
+        return res;
       }
 
       function _broadcastCsrfToSw(token) {
@@ -3655,7 +3681,7 @@
           if (!ok) return;
         }
         try {
-          await authFetch('POST', '/auth/logout');
+          await authFetch('POST', '/auth/logout', undefined, { reloadOn401: false });
         } catch (_) {}
         try {
           if (window.PocketLogOutbox) {
@@ -3772,7 +3798,15 @@
           list.textContent = 'Keine Benutzer gefunden.';
           return;
         }
-        const meId = _currentMe?.id ?? null;
+        // _currentMe MUSS gesetzt sein, sonst kann die UI ihre Self-Schutz-
+        // Regeln nicht durchsetzen (Buttons würden auf der eigenen Zeile
+        // aktivierbar wirken, obwohl das Backend sie 400/403't). Lieber
+        // einen Render-Fehler zeigen als eine UI-Lüge.
+        if (!_currentMe || _currentMe.id == null) {
+          list.textContent = 'Benutzerliste kann ohne Identitätsdaten nicht angezeigt werden.';
+          return;
+        }
+        const meId = _currentMe.id;
         list.innerHTML = _adminUsers
           .map((u) => {
             const isSelf = u.id === meId;
@@ -4002,7 +4036,7 @@
           const res = await authFetch(
             'POST', '/auth/login',
             { username, password, remember_me: remember },
-            { csrf: false }
+            { csrf: false, reloadOn401: false }
           );
           if (res.status === 429) {
             const data = await res.json().catch(() => ({}));
@@ -4041,7 +4075,7 @@
         }
         try {
           const res = await authFetch('POST', '/auth/setup',
-            { username, password }, { csrf: false });
+            { username, password }, { csrf: false, reloadOn401: false });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             const detail = data.detail || '';
@@ -4062,9 +4096,6 @@
 
       async function submitForcePassword() {
         _setAuthError('forcePwError', '');
-        const currentGroup = document.getElementById('forcePwCurrentGroup');
-        const hasPw = currentGroup && !currentGroup.hidden;
-        const current = hasPw ? document.getElementById('forcePwCurrent').value : null;
         const next = document.getElementById('forcePwNew').value;
         const confirm = document.getElementById('forcePwConfirm').value;
         if (next !== confirm) {
@@ -4075,26 +4106,12 @@
           _setAuthError('forcePwError', 'Das Passwort muss mindestens 12 Zeichen lang sein.');
           return;
         }
-        if (hasPw && next === current) {
-          _setAuthError('forcePwError',
-            'Das neue Passwort muss sich vom alten unterscheiden.');
-          return;
-        }
         try {
+          // Im Force-Change-Zustand ignoriert das Backend ``current_password``
+          // bewusst — wir lassen das Feld in der Payload trotzdem als
+          // ``null`` zurück, damit das Schema-Default greift.
           const res = await authFetch('POST', '/auth/change-password',
-            { current_password: current, new_password: next });
-          if (res.status === 400) {
-            const data = await res.json().catch(() => ({}));
-            if (data.detail === 'current_password_wrong') {
-              _setAuthError('forcePwError', 'Das aktuelle Passwort stimmt nicht.');
-            } else if (data.detail === 'password_reused') {
-              _setAuthError('forcePwError',
-                'Das neue Passwort muss sich vom alten unterscheiden.');
-            } else {
-              _setAuthError('forcePwError', 'Passwortwechsel fehlgeschlagen.');
-            }
-            return;
-          }
+            { current_password: null, new_password: next });
           if (!res.ok) {
             _setAuthError('forcePwError', 'Passwortwechsel fehlgeschlagen.');
             return;
@@ -4106,24 +4123,17 @@
       }
 
       async function _afterAuthSuccess(me) {
+        _currentMe = me;
         document.body.classList.toggle('is-admin', !!me.is_admin);
         const usernameLabel = document.getElementById('accountUsername');
         if (usernameLabel) usernameLabel.textContent = `Angemeldet als ${me.username}`;
         if (me.force_change_password) {
+          // Im Force-Change-Zustand ist das alte Passwort administrativ
+          // (Admin-Reset oder CLI) — die Backend-Verifikation ist
+          // ausgeschaltet, das Feld wäre eine UI-Lüge. Der User vergibt
+          // nur ein neues Passwort plus Wiederholung.
           _showAuthView('forcePw');
-          const currentGroup = document.getElementById('forcePwCurrentGroup');
-          const currentInput = document.getElementById('forcePwCurrent');
-          if (currentGroup && currentInput) {
-            if (me.has_password) {
-              currentGroup.hidden = false;
-              currentInput.required = true;
-              setTimeout(() => currentInput.focus(), 50);
-            } else {
-              currentGroup.hidden = true;
-              currentInput.required = false;
-              setTimeout(() => document.getElementById('forcePwNew')?.focus(), 50);
-            }
-          }
+          setTimeout(() => document.getElementById('forcePwNew')?.focus(), 50);
           return;
         }
         _showAuthView(null);

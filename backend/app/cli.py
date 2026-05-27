@@ -15,8 +15,7 @@ import argparse
 import getpass
 import sys
 
-from . import crud, schemas
-from .auth import hash_password
+from . import auth, crud, schemas
 from .database import SessionLocal
 
 
@@ -72,13 +71,19 @@ def _cmd_reset_admin_password(args: argparse.Namespace) -> int:
             )
             return 1
 
-        user.password_hash = hash_password(password)
+        user.password_hash = auth.hash_password(password)
         user.force_change_password = True
         user.failed_login_count = 0
         user.lockout_until = None
         db.commit()
+        # Bestehende Sessions wegwerfen — sonst könnte ein Angreifer mit
+        # gestohlenem Cookie die relaxed-current-password-Regel im
+        # Force-Change-Pfad ausnutzen, bevor der legitime Operator sich
+        # neu einloggt.
+        revoked = auth.revoke_all_user_sessions(db, user.id)
         print(
             f"OK: Passwort für '{user.username}' gesetzt. "
+            f"{revoked} aktive Session(s) invalidiert. "
             "Beim nächsten Login muss ein eigenes Passwort vergeben werden."
         )
         return 0

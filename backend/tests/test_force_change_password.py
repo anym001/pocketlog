@@ -105,6 +105,30 @@ def test_change_password_invalidates_other_sessions(app, db_session):
     assert b.get("/api/categories").status_code == 401
 
 
+def _voluntary_client(app, db_session):
+    """User mit ``force_change_password=False`` — Self-Service-Pfad.
+    Hier ist die ``current_password``-Verifikation aktiv."""
+    import uuid
+
+    from app import crud
+
+    user = crud.create_user(
+        db_session,
+        username=f"voluntary-{uuid.uuid4().hex[:8]}",
+        password=TEST_PASSWORD,
+        force_change_password=False,
+    )
+    client = TestClient(app)
+    res = client.post(
+        "/api/auth/login",
+        json={"username": user.username, "password": TEST_PASSWORD},
+    )
+    assert res.status_code == 200
+    csrf = res.json()["user"]["csrf_token"]
+    client.headers["X-CSRF-Token"] = csrf
+    return client, user
+
+
 def test_change_password_rejects_short_new_password(app, db_session):
     client, _ = _force_pw_client(app, db_session)
     res = client.post(
@@ -114,8 +138,11 @@ def test_change_password_rejects_short_new_password(app, db_session):
     assert res.status_code == 422
 
 
-def test_change_password_rejects_wrong_current(app, db_session):
-    client, _ = _force_pw_client(app, db_session)
+def test_change_password_rejects_wrong_current_in_voluntary_change(app, db_session):
+    """Im normalen Self-Service-Pfad (force_change=False) muss
+    ``current_password`` stimmen — sonst könnte ein Session-Dieb das
+    Passwort umhängen."""
+    client, _ = _voluntary_client(app, db_session)
     res = client.post(
         "/api/auth/change-password",
         json={
@@ -127,8 +154,8 @@ def test_change_password_rejects_wrong_current(app, db_session):
     assert res.json()["detail"] == "current_password_wrong"
 
 
-def test_change_password_rejects_reused_password(app, db_session):
-    client, _ = _force_pw_client(app, db_session)
+def test_change_password_rejects_reused_password_in_voluntary_change(app, db_session):
+    client, _ = _voluntary_client(app, db_session)
     res = client.post(
         "/api/auth/change-password",
         json={
@@ -138,6 +165,25 @@ def test_change_password_rejects_reused_password(app, db_session):
     )
     assert res.status_code == 400
     assert res.json()["detail"] == "password_reused"
+
+
+def test_force_change_skips_current_password_verification(app, db_session):
+    """Im Force-Change-Zustand ist das ``current_password`` administrativ
+    (Admin-Reset oder CLI-Bootstrap) — die Verifikation würde nichts
+    beweisen und nur Migranten/Recovered-User aussperren. Wir nehmen
+    einen falschen ``current_password``-Wert hier akzeptiert hin, weil
+    der User das Passwort eh sofort ändern MUSS."""
+    client, user = _force_pw_client(app, db_session)
+    res = client.post(
+        "/api/auth/change-password",
+        json={
+            "current_password": "ignored-because-force-change-is-on",
+            "new_password": "valid-password-2026",
+        },
+    )
+    assert res.status_code == 204
+    db_session.refresh(user)
+    assert user.force_change_password is False
 
 
 def test_change_password_no_current_password_when_hash_is_null(app, db_session):
@@ -167,10 +213,12 @@ def test_change_password_no_current_password_when_hash_is_null(app, db_session):
     client.cookies.set("pocketlog_csrf", session.csrf_token)
     client.headers["X-CSRF-Token"] = session.csrf_token
 
-    # /api/auth/me must report has_password=False.
+    # /api/auth/me must reflect the force-change state — the frontend
+    # uses that to render the force-change view, where the backend then
+    # ignores the (missing) current_password.
     me = client.get("/api/auth/me")
     assert me.status_code == 200
-    assert me.json()["has_password"] is False
+    assert me.json()["force_change_password"] is True
 
     # change-password without current_password must succeed.
     res = client.post(
