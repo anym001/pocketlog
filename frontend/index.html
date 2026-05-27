@@ -179,12 +179,146 @@
     <!-- TOAST HOST -->
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
+    <!-- AUTH VIEWS ─ Login, Setup, Force-Change-Password.
+         All three start hidden; init() decides which (if any) becomes
+         visible before the main app shell is shown. -->
+    <div class="auth-view" id="loginView" hidden>
+      <div class="auth-card" role="main" aria-labelledby="loginTitle">
+        <h1 class="auth-brand">Pocket<span>Log</span></h1>
+        <h2 id="loginTitle" class="auth-headline">Anmelden</h2>
+        <form id="loginForm" class="auth-form" onsubmit="event.preventDefault(); submitLogin();">
+          <div class="form-group">
+            <label for="loginUsername">Benutzername</label>
+            <input
+              type="text"
+              id="loginUsername"
+              autocomplete="username"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Passwort</label>
+            <input
+              type="password"
+              id="loginPassword"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <label class="auth-remember">
+            <input type="checkbox" id="loginRemember" />
+            Eingeloggt bleiben
+          </label>
+          <p class="auth-error" id="loginError" hidden role="alert"></p>
+          <button type="submit" class="submit-btn" id="loginSubmit">Anmelden</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="auth-view" id="setupView" hidden>
+      <div class="auth-card" role="main" aria-labelledby="setupTitle">
+        <h1 class="auth-brand">Pocket<span>Log</span></h1>
+        <h2 id="setupTitle" class="auth-headline">Ersteinrichtung</h2>
+        <p class="auth-intro" id="setupIntro">
+          Lege das Administrator-Konto an, das künftig die App verwaltet.
+        </p>
+        <form id="setupForm" class="auth-form" onsubmit="event.preventDefault(); submitSetup();">
+          <div class="form-group">
+            <label for="setupUsername">Benutzername</label>
+            <input
+              type="text"
+              id="setupUsername"
+              autocomplete="username"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="setupPassword">Passwort (mindestens 12 Zeichen)</label>
+            <input
+              type="password"
+              id="setupPassword"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="setupPasswordConfirm">Passwort wiederholen</label>
+            <input
+              type="password"
+              id="setupPasswordConfirm"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+          </div>
+          <p class="auth-error" id="setupError" hidden role="alert"></p>
+          <button type="submit" class="submit-btn">Konto anlegen</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="auth-view" id="forcePwView" hidden>
+      <div class="auth-card" role="main" aria-labelledby="forcePwTitle">
+        <h1 class="auth-brand">Pocket<span>Log</span></h1>
+        <h2 id="forcePwTitle" class="auth-headline">Passwort wählen</h2>
+        <p class="auth-intro">
+          Vergib ein eigenes Passwort, bevor du fortfährst.
+        </p>
+        <form id="forcePwForm" class="auth-form" onsubmit="event.preventDefault(); submitForcePassword();">
+          <div class="form-group">
+            <label for="forcePwCurrent">Aktuelles Passwort</label>
+            <input
+              type="password"
+              id="forcePwCurrent"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="forcePwNew">Neues Passwort (mindestens 12 Zeichen)</label>
+            <input
+              type="password"
+              id="forcePwNew"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="forcePwConfirm">Neues Passwort wiederholen</label>
+            <input
+              type="password"
+              id="forcePwConfirm"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+          </div>
+          <p class="auth-error" id="forcePwError" hidden role="alert"></p>
+          <button type="submit" class="submit-btn">Passwort speichern</button>
+        </form>
+      </div>
+    </div>
+
     <!-- App shell: `display: contents` on mobile (no visual change), grid
          with sidebar + content column ≥ 768px (see styles.css adaptive
          layout block). Drawer sits inside the shell so it can become the
          sticky sidebar column on tablet; on mobile it stays a fixed
-         overlay regardless of DOM position. -->
-    <main class="app-shell">
+         overlay regardless of DOM position.
+         Stays hidden until init() confirms an authenticated session so
+         no app data flashes before the auth check resolves. -->
+    <main class="app-shell" id="appShell" hidden>
     <!-- DRAWER OVERLAY -->
     <div class="drawer-overlay" id="drawerOverlay" aria-hidden="true" onclick="closeDrawer()"></div>
 
@@ -273,6 +407,14 @@
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpAdmin')">
               Verwaltung
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item admin-only" onclick="drawerNav('dpAdminUsers')" hidden>
+              Benutzerverwaltung
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpAccount')">
+              Konto
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpInfo')">
@@ -474,6 +616,57 @@
               Entfernt Buchungen, Kategorien oder beides serverseitig. Aktion lässt sich nicht
               rückgängig machen.
             </p>
+          </div>
+        </div>
+
+        <!-- Panel 2e2: Benutzerverwaltung (Admin only) -->
+        <div class="drawer-panel admin-only" id="dpAdminUsers" data-state="right" hidden>
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Benutzerverwaltung</span>
+          </div>
+          <div class="drawer-section">
+            <div id="adminUserList" class="drawer-chip-list"></div>
+            <button class="save-btn" onclick="openAdminCreateUserModal()">
+              Benutzer hinzufügen
+            </button>
+          </div>
+        </div>
+
+        <!-- Panel 2e3: Konto (eigenes Passwort / Logout) -->
+        <div class="drawer-panel" id="dpAccount" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Konto</span>
+          </div>
+          <div class="drawer-section">
+            <p class="account-username" id="accountUsername" style="
+              font-size: var(--fs-body);
+              color: var(--text2);
+              margin: 0 0 var(--space-16);
+            "></p>
+            <button class="save-btn" onclick="openChangePasswordModal()">
+              Passwort ändern
+            </button>
+            <button
+              class="save-btn"
+              style="margin-top: var(--space-16)"
+              onclick="logoutWithConfirm()"
+            >
+              Abmelden
+            </button>
           </div>
         </div>
 
@@ -1000,6 +1193,126 @@
             Nur Buchungen löschen
           </button>
           <button class="confirm-cancel" onclick="closeResetModal()">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASSWORD-CHANGE MODAL (Self-Service via Konto-Drawer) -->
+    <div class="modal-overlay" id="pwModalOverlay" onclick="closePwModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pwModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closePwModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="pwModalTitle">Passwort ändern</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Aktuelles Passwort</label>
+            <input
+              type="password"
+              id="pwModalCurrent"
+              autocomplete="current-password"
+            />
+          </div>
+          <div class="form-group">
+            <label>Neues Passwort (mindestens 12 Zeichen)</label>
+            <input
+              type="password"
+              id="pwModalNew"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+          </div>
+          <div class="form-group">
+            <label>Neues Passwort wiederholen</label>
+            <input
+              type="password"
+              id="pwModalConfirm"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+          </div>
+          <p class="auth-error" id="pwModalError" hidden role="alert"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="submitChangePassword()">Speichern</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN: NEUEN BENUTZER ANLEGEN -->
+    <div class="modal-overlay" id="adminCreateUserOverlay" onclick="closeAdminCreateUserModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminCreateUserTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeAdminCreateUserModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="adminCreateUserTitle">Benutzer hinzufügen</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Benutzername</label>
+            <input
+              type="text"
+              id="adminCreateUsername"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              maxlength="150"
+            />
+          </div>
+          <div class="form-group">
+            <label>Startpasswort (mindestens 12 Zeichen)</label>
+            <input
+              type="password"
+              id="adminCreatePassword"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+          </div>
+          <p class="confirm-msg">
+            Der Benutzer muss sich beim ersten Login ein eigenes Passwort vergeben.
+          </p>
+          <p class="auth-error" id="adminCreateError" hidden role="alert"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="submitAdminCreateUser()">Anlegen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN: PASSWORT ZURÜCKSETZEN -->
+    <div class="modal-overlay" id="adminResetPwOverlay" onclick="closeAdminResetPwModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminResetPwTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeAdminResetPwModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="adminResetPwTitle">Passwort zurücksetzen</h2>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-msg" id="adminResetPwIntro"></p>
+          <div class="form-group">
+            <label>Neues Passwort (mindestens 12 Zeichen)</label>
+            <input
+              type="password"
+              id="adminResetPwInput"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+          </div>
+          <p class="confirm-msg">
+            Der Benutzer muss das Passwort beim nächsten Login erneut ändern.
+          </p>
+          <p class="auth-error" id="adminResetPwError" hidden role="alert"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="submitAdminResetPassword()">Speichern</button>
         </div>
       </div>
     </div>

@@ -109,14 +109,51 @@
       const tagCounts = new Map(); // tag-name (case-folded) → Anzahl Verwendungen
 
       // ── API HELPER ────────────────────────────────────────────────────────────────
+      // Same-origin Cookie-Session. CSRF-Token wird beim Login / Bootstrap
+      // eingesammelt und in window._csrfToken gehalten. Bei 401 reload-en
+      // wir hart, damit init() sauber auf die Login-View landet — kein
+      // veralteter App-State bleibt im DOM.
+      window._csrfToken = '';
+
       async function api(method, path, body) {
-        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        const headers = { 'Content-Type': 'application/json' };
+        if (method !== 'GET' && window._csrfToken) {
+          headers['X-CSRF-Token'] = window._csrfToken;
+        }
+        const opts = { method, headers, credentials: 'same-origin' };
         if (body) opts.body = JSON.stringify(body);
         const res = await fetch(API + path, opts);
+        if (res.status === 401) {
+          if (!window._suppressAuthReload) location.reload();
+          throw new Error('session expired');
+        }
         if (!res.ok) throw new Error(`API ${method} ${path} → ${res.status}`);
         if (method !== 'GET') invalidateReportCache();
         if (res.status === 204) return null;
         return res.json();
+      }
+
+      // Auth-Endpoints umgehen api() — bei 401/429 wollen wir die Antwort
+      // selbst behandeln, ohne in den location.reload()-Pfad zu fallen.
+      async function authFetch(method, path, body, opts = {}) {
+        const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+        if (opts.csrf !== false && method !== 'GET' && window._csrfToken) {
+          headers['X-CSRF-Token'] = window._csrfToken;
+        }
+        const init = { method, headers, credentials: 'same-origin' };
+        if (body !== undefined) init.body = JSON.stringify(body);
+        return fetch(API + path, init);
+      }
+
+      function _broadcastCsrfToSw(token) {
+        try {
+          if (navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'SET_CSRF',
+              token: token || '',
+            });
+          }
+        } catch (_) {}
       }
 
       // ── FORMATTING ────────────────────────────────────────────────────────────────
@@ -322,6 +359,7 @@
         if (panelId === 'dpTags') renderTagList();
         if (panelId === 'dpDisplay') syncDefaultViewRadios();
         if (panelId === 'dpInfo') renderInfoPanel();
+        if (panelId === 'dpAdminUsers') loadAdminUsers();
       }
 
       function drawerBack() {
@@ -3599,6 +3637,491 @@
         }
       }
 
+      // ── LOGOUT + KONTO ────────────────────────────────────────────────────────────
+      async function logoutWithConfirm() {
+        let pending = 0;
+        try {
+          pending = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+        } catch (_) {}
+        if (pending > 0) {
+          const ok = await confirmAction({
+            title: 'Trotzdem abmelden?',
+            message:
+              `${pending} noch nicht synchronisierte Änderung${pending === 1 ? '' : 'en'} ` +
+              'geht beim Abmelden verloren.',
+            confirmLabel: 'Trotzdem abmelden',
+            destructive: true,
+          });
+          if (!ok) return;
+        }
+        try {
+          await authFetch('POST', '/auth/logout');
+        } catch (_) {}
+        try {
+          if (window.PocketLogOutbox) {
+            await window.PocketLogOutbox.clear();
+          }
+        } catch (_) {}
+        try {
+          if (navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
+          }
+        } catch (_) {}
+        location.reload();
+      }
+
+      // ── PASSWORT ÄNDERN (Self-Service) ────────────────────────────────────────────
+      function openChangePasswordModal() {
+        document.getElementById('pwModalCurrent').value = '';
+        document.getElementById('pwModalNew').value = '';
+        document.getElementById('pwModalConfirm').value = '';
+        _setAuthError('pwModalError', '');
+        document.getElementById('pwModalOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById('pwModalCurrent')?.focus(), 50);
+      }
+      function closePwModal() {
+        document.getElementById('pwModalOverlay').classList.remove('open');
+        if (!document.getElementById('drawer').classList.contains('open')) {
+          document.body.style.overflow = '';
+        }
+      }
+      function closePwModalOutside(e) {
+        if (e.target === document.getElementById('pwModalOverlay')) closePwModal();
+      }
+      async function submitChangePassword() {
+        _setAuthError('pwModalError', '');
+        const current = document.getElementById('pwModalCurrent').value;
+        const next = document.getElementById('pwModalNew').value;
+        const confirmPw = document.getElementById('pwModalConfirm').value;
+        if (next !== confirmPw) {
+          _setAuthError('pwModalError', 'Die neuen Passwörter stimmen nicht überein.');
+          return;
+        }
+        if (next.length < 12) {
+          _setAuthError('pwModalError', 'Das Passwort muss mindestens 12 Zeichen lang sein.');
+          return;
+        }
+        if (next === current) {
+          _setAuthError('pwModalError',
+            'Das neue Passwort muss sich vom alten unterscheiden.');
+          return;
+        }
+        try {
+          const res = await authFetch('POST', '/auth/change-password', {
+            current_password: current, new_password: next,
+          });
+          if (res.status === 400) {
+            const data = await res.json().catch(() => ({}));
+            if (data.detail === 'current_password_wrong') {
+              _setAuthError('pwModalError', 'Das aktuelle Passwort stimmt nicht.');
+            } else if (data.detail === 'password_reused') {
+              _setAuthError('pwModalError',
+                'Das neue Passwort muss sich vom alten unterscheiden.');
+            } else {
+              _setAuthError('pwModalError', 'Passwortwechsel fehlgeschlagen.');
+            }
+            return;
+          }
+          if (!res.ok) {
+            _setAuthError('pwModalError', 'Passwortwechsel fehlgeschlagen.');
+            return;
+          }
+          closePwModal();
+          // Andere Sessions sind serverseitig gekillt — diese hier
+          // bleibt aktiv. Toast nur zur Bestätigung.
+          toast('Passwort geändert.', 'ok');
+        } catch (e) {
+          _setAuthError('pwModalError', 'Verbindung zum Server fehlgeschlagen.');
+        }
+      }
+
+      // ── ADMIN: BENUTZERVERWALTUNG ─────────────────────────────────────────────────
+      let _adminUsers = [];
+      let _currentMe = null;
+
+      async function loadAdminUsers() {
+        const list = document.getElementById('adminUserList');
+        if (!list) return;
+        list.textContent = 'Wird geladen …';
+        try {
+          _adminUsers = await api('GET', '/admin/users');
+        } catch (e) {
+          list.textContent = 'Liste konnte nicht geladen werden.';
+          return;
+        }
+        // Aktuelle Identität nochmal frisch ziehen, falls das Body-Flag
+        // veraltet ist.
+        try {
+          const meRes = await fetch(API + '/auth/me', { credentials: 'same-origin' });
+          if (meRes.ok) _currentMe = await meRes.json();
+        } catch (_) {}
+        renderAdminUserList();
+      }
+
+      function _escText(s) {
+        const tmp = document.createElement('div');
+        tmp.textContent = s == null ? '' : String(s);
+        return tmp.innerHTML;
+      }
+
+      function renderAdminUserList() {
+        const list = document.getElementById('adminUserList');
+        if (!list) return;
+        if (!_adminUsers.length) {
+          list.textContent = 'Keine Benutzer gefunden.';
+          return;
+        }
+        const meId = _currentMe?.id ?? null;
+        list.innerHTML = _adminUsers
+          .map((u) => {
+            const isSelf = u.id === meId;
+            const tags = [];
+            if (u.is_admin) tags.push('<span class="admin-user-tag admin">Administrator</span>');
+            if (!u.is_active) tags.push('<span class="admin-user-tag inactive">Deaktiviert</span>');
+            if (u.force_change_password)
+              tags.push('<span class="admin-user-tag">Passwortwechsel offen</span>');
+            const actions = [];
+            actions.push(
+              `<button type="button" onclick="openAdminResetPwModal(${u.id})">Passwort zurücksetzen</button>`
+            );
+            if (!u.is_admin) {
+              if (u.is_active) {
+                actions.push(
+                  `<button type="button" ${isSelf ? 'disabled' : ''} ` +
+                  `onclick="adminToggleActive(${u.id}, false)">Deaktivieren</button>`
+                );
+              } else {
+                actions.push(
+                  `<button type="button" onclick="adminToggleActive(${u.id}, true)">Reaktivieren</button>`
+                );
+              }
+            }
+            actions.push(
+              `<button type="button" class="btn-destructive" ${isSelf ? 'disabled' : ''} ` +
+              `onclick="adminDeleteUserConfirm(${u.id})">Löschen</button>`
+            );
+            return `
+              <div class="admin-user-row">
+                <div class="admin-user-row-head">
+                  <span class="admin-user-name">${_escText(u.username)}${isSelf ? ' (du)' : ''}</span>
+                </div>
+                ${tags.length ? `<div class="admin-user-tags">${tags.join('')}</div>` : ''}
+                <div class="admin-user-actions">${actions.join('')}</div>
+              </div>`;
+          })
+          .join('');
+      }
+
+      function openAdminCreateUserModal() {
+        document.getElementById('adminCreateUsername').value = '';
+        document.getElementById('adminCreatePassword').value = '';
+        _setAuthError('adminCreateError', '');
+        document.getElementById('adminCreateUserOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById('adminCreateUsername')?.focus(), 50);
+      }
+      function closeAdminCreateUserModal() {
+        document.getElementById('adminCreateUserOverlay').classList.remove('open');
+        if (!document.getElementById('drawer').classList.contains('open')) {
+          document.body.style.overflow = '';
+        }
+      }
+      function closeAdminCreateUserModalOutside(e) {
+        if (e.target === document.getElementById('adminCreateUserOverlay'))
+          closeAdminCreateUserModal();
+      }
+      async function submitAdminCreateUser() {
+        _setAuthError('adminCreateError', '');
+        const username = document.getElementById('adminCreateUsername').value.trim();
+        const password = document.getElementById('adminCreatePassword').value;
+        if (password.length < 12) {
+          _setAuthError('adminCreateError',
+            'Das Passwort muss mindestens 12 Zeichen lang sein.');
+          return;
+        }
+        try {
+          const res = await authFetch('POST', '/admin/users', { username, password });
+          if (res.status === 409) {
+            _setAuthError('adminCreateError', 'Der Benutzername ist bereits vergeben.');
+            return;
+          }
+          if (!res.ok) {
+            _setAuthError('adminCreateError', 'Benutzer konnte nicht angelegt werden.');
+            return;
+          }
+          closeAdminCreateUserModal();
+          await loadAdminUsers();
+          toast('Benutzer angelegt.', 'ok');
+        } catch (e) {
+          _setAuthError('adminCreateError', 'Verbindung zum Server fehlgeschlagen.');
+        }
+      }
+
+      let _resetPwTargetId = null;
+      function openAdminResetPwModal(userId) {
+        _resetPwTargetId = userId;
+        const target = _adminUsers.find((u) => u.id === userId);
+        document.getElementById('adminResetPwIntro').textContent = target
+          ? `Setzt das Passwort für „${target.username}" zurück.`
+          : '';
+        document.getElementById('adminResetPwInput').value = '';
+        _setAuthError('adminResetPwError', '');
+        document.getElementById('adminResetPwOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById('adminResetPwInput')?.focus(), 50);
+      }
+      function closeAdminResetPwModal() {
+        document.getElementById('adminResetPwOverlay').classList.remove('open');
+        if (!document.getElementById('drawer').classList.contains('open')) {
+          document.body.style.overflow = '';
+        }
+      }
+      function closeAdminResetPwModalOutside(e) {
+        if (e.target === document.getElementById('adminResetPwOverlay'))
+          closeAdminResetPwModal();
+      }
+      async function submitAdminResetPassword() {
+        _setAuthError('adminResetPwError', '');
+        if (_resetPwTargetId == null) return;
+        const pw = document.getElementById('adminResetPwInput').value;
+        if (pw.length < 12) {
+          _setAuthError('adminResetPwError',
+            'Das Passwort muss mindestens 12 Zeichen lang sein.');
+          return;
+        }
+        try {
+          const res = await authFetch(
+            'POST',
+            `/admin/users/${_resetPwTargetId}/reset-password`,
+            { new_password: pw }
+          );
+          if (!res.ok) {
+            _setAuthError('adminResetPwError', 'Passwort konnte nicht gesetzt werden.');
+            return;
+          }
+          closeAdminResetPwModal();
+          await loadAdminUsers();
+          toast('Passwort zurückgesetzt.', 'ok');
+        } catch (e) {
+          _setAuthError('adminResetPwError', 'Verbindung zum Server fehlgeschlagen.');
+        }
+      }
+
+      async function adminToggleActive(userId, activate) {
+        const target = _adminUsers.find((u) => u.id === userId);
+        const name = target ? target.username : 'Benutzer';
+        const ok = await confirmAction({
+          title: activate ? `${name} reaktivieren?` : `${name} deaktivieren?`,
+          message: activate
+            ? `${name} kann sich anschließend wieder anmelden.`
+            : `${name} kann sich danach nicht mehr anmelden. Daten bleiben erhalten.`,
+          confirmLabel: activate ? 'Reaktivieren' : 'Deaktivieren',
+          destructive: !activate,
+        });
+        if (!ok) return;
+        try {
+          const res = await authFetch(
+            'POST',
+            `/admin/users/${userId}/${activate ? 'activate' : 'deactivate'}`
+          );
+          if (!res.ok) {
+            toast('Aktion fehlgeschlagen.', 'error');
+            return;
+          }
+          await loadAdminUsers();
+          toast(activate ? 'Benutzer reaktiviert.' : 'Benutzer deaktiviert.', 'ok');
+        } catch (e) {
+          toast('Verbindung fehlgeschlagen.', 'error');
+        }
+      }
+
+      async function adminDeleteUserConfirm(userId) {
+        const target = _adminUsers.find((u) => u.id === userId);
+        const name = target ? target.username : 'Benutzer';
+        const ok = await confirmAction({
+          title: `${name} löschen?`,
+          message:
+            `Alle Buchungen, Kategorien und Tags von ${name} werden ebenfalls gelöscht. ` +
+            'Diese Aktion lässt sich nicht rückgängig machen.',
+          confirmLabel: 'Endgültig löschen',
+          destructive: true,
+        });
+        if (!ok) return;
+        try {
+          const res = await authFetch('DELETE', `/admin/users/${userId}`);
+          if (!res.ok) {
+            toast('Löschen fehlgeschlagen.', 'error');
+            return;
+          }
+          await loadAdminUsers();
+          toast('Benutzer gelöscht.', 'ok');
+        } catch (e) {
+          toast('Verbindung fehlgeschlagen.', 'error');
+        }
+      }
+
+      // ── AUTH BOOTSTRAP ────────────────────────────────────────────────────────────
+      function _showAuthView(id) {
+        // 'login' | 'setup' | 'forcePw' | null (none = app shell)
+        const map = { login: 'loginView', setup: 'setupView', forcePw: 'forcePwView' };
+        Object.values(map).forEach((vid) => {
+          const el = document.getElementById(vid);
+          if (el) el.hidden = true;
+        });
+        const shell = document.getElementById('appShell');
+        if (!id) {
+          if (shell) shell.hidden = false;
+          return;
+        }
+        if (shell) shell.hidden = true;
+        const target = document.getElementById(map[id]);
+        if (target) target.hidden = false;
+      }
+
+      function _setAuthError(slotId, msg) {
+        const el = document.getElementById(slotId);
+        if (!el) return;
+        if (!msg) {
+          el.hidden = true;
+          el.textContent = '';
+        } else {
+          el.textContent = msg;
+          el.hidden = false;
+        }
+      }
+
+      async function submitLogin() {
+        _setAuthError('loginError', '');
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const remember = document.getElementById('loginRemember').checked;
+        const btn = document.getElementById('loginSubmit');
+        if (btn) btn.disabled = true;
+        try {
+          const res = await authFetch(
+            'POST', '/auth/login',
+            { username, password, remember_me: remember },
+            { csrf: false }
+          );
+          if (res.status === 429) {
+            const data = await res.json().catch(() => ({}));
+            const secs = data.retry_after || 1;
+            _setAuthError('loginError',
+              `Zu viele Versuche. Warte ${secs} Sekunden und versuche es erneut.`);
+            return;
+          }
+          if (!res.ok) {
+            _setAuthError('loginError', 'Benutzername oder Passwort stimmt nicht.');
+            return;
+          }
+          const data = await res.json();
+          window._csrfToken = data.user.csrf_token;
+          _broadcastCsrfToSw(window._csrfToken);
+          await _afterAuthSuccess(data.user);
+        } catch (e) {
+          _setAuthError('loginError', 'Verbindung zum Server fehlgeschlagen.');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+
+      async function submitSetup() {
+        _setAuthError('setupError', '');
+        const username = document.getElementById('setupUsername').value.trim();
+        const password = document.getElementById('setupPassword').value;
+        const confirm = document.getElementById('setupPasswordConfirm').value;
+        if (password !== confirm) {
+          _setAuthError('setupError', 'Die Passwörter stimmen nicht überein.');
+          return;
+        }
+        if (password.length < 12) {
+          _setAuthError('setupError', 'Das Passwort muss mindestens 12 Zeichen lang sein.');
+          return;
+        }
+        try {
+          const res = await authFetch('POST', '/auth/setup',
+            { username, password }, { csrf: false });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            const detail = data.detail || '';
+            if (detail === 'setup_already_done') {
+              _setAuthError('setupError',
+                'Die Ersteinrichtung ist bereits abgeschlossen. Bitte neu laden.');
+            } else {
+              _setAuthError('setupError',
+                'Einrichtung fehlgeschlagen. Eingaben prüfen und erneut versuchen.');
+            }
+            return;
+          }
+          location.reload();
+        } catch (e) {
+          _setAuthError('setupError', 'Verbindung zum Server fehlgeschlagen.');
+        }
+      }
+
+      async function submitForcePassword() {
+        _setAuthError('forcePwError', '');
+        const current = document.getElementById('forcePwCurrent').value;
+        const next = document.getElementById('forcePwNew').value;
+        const confirm = document.getElementById('forcePwConfirm').value;
+        if (next !== confirm) {
+          _setAuthError('forcePwError', 'Die neuen Passwörter stimmen nicht überein.');
+          return;
+        }
+        if (next.length < 12) {
+          _setAuthError('forcePwError', 'Das Passwort muss mindestens 12 Zeichen lang sein.');
+          return;
+        }
+        if (next === current) {
+          _setAuthError('forcePwError',
+            'Das neue Passwort muss sich vom alten unterscheiden.');
+          return;
+        }
+        try {
+          const res = await authFetch('POST', '/auth/change-password',
+            { current_password: current, new_password: next });
+          if (res.status === 400) {
+            const data = await res.json().catch(() => ({}));
+            if (data.detail === 'current_password_wrong') {
+              _setAuthError('forcePwError', 'Das aktuelle Passwort stimmt nicht.');
+            } else if (data.detail === 'password_reused') {
+              _setAuthError('forcePwError',
+                'Das neue Passwort muss sich vom alten unterscheiden.');
+            } else {
+              _setAuthError('forcePwError', 'Passwortwechsel fehlgeschlagen.');
+            }
+            return;
+          }
+          if (!res.ok) {
+            _setAuthError('forcePwError', 'Passwortwechsel fehlgeschlagen.');
+            return;
+          }
+          location.reload();
+        } catch (e) {
+          _setAuthError('forcePwError', 'Verbindung zum Server fehlgeschlagen.');
+        }
+      }
+
+      async function _afterAuthSuccess(me) {
+        document.body.classList.toggle('is-admin', !!me.is_admin);
+        const usernameLabel = document.getElementById('accountUsername');
+        if (usernameLabel) usernameLabel.textContent = `Angemeldet als ${me.username}`;
+        if (me.force_change_password) {
+          _showAuthView('forcePw');
+          setTimeout(() => document.getElementById('forcePwCurrent')?.focus(), 50);
+          return;
+        }
+        _showAuthView(null);
+        await loadCategoryIconSprite();
+        await loadCategories();
+        await loadTags();
+        await loadAndRender();
+        showPanel(loadDefaultView());
+        updateSyncBadge();
+        reconcileSettingsFromServer();
+      }
+
       // ── INIT ──────────────────────────────────────────────────────────────────────
       async function init() {
         applyTheme(loadTheme());
@@ -3611,16 +4134,62 @@
             console.warn('SW registration failed:', e);
           }
         }
-        // Inject the category icon sprite before the first list render so
-        // <use href="#cat-…"> resolves on the very first paint.
-        await loadCategoryIconSprite();
-        await loadCategories();
-        await loadTags();
-        await loadAndRender();
-        showPanel(loadDefaultView());
-        updateSyncBadge();
-        // Server-Backup im Hintergrund — überschreibt localStorage nur,
-        // falls der Server eine andere (aktuellere oder überlebende) Version hält.
-        reconcileSettingsFromServer();
+
+        // 1) Setup-Status: braucht die DB einen ersten Admin?
+        let needsSetup = false;
+        let suggested = null;
+        try {
+          const res = await fetch(API + '/auth/setup-status', {
+            credentials: 'same-origin',
+          });
+          if (res.ok) {
+            const data = await res.json();
+            needsSetup = !!data.needs_setup;
+            suggested = data.suggested_username || null;
+          }
+        } catch (e) {
+          // Backend nicht erreichbar — Login-View zeigen, der User
+          // sieht beim Submit den Verbindungsfehler.
+        }
+        if (needsSetup) {
+          if (suggested) {
+            const u = document.getElementById('setupUsername');
+            if (u) {
+              u.value = suggested;
+              u.readOnly = true;
+            }
+            const intro = document.getElementById('setupIntro');
+            if (intro) intro.textContent =
+              `Vergib ein Passwort für das vorhandene Admin-Konto „${suggested}".`;
+          }
+          _showAuthView('setup');
+          setTimeout(() => {
+            const focusEl = document.getElementById(
+              suggested ? 'setupPassword' : 'setupUsername'
+            );
+            focusEl?.focus();
+          }, 50);
+          return;
+        }
+
+        // 2) Bin ich eingeloggt?
+        window._suppressAuthReload = true;
+        let me = null;
+        try {
+          const res = await fetch(API + '/auth/me', {
+            credentials: 'same-origin',
+          });
+          if (res.ok) me = await res.json();
+        } catch (e) {}
+        window._suppressAuthReload = false;
+
+        if (!me) {
+          _showAuthView('login');
+          setTimeout(() => document.getElementById('loginUsername')?.focus(), 50);
+          return;
+        }
+        window._csrfToken = me.csrf_token;
+        _broadcastCsrfToSw(window._csrfToken);
+        await _afterAuthSuccess(me);
       }
       init();

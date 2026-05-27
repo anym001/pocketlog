@@ -5,6 +5,7 @@ from sqlalchemy import (
     CHAR,
     DECIMAL,
     TIMESTAMP,
+    Boolean,
     Column,
     Date,
     Enum,
@@ -71,6 +72,37 @@ class User(Base):
     # column-level `unique=True` would let SQLAlchemy auto-name it and
     # diverge from what alembic 0002 emitted on production.
     username: Mapped[str] = mapped_column(String(150), nullable=False)
+    # Argon2id hash. NULL = no password yet (bootstrap users from the
+    # pre-app-auth era and freshly-promoted admins in setup mode).
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="0", default=False
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="1", default=True
+    )
+    force_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="0", default=False
+    )
+    # Python-side default ensures every ORM INSERT carries a value —
+    # necessary on the SQLite test path where the migration adds the
+    # column without a server default (SQLite refuses ALTER TABLE
+    # ADD COLUMN ... DEFAULT CURRENT_TIMESTAMP). On MariaDB the
+    # server_default still applies for non-ORM inserts.
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        default=lambda: datetime.utcnow(),
+    )
+    # Brute-force backoff state. Both columns are reset on a successful
+    # login and on admin password-reset.
+    failed_login_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0", default=0
+    )
+    lockout_until: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(), nullable=True
+    )
 
     categories: Mapped[list["Category"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -84,6 +116,57 @@ class User(Base):
     settings: Mapped["UserSettings | None"] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
     )
+    sessions: Mapped[list["Session"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Session(Base):
+    """Server-side session record.
+
+    The plain token lives only in the user's cookie (HttpOnly). The DB
+    keeps the sha256 hex so a DB leak can't be replayed as a session
+    hijack. CSRF token is a separate random value stored in plain — it
+    is sent to JS via a readable cookie + ``GET /api/auth/me`` and
+    compared on every state-changing request.
+    """
+    __tablename__ = "sessions"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_sessions_token_hash"),
+        Index("ix_sessions_user_id", "user_id"),
+        Index("ix_sessions_expires_at", "expires_at"),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    csrf_token: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+    expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(), nullable=False)
+    # Hard cap so a stolen cookie can't be refreshed indefinitely by a
+    # quiet attacker who only needs to make one request a day to stay
+    # under the sliding window.
+    absolute_expires_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(), nullable=False
+    )
+    remember_me: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="0", default=False
+    )
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="sessions")
 
 
 class UserSettings(Base):

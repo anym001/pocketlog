@@ -1,81 +1,41 @@
 import csv
-import hmac
 import io
 import logging
 import os
-import re
 from datetime import date as date_type
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from . import crud, models, schemas
+from . import auth, crud, models, schemas
 from .database import get_db
 
 logger = logging.getLogger("uvicorn.error")
-
-# Shared secret between SWAG and the backend. Every request must carry a
-# matching X-Auth-Secret header — guards against direct access to port
-# 8000 with a forged X-Authentik-Username header. The backend refuses to
-# start without a secret unless ALLOW_NO_AUTH_SECRET=1 is set explicitly
-# (intended for local dev where port 8000 is never exposed).
-AUTH_SECRET = os.environ.get("AUTH_SECRET", "").strip()
-# The SWAG sample config ships with `REPLACE-ME-WITH-OPENSSL-RAND-HEX-32`
-# as a deliberately conspicuous placeholder. If that string ever ends up
-# in the AUTH_SECRET env, the operator forgot to generate a real secret;
-# refusing to start is safer than silently accepting it as the shared
-# token (which would let anyone who knows the template impersonate SWAG).
-if "REPLACE-ME" in AUTH_SECRET:
-    raise SystemExit(
-        "AUTH_SECRET still contains the placeholder 'REPLACE-ME…' from the "
-        "SWAG sample config. Generate a real secret with `openssl rand -hex 32` "
-        "and set it both on this container and in SWAG's "
-        "pocketlog.subdomain.conf."
-    )
-if not AUTH_SECRET:
-    if os.environ.get("ALLOW_NO_AUTH_SECRET") != "1":
-        raise SystemExit(
-            "AUTH_SECRET is not set. The backend refuses to start without a "
-            "shared secret with SWAG. Generate one with `openssl rand -hex 32` "
-            "and set it both as the AUTH_SECRET environment variable on this "
-            "container and as the X-Auth-Secret value in SWAG's "
-            "pocketlog.subdomain.conf. To explicitly run without a secret "
-            "(local dev only — never expose port 8000), set "
-            "ALLOW_NO_AUTH_SECRET=1."
-        )
-    # Banner-style so this can't get lost in the uvicorn startup chatter.
-    # Anyone running this configuration is one firewall mistake away from
-    # a credentialless takeover; the warning has to be hard to overlook
-    # when scanning `docker logs`.
-    logger.warning(
-        "\n"
-        "================================================================\n"
-        " ALLOW_NO_AUTH_SECRET=1 — running WITHOUT shared-secret auth.\n"
-        " The backend blindly trusts the X-Authentik-Username header.\n"
-        " Port 8000 must only be reachable through SWAG / Authentik in\n"
-        " this configuration. Never expose it to the public internet.\n"
-        "================================================================"
-    )
-
-# Allowlist for the X-Authentik-Username header. Authentik usernames are
-# ASCII slugs (letters, digits, dot, underscore, dash) plus @ and + for
-# email-style logins. Length is bound to the DB column (VARCHAR(150)).
-# Rejecting whitespace, NUL bytes, control characters and Unicode prevents
-# the auto-create flow in crud.get_or_create_user from materialising a
-# second user row that differs from the legitimate one only by an
-# invisible character (trailing space, RTL override, ZWJ).
-USERNAME_RE = re.compile(r"^[A-Za-z0-9._@+\-]{1,150}$")
 
 # Swagger UI and the OpenAPI schema are off by default. Both leak the full
 # API surface and Swagger's "Try it out" issues real requests against this
 # backend. Opt in with ENABLE_DOCS=1 when debugging — never in production.
 DOCS_ENABLED = os.environ.get("ENABLE_DOCS") == "1"
+
+# Cookie attributes. `Secure` is on by default; flip via
+# SESSION_COOKIE_SECURE=0 only for local HTTP dev where the cookie would
+# otherwise never be sent at all. SameSite=Lax is the right balance for
+# a SPA hosted same-origin behind a reverse proxy: it blocks classic
+# cross-site POSTs while still letting bookmark/typed-URL navigations
+# carry the cookie. The defense-in-depth against CSRF is the
+# X-CSRF-Token header (double-submit cookie).
+SESSION_COOKIE_NAME = "pocketlog_session"
+CSRF_COOKIE_NAME = "pocketlog_csrf"
+CSRF_HEADER_NAME = "X-CSRF-Token"
+COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1") != "0"
+COOKIE_PATH = "/"
+COOKIE_SAMESITE = "lax"
 
 app = FastAPI(
     title="PocketLog API",
@@ -129,28 +89,157 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 
+# ---------------------------------------------------------------------
+# Cookie helpers
+# ---------------------------------------------------------------------
+
+def _set_session_cookies(
+    response: Response,
+    plain_token: str,
+    csrf_token: str,
+    *,
+    remember_me: bool,
+) -> None:
+    """Setzt das Session- und das CSRF-Cookie. Beide haben dieselbe
+    Lebensdauer; das CSRF-Cookie ist NICHT HttpOnly, damit der
+    Frontend-JS-Code es lesen und im ``X-CSRF-Token``-Header
+    zurückschicken kann (Double-Submit-Pattern)."""
+    max_age = auth.cookie_max_age_seconds(remember_me)
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=plain_token,
+        max_age=max_age,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        path=COOKIE_PATH,
+    )
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=csrf_token,
+        max_age=max_age,
+        httponly=False,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        path=COOKIE_PATH,
+    )
+
+
+def _clear_session_cookies(response: Response) -> None:
+    response.delete_cookie(
+        SESSION_COOKIE_NAME,
+        path=COOKIE_PATH,
+        samesite=COOKIE_SAMESITE,
+        secure=COOKIE_SECURE,
+        httponly=True,
+    )
+    response.delete_cookie(
+        CSRF_COOKIE_NAME,
+        path=COOKIE_PATH,
+        samesite=COOKIE_SAMESITE,
+        secure=COOKIE_SECURE,
+        httponly=False,
+    )
+
+
+def _refresh_cookie_if_needed(
+    response: Response, session: models.Session, refreshed: bool
+) -> None:
+    """Wenn der Sliding-Refresh getriggert hat, setzen wir das
+    Session-Cookie mit neuer Max-Age neu. Sonst lassen wir den Cookie
+    in Ruhe — die Cookie-Lebensdauer im Browser läuft dann zwar weiter,
+    aber die Server-Seite ist die Source of Truth, ein Cookie-Replay
+    nach absolute_expires_at bringt nichts."""
+    if not refreshed:
+        return
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=session.csrf_token,
+        max_age=auth.cookie_max_age_seconds(session.remember_me),
+        httponly=False,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        path=COOKIE_PATH,
+    )
+
+
+# ---------------------------------------------------------------------
+# Auth-Dependencies
+# ---------------------------------------------------------------------
+
+def _unauthorized(response: Response) -> HTTPException:
+    """401 + leere Cookies. Verhindert, dass der Browser denselben
+    kaputten Cookie immer wieder mitschickt."""
+    _clear_session_cookies(response)
+    return HTTPException(status_code=401, detail="unauthorized")
+
+
 def get_current_user(
+    request: Request,
+    response: Response,
     db: Annotated[Session, Depends(get_db)],
-    x_authentik_username: Annotated[str | None, Header()] = None,
-    x_auth_secret: Annotated[str | None, Header()] = None,
 ) -> models.User:
-    # Both branches return the same generic detail so a direct probe on
-    # port 8000 can't tell which header was wrong — that would leak how
-    # far the request got past the auth boundary.
-    if AUTH_SECRET and not (x_auth_secret and hmac.compare_digest(x_auth_secret, AUTH_SECRET)):
-        raise HTTPException(status_code=401, detail="unauthorized")
-    # Strip leading/trailing whitespace so an accidental space in the
-    # Authentik header doesn't create a parallel user row, then enforce
-    # the allowlist.
-    username = (x_authentik_username or "").strip()
-    if not username or not USERNAME_RE.match(username):
-        raise HTTPException(status_code=401, detail="unauthorized")
-    return crud.get_or_create_user(db, username)
+    plain = request.cookies.get(SESSION_COOKIE_NAME)
+    if not plain:
+        raise _unauthorized(response)
+    session = auth.get_session_by_token(db, plain)
+    if session is None:
+        raise _unauthorized(response)
+    user = db.get(models.User, session.user_id)
+    if user is None or not user.is_active:
+        # User wurde gelöscht oder deaktiviert: Session ungültig.
+        auth.revoke_session(db, session)
+        raise _unauthorized(response)
+
+    # CSRF-Check für alle non-safe Methoden. GET/HEAD/OPTIONS sind
+    # idempotent und brauchen den Header nicht — wir wollen sonst auch
+    # einfache Browser-Navigation aus dem PWA-Shell heraus nicht
+    # blockieren.
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        sent = request.headers.get(CSRF_HEADER_NAME, "")
+        if not sent or not auth.constant_time_eq(sent, session.csrf_token):
+            raise HTTPException(status_code=403, detail="csrf_mismatch")
+
+    refreshed = auth.refresh_session_if_needed(db, session)
+    _refresh_cookie_if_needed(response, session, refreshed)
+    # Stash on the request so request-scoped helpers (z. B. der
+    # Self-Schutz für DELETE /api/admin/users/{id}) auf die Session-ID
+    # kommen ohne sie nochmal aus dem Cookie zu hashen.
+    request.state.session_id = session.id
+    return user
 
 
-CurrentUser = Annotated[models.User, Depends(get_current_user)]
+def require_active_password(
+    user: Annotated[models.User, Depends(get_current_user)],
+) -> models.User:
+    """Sperrt alle App-Endpoints, solange ``force_change_password`` an
+    ist. Aufrufer (Frontend) MUSS erst ``POST /api/auth/change-password``
+    aufrufen. ``/api/auth/me``, ``/api/auth/logout`` und
+    ``/api/auth/change-password`` umgehen diesen Block."""
+    if user.force_change_password:
+        raise HTTPException(
+            status_code=403, detail="password_change_required"
+        )
+    return user
+
+
+def require_admin(
+    user: Annotated[models.User, Depends(require_active_password)],
+) -> models.User:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="admin_required")
+    return user
+
+
+CurrentUser = Annotated[models.User, Depends(require_active_password)]
+AdminUser = Annotated[models.User, Depends(require_admin)]
+RawCurrentUser = Annotated[models.User, Depends(get_current_user)]
 DB = Annotated[Session, Depends(get_db)]
 
+
+# ---------------------------------------------------------------------
+# Public endpoints
+# ---------------------------------------------------------------------
 
 @app.get("/api/health")
 def health() -> dict:
@@ -162,7 +251,301 @@ def version() -> dict:
     return {"version": os.environ.get("APP_VERSION", "dev")}
 
 
-# ---------- Categories ----------
+# ---------------------------------------------------------------------
+# Auth endpoints
+# ---------------------------------------------------------------------
+
+def _needs_setup(db: Session) -> tuple[bool, str | None]:
+    """Setup-Modus aktiv? Falls ja, optional Username-Vorschlag.
+
+    Drei Fälle:
+    1. Gar kein User in der DB → leerer Vorschlag, der Operator gibt
+       Username und Passwort frei ein.
+    2. Genau ein Admin existiert, hat aber noch keinen ``password_hash``
+       → das ist der via Migration promovierte Bestand-Admin. Vorschlag
+       enthält seinen Username, das Frontend macht das Feld read-only.
+    3. Sonst (mindestens ein Admin mit Passwort) → kein Setup mehr.
+    """
+    if crud.count_users(db) == 0:
+        return True, None
+    pending = crud.get_pending_admin(db)
+    if pending is not None:
+        return True, pending.username
+    return False, None
+
+
+@app.get("/api/auth/setup-status", response_model=schemas.SetupStatus)
+def setup_status(db: DB):
+    needs, suggested = _needs_setup(db)
+    return schemas.SetupStatus(needs_setup=needs, suggested_username=suggested)
+
+
+@app.post("/api/auth/setup")
+def setup_admin(payload: schemas.SetupRequest, response: Response, db: DB):
+    needs, suggested = _needs_setup(db)
+    if not needs:
+        # Setup ist bereits abgeschlossen — kein Admin-Override-Pfad
+        # offen lassen.
+        raise HTTPException(status_code=409, detail="setup_already_done")
+
+    if suggested is not None:
+        # Bestand-Admin: Username ist DB-seitig vorgegeben, wir
+        # akzeptieren nur das Passwort.
+        user = crud.get_user_by_username(db, suggested)
+        if user is None or not user.is_admin or user.password_hash is not None:
+            # Race: zwischen status-check und setup hat sich der State
+            # geändert. Sauber abbrechen.
+            raise HTTPException(status_code=409, detail="setup_already_done")
+        crud.set_user_password(
+            db, user, payload.password, force_change=False
+        )
+    else:
+        # Fresh install: neuer Admin-User mit dem gewählten Username.
+        try:
+            user = crud.create_user(
+                db,
+                username=payload.username,
+                password=payload.password,
+                is_admin=True,
+                force_change_password=False,
+            )
+        except IntegrityError:
+            # Race mit einem parallelen Setup-Versuch — Username
+            # existiert schon. Aus Sicht des zweiten Setup-Versuchs ist
+            # die DB jetzt initialisiert.
+            raise HTTPException(status_code=409, detail="setup_already_done")
+
+    # Direkt einloggen, damit die App nicht in den Login-Flow zurückfällt.
+    user_agent = response.headers.get("user-agent")  # selten gesetzt, harmlos
+    session, plain = auth.create_session(
+        db, user, remember_me=False, user_agent=user_agent
+    )
+    _set_session_cookies(response, plain, session.csrf_token, remember_me=False)
+    return {"ok": True}
+
+
+@app.post("/api/auth/login")
+def login(payload: schemas.LoginRequest, request: Request, response: Response, db: DB):
+    user_agent = request.headers.get("user-agent")
+    username = payload.username.strip()
+    user = crud.get_user_by_username(db, username) if username else None
+
+    if user is None or not user.is_active or user.password_hash is None:
+        # Konstante-Zeit-Verify gegen Dummy-Hash, damit
+        # Username-Enumeration via Timing nicht funktioniert.
+        auth.verify_password_dummy()
+        raise HTTPException(status_code=401, detail="invalid_credentials")
+
+    locked = auth.current_lockout_seconds(user)
+    if locked is not None:
+        # Während eines aktiven Lockouts wird gar nicht erst verifiziert.
+        return _lockout_response(response, locked)
+
+    if not auth.verify_password(payload.password, user.password_hash):
+        lockout = auth.record_failed_login(db, user)
+        if lockout is not None:
+            return _lockout_response(response, lockout)
+        raise HTTPException(status_code=401, detail="invalid_credentials")
+
+    auth.clear_failed_login(db, user)
+    session, plain = auth.create_session(
+        db, user, remember_me=payload.remember_me, user_agent=user_agent
+    )
+    _set_session_cookies(
+        response, plain, session.csrf_token, remember_me=payload.remember_me
+    )
+    return {
+        "user": schemas.UserMe(
+            id=user.id,
+            username=user.username,
+            is_admin=user.is_admin,
+            force_change_password=user.force_change_password,
+            csrf_token=session.csrf_token,
+        )
+    }
+
+
+def _lockout_response(response: Response, seconds: int) -> Response:
+    """429 + Retry-After. JSON-Body damit das Frontend einen
+    sprechenden Hinweis zeigen kann."""
+    body = '{"detail":"too_many_attempts","retry_after":%d}' % seconds
+    r = Response(
+        content=body,
+        status_code=429,
+        media_type="application/json",
+        headers={"Retry-After": str(seconds)},
+    )
+    # Auch hier saubere Cookies — falls noch ein altes Cookie hängt.
+    _clear_session_cookies(r)
+    return r
+
+
+@app.post("/api/auth/logout", status_code=204)
+def logout(request: Request, response: Response, db: DB):
+    plain = request.cookies.get(SESSION_COOKIE_NAME)
+    if plain:
+        session = auth.get_session_by_token(db, plain)
+        if session is not None:
+            # CSRF-Check: Logout ist state-changing.
+            sent = request.headers.get(CSRF_HEADER_NAME, "")
+            if not sent or not auth.constant_time_eq(sent, session.csrf_token):
+                raise HTTPException(status_code=403, detail="csrf_mismatch")
+            auth.revoke_session(db, session)
+    _clear_session_cookies(response)
+    return Response(status_code=204)
+
+
+@app.get("/api/auth/me", response_model=schemas.UserMe)
+def auth_me(request: Request, response: Response, db: DB, user: RawCurrentUser):
+    # CSRF-Token kommt aus der Session-Row, die get_current_user bereits
+    # validiert hat. Wir holen sie noch einmal über die request.state-ID.
+    session_id = getattr(request.state, "session_id", None)
+    session = db.get(models.Session, session_id) if session_id else None
+    csrf = session.csrf_token if session else ""
+    return schemas.UserMe(
+        id=user.id,
+        username=user.username,
+        is_admin=user.is_admin,
+        force_change_password=user.force_change_password,
+        csrf_token=csrf,
+    )
+
+
+@app.post("/api/auth/change-password", status_code=204)
+def change_password(
+    payload: schemas.ChangePasswordRequest,
+    request: Request,
+    response: Response,
+    db: DB,
+    user: RawCurrentUser,
+):
+    if not auth.verify_password(payload.current_password, user.password_hash):
+        # Kein Lockout-Trigger — der User ist authentifiziert, das ist
+        # kein Login-Brute-Force. 400 reicht.
+        raise HTTPException(
+            status_code=400, detail="current_password_wrong"
+        )
+    if payload.new_password == payload.current_password:
+        raise HTTPException(
+            status_code=400, detail="password_reused"
+        )
+    crud.set_user_password(db, user, payload.new_password, force_change=False)
+    # Alle anderen Sessions des Users invalidieren — bei einer
+    # Passwort-Änderung kann der Auslöser eine Kompromittierung
+    # gewesen sein.
+    current_session_id = getattr(request.state, "session_id", None)
+    auth.revoke_all_user_sessions(
+        db, user.id, except_id=current_session_id
+    )
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------
+# Admin-User-Endpoints
+# ---------------------------------------------------------------------
+
+def _user_to_admin_out(user: models.User) -> schemas.AdminUserOut:
+    return schemas.AdminUserOut(
+        id=user.id,
+        username=user.username,
+        is_admin=user.is_admin,
+        is_active=user.is_active,
+        force_change_password=user.force_change_password,
+        locked_until=user.lockout_until,
+        created_at=user.created_at,
+    )
+
+
+@app.get(
+    "/api/admin/users", response_model=list[schemas.AdminUserOut]
+)
+def admin_list_users(db: DB, _admin: AdminUser):
+    return [_user_to_admin_out(u) for u in crud.list_all_users(db)]
+
+
+@app.post(
+    "/api/admin/users",
+    response_model=schemas.AdminUserOut,
+    status_code=201,
+)
+def admin_create_user(
+    payload: schemas.AdminUserCreate, db: DB, _admin: AdminUser
+):
+    try:
+        user = crud.create_user(
+            db,
+            username=payload.username,
+            password=payload.password,
+            is_admin=False,
+            force_change_password=True,
+        )
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="username_taken")
+    return _user_to_admin_out(user)
+
+
+def _resolve_admin_target(
+    user_id: int, db: Session, admin: models.User
+) -> models.User:
+    """Helper: lädt den Ziel-User für eine Admin-Aktion und stellt die
+    Self-Schutz-Regeln zentral sicher. Wirft 404 wenn nicht gefunden."""
+    target = crud.get_user_by_id(db, user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    return target
+
+
+@app.post("/api/admin/users/{user_id}/reset-password", status_code=204)
+def admin_reset_password(
+    user_id: int,
+    payload: schemas.AdminPasswordReset,
+    db: DB,
+    admin: AdminUser,
+):
+    target = _resolve_admin_target(user_id, db, admin)
+    crud.set_user_password(db, target, payload.new_password, force_change=True)
+    # Sicherheit: alle Sessions des betroffenen Users wegwerfen, damit
+    # ein bereits eingeloggter Tab nicht weiterläuft.
+    auth.revoke_all_user_sessions(db, target.id)
+    return Response(status_code=204)
+
+
+@app.post("/api/admin/users/{user_id}/deactivate", status_code=204)
+def admin_deactivate(user_id: int, db: DB, admin: AdminUser):
+    target = _resolve_admin_target(user_id, db, admin)
+    if target.id == admin.id:
+        raise HTTPException(status_code=400, detail="cannot_modify_self")
+    if target.is_admin:
+        # Admins dürfen nicht deaktiviert werden — sonst landet die App
+        # in einem Zustand mit null Admins.
+        raise HTTPException(status_code=400, detail="cannot_modify_admin")
+    crud.deactivate_user(db, target)
+    auth.revoke_all_user_sessions(db, target.id)
+    return Response(status_code=204)
+
+
+@app.post("/api/admin/users/{user_id}/activate", status_code=204)
+def admin_activate(user_id: int, db: DB, admin: AdminUser):
+    target = _resolve_admin_target(user_id, db, admin)
+    if target.id == admin.id:
+        # Self ist immer aktiv (sonst wäre admin oben gar nicht hier).
+        raise HTTPException(status_code=400, detail="cannot_modify_self")
+    crud.activate_user(db, target)
+    return Response(status_code=204)
+
+
+@app.delete("/api/admin/users/{user_id}", status_code=204)
+def admin_delete_user(user_id: int, db: DB, admin: AdminUser):
+    target = _resolve_admin_target(user_id, db, admin)
+    if target.id == admin.id:
+        raise HTTPException(status_code=400, detail="cannot_modify_self")
+    crud.delete_user(db, target)
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------
+# Categories
+# ---------------------------------------------------------------------
 
 @app.get("/api/categories", response_model=list[schemas.CategoryOut])
 def get_categories(user: CurrentUser, db: DB):
@@ -208,7 +591,9 @@ def remove_category(category_id: int, user: CurrentUser, db: DB):
     return Response(status_code=204)
 
 
-# ---------- Transactions ----------
+# ---------------------------------------------------------------------
+# Transactions
+# ---------------------------------------------------------------------
 
 @app.get(
     "/api/transactions",
@@ -277,7 +662,9 @@ def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
     return Response(status_code=204)
 
 
-# ---------- Tags ----------
+# ---------------------------------------------------------------------
+# Tags
+# ---------------------------------------------------------------------
 
 @app.get("/api/tags", response_model=list[schemas.TagOut])
 def get_tags(user: CurrentUser, db: DB):
@@ -312,9 +699,13 @@ def remove_tag(name: str, user: CurrentUser, db: DB):
     return Response(status_code=204)
 
 
-# ---------- Admin / Data Management ----------
+# ---------------------------------------------------------------------
+# Admin / Data Management (user-self-service despite the path)
+# ---------------------------------------------------------------------
 # Bulk reset operations the user triggers from the Verwaltung drawer.
-# User row and user_settings are preserved either way.
+# User row and user_settings are preserved either way. Paths kept under
+# /api/admin/* for backwards-compat with already-queued outbox entries
+# in the IndexedDB outbox — renaming would orphan those.
 
 @app.delete("/api/admin/transactions", status_code=204)
 def reset_transactions(user: CurrentUser, db: DB):
@@ -328,7 +719,9 @@ def reset_all_data(user: CurrentUser, db: DB):
     return Response(status_code=204)
 
 
-# ---------- User Settings ----------
+# ---------------------------------------------------------------------
+# User Settings
+# ---------------------------------------------------------------------
 # Mirror of the UI preferences in localStorage. The frontend renders from
 # localStorage for an instant paint and reconciles with the server in the
 # background — this endpoint pair is the backup that survives iOS-side
@@ -344,7 +737,9 @@ def put_settings(payload: schemas.SettingsUpdate, user: CurrentUser, db: DB):
     return crud.update_settings(db, user.id, payload)
 
 
-# ---------- CSV-Import ----------
+# ---------------------------------------------------------------------
+# CSV-Import
+# ---------------------------------------------------------------------
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB
 MAX_IMPORT_ROWS = 10_000
@@ -368,7 +763,9 @@ async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
     return crud.import_csv(db, user.id, text, max_rows=MAX_IMPORT_ROWS)
 
 
-# ---------- CSV-Export ----------
+# ---------------------------------------------------------------------
+# CSV-Export
+# ---------------------------------------------------------------------
 
 # Excel, Numbers and LibreOffice evaluate cell contents that start with =, +,
 # -, @ or a leading tab/CR as a formula. A user-controlled field that begins
@@ -415,7 +812,9 @@ def export_csv(user: CurrentUser, db: DB):
     )
 
 
-# ---------- PWA Static Files ----------
+# ---------------------------------------------------------------------
+# PWA Static Files
+# ---------------------------------------------------------------------
 # Located at /app/static in the image (see Dockerfile). Must be mounted last
 # so that /api/* routes take precedence.
 _static_dir = Path(__file__).resolve().parent.parent / "static"
