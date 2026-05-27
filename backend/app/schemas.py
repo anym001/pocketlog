@@ -265,11 +265,16 @@ class UserMe(BaseModel):
     username: str
     is_admin: bool
     force_change_password: bool
+    has_password: bool
     csrf_token: str
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH)
+    # None when the user has no password yet (migration path, password_hash IS
+    # NULL). The backend skips verification in that case.
+    current_password: str | None = Field(
+        default=None, max_length=MAX_PASSWORD_LENGTH
+    )
     new_password: str = Field(
         min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
     )

@@ -274,13 +274,12 @@
           Vergib ein eigenes Passwort, bevor du fortfährst.
         </p>
         <form id="forcePwForm" class="auth-form" onsubmit="event.preventDefault(); submitForcePassword();">
-          <div class="form-group">
+          <div class="form-group" id="forcePwCurrentGroup">
             <label for="forcePwCurrent">Aktuelles Passwort</label>
             <input
               type="password"
               id="forcePwCurrent"
               autocomplete="current-password"
-              required
             />
           </div>
           <div class="form-group">
