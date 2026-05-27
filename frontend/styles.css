@@ -3111,6 +3111,161 @@
         }
       }
 
+      /* ====== AUTH VIEWS (Login, Setup, Force-Change-Password) ====== */
+      /* Full-viewport centered card. Shares form-group styling with the
+         transaction modal so a single source of truth governs the inputs.
+         Stays inside the app's design tokens — no hex/px literals. */
+      .auth-view {
+        position: fixed;
+        inset: 0;
+        background: var(--bg-canvas);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: max(var(--space-56), env(safe-area-inset-top)) var(--space-20)
+          max(var(--space-56), env(safe-area-inset-bottom));
+        z-index: var(--z-modal, 1000);
+        overflow-y: auto;
+      }
+      .auth-card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--surface, var(--bg-canvas));
+        border: 1px solid var(--surface-tint);
+        border-radius: var(--r-xl, 20px);
+        padding: var(--space-24) var(--space-20) var(--space-20);
+        box-shadow: var(--shadow-md, 0 4px 24px rgba(0, 0, 0, 0.08));
+      }
+      .auth-brand {
+        font-family: 'DM Serif Display', serif;
+        font-weight: 400;
+        font-size: var(--fs-title);
+        color: var(--text);
+        margin: 0 0 var(--space-4);
+        text-align: center;
+      }
+      .auth-brand span {
+        color: var(--accent);
+      }
+      .auth-headline {
+        font-size: var(--fs-headline);
+        color: var(--text);
+        margin: 0 0 var(--space-16);
+        text-align: center;
+        font-weight: 600;
+      }
+      .auth-intro {
+        font-size: var(--fs-footnote);
+        color: var(--text2);
+        line-height: 1.45;
+        margin: 0 0 var(--space-20);
+        text-align: center;
+      }
+      .auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-16);
+      }
+      .auth-form .form-group {
+        margin: 0;
+      }
+      .auth-remember {
+        display: flex;
+        align-items: center;
+        gap: var(--space-8);
+        font-size: var(--fs-footnote);
+        color: var(--text2);
+        margin: 0;
+        padding-left: var(--space-4);
+        cursor: pointer;
+      }
+      .auth-remember input[type='checkbox'] {
+        width: auto;
+        margin: 0;
+      }
+      .auth-error {
+        font-size: var(--fs-footnote);
+        color: var(--red, #b3261e);
+        background: var(--accent-tint);
+        padding: var(--space-8) var(--space-12);
+        border-radius: var(--r-md, 12px);
+        margin: 0;
+        line-height: 1.4;
+      }
+
+      /* ====== ADMIN USER LIST ====== */
+      .admin-user-row {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        padding: var(--space-12) var(--space-14);
+        background: var(--glass-thin, var(--surface-tint));
+        border-radius: var(--r-md, 12px);
+        margin-bottom: var(--space-8);
+      }
+      .admin-user-row-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-8);
+      }
+      .admin-user-name {
+        font-weight: 600;
+        color: var(--text);
+        font-size: var(--fs-body);
+      }
+      .admin-user-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-4);
+        font-size: var(--fs-micro);
+      }
+      .admin-user-tag {
+        background: var(--surface-tint);
+        color: var(--text2);
+        padding: 2px var(--space-8);
+        border-radius: 999px;
+      }
+      .admin-user-tag.admin {
+        background: var(--accent-tint);
+        color: var(--accent);
+      }
+      .admin-user-tag.inactive {
+        opacity: 0.7;
+      }
+      .admin-user-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-8);
+        margin-top: var(--space-8);
+      }
+      .admin-user-actions button {
+        flex: 0 0 auto;
+        font-size: var(--fs-caption);
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--surface-tint);
+        padding: var(--space-8) var(--space-12);
+        border-radius: var(--r-md, 12px);
+        cursor: pointer;
+        min-height: 44px;
+      }
+      .admin-user-actions button.btn-destructive {
+        color: var(--red, #b3261e);
+        border-color: var(--red, #b3261e);
+      }
+      .admin-user-actions button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      /* Admin-only menu entries collapse to display:none when the
+         body doesn't carry the .is-admin class. Cleaner than juggling
+         `hidden` from JS, and survives view re-renders. */
+      body:not(.is-admin) .admin-only {
+        display: none !important;
+      }
+
       /* Reduced motion */
       @media (prefers-reduced-motion: reduce) {
         body::after {

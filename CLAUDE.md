@@ -5,12 +5,13 @@
 iPhone/iPad/Mac (installierte PWA)
         ↓ HTTPS
      SWAG Proxy          ← pocketlog.deinedomain.de
-        ↓                  injiziert X-Auth-Secret in jeden Backend-Request
-     Authentik           ← Forward Auth + MFA, setzt X-Authentik-Username
-        ↓
+        ↓                  Domain-Tor: forward auth → Authentik
+     Authentik           ← Passwort + MFA. KEINE Identität an die App;
+        ↓                  X-Authentik-Username/Authorization werden ignoriert.
   ┌─────────────────────────────────────┐
   │  FastAPI-Container :8000            │  /          → statische PWA-Files
   │  (uvicorn, Python 3.12)             │  /api/*     → Python API
+  │  App-Auth: pocketlog_session-Cookie + X-CSRF-Token-Header (Double-Submit).
   └──────────────────┬──────────────────┘
                      ↓
             externe MariaDB (vom User selbst betrieben)
@@ -70,8 +71,17 @@ Falls eine Abhängigkeit nur online verfügbar ist, im Code-Kommentar **und** hi
 
 ## API Endpoints (FastAPI)
 ```
+# Public (kein App-Login nötig)
 GET    /api/health
-GET    /api/version                      ← liefert {"version": "X.Y.Z"}, kein Auth
+GET    /api/version                      ← liefert {"version": "X.Y.Z"}
+GET    /api/auth/setup-status            ← {needs_setup, suggested_username}
+POST   /api/auth/setup                   ← nur solange kein Admin gesetzt ist
+POST   /api/auth/login                   ← Cookie + CSRF; 429 + Retry-After bei Lockout
+POST   /api/auth/logout                  ← braucht X-CSRF-Token
+
+# User (Session-Cookie + X-CSRF-Token bei non-GET)
+GET    /api/auth/me                      ← {id, username, is_admin, force_change_password, csrf_token}
+POST   /api/auth/change-password         ← invalidiert alle anderen Sessions des Users
 GET    /api/transactions?year=&month=    ← month optional → ganzes Jahr
 POST   /api/transactions
 PUT    /api/transactions/{id}
@@ -88,15 +98,45 @@ GET    /api/settings                     ← {theme, default_view}, legt Default
 PUT    /api/settings                     ← partial: theme?, default_view?
 POST   /api/import/csv                   ← max. 5 MB, UTF-8 oder CP1252
 GET    /api/export/csv
-DELETE /api/admin/transactions           ← löscht alle Buchungen des Users
-DELETE /api/admin/all-data               ← löscht Buchungen, Kategorien, Tags (User + Settings bleiben)
+DELETE /api/admin/transactions           ← User-Self-Service: löscht alle Buchungen DES EIGENEN Users
+DELETE /api/admin/all-data               ← User-Self-Service: löscht eigene Buchungen, Kategorien, Tags (User + Settings bleiben)
+
+# Admin (Session-Cookie + admin-Rolle + X-CSRF-Token)
+GET    /api/admin/users                  ← User-Liste mit Status
+POST   /api/admin/users                  ← Username + Passwort; setzt force_change_password=true
+POST   /api/admin/users/{id}/reset-password   ← neues Passwort, force_change=true, alle Sessions gekillt
+POST   /api/admin/users/{id}/deactivate       ← nicht auf self, nicht auf andere Admins
+POST   /api/admin/users/{id}/activate         ← nicht auf self
+DELETE /api/admin/users/{id}                  ← Cascade-Löschung; nicht auf self
 ```
 
 ## Datenbankschema (MariaDB)
 ```sql
--- users
+-- users                       -- App-eigene Identität; Authentik kommt
+                               -- nicht mehr ans Backend.
 id INT PK AUTO_INCREMENT
-username VARCHAR(150) UNIQUE   -- gespiegelter Authentik-Username
+username VARCHAR(150) UNIQUE
+password_hash VARCHAR(255) NULL          -- argon2id, NULL = noch nicht vergeben
+is_admin BOOLEAN NOT NULL DEFAULT FALSE  -- genau ein Admin pro Installation
+is_active BOOLEAN NOT NULL DEFAULT TRUE
+force_change_password BOOLEAN NOT NULL DEFAULT FALSE
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+failed_login_count INT NOT NULL DEFAULT 0   -- Brute-Force-Backoff
+lockout_until TIMESTAMP NULL                -- aktive Sperre, NULL = frei
+
+-- sessions                    -- Server-seitige Session-Records.
+                               -- Plain-Token nur im Cookie, DB hat sha256.
+id INT PK AUTO_INCREMENT
+user_id INT FK -> users.id (ON DELETE CASCADE) INDEX
+token_hash CHAR(64) UNIQUE              -- sha256 hex des Cookie-Werts
+csrf_token CHAR(64)                     -- separat, Double-Submit-Pattern
+created_at TIMESTAMP
+last_seen_at TIMESTAMP                  -- Sliding-Refresh-Damper: 5 min
+expires_at TIMESTAMP                    -- sliding (24h / 30d bei Remember-Me)
+absolute_expires_at TIMESTAMP           -- hard cap (7d / 90d)
+remember_me BOOLEAN
+user_agent VARCHAR(255) NULL
+INDEX (expires_at)                       -- cleanup-Job
 
 -- categories
 id INT PK AUTO_INCREMENT
@@ -142,22 +182,59 @@ theme VARCHAR(16)              -- 'system' | 'light' | 'dark'
 default_view VARCHAR(32)       -- 'transactions' | 'categories'
 updated_at TIMESTAMP           -- DEFAULT/ON UPDATE CURRENT_TIMESTAMP
 ```
-Beim ersten Request eines Users legt `crud.get_or_create_user` automatisch
-einen Eintrag in `users` an (Lookup über `X-Authentik-Username`) und seedet
-in demselben Schritt die Default-Kategorien (`crud._seed_default_categories`).
-Das Seeding läuft bewusst nur beim Anlegen des Users — nicht bei jedem
+User werden über `crud.create_user` angelegt — entweder im Setup-Flow
+(erster Admin) oder vom Admin über `POST /api/admin/users` (alle weiteren
+Konten, mit `force_change_password=true`). `create_user` seedet in demselben
+Schritt die Default-Kategorien (`crud._seed_default_categories`). Das Seeding
+läuft bewusst nur beim Anlegen des Users — nicht bei jedem
 `GET /api/categories` — damit `DELETE /api/admin/all-data` die Kategorien
 nicht direkt wieder auferstehen lässt.
 
 ## Auth-Konzept
-SWAG (Authentik Forward Auth) setzt `X-Authentik-Username`; injiziert außerdem `X-Auth-Secret`.
-`get_current_user()` in `main.py` prüft beide Header (timing-safe); gibt das `User`-ORM-Objekt zurück.
-Alle Queries filtern nach `user_id`. → Setup-Details: [`docs/SETUP.md`](docs/SETUP.md)
+
+Zwei klar getrennte Schichten:
+
+1. **Domain-Tor (SWAG + Authentik):** Forward Auth über
+   `/config/nginx/authentik-location.conf`. Authentik macht
+   Passwort + MFA. SWAG forwarded danach KEINE Identitäts-Header an die
+   App — `Authorization` wird explizit geleert, `X-Authentik-Username`
+   nicht mehr gesetzt.
+2. **App-Login (PocketLog):** Eigene Username/Passwort-Login-View,
+   eigene `users`-Tabelle, eigene Admin-Rolle. Sessions als
+   HttpOnly-Cookie `pocketlog_session` (opakes Token; DB hält sha256
+   davon) + non-HttpOnly `pocketlog_csrf`-Cookie für Double-Submit.
+
+`get_current_user()` in `main.py`:
+1. liest `pocketlog_session` aus den Cookies,
+2. holt die Session-Row via sha256-Hash, prüft `expires_at` +
+   `absolute_expires_at`,
+3. lädt den User, prüft `is_active`,
+4. für non-GET-Methoden: vergleicht `X-CSRF-Token`-Header gegen
+   `session.csrf_token` (timing-safe via `hmac.compare_digest`),
+5. sliding-refresht `last_seen_at`/`expires_at` mit 5-Minuten-Damper,
+6. gibt das `User`-ORM-Objekt zurück.
+
+Alle Queries filtern weiterhin nach `user_id`. Weitere Dependencies:
+`require_active_password` blockt jeden App-Endpoint, solange der User
+das `force_change_password`-Flag trägt (Ausnahmen: `/api/auth/me`,
+`/api/auth/logout`, `/api/auth/change-password`). `require_admin` ist
+die Stacking-Dep für `/api/admin/users/*`. → Setup-Details:
+[`docs/SETUP.md`](docs/SETUP.md)
+
+### Brute-Force-Backoff (in `auth.py`)
+
+`record_failed_login` zählt pro User; ab dem 5. Fehlversuch verdoppelt
+sich der Lockout (Start: 1s, Cap: 60s). Erfolgreicher Login resettet,
+genauso wie ein Admin-`reset-password`. Login gegen unbekannten User
+läuft durch `verify_password_dummy()` (konstante-Zeit Argon2-Verify
+gegen einen Dummy-Hash), damit Username-Enumeration via Timing zu ist.
 
 ### Threat-Model
 
-- **Multi-User auf Backend-Ebene** — beliebig viele Authentik-Identitäten teilen sich die DB; jede Query filtert nach `user_id`.
-- **Ein User pro Gerät** — gleiche PWA-Installation wird nicht zwischen verschiedenen Authentik-Accounts geteilt. Daraus folgt: Service-Worker-Cache und IndexedDB-Outbox müssen nicht user-scopiert sein. Defense-in-Depth: bei 401 leert der SW den API-Cache, plus „Cache leeren"-Button in der Verwaltung.
+- **Multi-User auf Backend-Ebene** — beliebig viele PocketLog-Identitäten teilen sich die DB; jede Query filtert nach `user_id`.
+- **Ein User pro Gerät** — gleiche PWA-Installation wird nicht zwischen verschiedenen Konten geteilt. Daraus folgt: Service-Worker-Cache und IndexedDB-Outbox müssen nicht user-scopiert sein. Beim Logout wird der API-Cache via `CLEAR_API_CACHE`-Message an den SW explizit geleert, plus „Cache leeren"-Button in der Verwaltung als Defense-in-Depth.
+- **Cookie-Replay nach Diebstahl** — sliding 24h/30d + absolute 7d/90d. Stillem Angreifer reicht ein Request alle 23h nicht aus, weil die absolute Frist greift.
+- **Direktzugriff hinter den Proxy** — kein `X-Auth-Secret`-Shared-Secret mehr; an `pocketlog_session` kommt der Angreifer nur durch valides Cookie-Stealing. SWAG bleibt davor als zusätzliche LAN/Geo-Allowlist.
 
 ### SWAG-Setup (extern, Referenz)
 
@@ -178,7 +255,7 @@ nicht im Repo (Container-Image), sind aber für Reviews relevant:
 **Forward-Auth aus `authentik-{server,location}.conf`**:
 - `/outpost.goauthentik.io/*` ist auf den Authentik-Outpost gemountet
 - `auth_request /outpost.goauthentik.io/auth/nginx` läuft pro Request; bei 401 → Redirect zum Login (inkl. MFA via Authentik-Flow)
-- Nach erfolgreicher Auth setzt SWAG mehrere Header: `X-authentik-username`, `-email`, `-groups`, `-name`, `-uid`. Backend nutzt nur **username**; `Authorization` wird in `pocketlog.subdomain.conf` explizit geleert.
+- `Authorization` wird in `pocketlog.subdomain.conf` explizit geleert. Authentik-Identitäts-Header werden NICHT mehr durchgereicht — die App liest sie ohnehin nicht.
 
 **Site-spezifische Layer** (im Repo unter `swag/`):
 - `geoblock.conf` + `maxmind.conf` — return 404 außerhalb LAN + Länder-Whitelist

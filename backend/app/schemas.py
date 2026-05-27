@@ -1,5 +1,5 @@
 import re
-from datetime import date as date_type
+from datetime import date as date_type, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -206,3 +206,100 @@ class ImportResult(BaseModel):
     imported: int
     skipped: int
     errors: list[ImportRowError]
+
+
+# -------- Auth --------
+# Passwort-Policy: 12 Zeichen Mindestlänge (folgt aktueller NIST-Empfehlung
+# „length > complexity"). Max 128 ist DoS-Schutz: ein 10-MB-„Passwort"
+# würde sonst durch den Argon2-Worker laufen und ihn blockieren.
+MIN_PASSWORD_LENGTH = 12
+MAX_PASSWORD_LENGTH = 128
+
+# Username-Allowlist. Slug-Form, ASCII-only — gleiche Bounds wie früher
+# der Authentik-Header, sodass migrierte Bestandsuser nicht plötzlich
+# einen ungültigen Username haben.
+_USERNAME_RE = re.compile(r"^[A-Za-z0-9._@+\-]{1,150}$")
+
+
+def _validate_username(value: str) -> str:
+    value = (value or "").strip()
+    if not _USERNAME_RE.match(value):
+        raise ValueError("invalid username")
+    return value
+
+
+class SetupRequest(BaseModel):
+    """Setup-Modus: legt den ersten Admin an oder vergibt das Passwort
+    für den migrationsbedingt promotionierten Admin. Bei Bestandsuser
+    ignoriert das Backend den Username und nimmt den im DB hinterlegten
+    Wert — die Validierung läuft aber, damit ein leerer Wert nicht
+    durchrutscht."""
+    username: str = Field(min_length=1, max_length=150)
+    password: str = Field(
+        min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
+    )
+
+    @field_validator("username", mode="after")
+    @classmethod
+    def _normalise_username(cls, value: str) -> str:
+        return _validate_username(value)
+
+
+class SetupStatus(BaseModel):
+    needs_setup: bool
+    suggested_username: str | None = None
+
+
+class LoginRequest(BaseModel):
+    # Username wird hier bewusst nicht regex-validiert — wir wollen
+    # malformed Inputs ebenfalls mit dem generischen "invalid
+    # credentials"-Pfad beantworten, damit das Backend kein Signal
+    # leakt, welches Feld bemängelt wurde.
+    username: str = Field(min_length=1, max_length=150)
+    password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH)
+    remember_me: bool = False
+
+
+class UserMe(BaseModel):
+    id: int
+    username: str
+    is_admin: bool
+    force_change_password: bool
+    csrf_token: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH)
+    new_password: str = Field(
+        min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
+    )
+
+
+class AdminUserCreate(BaseModel):
+    username: str = Field(min_length=1, max_length=150)
+    password: str = Field(
+        min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
+    )
+
+    @field_validator("username", mode="after")
+    @classmethod
+    def _normalise_username(cls, value: str) -> str:
+        return _validate_username(value)
+
+
+class AdminPasswordReset(BaseModel):
+    new_password: str = Field(
+        min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
+    )
+
+
+class AdminUserOut(BaseModel):
+    id: int
+    username: str
+    is_admin: bool
+    is_active: bool
+    force_change_password: bool
+    locked_until: datetime | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
