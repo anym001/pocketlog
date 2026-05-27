@@ -129,6 +129,33 @@
         window._csrfToken = '';
       }
 
+      // Nuklearer Reset: SW unregistrieren UND alle Caches platt machen.
+      // Wird vom Force-Change-Pfad als Escape-Hatch genutzt, wenn die
+      // Server-Antwort beweist, dass die gerade gerenderte View zum echten
+      // Session-State nicht passt — typisch ein alter SW oder ein
+      // iOS-„Frozen-Page-Cache", der noch die alte 200/me-Response
+      // festhält, obwohl „Verlauf und Websitedaten löschen" schon
+      // durchgelaufen ist. localStorage bleibt drin, damit Theme +
+      // Default-View überleben.
+      async function _hardResetClientState() {
+        try {
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map((r) => r.unregister().catch(() => null)));
+          }
+        } catch (_) {}
+        try {
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((k) => caches.delete(k).catch(() => null)));
+          }
+        } catch (_) {}
+        window._csrfToken = '';
+        // Mit cache-busting-Param laden, damit Safari den BFCache nicht
+        // einfach wieder hinrendert. Reicht für iOS Safari-Eigenheiten.
+        location.replace('/?reset=' + Date.now());
+      }
+
       async function api(method, path, body) {
         const headers = { 'Content-Type': 'application/json' };
         if (method !== 'GET' && window._csrfToken) {
@@ -4110,8 +4137,26 @@
           // Im Force-Change-Zustand ignoriert das Backend ``current_password``
           // bewusst — wir lassen das Feld in der Payload trotzdem als
           // ``null`` zurück, damit das Schema-Default greift.
+          // reloadOn401:false, weil wir den 401-Fall selbst handhaben:
+          // ein 401 hier bedeutet, dass die gerade gerenderte
+          // Force-Change-View zu keiner echten Session passt (alter
+          // SW-Cache, frozen-page-state) — sauberer ist Hard-Reset
+          // als der normale Reload, der dasselbe Symptom reproduzieren
+          // würde.
           const res = await authFetch('POST', '/auth/change-password',
-            { current_password: null, new_password: next });
+            { current_password: null, new_password: next },
+            { reloadOn401: false });
+          if (res.status === 401) {
+            await _hardResetClientState();
+            return;
+          }
+          if (res.status === 400) {
+            // Backend sagt: Force-Change ist gar nicht aktiv. View ist
+            // also gegenüber dem Server-State veraltet — gleiche Ursache
+            // wie 401, gleicher Ausweg.
+            await _hardResetClientState();
+            return;
+          }
           if (!res.ok) {
             _setAuthError('forcePwError', 'Passwortwechsel fehlgeschlagen.');
             return;
