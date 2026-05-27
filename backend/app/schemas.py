@@ -1,9 +1,9 @@
 import re
 from datetime import date as date_type, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 # Bounds for the tags array on a single transaction. The list cap keeps a
 # rogue payload from filling the JSON column with thousands of items
@@ -209,11 +209,57 @@ class ImportResult(BaseModel):
 
 
 # -------- Auth --------
-# Passwort-Policy: 12 Zeichen Mindestlänge (folgt aktueller NIST-Empfehlung
-# „length > complexity"). Max 128 ist DoS-Schutz: ein 10-MB-„Passwort"
-# würde sonst durch den Argon2-Worker laufen und ihn blockieren.
+# Passwort-Policy: 12 Zeichen Mindestlänge plus vier Zeichenklassen
+# (Groß/Klein/Zahl/Sonderzeichen). NIST 800-63B erlaubt es, Komplexität
+# wegzulassen, aber Org-/Audit-Anforderungen verlangen sie häufig —
+# wir setzen sie deshalb explizit durch. Max 128 ist DoS-Schutz: ein
+# 10-MB-„Passwort" würde sonst den Argon2-Worker blockieren.
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 128
+
+# Menschlich lesbare Beschreibung der Policy — wird in der CLI-
+# Fehlermeldung wiederverwendet, damit Operator-Tools und Schema
+# dieselbe Sprache sprechen.
+PASSWORD_POLICY_HINT = (
+    f"Mindestens {MIN_PASSWORD_LENGTH} Zeichen, mit Großbuchstabe, "
+    "Kleinbuchstabe, Zahl und Sonderzeichen."
+)
+
+
+def validate_password_complexity(value: str) -> str:
+    """Erzwingt je mindestens einen Großbuchstaben, Kleinbuchstaben,
+    eine Ziffer und ein Sonderzeichen. Unicode-aware via ``str.is*`` —
+    „Ä", „ß", „é" zählen als Buchstaben (nicht Sonderzeichen), damit
+    deutsche Eingaben nicht unter die Sonderzeichen-Pflicht fallen."""
+    has_upper = any(c.isupper() for c in value)
+    has_lower = any(c.islower() for c in value)
+    has_digit = any(c.isdigit() for c in value)
+    has_special = any(not c.isalnum() for c in value)
+    missing: list[str] = []
+    if not has_upper:
+        missing.append("Großbuchstabe")
+    if not has_lower:
+        missing.append("Kleinbuchstabe")
+    if not has_digit:
+        missing.append("Zahl")
+    if not has_special:
+        missing.append("Sonderzeichen")
+    if missing:
+        raise ValueError(
+            "Passwort braucht mindestens je: " + ", ".join(missing) + "."
+        )
+    return value
+
+
+# Wiederverwendbarer Annotated-Typ für jedes „neue" Passwort
+# (Setup, Change, Admin-Create, Admin-Reset). Login/Current-Password
+# laufen bewusst NICHT durch die Policy: dort soll der Server keinen
+# Hinweis geben, was am Input formal falsch war.
+NewPassword = Annotated[
+    str,
+    Field(min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH),
+    AfterValidator(validate_password_complexity),
+]
 
 # Username-Allowlist. Slug-Form, ASCII-only — gleiche Bounds wie früher
 # der Authentik-Header, sodass migrierte Bestandsuser nicht plötzlich
@@ -235,9 +281,7 @@ class SetupRequest(BaseModel):
     Wert — die Validierung läuft aber, damit ein leerer Wert nicht
     durchrutscht."""
     username: str = Field(min_length=1, max_length=150)
-    password: str = Field(
-        min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
-    )
+    password: NewPassword
 
     @field_validator("username", mode="after")
     @classmethod
@@ -277,16 +321,12 @@ class ChangePasswordRequest(BaseModel):
     current_password: str | None = Field(
         default=None, max_length=MAX_PASSWORD_LENGTH
     )
-    new_password: str = Field(
-        min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
-    )
+    new_password: NewPassword
 
 
 class AdminUserCreate(BaseModel):
     username: str = Field(min_length=1, max_length=150)
-    password: str = Field(
-        min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
-    )
+    password: NewPassword
 
     @field_validator("username", mode="after")
     @classmethod
@@ -295,9 +335,7 @@ class AdminUserCreate(BaseModel):
 
 
 class AdminPasswordReset(BaseModel):
-    new_password: str = Field(
-        min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH
-    )
+    new_password: NewPassword
 
 
 class AdminUserOut(BaseModel):
