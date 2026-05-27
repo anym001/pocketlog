@@ -14,6 +14,7 @@ You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVEN
 - Adaptive layout (≥ 768 px sidebar, ≥ 1024 px larger charts) uses the `--app-sidebar-width` token — breakpoint literals only inside `@media` (CSS limitation, documented in `:root`). The drawer is `position: fixed` on tablet and the shell pads `padding-left: var(--app-sidebar-width)` to reserve the column. List/table widths follow the content pane (no max-width cap — Apple HIG doesn't dictate one, and Mail/Notes don't either).
 - When `@media (min-width: 768px)` changes, `window.matchMedia('(min-width: 768px)')` in `app.js` must match (single source of truth in CSS, mirrored in JS)
 - Delete affordance on `.tx-row` is swipe-to-reveal only (`.tx-action`); do not add hover/pointer-only delete buttons — the swipe action stays the single mechanism across all viewports
+- `[hidden]` traps (see "Sichtbarkeit & `[hidden]`-Attribut" in `DESIGN_CONVENTIONS.md`): if an element has both an HTML `hidden` attribute and a class that sets `display: …`, the class wins by specificity and `hidden` is a no-op — flag it and require an explicit `.foo[hidden] { display: none }` override. Conversely, if an element is shown/hidden via `data-state`/`class.open` toggles, it must NOT also carry a `hidden` attribute, because `[hidden]{display:none}` (browser default) defeats every transform/opacity transition
 
 **Tokens — the #1 mistake in this codebase**
 - Colors exclusively via CSS variables: `var(--accent)`, `var(--green)`, `var(--red)`, `var(--red-2)`, `var(--text)`, `var(--bg-canvas)`, etc.
