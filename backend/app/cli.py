@@ -90,6 +90,11 @@ def _cmd_reset_admin_password(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
+        try:
+            schemas.validate_password_complexity(password)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
 
         user.password_hash = auth.hash_password(password)
         user.force_change_password = True
