@@ -138,3 +138,47 @@ def test_change_password_rejects_reused_password(app, db_session):
     )
     assert res.status_code == 400
     assert res.json()["detail"] == "password_reused"
+
+
+def test_change_password_no_current_password_when_hash_is_null(app, db_session):
+    """Migration path: admin has force_change_password=True but password_hash
+    IS NULL. Must be able to set a password without providing a current one."""
+    import uuid
+    from app import crud, models
+
+    # Simulate a migrated user: created without a password.
+    user = crud.create_user(
+        db_session,
+        username=f"migrated-{uuid.uuid4().hex[:8]}",
+        password="temporary-bootstrap-pw",
+        force_change_password=True,
+    )
+    # Wipe the password hash to simulate the migration state.
+    user.password_hash = None
+    db_session.commit()
+
+    # Login is impossible with NULL hash, so we create a session directly.
+    from app import auth as auth_mod
+    session, plain = auth_mod.create_session(
+        db_session, user, remember_me=False, user_agent=None
+    )
+    client = TestClient(app)
+    client.cookies.set("pocketlog_session", plain)
+    client.cookies.set("pocketlog_csrf", session.csrf_token)
+    client.headers["X-CSRF-Token"] = session.csrf_token
+
+    # /api/auth/me must report has_password=False.
+    me = client.get("/api/auth/me")
+    assert me.status_code == 200
+    assert me.json()["has_password"] is False
+
+    # change-password without current_password must succeed.
+    res = client.post(
+        "/api/auth/change-password",
+        json={"current_password": None, "new_password": "brand-new-password-2026"},
+    )
+    assert res.status_code == 204
+
+    db_session.refresh(user)
+    assert user.force_change_password is False
+    assert user.password_hash is not None

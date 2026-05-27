@@ -360,6 +360,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
             username=user.username,
             is_admin=user.is_admin,
             force_change_password=user.force_change_password,
+            has_password=user.password_hash is not None,
             csrf_token=session.csrf_token,
         )
     }
@@ -407,6 +408,7 @@ def auth_me(request: Request, response: Response, db: DB, user: RawCurrentUser):
         username=user.username,
         is_admin=user.is_admin,
         force_change_password=user.force_change_password,
+        has_password=user.password_hash is not None,
         csrf_token=csrf,
     )
 
@@ -419,7 +421,14 @@ def change_password(
     db: DB,
     user: RawCurrentUser,
 ):
-    if not auth.verify_password(payload.current_password, user.password_hash):
+    if user.password_hash is None:
+        # Migration path: the user was promoted to admin before any password
+        # was set (password_hash IS NULL). There is nothing to verify — just
+        # allow them to choose their first password.
+        pass
+    elif payload.current_password is None or not auth.verify_password(
+        payload.current_password, user.password_hash
+    ):
         # Kein Lockout-Trigger — der User ist authentifiziert, das ist
         # kein Login-Brute-Force. 400 reicht.
         raise HTTPException(
