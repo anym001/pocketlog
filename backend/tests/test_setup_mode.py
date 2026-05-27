@@ -29,7 +29,7 @@ def test_setup_is_blocked_after_admin_exists(app, admin_user):
     fresh = _fresh_client(app)
     res = fresh.post(
         "/api/auth/setup",
-        json={"username": "intruder", "password": "another-good-pw-1234"},
+        json={"username": "intruder", "password": "Another-good-pw-1234"},
     )
     assert res.status_code == 409
     assert res.json()["detail"] == "setup_already_done"
@@ -68,7 +68,7 @@ def test_setup_fresh_install_creates_admin_and_logs_in(app, db_session):
     username = f"first-admin-{uuid.uuid4().hex[:8]}"
     res = fresh.post(
         "/api/auth/setup",
-        json={"username": username, "password": "valid-password-1234"},
+        json={"username": username, "password": "Valid-password-1234"},
     )
     assert res.status_code == 200
     # Session-Cookie ist gesetzt.
@@ -123,7 +123,7 @@ def test_setup_for_pending_admin_assigns_password(app, db_session):
         "/api/auth/setup",
         json={
             "username": "legacy-user",
-            "password": "set-on-first-login-9876",
+            "password": "Set-on-first-login-9876",
         },
     )
     assert res.status_code == 200
@@ -131,4 +131,4 @@ def test_setup_for_pending_admin_assigns_password(app, db_session):
     db_session.refresh(user)
     assert user.password_hash is not None
     assert user.force_change_password is False
-    assert auth.verify_password("set-on-first-login-9876", user.password_hash)
+    assert auth.verify_password("Set-on-first-login-9876", user.password_hash)

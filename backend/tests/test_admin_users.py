@@ -30,7 +30,7 @@ def test_admin_create_user_sets_force_change_password(admin_client, db_session):
     username = f"new-{uuid.uuid4().hex[:8]}"
     res = admin_client.post(
         "/api/admin/users",
-        json={"username": username, "password": "initial-password-2026"},
+        json={"username": username, "password": "Initial-password-2026"},
     )
     assert res.status_code == 201
     body = res.json()
@@ -49,7 +49,7 @@ def test_admin_create_user_rejects_duplicate(admin_client, regular_user):
         "/api/admin/users",
         json={
             "username": regular_user.username,
-            "password": "any-valid-password",
+            "password": "Any-valid-password-2026",
         },
     )
     assert res.status_code == 409
@@ -75,7 +75,7 @@ def test_admin_reset_password_forces_change_and_kills_sessions(
     # Admin resettet.
     res = admin_client.post(
         f"/api/admin/users/{regular_user.id}/reset-password",
-        json={"new_password": "reset-by-admin-1234"},
+        json={"new_password": "Reset-by-admin-1234"},
     )
     assert res.status_code == 204
 
@@ -91,7 +91,7 @@ def test_admin_reset_password_forces_change_and_kills_sessions(
         "/api/auth/login",
         json={
             "username": regular_user.username,
-            "password": "reset-by-admin-1234",
+            "password": "Reset-by-admin-1234",
         },
     )
     assert res.status_code == 200
@@ -114,7 +114,7 @@ def test_admin_cannot_reset_own_password(admin_client, admin_user):
     eigenen Sessions wegwerfen — UX-Falle. Self-Service-Pfad ist dafür da."""
     res = admin_client.post(
         f"/api/admin/users/{admin_user.id}/reset-password",
-        json={"new_password": "shiny-new-password-2026"},
+        json={"new_password": "Shiny-new-password-2026"},
     )
     assert res.status_code == 403
     assert res.json()["detail"] == "cannot_modify_self"
