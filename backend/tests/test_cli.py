@@ -96,3 +96,101 @@ def test_cli_reset_unknown_user_returns_1(db_session, monkeypatch):
         "--password", "valid-password-2026",
     ])
     assert rc == 1
+
+
+def test_cli_clear_force_change_password_happy_path(db_session, monkeypatch):
+    """Clearet das Flag, ohne Passwort oder Sessions anzufassen.
+
+    Das ist der Notfall-Ausweg für einen Self-Admin, der in der
+    Force-Change-View festhängt — wenn wir hier Sessions killen würden,
+    würde der laufende Browser-Tab des Operators sofort 401 sehen und
+    er müsste sich neu einloggen, statt einfach refresh zu drücken."""
+    user = crud.create_user(
+        db_session,
+        username=f"cli-stuck-{uuid.uuid4().hex[:8]}",
+        password="stuck-bootstrap-2026",
+        is_admin=True,
+        force_change_password=True,
+    )
+    original_hash = user.password_hash
+    # Aktive Session — bleibt erhalten.
+    auth.create_session(db_session, user, remember_me=False, user_agent=None)
+    db_session.commit()
+
+    monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
+
+    rc = cli.main([
+        "clear-force-change-password",
+        "--username", user.username,
+    ])
+    assert rc == 0
+
+    db_session.expire_all()
+    refreshed = crud.get_user_by_id(db_session, user.id)
+    assert refreshed.force_change_password is False
+    # Passwort-Hash unverändert — der Operator hat NICHT umgepasswort.
+    assert refreshed.password_hash == original_hash
+    # Session lebt weiter — der laufende Tab kann einfach refresh drücken.
+    assert db_session.scalar(
+        select(models.Session).where(models.Session.user_id == user.id).limit(1)
+    ) is not None
+
+
+def test_cli_clear_force_change_password_idempotent(db_session, monkeypatch, capsys):
+    """Doppelter Aufruf ist kein Fehler — der zweite Lauf meldet
+    nur „bereits gelöst" und exit-0t."""
+    user = crud.create_user(
+        db_session,
+        username=f"cli-already-{uuid.uuid4().hex[:8]}",
+        password="already-clean-2026",
+        is_admin=True,
+        force_change_password=False,
+    )
+
+    monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
+
+    rc = cli.main([
+        "clear-force-change-password",
+        "--username", user.username,
+    ])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "bereits" in out.lower()
+
+
+def test_cli_clear_force_change_password_unknown_user(db_session, monkeypatch):
+    monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
+    rc = cli.main([
+        "clear-force-change-password",
+        "--username", f"no-such-user-{uuid.uuid4().hex[:8]}",
+    ])
+    assert rc == 1
+
+
+def test_cli_clear_force_change_password_default_to_single_admin(
+    db_session, monkeypatch
+):
+    """Ohne ``--username`` greift dieselbe Regel wie bei
+    ``reset-admin-password``: genau ein Admin → Treffer. In der Test-Suite
+    leben mehrere Admin-Rows parallel, also testen wir nur den
+    Mehrere-Admins-Pfad — das ist die Fail-Bedingung, die der Operator
+    in der Praxis am ehesten sieht."""
+    crud.create_user(
+        db_session,
+        username=f"cli-a-{uuid.uuid4().hex[:8]}",
+        password="bootstrap-2026",
+        is_admin=True,
+        force_change_password=True,
+    )
+    crud.create_user(
+        db_session,
+        username=f"cli-b-{uuid.uuid4().hex[:8]}",
+        password="bootstrap-2026",
+        is_admin=True,
+        force_change_password=True,
+    )
+
+    monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
+
+    rc = cli.main(["clear-force-change-password"])
+    assert rc == 1
