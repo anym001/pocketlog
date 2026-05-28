@@ -8,17 +8,28 @@ You are a database reviewer for PocketLog. Production runs against an external M
 ## Schema context
 
 ```
-users          → id, username (UNIQUE)
-categories     → id, user_id (FK CASCADE), name, icon, color; UNIQUE(user_id, name)
-transactions   → id, user_id (FK CASCADE), amount DECIMAL(12,2), description VARCHAR(255),
-                 category_id (FK RESTRICT), date DATE, type ENUM('in','out'), tags JSON
-user_settings  → user_id (PK FK CASCADE), theme, default_view, updated_at
+users            → id, username (UNIQUE), password_hash VARCHAR(255) NULL,
+                   is_admin, is_active, force_change_password,
+                   failed_login_count, lockout_until TIMESTAMP NULL
+sessions         → id, user_id (FK CASCADE INDEX), token_hash CHAR(64) UNIQUE,
+                   csrf_token CHAR(64), created_at, last_seen_at, expires_at,
+                   absolute_expires_at, remember_me, user_agent;
+                   INDEX(expires_at)
+categories       → id, user_id (FK CASCADE), name, icon, color; UNIQUE(user_id, name)
+transactions     → id, user_id (FK CASCADE), amount DECIMAL(12,2), description VARCHAR(255),
+                   category_id (FK RESTRICT), date DATE, type ENUM('in','out')
+tags             → id, user_id (FK CASCADE INDEX), name VARCHAR(64); UNIQUE(user_id, name)
+transaction_tags → transaction_id (FK CASCADE), tag_id (FK CASCADE);
+                   PK(transaction_id, tag_id); INDEX(tag_id)
+user_settings    → user_id (PK FK CASCADE), theme, default_view, updated_at
 ```
 
 Key invariants:
 - `category_id` uses ON DELETE RESTRICT — a category cannot be deleted while transactions reference it
 - `user_id` FKs use ON DELETE CASCADE — deleting a user removes all their data
-- `tags` is a JSON array of strings — no separate tags table
+- Tags are stored via M2M: `tags` table (one row per unique tag name per user) + `transaction_tags` junction; the old `tags JSON` column in `transactions` was removed in migration 0008
+- Renaming a tag changes `tags.name` once and is immediately reflected on all linked transactions
+- Deleting a tag cascades through `transaction_tags` (junction rows removed), but the transaction itself is not affected
 - Default categories are seeded only on first user creation, NOT on every `GET /api/categories`
 
 ## What to check

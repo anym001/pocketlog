@@ -1,20 +1,52 @@
 # PocketLog
 
-Haushaltsbuch als Progressive Web App. Läuft auf iPhone / iPad / Mac, speichert
-Daten in deiner eigenen MariaDB. Zwei Auth-Schichten:
+Haushaltsbuch als Progressive Web App (PWA) – läuft im Browser auf allen
+gängigen Plattformen (iOS, Android, macOS, Windows, Linux) und lässt sich
+als App auf dem Homescreen installieren.
 
-- **Domain-Tor:** Authentik per Forward Auth über SWAG (Passwort + MFA) – wie
-  alle anderen Apps an deinem Proxy.
-- **App-Login:** PocketLog hat seinen eigenen Username/Passwort-Login mit
-  Admin-Rolle und Setup-Flow für den ersten Admin. Authentik liefert keine
-  Identität mehr an die App.
+Konzipiert für **privates Self-Hosting**: Daten liegen ausschließlich in
+deiner eigenen MariaDB, die App läuft in deinem eigenen Container. Alle
+Assets (Fonts, Icons, JS-Bibliotheken) werden vom eigenen Server
+ausgeliefert – keine CDN-Aufrufe, keine externen Verbindungen, kein
+Tracking, keine Telemetrie.
 
-Ein einziger Container, statische PWA + FastAPI in einem Image. Die MariaDB
-betreibst du selbst (z.B. dein bestehender Unraid-MariaDB-Container).
+## Inhalt
 
-## Erst die Datenbank anlegen
+- [Funktionsumfang](#funktionsumfang)
+- [Voraussetzungen](#voraussetzungen)
+- [Schnellstart](#schnellstart)
+- [Konfiguration](#konfiguration)
+- [Reverse Proxy](#reverse-proxy)
+- [Login & Sicherheit](#login--sicherheit)
+- [Notfall-Recovery](#notfall-recovery)
+- [Image](#image)
 
-In deiner MariaDB:
+## Funktionsumfang
+
+- **Transaktionen** – Einnahmen & Ausgaben mit Datum, Betrag, Kategorie und Tags
+- **Kategorien** – frei definierbar (Name, Icon, Farbe); Standardset wird beim
+  ersten Aufruf angelegt
+- **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen
+- **Berichte & Charts** – Monats-/Jahresübersicht, Kategorien- und Tag-Auswertung,
+  Trendansicht und Prognose (Chart.js, lokal eingebettet)
+- **Suche** – Volltext, Kategorie- und Tag-Filter in der Transaktionsliste
+- **CSV-Import / -Export** – UTF-8 oder CP1252, max. 5 MB; Export aller
+  Transaktionen als Semikolon-CSV
+- **Offline-Fähigkeit** – App funktioniert ohne Verbindung; Änderungen werden
+  beim nächsten Online-Sein automatisch synchronisiert
+- **Themes** – Hell, Dunkel, System (wird aus den Einstellungen gespeichert)
+- **Multi-User** – jede Identität hat eigene Daten; Admin legt weitere Benutzer an
+- **Eigener Login** – Username/Passwort mit Admin-Rolle, Setup-Flow und
+  Brute-Force-Schutz
+
+## Voraussetzungen
+
+- Docker (oder Podman)
+- MariaDB 10.6+ (externe Instanz)
+
+## Schnellstart
+
+### 1. Datenbank anlegen
 
 ```sql
 CREATE DATABASE pocketlog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -23,69 +55,90 @@ GRANT ALL ON pocketlog.* TO 'pocketlog'@'%';
 FLUSH PRIVILEGES;
 ```
 
-Beim ersten Start spielt der Container die Schema-Migrationen automatisch ein.
+### 2. Container starten
 
-## Setup über die Unraid GUI
+```bash
+docker run -d \
+  --name pocketlog \
+  -p 8000:8000 \
+  -e DB_HOST=mariadb \
+  -e DB_NAME=pocketlog \
+  -e DB_USER=pocketlog \
+  -e DB_PASSWORD=dein-passwort \
+  -e TZ=Europe/Berlin \
+  ghcr.io/anym001/pocketlog:latest
+```
 
-1. **Template einbinden:** `unraid/pocketlog.xml` aus diesem Repo holen
-   und nach `/boot/config/plugins/dockerMan/templates-user/` auf deinem
-   Unraid-Server kopieren. Danach in **Apps → Add Container** im
-   **Template:**-Dropdown `pocketlog` auswählen — alle Felder sind dann
-   vorbelegt. (Bei privatem Repo geht die Template-URL-Variante nicht; wer
-   lieber alles per Hand einträgt, nimmt die Tabelle unten.)
-2. Felder prüfen / ausfüllen:
-   - **WebUI Port**: z.B. `8080`
-   - **DB_HOST**: Container-Name oder IP deiner MariaDB
-   - **DB_NAME** / **DB_USER** / **DB_PASSWORD**: wie oben angelegt
-   - **Network**: dasselbe Docker-Network wie deine MariaDB *und* SWAG
-     (sonst kommt PocketLog nicht an die DB bzw. SWAG nicht an PocketLog)
-3. **Apply** → der Container wird gezogen, läuft Alembic, startet uvicorn.
-4. **SWAG** vorbereiten:
-   `swag/pocketlog.subdomain.conf` nach `/swag/config/nginx/proxy-confs/`
-   kopieren, SWAG neu laden.
-5. In **Authentik** einen Forward-Auth-Provider + Application für
-   `pocketlog.<deinedomain>` anlegen und dem Outpost zuweisen.
-6. **App-Login einrichten:** Beim ersten Aufruf der App erscheint die
-   Setup-View. Lege darüber den ersten Admin an (Username + Passwort
-   mit mindestens 12 Zeichen). Danach läuft der reguläre Login direkt
-   im PocketLog-UI.
+### 3. Ersteinrichtung
 
-### Manuell ohne Template
+Beim ersten Aufruf (`http://<host>:8000`) erscheint die Setup-View. Lege den
+ersten Admin an (Username + Passwort, mindestens 12 Zeichen mit Groß-/Klein-
+buchstaben, Zahl und Sonderzeichen). Weitere Benutzer legt der Admin danach
+unter _Einstellungen → Benutzerverwaltung_ an.
 
-Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
+## Konfiguration
 
-| Feld | Wert |
-|---|---|
-| Repository | `ghcr.io/anym001/pocketlog:latest` |
-| Network | gleiches Network wie MariaDB / SWAG |
-| Port | Host `8080` → Container `8000` |
-| ENV `DB_HOST` | `mariadb` (Container-Name) |
-| ENV `DB_PORT` | `3306` |
-| ENV `DB_NAME` | `pocketlog` |
-| ENV `DB_USER` | `pocketlog` |
-| ENV `DB_PASSWORD` | dein Passwort |
-| ENV `TZ` | `Europe/Berlin` |
+| Variable | Default | Bedeutung |
+|---|---|---|
+| `DB_HOST` | `mariadb` | Hostname oder IP der MariaDB |
+| `DB_PORT` | `3306` | MariaDB-Port |
+| `DB_NAME` | – | Datenbankname |
+| `DB_USER` | – | Datenbankbenutzer |
+| `DB_PASSWORD` | – | Datenbankpasswort |
+| `TZ` | `UTC` | Zeitzone des Containers |
+| `SESSION_COOKIE_SECURE` | `1` | Auf `0` setzen, wenn PocketLog ohne HTTPS betrieben wird |
+| `SESSION_LIFETIME_HOURS` | `24` | Session-Dauer ohne „Eingeloggt bleiben" |
+| `SESSION_REMEMBER_DAYS` | `30` | Session-Dauer mit „Eingeloggt bleiben" |
+| `SESSION_ABSOLUTE_DAYS` | `7` | Maximale Session-Dauer (normal) |
+| `SESSION_REMEMBER_ABSOLUTE_DAYS` | `90` | Maximale Session-Dauer (Remember-Me) |
 
-## Funktionsumfang
+## Reverse Proxy
 
-- **Transaktionen** – Einnahmen & Ausgaben mit Datum, Betrag, Kategorie, Tags
-- **Kategorien** – frei definierbar (Name, Icon, Farbe); beim ersten Aufruf werden Standardkategorien angelegt
-- **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen über die Einstellungen
-- **CSV-Import / -Export** – Import aus anderen Tools (UTF-8 oder CP1252, max. 5 MB); Export aller Transaktionen als Semikolon-CSV
-- **Offline-Fähigkeit** – Service Worker cached die App-Shell, POST/PUT/DELETE landen in einer Outbox und werden beim nächsten Online-Sein automatisch gesendet
+PocketLog läuft auf Port 8000 und bringt seinen eigenen Login mit – kein
+vorgelagerter Identity-Provider nötig. Dahinter kann ein beliebiger Reverse
+Proxy sitzen (nginx, Caddy, Traefik …). Nginx-Beispiel:
 
-## API testen
+```nginx
+server {
+    listen 443 ssl;
+    server_name pocketlog.example.com;
 
-- Health: `https://pocketlog.<deinedomain>/api/health`
-- Swagger UI: `/api/docs` ist standardmäßig deaktiviert. Zum Debuggen den
-  Container mit `ENABLE_DOCS=1` starten; in Produktion bleibt es aus.
+    location / {
+        proxy_pass         http://localhost:8000;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+}
+```
 
-## Image-Builds (GitHub Actions → ghcr.io)
+## Login & Sicherheit
 
-Der Workflow `.github/workflows/build.yml` baut bei jedem Push auf `main` ein
-neues Image und pusht es nach `ghcr.io/<owner>/pocketlog`. Die Patch-Version
-wird dabei automatisch hochgezählt und ein GitHub-Release erstellt — kein
-manuelles Tagging nötig. Tags:
+- **Passwort-Policy**: mindestens 12 Zeichen mit Groß-/Kleinbuchstaben, Zahl
+  und Sonderzeichen
+- **Brute-Force-Schutz**: nach mehreren Fehlversuchen greift eine automatische
+  Sperrzeit; Admins können diese über _Passwort zurücksetzen_ aufheben
+- **Session**: bleibt standardmäßig 24 Stunden aktiv, mit „Eingeloggt bleiben"
+  30 Tage; nach absolut 7 bzw. 90 Tagen wird eine neue Anmeldung erzwungen
 
-- `:latest` — letzter Stand von `main`
-- `:X.Y.Z` — automatisch gesetzt vom Workflow (z.B. `v0.1.4`)
+## Notfall-Recovery
+
+Admin-Passwort vergessen:
+
+```bash
+docker exec -it pocketlog python -m app.cli reset-admin-password
+```
+
+Setzt Passwort und Sperrzeit zurück; beim nächsten Login muss ein neues
+Passwort vergeben werden. `--username U` adressiert einen bestimmten Account.
+
+## Image
+
+Image: `ghcr.io/anym001/pocketlog`
+
+- `:latest` – letzter Stand von `main`
+- `:X.Y.Z` – versionierter Release (z.B. `v0.3.2`)
+
+---
+
+Entwickelt mit [Claude Code](https://claude.ai/code)
