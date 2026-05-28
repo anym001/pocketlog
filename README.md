@@ -71,8 +71,8 @@ docker run -d \
   ghcr.io/anym001/pocketlog:latest
 ```
 
-Der Container spielt beim Start automatisch alle Schema-Migrationen ein,
-dann startet uvicorn.
+Der Container richtet beim ersten Start das Datenbankschema automatisch
+ein und startet uvicorn.
 
 ### 3. Ersteinrichtung
 
@@ -81,12 +81,6 @@ ersten Admin an (Username + Passwort, mindestens 12 Zeichen mit Groß-/Klein-
 buchstaben, Zahl und Sonderzeichen). Weitere Benutzer legt der Admin danach
 unter _Einstellungen → Benutzerverwaltung_ an.
 
-**Migration aus einer älteren Installation:** Migration `0009_auth_local`
-promoviert den ältesten User-Eintrag zum Admin und setzt für alle Bestandsuser
-das `force_change_password`-Flag. Im Setup-View ist der Username vorausgefüllt
-und read-only – er gibt nur sein Passwort ein. Weitere migrierte Benutzer
-erhalten ihren Zugang, sobald der Admin per _Passwort zurücksetzen_ einen
-Einstieg anlegt.
 
 ## Konfiguration
 
@@ -183,24 +177,6 @@ cd backend
 Die Suite nutzt eine eigene SQLite-DB (automatisch erstellt und nach dem Run
 entfernt). Jeder Test bekommt einen einzigartigen Username, damit Daten
 zwischen Tests isoliert bleiben.
-
-### Neue Alembic-Migrationen
-
-Migrationen müssen auf beiden Dialekten laufen (SQLite in Dev/CI, MariaDB in
-Produktion):
-
-- `UPDATE … JOIN` → MariaDB-only; SQLite-Pfad via `op.get_bind().dialect.name`
-  (Beispiel: `0002_user_id_fk.py`)
-- `REGEXP`, `CHAR_LENGTH` → MariaDB-only (Beispiel: `0005_category_icon_ids.py`)
-- `drop_constraint`, `alter_column` → immer in
-  `with op.batch_alter_table(...) as batch:` packen (SQLite-Pflicht); bei
-  FK-abhängigen Eltern-Tabellen ggf. Dialekt-Pfad splitten
-  (Beispiel: `0009_auth_local.py`)
-- Revisions-ID ≤ 24 Zeichen (MariaDB `VARCHAR(32)`); ein pytest-Guard prüft
-  das automatisch – nicht umgehen
-- **DDL muss idempotent sein**: jedes `op.create_*` / `op.drop_*` mit
-  `sa.inspect()` absichern, damit ein halb-gestarteter Container beim Neustart
-  nicht crasht (Beispiel: `0007_tx_category_idx.py`)
 
 ## API
 
