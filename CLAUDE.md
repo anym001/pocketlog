@@ -4,10 +4,8 @@
 ```
 iPhone/iPad/Mac (installierte PWA)
         ↓ HTTPS
-     SWAG Proxy          ← pocketlog.deinedomain.de
-        ↓                  Domain-Tor: forward auth → Authentik
-     Authentik           ← Passwort + MFA. KEINE Identität an die App;
-        ↓                  X-Authentik-Username/Authorization werden ignoriert.
+   Reverse Proxy          ← beliebig (nginx, Caddy, Traefik …)
+        ↓
   ┌─────────────────────────────────────┐
   │  FastAPI-Container :8000            │  /          → statische PWA-Files
   │  (uvicorn, Python 3.12)             │  /api/*     → Python API
@@ -21,16 +19,6 @@ iPhone/iPad/Mac (installierte PWA)
 ## Projektstruktur
 ```
 PocketLog/
-├── unraid/
-│   └── pocketlog.xml                 ← Community-Apps-Template für die Unraid-GUI
-├── swag/                              ← Nur die Site-spezifischen SWAG-Configs
-│   ├── pocketlog.subdomain.conf      ← App-Conf, gehört in /config/nginx/proxy-confs/
-│   ├── internal.conf                  ← LAN-Only Allowlist (10/8, 172.16/12, 192.168/16, …)
-│   ├── geoblock.conf, maxmind.conf    ← GeoIP2-Whitelist (LAN + zugelassene Länder)
-│   └── errors.conf                    ← Custom-Error-Pages (linuxserver.io snippet)
-│   (ssl.conf, proxy.conf, resolver.conf, authentik-{server,location}.conf
-│    sind SWAG-Defaults aus dem Image und liegen nicht im Repo — siehe
-│    „Auth-Konzept" weiter unten für die relevanten Annahmen.)
 ├── frontend/                         ← reine Source-Files, werden ins Image kopiert
 │   ├── index.html                    ← PWA-Shell (Markup + Inline-Theme-Bootstrap)
 │   ├── styles.css                    ← komplettes CSS (Tokens, Layout, Komponenten)
@@ -111,8 +99,7 @@ DELETE /api/admin/users/{id}                  ← Cascade-Löschung; nicht auf s
 
 ## Datenbankschema (MariaDB)
 ```sql
--- users                       -- App-eigene Identität; Authentik kommt
-                               -- nicht mehr ans Backend.
+-- users                       -- App-eigene Identität.
 id INT PK AUTO_INCREMENT
 username VARCHAR(150) UNIQUE
 password_hash VARCHAR(255) NULL          -- argon2id, NULL = noch nicht vergeben
@@ -191,17 +178,10 @@ nicht direkt wieder auferstehen lässt.
 
 ## Auth-Konzept
 
-Zwei klar getrennte Schichten:
-
-1. **Domain-Tor (SWAG + Authentik):** Forward Auth über
-   `/config/nginx/authentik-location.conf`. Authentik macht
-   Passwort + MFA. SWAG forwarded danach KEINE Identitäts-Header an die
-   App — `Authorization` wird explizit geleert, `X-Authentik-Username`
-   nicht mehr gesetzt.
-2. **App-Login (PocketLog):** Eigene Username/Passwort-Login-View,
-   eigene `users`-Tabelle, eigene Admin-Rolle. Sessions als
-   HttpOnly-Cookie `pocketlog_session` (opakes Token; DB hält sha256
-   davon) + non-HttpOnly `pocketlog_csrf`-Cookie für Double-Submit.
+PocketLog verwaltet Identitäten vollständig selbst: eigene `users`-Tabelle,
+eigene Admin-Rolle, Sessions als HttpOnly-Cookie `pocketlog_session` (opakes
+Token; DB hält SHA256 davon) + non-HttpOnly `pocketlog_csrf`-Cookie für
+Double-Submit.
 
 `get_current_user()` in `main.py`:
 1. liest `pocketlog_session` aus den Cookies,
@@ -233,33 +213,7 @@ gegen einen Dummy-Hash), damit Username-Enumeration via Timing zu ist.
 - **Multi-User auf Backend-Ebene** — beliebig viele PocketLog-Identitäten teilen sich die DB; jede Query filtert nach `user_id`.
 - **Ein User pro Gerät** — gleiche PWA-Installation wird nicht zwischen verschiedenen Konten geteilt. Daraus folgt: Service-Worker-Cache und IndexedDB-Outbox müssen nicht user-scopiert sein. Beim Logout wird der API-Cache via `CLEAR_API_CACHE`-Message an den SW explizit geleert, plus „Cache leeren"-Button in der Verwaltung als Defense-in-Depth.
 - **Cookie-Replay nach Diebstahl** — sliding 24h/30d + absolute 7d/90d. Stillem Angreifer reicht ein Request alle 23h nicht aus, weil die absolute Frist greift.
-- **Direktzugriff hinter den Proxy** — kein `X-Auth-Secret`-Shared-Secret mehr; an `pocketlog_session` kommt der Angreifer nur durch valides Cookie-Stealing. SWAG bleibt davor als zusätzliche LAN/Geo-Allowlist.
-
-### SWAG-Setup (extern, Referenz)
-
-PocketLog läuft hinter `linuxserver/swag`. Die SWAG-Default-Snippets liegen
-nicht im Repo (Container-Image), sind aber für Reviews relevant:
-
-**Globale Security-Header aus `ssl.conf`** (gelten für ALLE Apps am Proxy):
-- `Strict-Transport-Security: max-age=15768000; includeSubDomains; preload`
-- `Referrer-Policy: same-origin`
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: SAMEORIGIN` — Backend-CSP setzt `frame-ancestors 'none'` strikter
-- `Permissions-Policy: interest-cohort=()` (nur FLoC-Opt-out)
-- `X-XSS-Protection: 1; mode=block`, `X-Robots-Tag`, `X-Download-Options: noopen`, `Alt-Svc`
-- TLS 1.2/1.3, Mozilla intermediate cipher suite, HTTP/2 + HTTP/3 (QUIC) aktiv
-
-→ Diese Header NICHT in der App nochmal setzen — nginx `add_header` ist additiv und würde Doppel-Header senden. Einzig **Content-Security-Policy** wird in der FastAPI-Middleware (`backend/app/main.py`) gesetzt, weil SWAG keine liefert.
-
-**Forward-Auth aus `authentik-{server,location}.conf`**:
-- `/outpost.goauthentik.io/*` ist auf den Authentik-Outpost gemountet
-- `auth_request /outpost.goauthentik.io/auth/nginx` läuft pro Request; bei 401 → Redirect zum Login (inkl. MFA via Authentik-Flow)
-- `Authorization` wird in `pocketlog.subdomain.conf` explizit geleert. Authentik-Identitäts-Header werden NICHT mehr durchgereicht — die App liest sie ohnehin nicht.
-
-**Site-spezifische Layer** (im Repo unter `swag/`):
-- `geoblock.conf` + `maxmind.conf` — return 404 außerhalb LAN + Länder-Whitelist
-- `internal.conf` — zusätzlich harte LAN-Allowlist (10/8, 172.16/12, 192.168/16, IPv6 ULA/link-local)
-- `errors.conf` — Custom-Error-Pages
+- **Direktzugriff am Proxy vorbei** — an `pocketlog_session` kommt ein Angreifer nur durch valides Cookie-Stealing; der Reverse Proxy liefert zusätzlichen Schutz durch TLS-Terminierung und optionale IP-Allowlists.
 
 ## Offline / PWA
 - `frontend/sw.js`: precached App-Shell, network-first für die HTML-Shell und GET /api/*, cache-first für Icons, Fonts und das Chart.js-Vendor-Bundle; Offline-Outbox für POST/PUT/DELETE. Cache-Keys werden aus `__APP_VERSION__` gebildet — das Dockerfile substituiert beim Build die echte Release-Version.
@@ -280,8 +234,8 @@ Harte Kurzregeln: Mobile-first 430 px · `env(safe-area-inset-*)` · nur **DM Se
 
 ## Sprach-Konventionen
 
-- **Code, Kommentare, Workflow-YAML, Skripte, Nginx-Configs (`swag/`):** Englisch
-- **Dokumentation (CLAUDE.md, TODO.md, README.md, unraid/pocketlog.xml):** Deutsch
+- **Code, Kommentare, Workflow-YAML, Skripte, Nginx-Configs:** Englisch
+- **Dokumentation (CLAUDE.md, TODO.md, README.md):** Deutsch
 
 ## Konventionen Backend
 - CRUD-Funktionen immer mit `user_id: int` Parameter (Datenisolation); im Endpoint `user.id` aus der `CurrentUser`-Dep übergeben
