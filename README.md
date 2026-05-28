@@ -4,16 +4,34 @@ Haushaltsbuch als Progressive Web App (PWA) – läuft auf iPhone, iPad, Mac und
 Desktop-Browser. Daten liegen in deiner eigenen MariaDB; kein Cloud-Dienst,
 kein Tracking.
 
+## Inhalt
+
+- [Funktionsumfang](#funktionsumfang)
+- [Voraussetzungen](#voraussetzungen)
+- [Schnellstart](#schnellstart)
+- [Konfiguration](#konfiguration)
+- [Reverse Proxy](#reverse-proxy)
+- [Auth & Sessions](#auth--sessions)
+- [Notfall-Recovery](#notfall-recovery)
+- [Entwicklung](#entwicklung)
+- [API](#api)
+- [Image-Builds](#image-builds)
+- [Unraid & SWAG (optional)](#unraid--swag-optional)
+
 ## Funktionsumfang
 
 - **Transaktionen** – Einnahmen & Ausgaben mit Datum, Betrag, Kategorie und Tags
 - **Kategorien** – frei definierbar (Name, Icon, Farbe); Standardset wird beim
   ersten Aufruf angelegt
 - **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen
+- **Berichte & Charts** – Monats-/Jahresübersicht, Kategorien- und Tag-Auswertung,
+  Trendansicht und Prognose (Chart.js, lokal eingebettet)
+- **Suche** – Volltext, Kategorie- und Tag-Filter in der Transaktionsliste
 - **CSV-Import / -Export** – UTF-8 oder CP1252, max. 5 MB; Export aller
   Transaktionen als Semikolon-CSV
 - **Offline-Fähigkeit** – Service Worker cached die App-Shell; POST/PUT/DELETE
   landen in einer Outbox und werden beim nächsten Online-Sein nachgesendet
+- **Themes** – Hell, Dunkel, System (wird aus den Einstellungen gespeichert)
 - **Multi-User** – jede Identität hat eigene Daten; Admin legt weitere Benutzer an
 - **Eigener Login** – Username/Passwort mit Admin-Rolle, Setup-Flow und
   Brute-Force-Schutz
@@ -58,17 +76,25 @@ ersten Admin an (Username + Passwort, mindestens 12 Zeichen mit Groß-/Klein-
 buchstaben, Zahl und Sonderzeichen). Weitere Benutzer legt der Admin danach
 unter _Einstellungen → Benutzerverwaltung_ an.
 
+**Migration aus einer älteren Installation:** Migration `0009_auth_local`
+promoviert den ältesten User-Eintrag zum Admin und setzt für alle Bestandsuser
+das `force_change_password`-Flag. Im Setup-View ist der Username vorausgefüllt
+und read-only – er gibt nur sein Passwort ein. Weitere migrierte Benutzer
+erhalten ihren Zugang, sobald der Admin per _Passwort zurücksetzen_ einen
+Einstieg anlegt.
+
 ## Konfiguration
 
 | Variable | Default | Bedeutung |
 |---|---|---|
-| `DB_HOST` | – | Hostname oder IP der MariaDB |
+| `DB_HOST` | `mariadb` | Hostname oder IP der MariaDB |
 | `DB_PORT` | `3306` | MariaDB-Port |
 | `DB_NAME` | – | Datenbankname |
 | `DB_USER` | – | Datenbankbenutzer |
 | `DB_PASSWORD` | – | Datenbankpasswort |
+| `DATABASE_URL` | – | Vollständige DB-URL; überschreibt `DB_*`-Variablen (z.B. `sqlite:///./dev.db` für lokale Entwicklung) |
 | `TZ` | `UTC` | Zeitzone des Containers |
-| `SESSION_COOKIE_SECURE` | `1` | Auf `0` setzen für lokales HTTP-Testing |
+| `SESSION_COOKIE_SECURE` | `1` | `Secure`-Flag auf den Cookies. Nur für lokales HTTP-Testing auf `0` setzen. |
 | `SESSION_LIFETIME_HOURS` | `24` | Sliding-Session ohne „Eingeloggt bleiben" |
 | `SESSION_REMEMBER_DAYS` | `30` | Sliding-Session mit „Eingeloggt bleiben" |
 | `SESSION_ABSOLUTE_DAYS` | `7` | Absolute Session-Obergrenze (normal) |
@@ -95,9 +121,51 @@ server {
 }
 ```
 
+## Auth & Sessions
+
+PocketLog verwaltet Identitäten vollständig selbst:
+
+- **Session-Cookie** (`pocketlog_session`, HttpOnly): opakes Token; die DB hält
+  nur den SHA256-Hash. Sliding-Lifetime + absolute Obergrenze (Defaults:
+  24h / 7d normal, 30d / 90d mit „Eingeloggt bleiben").
+- **CSRF-Schutz** (Double-Submit): ein zweites Cookie `pocketlog_csrf`
+  (non-HttpOnly) enthält den CSRF-Token; das Frontend schickt ihn bei jedem
+  POST/PUT/DELETE als `X-CSRF-Token`-Header zurück. Bei eigenen API-Skripten
+  ist dieser Header zwingend.
+- **Brute-Force-Schutz**: Login zählt Fehlversuche pro User. Ab dem 5. Versuch
+  greift ein exponentieller Backoff (1s → 2s → … → 60s Cap). Erfolgreicher
+  Login resettet den Counter; Admins können ihn per _Passwort zurücksetzen_
+  explizit clearen.
+- **Passwort-Policy**: mindestens 12 Zeichen, alle vier Zeichenklassen (Groß,
+  Klein, Zahl, Sonderzeichen).
+
+## Notfall-Recovery
+
+### Admin-Passwort vergessen
+
+```bash
+docker exec -it pocketlog python -m app.cli reset-admin-password
+```
+
+Setzt Passwort + Lockout zurück und markiert den Admin als „muss beim nächsten
+Login wechseln". `--username U` adressiert einen bestimmten Account (nötig,
+wenn mehrere Admins existieren).
+
+### Festhängender Force-Change-View
+
+Wenn der Admin im Force-Change-View festhängt (z.B. wegen eines gecachten
+Service-Worker-Responses):
+
+```bash
+docker exec -it pocketlog python -m app.cli clear-force-change-password
+```
+
+Löscht nur das Flag, lässt Passwort und Session unberührt. Der Browser-Tab
+muss danach einmal neu geladen werden.
+
 ## Entwicklung
 
-Lokales Starten ohne MariaDB (SQLite reicht für Entwicklung):
+Lokales Starten ohne MariaDB:
 
 ```bash
 cd backend
@@ -115,11 +183,31 @@ Tests ausführen:
 
 ```bash
 cd backend
-.venv/bin/pytest
+.venv/bin/pytest           # alle Tests
+.venv/bin/pytest -x -v     # erster Fehler stoppt, mit Detail
 ```
 
-Weitere Details zu Auth-Konzept, Recovery-Kommandos und Migrations-Konventionen
-in [`docs/SETUP.md`](docs/SETUP.md).
+Die Suite nutzt eine eigene SQLite-DB (automatisch erstellt und nach dem Run
+entfernt). Jeder Test bekommt einen einzigartigen Username, damit Daten
+zwischen Tests isoliert bleiben.
+
+### Neue Alembic-Migrationen
+
+Migrationen müssen auf beiden Dialekten laufen (SQLite in Dev/CI, MariaDB in
+Produktion):
+
+- `UPDATE … JOIN` → MariaDB-only; SQLite-Pfad via `op.get_bind().dialect.name`
+  (Beispiel: `0002_user_id_fk.py`)
+- `REGEXP`, `CHAR_LENGTH` → MariaDB-only (Beispiel: `0005_category_icon_ids.py`)
+- `drop_constraint`, `alter_column` → immer in
+  `with op.batch_alter_table(...) as batch:` packen (SQLite-Pflicht); bei
+  FK-abhängigen Eltern-Tabellen ggf. Dialekt-Pfad splitten
+  (Beispiel: `0009_auth_local.py`)
+- Revisions-ID ≤ 24 Zeichen (MariaDB `VARCHAR(32)`); ein pytest-Guard prüft
+  das automatisch – nicht umgehen
+- **DDL muss idempotent sein**: jedes `op.create_*` / `op.drop_*` mit
+  `sa.inspect()` absichern, damit ein halb-gestarteter Container beim Neustart
+  nicht crasht (Beispiel: `0007_tx_category_idx.py`)
 
 ## API
 
