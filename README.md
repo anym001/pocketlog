@@ -2,8 +2,13 @@
 
 Haushaltsbuch als Progressive Web App (PWA) – läuft im Browser auf allen
 gängigen Plattformen (iOS, Android, macOS, Windows, Linux) und lässt sich
-als App auf dem Homescreen installieren. Daten liegen in deiner eigenen
-MariaDB; kein Cloud-Dienst, kein Tracking.
+als App auf dem Homescreen installieren.
+
+Konzipiert für **privates Self-Hosting**: Daten liegen ausschließlich in
+deiner eigenen MariaDB, die App läuft in deinem eigenen Container. Alle
+Assets (Fonts, Icons, JS-Bibliotheken) werden vom eigenen Server
+ausgeliefert – keine CDN-Aufrufe, keine externen Verbindungen, kein
+Tracking, keine Telemetrie.
 
 ## Inhalt
 
