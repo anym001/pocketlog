@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- B: Sauber/Flat – kein dekoratives Element, nur steiler Gradient + Typografie -->
+  <defs>
+    <linearGradient id="bgB" x1="0%" y1="0%" x2="60%" y2="100%">
+      <stop offset="0%"   stop-color="#E88050"/>
+      <stop offset="100%" stop-color="#A83010"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#bgB)"/>
+  <text x="68" y="358"
+        font-family="Arial Black, 'Helvetica Neue', sans-serif"
+        font-weight="900" font-size="302" letter-spacing="-8"
+        fill="white" dominant-baseline="alphabetic">PL</text>
+</svg>
