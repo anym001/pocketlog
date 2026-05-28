@@ -12,7 +12,7 @@ und Kommentare englisch (siehe „Sprach-Konventionen" in [`CLAUDE.md`](CLAUDE.m
 - **Tiefe:** Hierarchie über Schichten und Schatten, nicht Skeuomorphismus.
 - **Mobile-first:** max-width `430px`, einspaltig, Touch-Targets ≥ 44×44px.
 - **Inhalt zuerst:** DM Serif Display für Beträge dominant, DM Sans tritt zurück.
-- **Plattform-Look auf iOS:** `standalone`-Mode, `theme-color` = `--bg-canvas`, `apple-touch-icon` gesetzt.
+- **Plattform-Look auf iOS:** `standalone`-Mode, `theme-color` = `--bg-grouped`, `apple-touch-icon` gesetzt.
 
 ## Layout & Safe Areas
 
@@ -171,7 +171,8 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
 
   | Variable | Light | Dark | Bedeutung |
   |---|---|---|---|
-  | `--bg-canvas` | `#FAF9F5` (ivory) | `#0f0e0c` | App-Hintergrund |
+  | `--bg-grouped` | `#ECE9E2` | `#0f0e0c` | Seiten-Canvas (flach, Apple-Grouped-Stil) |
+  | `--bg-canvas` | `#FAF9F5` (ivory) | `#1a1714` | Karten-/Oberflächenfarbe (liegt heller auf `--bg-grouped`) |
   | `--accent` | `#D97757` (clay) | `#E8926E` | Ausgaben, primäre Aktion |
   | `--green` | `#788C5D` (olive) | `#9AB07A` | Einnahmen, Erfolg |
   | `--red` / `--red-2` | `#C0392B` / `#EC6B5B` | unverändert | Destruktive Aktionen (Swipe-to-Delete-Gradient) |
@@ -185,8 +186,8 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
 - **Farbe ist nie das einzige Signal.** Einnahmen/Ausgaben tragen zusätzlich
   ein `+` bzw. `−` (U+2212). Fehlerzustände tragen einen Text, nicht nur einen
   roten Rand.
-- **Keine harten Schwarz/Weiß-Hintergründe.** Immer `--bg-canvas` / `--text`,
-  damit Light/Dark einheitlich wirkt.
+- **Keine harten Schwarz/Weiß-Hintergründe.** Seiten-Canvas immer `--bg-grouped`,
+  Karten/Oberflächen `--bg-canvas`, Text `--text` — damit Light/Dark einheitlich wirkt.
 - **Akzentfarbe sparsam:** maximal eine primäre Aktion pro Bildschirm
   in `--accent`-Fill, alle weiteren Aktionen als Outline oder Plain.
 
