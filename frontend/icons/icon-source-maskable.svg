@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Maskable icon – safe zone = inner 80 % (410 × 410 px, margin 51 px).
+    Text leicht verkleinert (262 px statt 302 px) und y angepasst,
+    damit PL sicher innerhalb der Safe-Zone bleibt.
+    Hintergrund vollflächig ohne rx (Android füllt selbst).
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="60%" y2="100%">
+      <stop offset="0%"   stop-color="#E88050"/>
+      <stop offset="100%" stop-color="#A83010"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <text x="256" y="340"
+        font-family="Arial Black, 'Helvetica Neue', sans-serif"
+        font-weight="900" font-size="262" letter-spacing="-7"
+        fill="white"
+        text-anchor="middle"
+        dominant-baseline="alphabetic">PL</text>
+</svg>
