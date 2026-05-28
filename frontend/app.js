@@ -645,8 +645,12 @@
           `${MONTHS[currentMonth]} ${currentYear}`;
         const out = transactions.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
         const inc = transactions.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0);
-        document.getElementById('totalOut').textContent = fmtSignedCurrency(-out);
-        document.getElementById('totalIn').textContent = fmtSignedCurrency(inc);
+        // No +/− sign on the summary cards — the label and the
+        // positive/negative color already convey direction, and dropping the
+        // sign keeps long amounts from overflowing the card's right edge.
+        // Matches the report-view summary cards (fmtCurrency for in/out).
+        document.getElementById('totalOut').textContent = fmtCurrency(out);
+        document.getElementById('totalIn').textContent = fmtCurrency(inc);
         applySearch();
         if (_activePanel === 'categories') renderCategoryView();
       }
