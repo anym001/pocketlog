@@ -68,11 +68,6 @@ docker run -d \
 Der Container spielt beim Start automatisch alle Schema-Migrationen ein,
 dann startet uvicorn.
 
-**Auf Unraid:** `unraid/pocketlog.xml` nach
-`/boot/config/plugins/dockerMan/templates-user/` kopieren → in
-_Apps → Add Container_ steht `pocketlog` im Template-Dropdown mit allen
-Feldern vorbelegt.
-
 ### 3. Ersteinrichtung
 
 Beim ersten Aufruf (`http://<host>:8000`) erscheint die Setup-View. Lege den
@@ -109,7 +104,7 @@ Einstieg anlegt.
 
 PocketLog läuft als einzelner Container auf Port 8000 und bringt seinen eigenen
 Login mit – kein vorgelagerter Identity-Provider nötig. Dahinter kann ein
-beliebiger Reverse Proxy sitzen (nginx, Caddy, Traefik, SWAG …). Nginx-Beispiel:
+beliebiger Reverse Proxy sitzen (nginx, Caddy, Traefik …). Nginx-Beispiel:
 
 ```nginx
 server {
@@ -124,8 +119,6 @@ server {
     }
 }
 ```
-
-Eine fertige SWAG-Proxy-Config liegt unter `swag/pocketlog.subdomain.conf`.
 
 ## Auth & Sessions
 
