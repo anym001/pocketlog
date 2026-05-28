@@ -51,19 +51,19 @@
       }
 
       :root {
-        /* Grouped page background (Apple-style): the flat canvas behind the
-           cards. Deliberately a touch darker than --bg-canvas so cards read as
-           elevated surfaces, like iOS grouped lists. */
-        --bg-grouped: #ece9e2;
-        /* Card / elevated surface — ivory from html-effectiveness palette.
-           Sits ON --bg-grouped and is lighter, so cards lift off the page. */
-        --bg-canvas: #faf9f5;
+        /* Grouped page background (Apple systemGroupedBackground): the flat
+           canvas behind the cards. A touch darker than --bg-canvas so cards
+           read as elevated surfaces, like iOS grouped lists. */
+        --bg-grouped: #f2f2f7;
+        /* Card / elevated surface — pure white, so cards lift cleanly off the
+           cool grouped canvas (Apple secondarySystemGroupedBackground). */
+        --bg-canvas: #ffffff;
 
-        /* Glass materials — light (based on ivory/paper) */
-        --glass-thin: rgba(250, 249, 245, 0.45);
-        --glass-regular: rgba(250, 249, 245, 0.65);
-        --glass-thick: rgba(250, 249, 245, 0.82);
-        --glass-chrome: rgba(250, 249, 245, 0.92);
+        /* Glass materials — light (white-based to match the neutral canvas) */
+        --glass-thin: rgba(255, 255, 255, 0.45);
+        --glass-regular: rgba(255, 255, 255, 0.65);
+        --glass-thick: rgba(255, 255, 255, 0.82);
+        --glass-chrome: rgba(255, 255, 255, 0.92);
         /* Header material — a translucent tint of the grouped canvas so the
            sticky header blends into the page (separated only by a hairline, no
            drop shadow) instead of reading as a floating bar. Resolves per
@@ -256,7 +256,7 @@
            cards sit a step lighter so they lift off the canvas (mirrors the
            light-mode grouped look, iOS-style). */
         --bg-grouped: #0f0e0c;
-        --bg-canvas: #1a1714;
+        --bg-canvas: #221e19;
 
         --glass-thin: rgba(38, 35, 30, 0.45);
         --glass-regular: rgba(38, 35, 30, 0.62);
@@ -498,7 +498,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 0 0 var(--space-2) var(--bg-canvas);
+        box-shadow: 0 0 0 var(--space-2) var(--bg-grouped);
         font-variant-numeric: tabular-nums;
       }
       .sync-badge[hidden] {
@@ -2879,10 +2879,10 @@
      fall back to nearly-opaque canvas tints (DESIGN_CONVENTIONS §5). */
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
         :root {
-          --glass-thin: rgba(250, 249, 245, 0.92);
-          --glass-regular: rgba(250, 249, 245, 0.95);
-          --glass-thick: rgba(250, 249, 245, 0.98);
-          --glass-chrome: rgba(250, 249, 245, 1);
+          --glass-thin: rgba(255, 255, 255, 0.92);
+          --glass-regular: rgba(255, 255, 255, 0.95);
+          --glass-thick: rgba(255, 255, 255, 0.98);
+          --glass-chrome: rgba(255, 255, 255, 1);
           /* No blur to frost content under the header — make it fully opaque so
              cards don't bleed through. Resolves per theme via --bg-grouped. */
           --glass-header: var(--bg-grouped);
@@ -2896,10 +2896,10 @@
       }
       @media (prefers-reduced-transparency: reduce) {
         :root {
-          --glass-thin: rgba(250, 249, 245, 0.92);
-          --glass-regular: rgba(250, 249, 245, 0.95);
-          --glass-thick: rgba(250, 249, 245, 0.98);
-          --glass-chrome: rgba(250, 249, 245, 1);
+          --glass-thin: rgba(255, 255, 255, 0.92);
+          --glass-regular: rgba(255, 255, 255, 0.95);
+          --glass-thick: rgba(255, 255, 255, 0.98);
+          --glass-chrome: rgba(255, 255, 255, 1);
           --glass-header: var(--bg-grouped);
         }
         html[data-dark='true'] {
@@ -3070,7 +3070,7 @@
       .auth-view {
         position: fixed;
         inset: 0;
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         display: flex;
         align-items: flex-start;
         justify-content: center;
@@ -3089,11 +3089,13 @@
       .auth-card {
         width: 100%;
         max-width: 420px;
-        background: var(--surface, var(--bg-canvas));
-        border: 1px solid var(--surface-tint);
-        border-radius: var(--r-xl, 20px);
+        /* Same card recipe as the rest of the app, so the login card lifts off
+           the grouped canvas like every other surface. */
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-xl);
         padding: var(--space-24) var(--space-20) var(--space-20);
-        box-shadow: var(--shadow-md, 0 4px 24px rgba(0, 0, 0, 0.08));
+        box-shadow: var(--shadow-elevated);
       }
       .auth-brand {
         font-family: 'DM Serif Display', serif;

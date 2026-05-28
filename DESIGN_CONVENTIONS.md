@@ -171,8 +171,8 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
 
   | Variable | Light | Dark | Bedeutung |
   |---|---|---|---|
-  | `--bg-grouped` | `#ECE9E2` | `#0f0e0c` | Seiten-Canvas (flach, Apple-Grouped-Stil) |
-  | `--bg-canvas` | `#FAF9F5` (ivory) | `#1a1714` | Karten-/Oberflächenfarbe (liegt heller auf `--bg-grouped`) |
+  | `--bg-grouped` | `#F2F2F7` | `#0f0e0c` | Seiten-Canvas (flach, Apple-Grouped-Stil) |
+  | `--bg-canvas` | `#FFFFFF` | `#221e19` | Karten-/Oberflächenfarbe (liegt heller auf `--bg-grouped`) |
   | `--accent` | `#D97757` (clay) | `#E8926E` | Ausgaben, primäre Aktion |
   | `--green` | `#788C5D` (olive) | `#9AB07A` | Einnahmen, Erfolg |
   | `--red` / `--red-2` | `#C0392B` / `#EC6B5B` | unverändert | Destruktive Aktionen (Swipe-to-Delete-Gradient) |
