@@ -1,16 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <!--
-    Variante 1 – "Bogen" (verfeinert)
-    Kreisbogen als dicker Stroke, Mittelpunkt außerhalb des Icons unten-rechts
-    (512,512). Der Bogen schneidet diagonal quer durch die PL-Buchstaben –
-    bei x=256 liegt er bei y≈259, genau auf halber Versalhöhe.
+    Variante 1 – "Bogen" (Iteration 3)
+    Halbmond-Ring unten-rechts via SVG-Maske:
+      Außenkreis r=255, Innenkreis r=152 → Ringbreite 103 px (vorher 72 px)
+      Opazität 0.45 (vorher 0.28) → deutlich sichtbarer
+    Schrift 302 px (beibehalten).
   -->
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#E0845A"/>
       <stop offset="100%" stop-color="#B84828"/>
     </linearGradient>
-    <clipPath id="clip">
+
+    <!-- Maske für saubere Ringform (kein Gradient-Artefakt im Innenkreis) -->
+    <mask id="ringMask">
+      <rect width="512" height="512" fill="black"/>
+      <circle cx="420" cy="415" r="255" fill="white"/>
+      <circle cx="420" cy="415" r="152" fill="black"/>
+    </mask>
+
+    <clipPath id="iconClip">
       <rect width="512" height="512" rx="114" ry="114"/>
     </clipPath>
   </defs>
@@ -18,20 +27,14 @@
   <!-- Background -->
   <rect width="512" height="512" rx="114" fill="url(#bg)"/>
 
-  <!-- Bogen: Viertelkreis mit Zentrum (512,512), r=360
-       – Startpunkt (152,512) am unteren Rand
-       – Endpunkt  (512,152) am rechten Rand
-       – sweep=0 → kurzer Bogen (90°) durch Icon-Mitte ~(257,257)
-       – schneidet durch die Versalhöhe von PL                         -->
-  <g clip-path="url(#clip)">
-    <path d="M 152 512 A 360 360 0 0 0 512 152"
-          fill="none"
-          stroke="rgba(255,255,255,0.48)"
-          stroke-width="78"
-          stroke-linecap="round"/>
+  <!-- Halbmond-Ring -->
+  <g clip-path="url(#iconClip)">
+    <rect width="512" height="512"
+          fill="rgba(255,255,255,0.45)"
+          mask="url(#ringMask)"/>
   </g>
 
-  <!-- PL – größer, linksbündig, weiß -->
+  <!-- PL – 302 px, linksbündig, weiß -->
   <text x="68" y="358"
         font-family="Arial Black, 'Helvetica Neue', sans-serif"
         font-weight="900"
