@@ -1,20 +1,31 @@
 # PocketLog
 
-Haushaltsbuch als Progressive Web App. Läuft auf iPhone / iPad / Mac, speichert
-Daten in deiner eigenen MariaDB. Zwei Auth-Schichten:
+Haushaltsbuch als Progressive Web App (PWA) – läuft auf iPhone, iPad, Mac und
+Desktop-Browser. Daten liegen in deiner eigenen MariaDB; kein Cloud-Dienst,
+kein Tracking.
 
-- **Domain-Tor:** Authentik per Forward Auth über SWAG (Passwort + MFA) – wie
-  alle anderen Apps an deinem Proxy.
-- **App-Login:** PocketLog hat seinen eigenen Username/Passwort-Login mit
-  Admin-Rolle und Setup-Flow für den ersten Admin. Authentik liefert keine
-  Identität mehr an die App.
+## Funktionsumfang
 
-Ein einziger Container, statische PWA + FastAPI in einem Image. Die MariaDB
-betreibst du selbst (z.B. dein bestehender Unraid-MariaDB-Container).
+- **Transaktionen** – Einnahmen & Ausgaben mit Datum, Betrag, Kategorie und Tags
+- **Kategorien** – frei definierbar (Name, Icon, Farbe); Standardset wird beim
+  ersten Aufruf angelegt
+- **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen
+- **CSV-Import / -Export** – UTF-8 oder CP1252, max. 5 MB; Export aller
+  Transaktionen als Semikolon-CSV
+- **Offline-Fähigkeit** – Service Worker cached die App-Shell; POST/PUT/DELETE
+  landen in einer Outbox und werden beim nächsten Online-Sein nachgesendet
+- **Multi-User** – jede Identität hat eigene Daten; Admin legt weitere Benutzer an
+- **Eigener Login** – Username/Passwort mit Admin-Rolle, Setup-Flow und
+  Brute-Force-Schutz
 
-## Erst die Datenbank anlegen
+## Voraussetzungen
 
-In deiner MariaDB:
+- Docker (oder Podman)
+- MariaDB 10.6+ (externe Instanz)
+
+## Schnellstart
+
+### 1. Datenbank anlegen
 
 ```sql
 CREATE DATABASE pocketlog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -23,69 +34,122 @@ GRANT ALL ON pocketlog.* TO 'pocketlog'@'%';
 FLUSH PRIVILEGES;
 ```
 
-Beim ersten Start spielt der Container die Schema-Migrationen automatisch ein.
+### 2. Container starten
 
-## Setup über die Unraid GUI
+```bash
+docker run -d \
+  --name pocketlog \
+  -p 8000:8000 \
+  -e DB_HOST=mariadb \
+  -e DB_NAME=pocketlog \
+  -e DB_USER=pocketlog \
+  -e DB_PASSWORD=dein-passwort \
+  -e TZ=Europe/Berlin \
+  ghcr.io/anym001/pocketlog:latest
+```
 
-1. **Template einbinden:** `unraid/pocketlog.xml` aus diesem Repo holen
-   und nach `/boot/config/plugins/dockerMan/templates-user/` auf deinem
-   Unraid-Server kopieren. Danach in **Apps → Add Container** im
-   **Template:**-Dropdown `pocketlog` auswählen — alle Felder sind dann
-   vorbelegt. (Bei privatem Repo geht die Template-URL-Variante nicht; wer
-   lieber alles per Hand einträgt, nimmt die Tabelle unten.)
-2. Felder prüfen / ausfüllen:
-   - **WebUI Port**: z.B. `8080`
-   - **DB_HOST**: Container-Name oder IP deiner MariaDB
-   - **DB_NAME** / **DB_USER** / **DB_PASSWORD**: wie oben angelegt
-   - **Network**: dasselbe Docker-Network wie deine MariaDB *und* SWAG
-     (sonst kommt PocketLog nicht an die DB bzw. SWAG nicht an PocketLog)
-3. **Apply** → der Container wird gezogen, läuft Alembic, startet uvicorn.
-4. **SWAG** vorbereiten:
-   `swag/pocketlog.subdomain.conf` nach `/swag/config/nginx/proxy-confs/`
-   kopieren, SWAG neu laden.
-5. In **Authentik** einen Forward-Auth-Provider + Application für
-   `pocketlog.<deinedomain>` anlegen und dem Outpost zuweisen.
-6. **App-Login einrichten:** Beim ersten Aufruf der App erscheint die
-   Setup-View. Lege darüber den ersten Admin an (Username + Passwort
-   mit mindestens 12 Zeichen). Danach läuft der reguläre Login direkt
-   im PocketLog-UI.
+Der Container spielt beim Start automatisch alle Schema-Migrationen ein,
+dann startet uvicorn.
 
-### Manuell ohne Template
+### 3. Ersteinrichtung
 
-Wer kein Template importieren mag, trägt in der „Add Container"-GUI ein:
+Beim ersten Aufruf (`http://<host>:8000`) erscheint die Setup-View. Lege den
+ersten Admin an (Username + Passwort, mindestens 12 Zeichen mit Groß-/Klein-
+buchstaben, Zahl und Sonderzeichen). Weitere Benutzer legt der Admin danach
+unter _Einstellungen → Benutzerverwaltung_ an.
 
-| Feld | Wert |
-|---|---|
-| Repository | `ghcr.io/anym001/pocketlog:latest` |
-| Network | gleiches Network wie MariaDB / SWAG |
-| Port | Host `8080` → Container `8000` |
-| ENV `DB_HOST` | `mariadb` (Container-Name) |
-| ENV `DB_PORT` | `3306` |
-| ENV `DB_NAME` | `pocketlog` |
-| ENV `DB_USER` | `pocketlog` |
-| ENV `DB_PASSWORD` | dein Passwort |
-| ENV `TZ` | `Europe/Berlin` |
+## Konfiguration
 
-## Funktionsumfang
+| Variable | Default | Bedeutung |
+|---|---|---|
+| `DB_HOST` | – | Hostname oder IP der MariaDB |
+| `DB_PORT` | `3306` | MariaDB-Port |
+| `DB_NAME` | – | Datenbankname |
+| `DB_USER` | – | Datenbankbenutzer |
+| `DB_PASSWORD` | – | Datenbankpasswort |
+| `TZ` | `UTC` | Zeitzone des Containers |
+| `SESSION_COOKIE_SECURE` | `1` | Auf `0` setzen für lokales HTTP-Testing |
+| `SESSION_LIFETIME_HOURS` | `24` | Sliding-Session ohne „Eingeloggt bleiben" |
+| `SESSION_REMEMBER_DAYS` | `30` | Sliding-Session mit „Eingeloggt bleiben" |
+| `SESSION_ABSOLUTE_DAYS` | `7` | Absolute Session-Obergrenze (normal) |
+| `SESSION_REMEMBER_ABSOLUTE_DAYS` | `90` | Absolute Session-Obergrenze (Remember-Me) |
+| `ENABLE_DOCS` | – | Auf `1` setzen, um Swagger UI unter `/api/docs` zu aktivieren |
 
-- **Transaktionen** – Einnahmen & Ausgaben mit Datum, Betrag, Kategorie, Tags
-- **Kategorien** – frei definierbar (Name, Icon, Farbe); beim ersten Aufruf werden Standardkategorien angelegt
-- **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen über die Einstellungen
-- **CSV-Import / -Export** – Import aus anderen Tools (UTF-8 oder CP1252, max. 5 MB); Export aller Transaktionen als Semikolon-CSV
-- **Offline-Fähigkeit** – Service Worker cached die App-Shell, POST/PUT/DELETE landen in einer Outbox und werden beim nächsten Online-Sein automatisch gesendet
+## Reverse Proxy
 
-## API testen
+PocketLog läuft als einzelner Container auf Port 8000 und bringt seinen eigenen
+Login mit – kein vorgelagerter Identity-Provider nötig. Dahinter kann ein
+beliebiger Reverse Proxy sitzen. Nginx-Beispiel:
 
-- Health: `https://pocketlog.<deinedomain>/api/health`
-- Swagger UI: `/api/docs` ist standardmäßig deaktiviert. Zum Debuggen den
-  Container mit `ENABLE_DOCS=1` starten; in Produktion bleibt es aus.
+```nginx
+server {
+    listen 443 ssl;
+    server_name pocketlog.example.com;
 
-## Image-Builds (GitHub Actions → ghcr.io)
+    location / {
+        proxy_pass         http://localhost:8000;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## Entwicklung
+
+Lokales Starten ohne MariaDB (SQLite reicht für Entwicklung):
+
+```bash
+cd backend
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+
+DATABASE_URL="sqlite:///./pocketlog-dev.db" .venv/bin/alembic upgrade head
+
+DATABASE_URL="sqlite:///./pocketlog-dev.db" \
+  SESSION_COOKIE_SECURE=0 \
+  .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+Tests ausführen:
+
+```bash
+cd backend
+.venv/bin/pytest
+```
+
+Weitere Details zu Auth-Konzept, Recovery-Kommandos und Migrations-Konventionen
+in [`docs/SETUP.md`](docs/SETUP.md).
+
+## API
+
+- Health: `GET /api/health`
+- Version: `GET /api/version`
+- Swagger UI: standardmäßig deaktiviert; mit `ENABLE_DOCS=1` starten
+
+## Image-Builds
 
 Der Workflow `.github/workflows/build.yml` baut bei jedem Push auf `main` ein
-neues Image und pusht es nach `ghcr.io/<owner>/pocketlog`. Die Patch-Version
-wird dabei automatisch hochgezählt und ein GitHub-Release erstellt — kein
-manuelles Tagging nötig. Tags:
+neues Image und pusht es nach `ghcr.io/anym001/pocketlog`. Die Patch-Version
+wird automatisch hochgezählt und ein GitHub-Release erstellt. Tags:
 
-- `:latest` — letzter Stand von `main`
-- `:X.Y.Z` — automatisch gesetzt vom Workflow (z.B. `v0.1.4`)
+- `:latest` – letzter Stand von `main`
+- `:X.Y.Z` – versionierter Release (z.B. `v0.3.2`)
+
+---
+
+## Unraid & SWAG (optional)
+
+Wer PocketLog auf **Unraid** hinter **SWAG** betreibt:
+
+- **Unraid-Template:** `unraid/pocketlog.xml` nach
+  `/boot/config/plugins/dockerMan/templates-user/` kopieren → in der Apps-GUI
+  erscheint ein vorbelegtes Template mit allen ENV-Variablen.
+- **SWAG-Proxy-Config:** `swag/pocketlog.subdomain.conf` nach
+  `/config/nginx/proxy-confs/` legen, SWAG neu laden.
+- Weitere optionale SWAG-Snippets (GeoIP-Block, LAN-Allowlist) liegen unter
+  `swag/`.
+
+PocketLog benötigt keinen vorgelagerten Identity-Provider. Authentik kann
+optional als zusätzliche Schutzschicht vor dem Container gesetzt werden
+(Forward Auth), ist aber nicht erforderlich.
