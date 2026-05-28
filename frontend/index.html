@@ -1,0 +1,1313 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PocketLog" />
+    <meta name="theme-color" content="#f4ede0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e0c0a" media="(prefers-color-scheme: dark)" />
+    <title>PocketLog – Haushaltsbuch</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+    <script>
+      // Single early decision for the active theme. Sets two attributes:
+      //   data-theme  — the user's preference: 'dark' | 'light' | (none = system)
+      //   data-dark   — the effective, resolved value used for CSS theming
+      // CSS only reads data-dark, so light tokens live in :root and dark tokens
+      // live in one html[data-dark='true'] block.
+      (function () {
+        var html = document.documentElement;
+        var manual = localStorage.getItem('pocketlog.theme');
+        if (manual === 'dark' || manual === 'light') {
+          html.setAttribute('data-theme', manual);
+        }
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = manual === 'dark' || (manual !== 'light' && prefersDark);
+        html.setAttribute('data-dark', isDark ? 'true' : 'false');
+      })();
+      // Restore the sidebar-collapsed state before first paint so the
+      // tablet sidebar doesn't animate in on every page load. The class
+      // sits on <html> because <body> doesn't exist yet at head-parse
+      // time; CSS targets html.sidebar-collapsed for the same reason.
+      (function () {
+        try {
+          if (localStorage.getItem('pocketlog.sidebarCollapsed') === '1') {
+            document.documentElement.classList.add('sidebar-collapsed');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script src="/vendor/chart.umd.min.js"></script>
+    <script src="/db.js" defer></script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <!-- Inline SVG icon sprite (chrome glyphs).
+         Hidden via 0×0 absolute positioning so <use href="#icon-…"> works
+         reliably across browsers. Stroke 1.75 / 24×24 viewBox per
+         DESIGN_CONVENTIONS §Icons im UI. -->
+    <svg
+      width="0"
+      height="0"
+      style="position: absolute"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <symbol
+          id="icon-menu"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M4 7h16" />
+          <path d="M4 12h16" />
+          <path d="M4 17h16" />
+        </symbol>
+        <symbol
+          id="icon-chevron-left"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M15 6l-6 6 6 6" />
+        </symbol>
+        <symbol
+          id="icon-chevron-right"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 6l6 6-6 6" />
+        </symbol>
+        <symbol
+          id="icon-close"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </symbol>
+        <symbol
+          id="icon-search"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M20 20l-3.5-3.5" />
+        </symbol>
+        <symbol
+          id="icon-plus"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+        <symbol
+          id="icon-inbox-empty"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 13l2-7h12l2 7v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
+          <path d="M4 13h4l1 2h6l1-2h4" />
+        </symbol>
+        <symbol
+          id="icon-more-vertical"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          stroke="none"
+        >
+          <circle cx="12" cy="5" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="12" cy="19" r="2" />
+        </symbol>
+        <symbol
+          id="icon-arrows-in"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="4" y1="4" x2="10" y2="10" />
+          <polyline points="4 10 10 10 10 4" />
+          <line x1="20" y1="20" x2="14" y2="14" />
+          <polyline points="20 14 14 14 14 20" />
+        </symbol>
+        <symbol
+          id="icon-arrows-out"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="4" y1="4" x2="10" y2="10" />
+          <polyline points="4 10 4 4 10 4" />
+          <line x1="20" y1="20" x2="14" y2="14" />
+          <polyline points="20 14 20 20 14 20" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <!-- TOAST HOST -->
+    <div class="toast-host" id="toastHost" aria-live="polite"></div>
+
+    <!-- AUTH VIEWS ─ Login, Setup, Force-Change-Password.
+         All three start hidden; init() decides which (if any) becomes
+         visible before the main app shell is shown. -->
+    <div class="auth-view" id="loginView" hidden>
+      <div class="auth-card" role="main" aria-labelledby="loginTitle">
+        <h1 class="auth-brand">Pocket<span>Log</span></h1>
+        <h2 id="loginTitle" class="auth-headline">Anmelden</h2>
+        <form id="loginForm" class="auth-form" onsubmit="event.preventDefault(); submitLogin();">
+          <div class="form-group">
+            <label for="loginUsername">Benutzername</label>
+            <input
+              type="text"
+              id="loginUsername"
+              autocomplete="username"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Passwort</label>
+            <input
+              type="password"
+              id="loginPassword"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <label class="auth-remember">
+            <input type="checkbox" id="loginRemember" />
+            Eingeloggt bleiben
+          </label>
+          <p class="auth-error" id="loginError" hidden role="alert"></p>
+          <button type="submit" class="submit-btn" id="loginSubmit">Anmelden</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="auth-view" id="setupView" hidden>
+      <div class="auth-card" role="main" aria-labelledby="setupTitle">
+        <h1 class="auth-brand">Pocket<span>Log</span></h1>
+        <h2 id="setupTitle" class="auth-headline">Ersteinrichtung</h2>
+        <p class="auth-intro" id="setupIntro">
+          Lege das Administrator-Konto an, das künftig die App verwaltet.
+        </p>
+        <form id="setupForm" class="auth-form" onsubmit="event.preventDefault(); submitSetup();">
+          <div class="form-group">
+            <label for="setupUsername">Benutzername</label>
+            <input
+              type="text"
+              id="setupUsername"
+              autocomplete="username"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="setupPassword">Passwort</label>
+            <input
+              type="password"
+              id="setupPassword"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="setupPasswordConfirm">Passwort wiederholen</label>
+            <input
+              type="password"
+              id="setupPasswordConfirm"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+          </div>
+          <p class="auth-error" id="setupError" hidden role="alert"></p>
+          <button type="submit" class="submit-btn">Konto anlegen</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="auth-view" id="forcePwView" hidden>
+      <div class="auth-card" role="main" aria-labelledby="forcePwTitle">
+        <h1 class="auth-brand">Pocket<span>Log</span></h1>
+        <h2 id="forcePwTitle" class="auth-headline">Passwort wählen</h2>
+        <p class="auth-intro">
+          Vergib ein eigenes Passwort, bevor du fortfährst.
+        </p>
+        <form id="forcePwForm" class="auth-form" onsubmit="event.preventDefault(); submitForcePassword();">
+          <div class="form-group">
+            <label for="forcePwNew">Neues Passwort</label>
+            <input
+              type="password"
+              id="forcePwNew"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="forcePwConfirm">Neues Passwort wiederholen</label>
+            <input
+              type="password"
+              id="forcePwConfirm"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+          </div>
+          <p class="auth-error" id="forcePwError" hidden role="alert"></p>
+          <button type="submit" class="submit-btn">Passwort speichern</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- App shell: `display: contents` on mobile (no visual change), grid
+         with sidebar + content column ≥ 768px (see styles.css adaptive
+         layout block). Drawer sits inside the shell so it can become the
+         sticky sidebar column on tablet; on mobile it stays a fixed
+         overlay regardless of DOM position.
+         Stays hidden until init() confirms an authenticated session so
+         no app data flashes before the auth check resolves. -->
+    <main class="app-shell" id="appShell" hidden>
+    <!-- DRAWER OVERLAY -->
+    <div class="drawer-overlay" id="drawerOverlay" aria-hidden="true" onclick="closeDrawer()"></div>
+
+    <!-- DRAWER -->
+    <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Menü">
+      <div class="drawer-head">
+        <h2 class="drawer-head-title">Pocket<span>Log</span></h2>
+        <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+        </button>
+      </div>
+
+      <div class="drawer-content">
+        <!-- Panel 0: Hauptmenü -->
+        <div class="drawer-panel" id="dpMain" data-state="active">
+          <nav class="drawer-nav">
+            <button
+              class="drawer-nav-item"
+              data-panel="categories"
+              onclick="showPanel('categories')"
+            >
+              Kategorienübersicht
+            </button>
+            <button
+              class="drawer-nav-item"
+              data-panel="transactions"
+              onclick="showPanel('transactions')"
+            >
+              Buchungsübersicht
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpReports')">
+              Auswertungen
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpSettings')">
+              Einstellungen
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Panel 1a: Auswertungen -->
+        <div class="drawer-panel" id="dpReports" data-state="right">
+          <div class="drawer-sub-head">
+            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Auswertungen</span>
+          </div>
+          <nav class="drawer-nav">
+            <button class="drawer-nav-item" onclick="openReport('overview')">Übersicht</button>
+            <button class="drawer-nav-item" onclick="openReport('month')">Monatsverlauf</button>
+            <button class="drawer-nav-item" onclick="openReport('year')">Jahresverlauf</button>
+            <button class="drawer-nav-item" onclick="openReport('categories')">Kategorienanalyse</button>
+            <button class="drawer-nav-item" onclick="openReport('tags')">Taganalyse</button>
+            <button class="drawer-nav-item" onclick="openReport('trend')">Trend</button>
+            <button class="drawer-nav-item" onclick="openReport('forecast')">Prognose</button>
+            <button class="drawer-nav-item" onclick="openReport('top')">Größte Ausgaben</button>
+          </nav>
+        </div>
+
+        <!-- Panel 1: Einstellungen -->
+        <div class="drawer-panel" id="dpSettings" data-state="right">
+          <div class="drawer-sub-head">
+            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Einstellungen</span>
+          </div>
+          <nav class="drawer-nav">
+            <button class="drawer-nav-item" onclick="drawerNav('dpCats')">
+              Kategorien
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpTags')">
+              Tags
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpImport')">
+              Import/Export
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
+              Darstellung
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpAdmin')">
+              Verwaltung
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item admin-only" onclick="drawerNav('dpAdminUsers')">
+              Benutzerverwaltung
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpAccount')">
+              Konto
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpInfo')">
+              Info
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Panel 2a: Kategorien -->
+        <div class="drawer-panel" id="dpCats" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Kategorien</span>
+          </div>
+          <div class="drawer-section">
+            <div id="catList" class="drawer-chip-list"></div>
+            <button class="save-btn" onclick="openCatModal()">Kategorie hinzufügen</button>
+          </div>
+        </div>
+
+        <!-- Panel 2b: Tags -->
+        <div class="drawer-panel" id="dpTags" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Tags</span>
+          </div>
+          <div class="drawer-section">
+            <div id="tagList" class="drawer-chip-list"></div>
+            <button class="save-btn" onclick="openTagModal()">Tag erstellen</button>
+          </div>
+        </div>
+
+        <!-- Panel 2c: Import/Export -->
+        <div class="drawer-panel" id="dpImport" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Import/Export</span>
+          </div>
+          <div class="drawer-section">
+            <div class="settings-section">
+              <button class="save-btn" onclick="exportCSV()">Als CSV exportieren</button>
+              <button
+                class="save-btn"
+                style="margin-top: var(--space-8)"
+                onclick="document.getElementById('importFile').click()"
+              >
+                Aus CSV importieren…
+              </button>
+              <input
+                type="file"
+                id="importFile"
+                accept=".csv,text/csv,text/plain"
+                style="display: none"
+                onchange="importCSV(event)"
+              />
+              <a
+                class="save-btn"
+                style="
+                  margin-top: var(--space-8);
+                  text-decoration: none;
+                  display: block;
+                  text-align: center;
+                  line-height: 1.4;
+                "
+                href="/example-import.csv"
+                download
+                >Beispieldatei herunterladen</a
+              >
+              <div class="status-msg" id="importStatus"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2d: Darstellung -->
+        <div class="drawer-panel" id="dpDisplay" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Darstellung</span>
+          </div>
+          <div class="drawer-section">
+            <h3>Erscheinungsbild</h3>
+            <div class="settings-section">
+              <label class="radio-row">
+                <input
+                  type="radio"
+                  name="appTheme"
+                  value="system"
+                  onchange="saveTheme(this.value)"
+                />
+                System
+              </label>
+              <label class="radio-row">
+                <input
+                  type="radio"
+                  name="appTheme"
+                  value="light"
+                  onchange="saveTheme(this.value)"
+                />
+                Hell
+              </label>
+              <label class="radio-row">
+                <input
+                  type="radio"
+                  name="appTheme"
+                  value="dark"
+                  onchange="saveTheme(this.value)"
+                />
+                Dunkel
+              </label>
+            </div>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Startansicht</h3>
+            <div class="settings-section">
+              <label class="radio-row">
+                <input
+                  type="radio"
+                  name="defaultView"
+                  value="transactions"
+                  onchange="saveDefaultView(this.value)"
+                />
+                Buchungsübersicht
+              </label>
+              <label class="radio-row">
+                <input
+                  type="radio"
+                  name="defaultView"
+                  value="categories"
+                  onchange="saveDefaultView(this.value)"
+                />
+                Kategorienübersicht
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2e: Verwaltung -->
+        <div class="drawer-panel" id="dpAdmin" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Verwaltung</span>
+          </div>
+          <div class="drawer-section">
+            <button class="save-btn" onclick="openCacheModal()">
+              Cache leeren
+            </button>
+            <p
+              style="
+                font-size: var(--fs-caption);
+                color: var(--text3);
+                margin: var(--space-10) 0 var(--space-16);
+              "
+            >
+              Verwirft den API-Cache und nicht synchronisierte Änderungen. Server-Daten bleiben
+              unverändert.
+            </p>
+            <button class="save-btn btn-destructive" onclick="openResetModal()">
+              Daten löschen
+            </button>
+            <p
+              style="
+                font-size: var(--fs-caption);
+                color: var(--text3);
+                margin: var(--space-10) 0 0;
+              "
+            >
+              Entfernt Buchungen, Kategorien oder beides serverseitig. Aktion lässt sich nicht
+              rückgängig machen.
+            </p>
+          </div>
+        </div>
+
+        <!-- Panel 2e2: Benutzerverwaltung (Admin only) -->
+        <div class="drawer-panel admin-only" id="dpAdminUsers" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Benutzerverwaltung</span>
+          </div>
+          <div class="drawer-section">
+            <div id="adminUserList" class="drawer-chip-list"></div>
+            <button class="save-btn" onclick="openAdminCreateUserModal()">
+              Benutzer hinzufügen
+            </button>
+          </div>
+        </div>
+
+        <!-- Panel 2e3: Konto (eigenes Passwort / Logout) -->
+        <div class="drawer-panel" id="dpAccount" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Konto</span>
+          </div>
+          <div class="drawer-section">
+            <p class="account-username" id="accountUsername" style="
+              font-size: var(--fs-body);
+              color: var(--text2);
+              margin: 0 0 var(--space-16);
+            "></p>
+            <button class="save-btn" onclick="openChangePasswordModal()">
+              Passwort ändern
+            </button>
+            <button
+              class="save-btn"
+              style="margin-top: var(--space-16)"
+              onclick="logoutWithConfirm()"
+            >
+              Abmelden
+            </button>
+          </div>
+        </div>
+
+        <!-- Panel 2f: Info -->
+        <div class="drawer-panel" id="dpInfo" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title">Info</span>
+          </div>
+          <div class="drawer-section">
+            <h3>Versionen</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>App (Backend)</dt>
+                <dd id="infoBackendVersion">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Service Worker</dt>
+                <dd id="infoSwVersion">–</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Status</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>Verbindung</dt>
+                <dd id="infoOnline">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Service-Worker-Status</dt>
+                <dd id="infoSwState">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Ausstehende Änderungen</dt>
+                <dd id="infoOutbox">–</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Gerät</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>Plattform</dt>
+                <dd id="infoPlatform">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Browser</dt>
+                <dd id="infoBrowser">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Modus</dt>
+                <dd id="infoDisplayMode">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Eingabe</dt>
+                <dd id="infoPointer">–</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Anzeige</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>Viewport</dt>
+                <dd id="infoViewport">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Bildschirm</dt>
+                <dd id="infoScreen">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Pixel-Dichte</dt>
+                <dd id="infoDpr">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Zoom</dt>
+                <dd id="infoZoom">–</dd>
+              </div>
+              <div class="info-row">
+                <dt>Physisch</dt>
+                <dd id="infoPhysical">–</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3>Umgebung</h3>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt>Sprache</dt>
+                <dd id="infoLang">–</dd>
+              </div>
+              <div class="info-row info-row-stack">
+                <dt>Browser-Kennung</dt>
+                <dd id="infoUserAgent">–</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page-level heading so the document has a single H1. Visually
+         hidden because the brand mark already lives in the drawer head. -->
+    <h1 class="visually-hidden">PocketLog</h1>
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-top">
+        <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-menu" /></svg>
+        </button>
+        <button
+          class="sidebar-toggle-btn"
+          onclick="toggleSidebar()"
+          aria-pressed="false"
+          aria-label="Seitenleiste umschalten"
+          title="Seitenleiste umschalten"
+        >
+          <!-- Two state-dependent icons. Mental model: the icon hints
+               at what's about to happen to the *content area* on click.
+               Sidebar visible → click hides it → content expands →
+               arrows-out (st-collapse class). Sidebar hidden → click
+               brings it back → content shrinks → arrows-in (st-expand
+               class). The class names are kept symbolic ("collapse" =
+               the collapse-action button, "expand" = the expand-action
+               button) so the CSS swap rules stay readable. -->
+          <svg class="ui-icon st-icon st-collapse" aria-hidden="true"><use href="#icon-arrows-out" /></svg>
+          <svg class="ui-icon st-icon st-expand" aria-hidden="true"><use href="#icon-arrows-in" /></svg>
+        </button>
+        <div class="month-nav">
+          <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
+          <span class="month-label" id="monthLabel"></span>
+          <button onclick="changeMonth(1)" aria-label="Nächster Monat">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+          </button>
+        </div>
+        <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
+          <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
+          <span class="sync-badge" id="syncBadge" hidden></span>
+        </button>
+        <span id="syncAriaLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></span>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="summary">
+      <div class="summary-card">
+        <div class="label">Ausgaben</div>
+        <div class="amount negative" id="totalOut">0,00 €</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Einnahmen</div>
+        <div class="amount positive" id="totalIn">0,00 €</div>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS PANEL -->
+    <div class="panel active" id="panel-transactions">
+      <div id="transactionList"></div>
+    </div>
+
+    <!-- SEARCH PANEL -->
+    <div class="panel" id="panel-search">
+      <div id="searchResultsList"></div>
+    </div>
+
+    <!-- CHARTS PANEL -->
+    <div class="panel" id="panel-charts">
+      <div class="report-head">
+        <h2 class="report-title" id="reportTitle">Übersicht</h2>
+        <p class="report-subtitle" id="reportRangeLabel" aria-live="polite"></p>
+      </div>
+
+      <div class="range-picker">
+        <div class="segmented" role="tablist" aria-label="Zeitraum" id="rangeKindTabs">
+          <button role="tab" type="button" aria-selected="true" data-kind="month" onclick="setRangeKind('month')">Monat</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="quarter" onclick="setRangeKind('quarter')">Quartal</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="year" onclick="setRangeKind('year')">Jahr</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="custom" onclick="setRangeKind('custom')">Eigen</button>
+        </div>
+        <div class="range-stepper" id="rangeStepper">
+          <button type="button" onclick="shiftRange(-1)" aria-label="Zurück">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          </button>
+          <span id="rangeStepperLabel"></span>
+          <button type="button" onclick="shiftRange(1)" aria-label="Vor">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+          </button>
+        </div>
+        <div class="range-custom" id="rangeCustom" hidden>
+          <label class="range-custom-field">
+            <span>Von</span>
+            <input type="date" id="rangeFrom" onchange="onCustomRangeChange()" />
+          </label>
+          <label class="range-custom-field">
+            <span>Bis</span>
+            <input type="date" id="rangeTo" onchange="onCustomRangeChange()" />
+          </label>
+        </div>
+      </div>
+
+      <div id="reportBody"></div>
+    </div>
+
+    <!-- CATEGORIES PANEL -->
+    <div class="panel" id="panel-categories">
+      <div id="categoryViewList"></div>
+    </div>
+
+    <!-- BOTTOM BAR -->
+    <div class="bottom-bar">
+      <form class="search-form" role="search" onsubmit="event.preventDefault()">
+        <label for="searchInput" class="visually-hidden">Buchungen durchsuchen</label>
+        <div class="search-wrap">
+          <span class="search-icon" aria-hidden="true">
+            <svg class="ui-icon"><use href="#icon-search" /></svg>
+          </span>
+          <input
+            class="search-input"
+            id="searchInput"
+            type="search"
+            placeholder="Buchungen durchsuchen"
+            oninput="onSearch(this.value)"
+            enterkeyhint="search"
+            inputmode="search"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </div>
+      </form>
+      <button class="fab" onclick="openModal()" aria-label="Neue Buchung">
+        <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
+      </button>
+    </div>
+    </main>
+
+    <!-- TRANSACTION ADD/EDIT MODAL -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="modalTitle">Neue Buchung</h2>
+        </div>
+        <div class="modal-body">
+          <div class="type-toggle">
+            <button class="type-btn active out" onclick="setType('out', this)">Ausgabe</button>
+            <button class="type-btn in" onclick="setType('in', this)">Einnahme</button>
+          </div>
+          <div class="form-group">
+            <label>Betrag (€)</label>
+            <!-- type="text" so iOS honours inputmode="decimal" and shows
+                 the full decimal keypad (with the comma key on de_DE
+                 locale). type="number" overrides inputmode on iOS Safari
+                 and falls back to the regular keyboard with a digit row.
+                 pattern is HTML-side validation only — actual parsing
+                 lives in parseAmount() to handle both . and , separators. -->
+            <input
+              type="text"
+              class="amount-input"
+              id="inputAmount"
+              placeholder="0,00"
+              inputmode="decimal"
+              pattern="[0-9]*[.,]?[0-9]{0,2}"
+              autocomplete="off"
+              enterkeyhint="done"
+              onblur="normalizeAmountInput()"
+            />
+          </div>
+          <div class="form-group">
+            <label>Datum</label>
+            <input type="date" id="inputDate" />
+          </div>
+          <div class="form-group">
+            <label>Kategorie</label>
+            <select id="inputCat"></select>
+          </div>
+          <div class="form-group">
+            <label>Notizen</label>
+            <input type="text" id="inputDesc" placeholder="z.B. Supermarkt" />
+          </div>
+          <div class="form-group">
+            <label>Tags</label>
+            <div class="tags-input-wrap" id="tagsWrap">
+              <button
+                type="button"
+                class="tag-add-btn"
+                id="tagPickerBtn"
+                aria-label="Tag hinzufügen"
+                onclick="openTagPicker()"
+              >
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
+              </button>
+            </div>
+            <div class="tag-suggestions" id="tagSuggestions"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" id="submitBtn" onclick="addTransaction()">
+            Ausgabe speichern
+          </button>
+          <button
+            class="submit-btn btn-destructive"
+            id="deleteBtn"
+            onclick="deleteCurrentTransaction()"
+            style="display: none"
+          >
+            Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAG ADD/EDIT MODAL -->
+    <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tagModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="tagModalTitle">Tag bearbeiten</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="tagEditName" maxlength="64" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
+          <button
+            class="submit-btn btn-destructive"
+            id="tagDeleteBtn"
+            onclick="deleteTagEdit()"
+          >
+            Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAG PICKER MODAL -->
+    <div class="modal-overlay" id="tagPickerOverlay" onclick="closeTagPickerOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tagPickerTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeTagPicker()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="tagPickerTitle">Tag wählen</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Neuen Tag anlegen</label>
+            <div class="tag-create-row">
+              <input
+                type="text"
+                id="tagPickerNew"
+                maxlength="64"
+                placeholder="Neuer Tag"
+                autocomplete="off"
+                onkeydown="handleTagPickerNew(event)"
+              />
+              <button
+                type="button"
+                class="tag-add-btn"
+                onclick="addTagFromPicker()"
+                aria-label="Tag erstellen"
+              >
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Vorhandene Tags</label>
+            <div class="search-wrap tag-picker-search">
+              <span class="search-icon" aria-hidden="true">
+                <svg class="ui-icon"><use href="#icon-search" /></svg>
+              </span>
+              <input
+                class="search-input"
+                id="tagPickerFilter"
+                type="search"
+                placeholder="Tags durchsuchen"
+                enterkeyhint="search"
+                inputmode="search"
+                oninput="renderTagPickerChips()"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+              />
+            </div>
+            <div class="tag-picker-chips" id="tagPickerChips"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="commitTagPicker()">Übernehmen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY ADD/EDIT MODAL -->
+    <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="catModalTitle">Kategorie bearbeiten</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="catEditName" maxlength="100" />
+          </div>
+          <div class="form-group">
+            <label>Icon</label>
+            <button
+              type="button"
+              class="icon-trigger"
+              id="catEditIconBtn"
+              onclick="openIconPicker()"
+              aria-haspopup="dialog"
+            >
+              <span class="icon-trigger-glyph" id="catEditIconPreview" aria-hidden="true"></span>
+              <span class="icon-trigger-label">Icon ändern</span>
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+            </button>
+          </div>
+          <div class="form-group">
+            <label>Farbe</label>
+            <div class="color-swatches" id="catEditColors"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
+          <button
+            class="submit-btn btn-destructive"
+            id="catDeleteBtn"
+            onclick="deleteCategoryEdit()"
+          >
+            Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY ICON PICKER -->
+    <div class="modal-overlay" id="iconPickerOverlay" onclick="closeIconPickerOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="iconPickerTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeIconPicker()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="iconPickerTitle">Icon wählen</h2>
+        </div>
+        <div class="modal-body">
+          <div id="iconPickerSections"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CACHE-CLEAR MODAL -->
+    <div class="modal-overlay" id="cacheModalOverlay" onclick="closeCacheModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cacheModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeCacheModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="cacheModalTitle">Cache wirklich leeren?</h2>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-msg" id="cacheModalMsg"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" id="cacheModalConfirm" onclick="confirmClearAppCache()">
+            Cache leeren
+          </button>
+          <button class="confirm-cancel" onclick="closeCacheModal()">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESET / DATA-DELETE MODAL -->
+    <div class="modal-overlay" id="resetModalOverlay" onclick="closeResetModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeResetModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="resetModalTitle">Daten wirklich löschen?</h2>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-msg">
+            Diese Aktion entfernt Daten dauerhaft vom Server und lässt sich nicht rückgängig
+            machen.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn btn-destructive" onclick="resetAllData()">
+            Alle Daten löschen
+          </button>
+          <button
+            class="submit-btn btn-destructive"
+            style="margin-top: var(--space-8)"
+            onclick="resetTransactionsOnly()"
+          >
+            Nur Buchungen löschen
+          </button>
+          <button class="confirm-cancel" onclick="closeResetModal()">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASSWORD-CHANGE MODAL (Self-Service via Konto-Drawer) -->
+    <div class="modal-overlay" id="pwModalOverlay" onclick="closePwModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pwModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closePwModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="pwModalTitle">Passwort ändern</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Aktuelles Passwort</label>
+            <input
+              type="password"
+              id="pwModalCurrent"
+              autocomplete="current-password"
+            />
+          </div>
+          <div class="form-group">
+            <label>Neues Passwort</label>
+            <input
+              type="password"
+              id="pwModalNew"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+          </div>
+          <div class="form-group">
+            <label>Neues Passwort wiederholen</label>
+            <input
+              type="password"
+              id="pwModalConfirm"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+          </div>
+          <p class="auth-error" id="pwModalError" hidden role="alert"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="submitChangePassword()">Speichern</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN: NEUEN BENUTZER ANLEGEN -->
+    <div class="modal-overlay" id="adminCreateUserOverlay" onclick="closeAdminCreateUserModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminCreateUserTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeAdminCreateUserModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="adminCreateUserTitle">Benutzer hinzufügen</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Benutzername</label>
+            <input
+              type="text"
+              id="adminCreateUsername"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              maxlength="150"
+            />
+          </div>
+          <div class="form-group">
+            <label>Startpasswort</label>
+            <input
+              type="password"
+              id="adminCreatePassword"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+          </div>
+          <p class="confirm-msg">
+            Der Benutzer muss sich beim ersten Login ein eigenes Passwort vergeben.
+          </p>
+          <p class="auth-error" id="adminCreateError" hidden role="alert"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="submitAdminCreateUser()">Anlegen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN: PASSWORT ZURÜCKSETZEN -->
+    <div class="modal-overlay" id="adminResetPwOverlay" onclick="closeAdminResetPwModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminResetPwTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeAdminResetPwModal()" aria-label="Schließen">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="adminResetPwTitle">Passwort zurücksetzen</h2>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-msg" id="adminResetPwIntro"></p>
+          <div class="form-group">
+            <label>Neues Passwort</label>
+            <input
+              type="password"
+              id="adminResetPwInput"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+          </div>
+          <p class="confirm-msg">
+            Der Benutzer muss das Passwort beim nächsten Login erneut ändern.
+          </p>
+          <p class="auth-error" id="adminResetPwError" hidden role="alert"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="submitAdminResetPassword()">Speichern</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
