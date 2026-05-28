@@ -313,6 +313,7 @@ PocketLog hat projektspezifische Claude-Code-Subagents für Review-Aufgaben:
 | `copy-review` | UI-Texte, Apple Style Guide (Deutsch) |
 | `pwa-review` | Service Worker, Cache-Strategie, Offline-Outbox |
 | `vendor-audit` | Vendored JS/Fonts/Icons — Lizenz, Quelle, Privacy |
+| `test-review` | pytest-Testqualität: Coverage-Lücken, CSRF in Tests, Datenisolation, Migrationsidempotenz |
 
 **Pflege:** Bei Konventionsänderungen die betroffenen Agents in `.claude/agents/` mitpflegen (neue Tokens → `token-audit.md`/`ui-review.md`; Schema → `db-review.md`; Vendor-Policy → `vendor-audit.md`; UI-Texte → `copy-review.md`).
 
