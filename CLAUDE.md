@@ -132,7 +132,7 @@ Tokens: `var(--accent/--green/--red/--text/--bg-canvas …)` · `--fs-*` · `--s
 
 ## Konventionen
 
-**Sprache:** Code/Kommentare/YAML/Skripte → Englisch · Docs (CLAUDE.md, README.md, TODO.md) → Deutsch
+**Sprache:** Code/Kommentare/YAML/Skripte → Englisch · Docs (CLAUDE.md, README.md) → Deutsch
 
 **Backend:**
 - CRUD-Funktionen immer mit `user_id: int`; im Endpoint `user.id` aus `CurrentUser` übergeben
@@ -163,6 +163,3 @@ Tokens: `var(--accent/--green/--red/--text/--bg-canvas …)` · `--fs-*` · `--s
 
 Bei Konventionsänderungen betroffene Agents mitpflegen.
 
-## Bekannte Einschränkungen / TODO
-
-Siehe [`TODO.md`](TODO.md).
