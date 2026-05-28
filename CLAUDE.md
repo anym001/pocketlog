@@ -54,8 +54,7 @@ PocketLog/
 │       ├── crud.py                   ← username-skopierte Queries
 │       └── database.py               ← MariaDB Engine (pymysql)
 ├── CLAUDE.md
-├── DESIGN_CONVENTIONS.md             ← Frontend-Design- und Schreibregeln
-└── docs/SETUP.md                     ← Deployment- und Auth-Setup-Anleitung
+└── DESIGN_CONVENTIONS.md             ← Frontend-Design- und Schreibregeln
 ```
 
 ## Drittanbieter & Privacy
@@ -219,7 +218,7 @@ Alle Queries filtern weiterhin nach `user_id`. Weitere Dependencies:
 das `force_change_password`-Flag trägt (Ausnahmen: `/api/auth/me`,
 `/api/auth/logout`, `/api/auth/change-password`). `require_admin` ist
 die Stacking-Dep für `/api/admin/users/*`. → Setup-Details:
-[`docs/SETUP.md`](docs/SETUP.md)
+[`README.md`](README.md)
 
 ### Brute-Force-Backoff (in `auth.py`)
 
@@ -269,7 +268,7 @@ nicht im Repo (Container-Image), sind aber für Reviews relevant:
 
 ## Deployment
 
-→ [`docs/SETUP.md`](docs/SETUP.md)
+→ [`README.md`](README.md)
 
 ## Design Conventions (Frontend)
 
