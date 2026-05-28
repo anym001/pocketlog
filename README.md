@@ -1,8 +1,9 @@
 # PocketLog
 
-Haushaltsbuch als Progressive Web App (PWA) – läuft auf iPhone, iPad, Mac und
-Desktop-Browser. Daten liegen in deiner eigenen MariaDB; kein Cloud-Dienst,
-kein Tracking.
+Haushaltsbuch als Progressive Web App (PWA) – läuft im Browser auf allen
+gängigen Plattformen (iOS, Android, macOS, Windows, Linux) und lässt sich
+als App auf dem Homescreen installieren. Daten liegen in deiner eigenen
+MariaDB; kein Cloud-Dienst, kein Tracking.
 
 ## Inhalt
 
