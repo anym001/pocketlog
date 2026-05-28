@@ -3,19 +3,11 @@
 Aufruf im laufenden Container:
 
     docker exec -it pocketlog python -m app.cli reset-admin-password
-    docker exec -it pocketlog python -m app.cli clear-force-change-password
 
 ``reset-admin-password`` setzt für den einen Admin (oder den explizit
 benannten User) ein neues Passwort, leert den Brute-Force-Counter und
 setzt ``force_change_password=true`` — beim nächsten Login muss ein
 eigenes Passwort vergeben werden.
-
-``clear-force-change-password`` löst nur das ``force_change_password``-
-Flag ohne Passwortwechsel. Notfall-Ausweg, wenn ein User in der
-Force-Change-View festhängt (z. B. weil der alte Service Worker eine
-veraltete ``/api/auth/me``-Response cached oder der HTTP-Roundtrip auf
-dem Pfad sonstwie verloren geht) und sich nicht über die UI selbst
-herausziehen kann.
 """
 from __future__ import annotations
 
@@ -30,9 +22,7 @@ from .database import SessionLocal
 def _resolve_target_user(db, username: str | None):
     """Lädt den Ziel-User für ein CLI-Kommando.
 
-    Ohne ``--username``: nur erfolgreich, wenn genau ein Admin existiert.
-    Diese Regel teilt sich der ``reset-admin-password``- und der
-    ``clear-force-change-password``-Pfad."""
+    Ohne ``--username``: nur erfolgreich, wenn genau ein Admin existiert."""
     if username:
         user = crud.get_user_by_username(db, username)
         if user is None:
@@ -116,35 +106,6 @@ def _cmd_reset_admin_password(args: argparse.Namespace) -> int:
         db.close()
 
 
-def _cmd_clear_force_change_password(args: argparse.Namespace) -> int:
-    """Löst nur das ``force_change_password``-Flag — kein Passwortwechsel,
-    keine Session-Invalidierung. Soll absichtlich nicht-destruktiv sein,
-    damit ein operator den festhängenden Self-Admin entsperren kann,
-    ohne dabei einen lebendigen Browser-Tab abzuschießen."""
-    db = SessionLocal()
-    try:
-        user = _resolve_target_user(db, args.username)
-        if user is None:
-            return 1
-
-        if not user.force_change_password:
-            print(
-                f"User '{user.username}' hat das Flag bereits nicht "
-                "gesetzt. Keine Aktion nötig."
-            )
-            return 0
-
-        user.force_change_password = False
-        db.commit()
-        print(
-            f"OK: force_change_password-Flag für '{user.username}' "
-            "gelöscht. Der nächste API-Roundtrip landet direkt in der App."
-        )
-        return 0
-    finally:
-        db.close()
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -168,22 +129,6 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     p_reset.set_defaults(func=_cmd_reset_admin_password)
-
-    p_clear = sub.add_parser(
-        "clear-force-change-password",
-        help=(
-            "force_change_password-Flag eines Users löschen, ohne sein "
-            "Passwort zu ändern."
-        ),
-    )
-    p_clear.add_argument(
-        "--username",
-        help=(
-            "Username des Ziel-Accounts. Optional, wenn genau ein Admin "
-            "existiert."
-        ),
-    )
-    p_clear.set_defaults(func=_cmd_clear_force_change_password)
 
     args = parser.parse_args(argv)
     return args.func(args)

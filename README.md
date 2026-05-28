@@ -150,18 +150,6 @@ Setzt Passwort + Lockout zurück und markiert den Admin als „muss beim nächst
 Login wechseln". `--username U` adressiert einen bestimmten Account (nötig,
 wenn mehrere Admins existieren).
 
-### Festhängender Force-Change-View
-
-Wenn der Admin im Force-Change-View festhängt (z.B. wegen eines gecachten
-Service-Worker-Responses):
-
-```bash
-docker exec -it pocketlog python -m app.cli clear-force-change-password
-```
-
-Löscht nur das Flag, lässt Passwort und Session unberührt. Der Browser-Tab
-muss danach einmal neu geladen werden.
-
 ## Entwicklung
 
 Lokales Starten ohne MariaDB:
