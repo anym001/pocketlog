@@ -210,3 +210,7 @@ wird automatisch hochgezählt und ein GitHub-Release erstellt. Tags:
 
 - `:latest` – letzter Stand von `main`
 - `:X.Y.Z` – versionierter Release (z.B. `v0.3.2`)
+
+---
+
+Entwickelt mit [Claude Code](https://claude.ai/code)
