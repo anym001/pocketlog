@@ -16,7 +16,6 @@ kein Tracking.
 - [Entwicklung](#entwicklung)
 - [API](#api)
 - [Image-Builds](#image-builds)
-- [Unraid & SWAG (optional)](#unraid--swag-optional)
 
 ## Funktionsumfang
 
@@ -69,6 +68,11 @@ docker run -d \
 Der Container spielt beim Start automatisch alle Schema-Migrationen ein,
 dann startet uvicorn.
 
+**Auf Unraid:** `unraid/pocketlog.xml` nach
+`/boot/config/plugins/dockerMan/templates-user/` kopieren → in
+_Apps → Add Container_ steht `pocketlog` im Template-Dropdown mit allen
+Feldern vorbelegt.
+
 ### 3. Ersteinrichtung
 
 Beim ersten Aufruf (`http://<host>:8000`) erscheint die Setup-View. Lege den
@@ -105,7 +109,7 @@ Einstieg anlegt.
 
 PocketLog läuft als einzelner Container auf Port 8000 und bringt seinen eigenen
 Login mit – kein vorgelagerter Identity-Provider nötig. Dahinter kann ein
-beliebiger Reverse Proxy sitzen. Nginx-Beispiel:
+beliebiger Reverse Proxy sitzen (nginx, Caddy, Traefik, SWAG …). Nginx-Beispiel:
 
 ```nginx
 server {
@@ -120,6 +124,8 @@ server {
     }
 }
 ```
+
+Eine fertige SWAG-Proxy-Config liegt unter `swag/pocketlog.subdomain.conf`.
 
 ## Auth & Sessions
 
@@ -223,21 +229,3 @@ wird automatisch hochgezählt und ein GitHub-Release erstellt. Tags:
 
 - `:latest` – letzter Stand von `main`
 - `:X.Y.Z` – versionierter Release (z.B. `v0.3.2`)
-
----
-
-## Unraid & SWAG (optional)
-
-Wer PocketLog auf **Unraid** hinter **SWAG** betreibt:
-
-- **Unraid-Template:** `unraid/pocketlog.xml` nach
-  `/boot/config/plugins/dockerMan/templates-user/` kopieren → in der Apps-GUI
-  erscheint ein vorbelegtes Template mit allen ENV-Variablen.
-- **SWAG-Proxy-Config:** `swag/pocketlog.subdomain.conf` nach
-  `/config/nginx/proxy-confs/` legen, SWAG neu laden.
-- Weitere optionale SWAG-Snippets (GeoIP-Block, LAN-Allowlist) liegen unter
-  `swag/`.
-
-PocketLog benötigt keinen vorgelagerten Identity-Provider. Authentik kann
-optional als zusätzliche Schutzschicht vor dem Container gesetzt werden
-(Forward Auth), ist aber nicht erforderlich.
