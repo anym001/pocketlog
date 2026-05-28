@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Variante 2 – "Split"
+    Großer weißer Kreis schneidet von rechts in das Icon – erzeugt einen
+    zweifarbigen Kontrast. PL zweifarbig: weiß auf Orange (links),
+    Terrakotta auf Weiß (rechts). Inspiriert von Edenred's Farbschnitt.
+  -->
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E0845A"/>
+      <stop offset="100%" stop-color="#B84828"/>
+    </linearGradient>
+    <clipPath id="iconClip">
+      <rect width="512" height="512" rx="114" ry="114"/>
+    </clipPath>
+    <!-- Clip-Masken für zweifarbigen Text -->
+    <clipPath id="leftHalf">
+      <rect x="0" y="0" width="348" height="512"/>
+    </clipPath>
+    <clipPath id="rightHalf">
+      <rect x="348" y="0" width="164" height="512"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="114" fill="url(#bg2)"/>
+
+  <!-- Großer weißer Kreis von rechts, geclippt auf Icon-Form -->
+  <g clip-path="url(#iconClip)">
+    <circle cx="430" cy="256" r="215" fill="white"/>
+  </g>
+
+  <!-- PL: weiß auf dem orangen Bereich (links) -->
+  <text x="68" y="348"
+        font-family="Arial Black, 'Helvetica Neue', sans-serif"
+        font-weight="900"
+        font-size="278"
+        letter-spacing="-6"
+        fill="white"
+        clip-path="url(#leftHalf)"
+        dominant-baseline="alphabetic">PL</text>
+
+  <!-- PL: Terrakotta auf dem weißen Bereich (rechts) -->
+  <text x="68" y="348"
+        font-family="Arial Black, 'Helvetica Neue', sans-serif"
+        font-weight="900"
+        font-size="278"
+        letter-spacing="-6"
+        fill="#C05030"
+        clip-path="url(#rightHalf)"
+        dominant-baseline="alphabetic">PL</text>
+</svg>

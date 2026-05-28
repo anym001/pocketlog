@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Variante 1 – "Bogen"
+    Warmer Clay-Verlauf, weißer Ring-Bogen sichtbar als Halbmond unten-rechts.
+    PL linksbündig, fett, weiß.
+  -->
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E0845A"/>
+      <stop offset="100%" stop-color="#B84828"/>
+    </linearGradient>
+    <clipPath id="clip1">
+      <rect width="512" height="512" rx="114" ry="114"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="114" fill="url(#bg1)"/>
+
+  <!-- Ring arc: outer white circle minus inner filled-with-gradient circle
+       → ergibt sichtbaren weißen Halbmond unten-rechts                    -->
+  <g clip-path="url(#clip1)">
+    <circle cx="440" cy="400" r="220" fill="rgba(255,255,255,0.28)"/>
+    <circle cx="440" cy="400" r="148" fill="url(#bg1)"/>
+  </g>
+
+  <!-- PL – left-aligned, bold, white -->
+  <text x="68" y="348"
+        font-family="Arial Black, 'Helvetica Neue', sans-serif"
+        font-weight="900"
+        font-size="278"
+        letter-spacing="-6"
+        fill="white"
+        dominant-baseline="alphabetic">PL</text>
+</svg>
