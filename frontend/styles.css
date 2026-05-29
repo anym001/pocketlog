@@ -2782,6 +2782,18 @@
         line-height: 1.4;
         padding: var(--space-10) var(--space-16);
       }
+      /* Spacing between top button and chip list below */
+      .drawer-section .save-btn + .drawer-chip-list {
+        margin-top: var(--space-12);
+      }
+      /* Categories: single full-width column */
+      #catList.drawer-chip-list {
+        flex-direction: column;
+      }
+      #catList .cat-pill-edit {
+        width: 100%;
+        justify-content: flex-start;
+      }
 
       /* ====== TOASTS ====== */
       .toast-host {
