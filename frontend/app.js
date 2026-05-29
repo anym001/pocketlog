@@ -55,7 +55,7 @@
       // die nur in dieser Granularität sinnvoll sind. null = frei wählbar.
       let _rangeLock = null;
       // Chart.js-Instanzen pro Report, getrennt damit destroy() keine fremde Instanz trifft.
-      const chartInsts = { month: null, year: null, categories: null, tags: null, trend: null, sparkline: null };
+      const chartInsts = { month: null, year: null, categories: null, tags: null, trend: null };
 
       // ── TREND-STATE ───────────────────────────────────────────────────────────────
       const TREND_STORAGE_KEY = 'pocketlog.trend';
@@ -1315,12 +1315,6 @@
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">Vorjahr im Verlauf</h3>
-            <div class="report-sparkline-wrap"><canvas id="overviewSparkline" role="img" aria-label="Bilanz Vorjahr pro Monat"></canvas></div>
-            <p class="report-sparkline-caption" id="sparklineCaption"></p>
-          </div>
-
-          <div class="report-section">
             <h3 class="report-section-title">Top-Kategorien</h3>
             <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat, { drillDown: true })).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
           </div>
@@ -1337,44 +1331,6 @@
 
         `;
 
-        // Sparkline: Vorjahr des Range-Endjahres.
-        const endYear = parseInt(reportRange.to.slice(0, 4), 10);
-        const prevYear = endYear - 1;
-        const prevTxs = await _loadYearTxs(prevYear);
-        const monthly = Array.from({ length: 12 }, (_, m) => {
-          const tx = prevTxs.filter((t) => new Date(t.date).getMonth() === m);
-          const out = tx.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
-          const inn = tx.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0);
-          return inn - out;
-        });
-        const c = getChartColors();
-        const canvas = document.getElementById('overviewSparkline');
-        chartInsts.sparkline = new Chart(canvas, {
-          type: 'line',
-          data: {
-            labels: MONTHS_SHORT,
-            datasets: [{
-              data: monthly,
-              borderColor: cssColor('--accent'),
-              backgroundColor: cssColor('--accent', 0.1),
-              tension: 0.35,
-              fill: true,
-              pointRadius: 0,
-              borderWidth: 2,
-            }],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { enabled: false } },
-            scales: {
-              x: { ticks: { color: c.text, font: { size: 10 } }, grid: { display: false } },
-              y: { display: false },
-            },
-          },
-        });
-        document.getElementById('sparklineCaption').textContent =
-          `Monatliche Bilanz ${prevYear}`;
       }
 
       // ── REPORTS — MONTH ───────────────────────────────────────────────────────────
@@ -2699,11 +2655,10 @@
         box.innerHTML = sorted
           .map(
             (c) => `
-    <div class="tag-pill cat-pill-edit" role="button" tabindex="0"
-      aria-label="Kategorie „${_escAttr(c.name)}“ bearbeiten"
-      style="border-color:color-mix(in oklab, ${c.color} 40%, transparent)"
-      onclick="openCatModal(${c.id})"
-      onkeydown="handleRowActivate(event, () => openCatModal(${c.id}))"><span class="cat-pill-glyph" style="color:${c.color}">${catIconSvg(c.icon)}</span>${_escText(c.name)}</div>
+    <div class=”tag-pill cat-pill-edit” role=”button” tabindex=”0”
+      aria-label=”Kategorie „${_escAttr(c.name)}” bearbeiten”
+      onclick=”openCatModal(${c.id})”
+      onkeydown=”handleRowActivate(event, () => openCatModal(${c.id}))”><div class=”drawer-nav-icon-wrap” style=”--nav-icon-bg:${c.color}”>${catIconSvg(c.icon)}</div>${_escText(c.name)}</div>
   `
           )
           .join('');
