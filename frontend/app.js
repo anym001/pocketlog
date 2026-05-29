@@ -1297,11 +1297,13 @@
         const totals = _sumByType(txs);
         const balance = totals.in - totals.out;
         const cats = _totalsByCategory(txs, 'out').slice(0, 3);
+        const tags = _totalsByTag(txs, 'out').slice(0, 3);
         const topTx = [...txs]
           .filter((t) => t.type === 'out')
           .sort((a, b) => b.amount - a.amount)
           .slice(0, 3);
         const maxCat = cats[0]?.amount || 1;
+        const maxTag = tags[0]?.amount || 1;
 
         body.innerHTML = `
           <div class="report-kpis">
@@ -1322,15 +1324,15 @@
           </div>
 
           <div class="report-section">
+            <h3 class="report-section-title">Top-Tags</h3>
+            <div id="overviewTags">${tags.length ? tags.map((t) => _tagRowMarkup(t.name, t.amount, maxTag, { drillDown: true })).join('') : _emptyState('Keine getaggten Ausgaben im Zeitraum.')}</div>
+          </div>
+
+          <div class="report-section">
             <h3 class="report-section-title">Größte Ausgaben</h3>
             <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
           </div>
 
-          <div class="report-tiles">
-            <button type="button" class="report-tile" onclick="openReport('categories')">Kategorienanalyse</button>
-            <button type="button" class="report-tile" onclick="openReport('year')">Jahresverlauf</button>
-            <button type="button" class="report-tile" onclick="openReport('forecast')">Prognose</button>
-          </div>
         `;
 
         // Sparkline: Vorjahr des Range-Endjahres.
@@ -3397,7 +3399,46 @@
 
       // ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
       async function exportCSV() {
-        window.location.href = API + '/export/csv';
+        try {
+          const res = await fetch(API + '/export/csv');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const blob = await res.blob();
+          const file = new File([blob], 'pocketlog.csv', { type: 'text/csv' });
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'PocketLog Export' });
+          } else {
+            _triggerDownload(blob, 'pocketlog.csv');
+          }
+        } catch (e) {
+          if (e.name !== 'AbortError') showToast('Export fehlgeschlagen', 'error');
+        }
+      }
+
+      async function downloadExampleCSV() {
+        try {
+          const res = await fetch('/example-import.csv');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const blob = await res.blob();
+          const file = new File([blob], 'pocketlog-beispiel.csv', { type: 'text/csv' });
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'PocketLog Beispieldatei' });
+          } else {
+            _triggerDownload(blob, 'pocketlog-beispiel.csv');
+          }
+        } catch (e) {
+          if (e.name !== 'AbortError') showToast('Download fehlgeschlagen', 'error');
+        }
+      }
+
+      function _triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
       }
 
       async function importCSV(ev) {
