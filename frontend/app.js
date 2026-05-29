@@ -1297,11 +1297,13 @@
         const totals = _sumByType(txs);
         const balance = totals.in - totals.out;
         const cats = _totalsByCategory(txs, 'out').slice(0, 3);
+        const tags = _totalsByTag(txs, 'out').slice(0, 3);
         const topTx = [...txs]
           .filter((t) => t.type === 'out')
           .sort((a, b) => b.amount - a.amount)
           .slice(0, 3);
         const maxCat = cats[0]?.amount || 1;
+        const maxTag = tags[0]?.amount || 1;
 
         body.innerHTML = `
           <div class="report-kpis">
@@ -1319,6 +1321,11 @@
           <div class="report-section">
             <h3 class="report-section-title">Top-Kategorien</h3>
             <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat, { drillDown: true })).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
+          </div>
+
+          <div class="report-section">
+            <h3 class="report-section-title">Top-Tags</h3>
+            <div id="overviewTags">${tags.length ? tags.map((t) => _tagRowMarkup(t.name, t.amount, maxTag, { drillDown: true })).join('') : _emptyState('Keine getaggten Ausgaben im Zeitraum.')}</div>
           </div>
 
           <div class="report-section">
