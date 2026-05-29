@@ -2652,17 +2652,26 @@
         const sorted = [...categories].sort((a, b) =>
           a.name.localeCompare(b.name, 'de', { sensitivity: 'base' })
         );
-        box.innerHTML = sorted
-          .map(
-            (c) =>
-              `<div class=”drawer-nav-item cat-pill-edit” role=”button” tabindex=”0”` +
-              ` aria-label=”Kategorie „${_escAttr(c.name)}” bearbeiten”` +
-              ` onclick=”openCatModal(${c.id})”` +
-              ` onkeydown=”handleRowActivate(event, () => openCatModal(${c.id}))”` +
-              `><div class=”drawer-nav-icon-wrap” style=”--nav-icon-bg:${c.color}”>${catIconSvg(c.icon)}</div>` +
-              `<span class=”drawer-nav-label”>${_escText(c.name)}</span></div>`
-          )
-          .join('');
+        box.innerHTML = '';
+        sorted.forEach((c) => {
+          const row = document.createElement('div');
+          row.className = 'drawer-nav-item cat-pill-edit';
+          row.setAttribute('role', 'button');
+          row.setAttribute('tabindex', '0');
+          row.setAttribute('aria-label', 'Kategorie „' + c.name + '“ bearbeiten');
+          row.onclick = () => openCatModal(c.id);
+          row.onkeydown = (e) => handleRowActivate(e, () => openCatModal(c.id));
+          const iconWrap = document.createElement('div');
+          iconWrap.className = 'drawer-nav-icon-wrap';
+          iconWrap.style.setProperty('--nav-icon-bg', c.color);
+          iconWrap.innerHTML = catIconSvg(c.icon);
+          const label = document.createElement('span');
+          label.className = 'drawer-nav-label';
+          label.textContent = c.name;
+          row.appendChild(iconWrap);
+          row.appendChild(label);
+          box.appendChild(row);
+        });
       }
 
       const CAT_COLOR_PRESETS = [
