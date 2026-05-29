@@ -3399,7 +3399,46 @@
 
       // ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
       async function exportCSV() {
-        window.location.href = API + '/export/csv';
+        try {
+          const res = await fetch(API + '/export/csv');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const blob = await res.blob();
+          const file = new File([blob], 'pocketlog.csv', { type: 'text/csv' });
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'PocketLog Export' });
+          } else {
+            _triggerDownload(blob, 'pocketlog.csv');
+          }
+        } catch (e) {
+          if (e.name !== 'AbortError') showToast('Export fehlgeschlagen', 'error');
+        }
+      }
+
+      async function downloadExampleCSV() {
+        try {
+          const res = await fetch('/example-import.csv');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const blob = await res.blob();
+          const file = new File([blob], 'pocketlog-beispiel.csv', { type: 'text/csv' });
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'PocketLog Beispieldatei' });
+          } else {
+            _triggerDownload(blob, 'pocketlog-beispiel.csv');
+          }
+        } catch (e) {
+          if (e.name !== 'AbortError') showToast('Download fehlgeschlagen', 'error');
+        }
+      }
+
+      function _triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
       }
 
       async function importCSV(ev) {

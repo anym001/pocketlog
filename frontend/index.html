@@ -497,19 +497,11 @@
                 style="display: none"
                 onchange="importCSV(event)"
               />
-              <a
+              <button
                 class="save-btn"
-                style="
-                  margin-top: var(--space-8);
-                  text-decoration: none;
-                  display: block;
-                  text-align: center;
-                  line-height: 1.4;
-                "
-                href="/example-import.csv"
-                download
-                >Beispieldatei herunterladen</a
-              >
+                style="margin-top: var(--space-8)"
+                onclick="downloadExampleCSV()"
+              >Beispieldatei herunterladen</button>
               <div class="status-msg" id="importStatus"></div>
             </div>
           </div>
