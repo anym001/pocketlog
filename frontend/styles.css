@@ -221,9 +221,17 @@
         --overlay-bg: rgba(20, 14, 8, 0.35);
         /* Themed shadows used outside of the generic --shadow-* set. */
         --shadow-floating-strip:
-          inset 0 0.5px 0 var(--hairline),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.65),
           0 2px 8px rgba(20, 20, 19, 0.06),
           0 8px 24px -4px rgba(20, 20, 19, 0.1);
+
+        /* Liquid Glass materials — Tier 1 (modal + drawer) + Tier 2 (nav cards).
+           All three are color-mix() expressions derived from existing surface
+           tokens, so they auto-adapt to dark mode when --bg-grouped /
+           --bg-canvas are overridden in html[data-dark='true']. */
+        --glass-modal: color-mix(in srgb, var(--bg-grouped) 88%, transparent);
+        --glass-drawer: color-mix(in srgb, var(--bg-grouped) 85%, transparent);
+        --glass-card: color-mix(in srgb, var(--bg-canvas) 90%, transparent);
       }
 
       /* ============================================================
@@ -270,6 +278,13 @@
         --accent-tint: rgba(232, 146, 110, 0.2);
         --green: #9ab07a;
         --green-2: #b3c895;
+
+        /* Darker specular for dark mode — white at 65% reads as a harsh
+           bright edge on near-black glass; 25% keeps the depth cue without glare. */
+        --shadow-floating-strip:
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+          0 2px 8px rgba(0, 0, 0, 0.4),
+          0 8px 24px -4px rgba(0, 0, 0, 0.5);
       }
 
       * {
@@ -1055,7 +1070,9 @@
         bottom: 0;
         width: min(300px, 88vw);
         z-index: var(--z-drawer);
-        background: var(--bg-grouped);
+        background: var(--glass-drawer);
+        -webkit-backdrop-filter: blur(40px) saturate(180%);
+        backdrop-filter: blur(40px) saturate(180%);
         border-right: var(--border-hairline-strong);
         overflow: hidden;
         transform: translateX(-100%);
@@ -1107,7 +1124,9 @@
         position: sticky;
         top: 0;
         z-index: 1;
-        background: var(--bg-grouped);
+        background: var(--glass-modal);
+        -webkit-backdrop-filter: blur(20px) saturate(150%);
+        backdrop-filter: blur(20px) saturate(150%);
         padding: calc(env(safe-area-inset-top) + var(--space-16)) var(--space-20) var(--space-12);
         border-bottom: var(--border-hairline);
         display: flex;
@@ -1210,7 +1229,9 @@
       }
       .drawer-nav {
         margin: var(--space-16);
-        background: var(--bg-canvas);
+        background: var(--glass-card);
+        -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(20px);
         border: var(--border-hairline);
         border-radius: var(--r-md);
         overflow: hidden;
@@ -1284,7 +1305,9 @@
         position: sticky;
         top: 0;
         z-index: 1;
-        background: var(--bg-grouped);
+        background: var(--glass-modal);
+        -webkit-backdrop-filter: blur(20px) saturate(150%);
+        backdrop-filter: blur(20px) saturate(150%);
         padding: calc(env(safe-area-inset-top) + var(--space-8)) var(--space-20) var(--space-8);
         border-bottom: var(--border-hairline);
         display: flex;
@@ -1355,7 +1378,9 @@
       }
 
       .modal {
-        background: var(--bg-grouped);
+        background: var(--glass-modal);
+        -webkit-backdrop-filter: blur(40px) saturate(180%);
+        backdrop-filter: blur(40px) saturate(180%);
         border: var(--border-hairline);
         border-bottom: 0;
         border-radius: var(--r-xl) var(--r-xl) 0 0;
@@ -2853,6 +2878,9 @@
           --glass-thin: rgba(255, 255, 255, 0.92);
           --glass-chrome: rgba(255, 255, 255, 1);
           --glass-header: var(--bg-grouped);
+          --glass-modal: var(--bg-grouped);
+          --glass-drawer: var(--bg-grouped);
+          --glass-card: var(--bg-canvas);
         }
         html[data-dark='true'] {
           --glass-thin: rgba(38, 35, 30, 0.92);
@@ -2864,6 +2892,9 @@
           --glass-thin: rgba(255, 255, 255, 0.92);
           --glass-chrome: rgba(255, 255, 255, 1);
           --glass-header: var(--bg-grouped);
+          --glass-modal: var(--bg-grouped);
+          --glass-drawer: var(--bg-grouped);
+          --glass-card: var(--bg-canvas);
         }
         html[data-dark='true'] {
           --glass-thin: rgba(38, 35, 30, 0.92);
