@@ -2786,13 +2786,43 @@
       .drawer-section .save-btn + .drawer-chip-list {
         margin-top: var(--space-12);
       }
-      /* Categories: single full-width column */
+      /* Categories: drawer-nav card style */
       #catList.drawer-chip-list {
         flex-direction: column;
+        gap: 0;
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        overflow: hidden;
+        box-shadow: var(--shadow-soft);
+        margin-bottom: 0;
       }
       #catList .cat-pill-edit {
         width: 100%;
         justify-content: flex-start;
+        min-height: 50px;
+        border-radius: 0 !important;
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: var(--space-12) var(--space-16) !important;
+        position: relative;
+        transform: none;
+        transition: background var(--dur-fast);
+      }
+      #catList .cat-pill-edit:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: var(--space-16);
+        right: 0;
+        height: 0.5px;
+        background: var(--hairline-soft);
+      }
+      #catList .cat-pill-edit:active,
+      #catList .cat-pill-edit.is-key-active {
+        background: var(--surface-tint) !important;
+        transform: none;
       }
 
       /* ====== TOASTS ====== */
