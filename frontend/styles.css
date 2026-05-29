@@ -61,8 +61,6 @@
 
         /* Glass materials — light (white-based to match the neutral canvas) */
         --glass-thin: rgba(255, 255, 255, 0.45);
-        --glass-regular: rgba(255, 255, 255, 0.65);
-        --glass-thick: rgba(255, 255, 255, 0.82);
         --glass-chrome: rgba(255, 255, 255, 0.92);
         /* Header material — a translucent tint of the grouped canvas so the
            sticky header blends into the page (separated only by a hairline, no
@@ -98,7 +96,6 @@
         --accent-tint: rgba(217, 119, 87, 0.15);
         --green: #788c5d;
         --green-2: #96a87a;
-        --green-tint: rgba(120, 140, 93, 0.15);
         --red: #c0392b;
         --red-2: #ec6b5b;
         --blue: #2a78d8;
@@ -118,15 +115,6 @@
         --r-xs: 8px;
         --r-pill: 999px;
 
-        /* compatibility tokens (used by legacy inline styles in markup) */
-        --bg: var(--bg-canvas);
-        --bg2: var(--glass-thin);
-        --bg3: var(--glass-regular);
-        --border: var(--hairline-soft);
-        --shadow: var(--shadow-soft);
-        --shadow-lg: var(--shadow-elevated);
-        --radius: var(--r-lg);
-        --radius-sm: var(--r-md);
 
         /* Fonts */
         --font-display: 'DM Serif Display', serif;
@@ -224,7 +212,6 @@
 
         /* Glass blur */
         --blur-dim: blur(8px) saturate(140%); /* Dimmer overlays (drawer/modal backdrop) */
-        --blur-thin: blur(18px) saturate(180%);
         --blur-regular: blur(28px) saturate(180%);
         --blur-thick: blur(40px) saturate(200%);
         --blur-overlay: blur(4px); /* Weak blur for the drawer scrim — see .drawer-overlay */
@@ -232,10 +219,6 @@
         /* Overlay scrims — modal/drawer backdrops on top of content. Dark
            enough to dim, soft enough to keep underlying content recognisable. */
         --overlay-bg: rgba(20, 14, 8, 0.35);
-        /* Specular highlight on the top edge of glass surfaces (modal etc.)
-           — a soft white sheen that emulates a curved bevel under light. */
-        --specular-highlight: rgba(255, 255, 255, 0.45);
-
         /* Themed shadows used outside of the generic --shadow-* set. */
         --shadow-floating-strip:
           inset 0 0.5px 0 var(--hairline),
@@ -260,8 +243,6 @@
         --bg-canvas: #221e19;
 
         --glass-thin: rgba(38, 35, 30, 0.45);
-        --glass-regular: rgba(38, 35, 30, 0.62);
-        --glass-thick: rgba(30, 28, 24, 0.82);
         --glass-chrome: rgba(22, 20, 17, 0.88);
 
         --hairline: rgba(209, 207, 197, 0.14);
@@ -289,7 +270,6 @@
         --accent-tint: rgba(232, 146, 110, 0.2);
         --green: #9ab07a;
         --green-2: #b3c895;
-        --green-tint: rgba(154, 176, 122, 0.18);
       }
 
       * {
@@ -2871,32 +2851,22 @@
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
         :root {
           --glass-thin: rgba(255, 255, 255, 0.92);
-          --glass-regular: rgba(255, 255, 255, 0.95);
-          --glass-thick: rgba(255, 255, 255, 0.98);
           --glass-chrome: rgba(255, 255, 255, 1);
-          /* No blur to frost content under the header — make it fully opaque so
-             cards don't bleed through. Resolves per theme via --bg-grouped. */
           --glass-header: var(--bg-grouped);
         }
         html[data-dark='true'] {
           --glass-thin: rgba(38, 35, 30, 0.92);
-          --glass-regular: rgba(38, 35, 30, 0.95);
-          --glass-thick: rgba(30, 28, 24, 0.98);
           --glass-chrome: rgba(22, 20, 17, 1);
         }
       }
       @media (prefers-reduced-transparency: reduce) {
         :root {
           --glass-thin: rgba(255, 255, 255, 0.92);
-          --glass-regular: rgba(255, 255, 255, 0.95);
-          --glass-thick: rgba(255, 255, 255, 0.98);
           --glass-chrome: rgba(255, 255, 255, 1);
           --glass-header: var(--bg-grouped);
         }
         html[data-dark='true'] {
           --glass-thin: rgba(38, 35, 30, 0.92);
-          --glass-regular: rgba(38, 35, 30, 0.95);
-          --glass-thick: rgba(30, 28, 24, 0.98);
           --glass-chrome: rgba(22, 20, 17, 1);
         }
       }
