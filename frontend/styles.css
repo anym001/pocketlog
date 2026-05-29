@@ -1377,9 +1377,7 @@
       }
 
       .modal {
-        background: var(--glass-chrome);
-        -webkit-backdrop-filter: var(--blur-thick);
-        backdrop-filter: var(--blur-thick);
+        background: var(--bg-canvas);
         border: var(--border-hairline);
         border-bottom: 0;
         border-radius: var(--r-xl) var(--r-xl) 0 0;
@@ -1389,27 +1387,9 @@
         animation: slideUp 0.45s var(--ease-spring);
         box-shadow: var(--shadow-floating);
         position: relative;
-        isolation: isolate;
         max-height: calc(100dvh - env(safe-area-inset-top) - 12px);
         display: flex;
         flex-direction: column;
-      }
-      .modal::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        background: linear-gradient(
-          180deg,
-          var(--specular-highlight) 0%,
-          transparent 25%
-        );
-        pointer-events: none;
-        mix-blend-mode: overlay;
-      }
-      .modal > * {
-        position: relative;
-        z-index: 1;
       }
       @keyframes slideUp {
         from {
@@ -1444,26 +1424,21 @@
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         border-radius: 50%;
-        border: none;
-        background: var(--glass-thin);
-        -webkit-backdrop-filter: var(--blur-thin);
-        backdrop-filter: var(--blur-thin);
-        box-shadow: inset 0 0.5px 0 var(--hairline);
+        border: var(--border-hairline);
+        background: var(--bg-grouped);
         color: var(--text2);
         font-size: var(--btn-icon-size);
-        font-weight: 600;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all var(--dur-medium) var(--ease-spring);
+        transition: background var(--dur-fast);
         -webkit-tap-highlight-color: transparent;
       }
       .modal-cancel-btn:hover,
       .modal-cancel-btn:active {
-        background: var(--glass-thick);
+        background: var(--surface-tint);
         color: var(--text);
-        transform: scale(0.94);
       }
 
       .modal-body {
@@ -1558,9 +1533,7 @@
       .form-group input,
       .form-group select {
         width: 100%;
-        background: var(--glass-thin);
-        -webkit-backdrop-filter: var(--blur-thin);
-        backdrop-filter: var(--blur-thin);
+        background: var(--bg-grouped);
         border: var(--border-hairline);
         border-radius: var(--r-md);
         padding: var(--space-14) var(--space-16);
@@ -1570,7 +1543,6 @@
         outline: none;
         transition: all var(--dur-base) var(--ease-spring);
         -webkit-appearance: none;
-        box-shadow: inset 0 0.5px 0 var(--hairline-soft);
       }
       .form-group input:focus,
       .form-group select:focus {
