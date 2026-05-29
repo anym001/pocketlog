@@ -2700,7 +2700,7 @@
 
       #catList .cat-pill-edit,
       #tagList > * {
-        font-size: var(--fs-callout);
+        font-size: var(--fs-body);
         line-height: 1.4;
         padding: var(--space-10) var(--space-16);
       }
