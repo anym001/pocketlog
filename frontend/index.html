@@ -445,8 +445,8 @@
             <span class="drawer-sub-title">Kategorien</span>
           </div>
           <div class="drawer-section">
-            <div id="catList" class="drawer-chip-list"></div>
             <button class="save-btn" onclick="openCatModal()">Kategorie hinzufügen</button>
+            <div id="catList" class="drawer-chip-list"></div>
           </div>
         </div>
 
@@ -463,8 +463,8 @@
             <span class="drawer-sub-title">Tags</span>
           </div>
           <div class="drawer-section">
-            <div id="tagList" class="drawer-chip-list"></div>
             <button class="save-btn" onclick="openTagModal()">Tag erstellen</button>
+            <div id="tagList" class="drawer-chip-list"></div>
           </div>
         </div>
 
@@ -497,19 +497,11 @@
                 style="display: none"
                 onchange="importCSV(event)"
               />
-              <a
+              <button
                 class="save-btn"
-                style="
-                  margin-top: var(--space-8);
-                  text-decoration: none;
-                  display: block;
-                  text-align: center;
-                  line-height: 1.4;
-                "
-                href="/example-import.csv"
-                download
-                >Beispieldatei herunterladen</a
-              >
+                style="margin-top: var(--space-8)"
+                onclick="downloadExampleCSV()"
+              >Beispieldatei herunterladen</button>
               <div class="status-msg" id="importStatus"></div>
             </div>
           </div>
