@@ -1237,6 +1237,7 @@
       .drawer-nav {
         margin: var(--space-16) var(--space-16) 0;
         background: var(--bg-canvas);
+        border: var(--border-hairline);
         border-radius: var(--r-md);
         overflow: hidden;
         box-shadow: var(--shadow-soft);
