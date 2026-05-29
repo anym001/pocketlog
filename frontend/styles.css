@@ -2339,10 +2339,10 @@
       }
 
       .report-canvas-wrap {
-        max-height: 240px;
+        max-height: 280px;
       }
       .report-canvas-wrap canvas {
-        max-height: 240px;
+        max-height: 280px;
       }
 
       /* ====== TREND REPORT ====== */
@@ -2515,11 +2515,11 @@
       }
 
       .report-sparkline-wrap {
-        height: 64px;
+        height: 120px;
         margin-bottom: var(--space-8);
       }
       .report-sparkline-wrap canvas {
-        height: 64px !important;
+        height: 120px !important;
         width: 100% !important;
       }
       .report-sparkline-caption {
@@ -3061,11 +3061,11 @@
            the 768 px block onwards. */
         .report-canvas-wrap,
         .report-canvas-wrap canvas {
-          max-height: 360px;
+          max-height: 420px;
         }
         .report-sparkline-wrap,
         .report-sparkline-wrap canvas {
-          height: 80px !important;
+          height: 140px !important;
         }
       }
 
