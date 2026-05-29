@@ -2514,19 +2514,6 @@
         letter-spacing: 0;
       }
 
-      .report-sparkline-wrap {
-        height: 120px;
-        margin-bottom: var(--space-8);
-      }
-      .report-sparkline-wrap canvas {
-        height: 120px !important;
-        width: 100% !important;
-      }
-      .report-sparkline-caption {
-        font-size: var(--fs-caption);
-        color: var(--text3);
-        margin: 0;
-      }
 
       .report-tx-row {
         display: flex;
@@ -3062,10 +3049,6 @@
         .report-canvas-wrap,
         .report-canvas-wrap canvas {
           max-height: 420px;
-        }
-        .report-sparkline-wrap,
-        .report-sparkline-wrap canvas {
-          height: 140px !important;
         }
       }
 
