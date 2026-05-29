@@ -1177,7 +1177,7 @@
       }
 
       .drawer-section {
-        padding: var(--space-20) var(--space-20) 0;
+        padding: var(--space-16) var(--space-20) 0;
       }
       .drawer-section + .drawer-section {
         padding-top: var(--space-24);
@@ -2723,6 +2723,10 @@
         font-size: var(--fs-callout);
         line-height: 1.4;
         padding: var(--space-10) var(--space-16);
+      }
+      /* No extra top gap when button is the first element in a section */
+      .drawer-section > .save-btn:first-child {
+        margin-top: 0;
       }
       /* Spacing between top button and chip list below */
       .drawer-section .save-btn + .drawer-chip-list {
