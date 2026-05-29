@@ -161,11 +161,14 @@ und ist im `:root`-Kommentar dokumentiert.
 Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidelines/color).
 
 - **CSS-Variablen sind Pflicht.** Keine Hex-Codes inline – jede Farbe geht
-  über `var(--…)` aus `:root` / `@media (prefers-color-scheme: dark)`.
+  über `var(--…)` aus `:root` / `html[data-dark='true']`.
 - **Semantische statt rohe Farben.** Code referenziert Bedeutung
   (`--accent` für Ausgaben, `--green` für Einnahmen), nicht den konkreten Ton.
-- **Light/Dark automatisch.** `@media (prefers-color-scheme: dark)` ist die
-  einzige Schaltstelle; keine Theme-Toggle-Logik im JS.
+- **Light/Dark per `data-dark`-Attribut.** Das Inline-Boot-Script in `<head>`
+  liest System-Präferenz und manuellen Override aus `localStorage` und setzt
+  `html[data-dark='true|false']` vor dem ersten Paint. Alle Dark-Token-Overrides
+  leben in `html[data-dark='true'] { … }` — kein `@media (prefers-color-scheme: dark)`
+  in Komponenten-Regeln. JS-Toggle über `saveTheme()` in `app.js`.
 - **Farbpalette** (basiert auf [html-effectiveness](https://thariqs.github.io/html-effectiveness/)
   von Thariq Shihipar):
 
@@ -259,68 +262,23 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
 
 Referenz: [HIG: Materials](https://developer.apple.com/design/human-interface-guidelines/materials).
 
-Im Web stehen native Materialien nicht zur Verfügung, aber `backdrop-filter`
-ist eine gute Annäherung. Sparsam einsetzen.
+PocketLog folgt dem **Apple Inset-Grouped-Stil**: flacher grauer Canvas
+(`--bg-grouped`), weiße Karten (`--bg-canvas`). `backdrop-filter` wird
+bewusst nur an wenigen Floating-Elementen eingesetzt.
 
-- **Wann Material:**
-  - Fixierte Toolbars über scrollbarem Inhalt (oben / unten).
-  - Sheets und Modals, die Inhalt teilweise sichtbar lassen.
-- **Wann nicht:**
-  - Card-Hintergründe in der Liste (lieber `--bg-canvas` + Border).
-  - Flächen ohne Inhalt dahinter (Material wirkt dann beliebig).
-- **Schichtung:** Max. 3 Ebenen – Canvas → Card → Material-Overlay.
-  Keine geblurrten Materialien übereinander stapeln.
-- **Fallback (`@supports not (backdrop-filter: blur(1px))`):** opaker
-  `--bg-canvas` mit leichter Transparenz (`rgba(...)`), damit Inhalt nicht
-  durchschimmert.
-- **Performance:** `backdrop-filter` nur auf kleinen, statischen Flächen.
-  Nicht auf scrollende Listen anwenden – iOS-Safari ruckelt sonst.
-- **Vibrancy-Pendant:** Text auf Material immer `--text` (Light) bzw.
-  `--text` (Dark) – keine reduzierte Opazität. Kontrast nach Material-
-  Anwendung erneut prüfen.
-- **Reduzierte Transparenz respektieren:**
-  `@media (prefers-reduced-transparency: reduce)` → Material durch opake
-  Fläche ersetzen.
-
-## Liquid Glass
-
-Referenz: [Adopting Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/adopting-liquid-glass).
-
-Liquid Glass ist Apples adaptives Material aus der jüngsten OS-Generation,
-das Licht bricht, sich an Inhalt anpasst und je nach Kontext mehr oder
-weniger sichtbar wird. Im Web ist es nicht 1 : 1 umsetzbar – wir folgen
-den Prinzipien:
-
-- **Wo verwenden:** Floating Toolbars (Bottom-Bar mit „+", Sync-Status),
-  Modal-Header über gescrolltem Inhalt, „Floating Action Group". Nicht für
-  großflächige Inhaltsbereiche.
-- **Optisches Rezept (Web-Annäherung):**
-  ```css
-  .liquid-glass {
-    background: color-mix(in oklab, var(--bg-canvas) 70%, transparent);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid color-mix(in oklab, var(--text) 8%, transparent);
-    border-radius: 22px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-  }
-  ```
-- **Adaptive Tönung:** Im Dark Mode dunklere Glasbasis, hellere Border.
-  Über `prefers-color-scheme` automatisch.
-- **Inhaltsadaption:** Symbole und Text auf Liquid Glass nutzen `--text` /
-  `--text2`. Keine reine Akzentfarbe als Füllung – das frisst den
-  Glas-Effekt auf.
-- **Bewegung:** Wenn das Glas-Element sich verschiebt (z. B. beim Scrollen
-  einrastet), `transition: transform 200ms ease-out`. Keine Spring-Effekte
-  ohne Anlass.
-- **Fallback:** `@supports not (backdrop-filter: blur(1px))` →
-  opaker `--bg-canvas` mit Border und Schatten. Funktion bleibt erhalten.
-- **Barrierefreiheit:** Bei `prefers-reduced-transparency: reduce` und
-  `prefers-reduced-motion: reduce` Glas → opake Fläche, Bewegung →
-  Sofort-Übergang.
-- **Kontrast nicht verlieren:** Nach der Anwendung Text über typischem
-  Hintergrundinhalt (z. B. Charts) testen – bei Bedarf
-  `background-color`-Anteil erhöhen.
+- **Aktuelle Glass-Elemente (vollständige Liste):**
+  - `.header` — frosted Header, Inhalt scrollt darunter durch (`--glass-header` + `--blur-regular`)
+  - `.search-wrap` + `.fab` — Floating-Strip in der Bottom-Bar (`--glass-thin` + `--blur-regular`)
+  - `.drawer-overlay` — schwacher Backdrop-Scrim hinter dem Drawer (`--blur-overlay`)
+  - `.modal-overlay` — Backdrop-Scrim hinter dem Modal (`--blur-dim`)
+  - `.toast` — flüchtige Floating-Benachrichtigung (`--glass-chrome` + `--blur-thick`)
+- **Wann NICHT:**
+  - Cards, Listen-Reihen, Modals, Drawer-Inhalte, Formulare — immer `--bg-canvas` oder `--bg-grouped`, kein `backdrop-filter`.
+  - Neue Elemente bekommen standardmäßig **kein** Glass — Ausnahme nur für echte Floating-Overlay-Elemente.
+- **Schichtung:** Max. 3 Ebenen – Canvas → Card → Material-Overlay. Keine geblurrten Materialien übereinander.
+- **Fallback (`@supports not (backdrop-filter: blur(1px))`):** `--glass-thin` und `--glass-chrome` werden auf opake Werte überschrieben; `--glass-header` auf `--bg-grouped`. Beide Fallback-Blöcke (`@supports` + `@media prefers-reduced-transparency`) in `styles.css` pflegen.
+- **Performance:** `backdrop-filter` nur auf kleinen, statischen Flächen — nie auf scrollenden Listen.
+- **Reduzierte Transparenz:** `@media (prefers-reduced-transparency: reduce)` → Material durch opake Fläche ersetzen (bereits im Fallback-Block).
 
 ## App-Icons
 
