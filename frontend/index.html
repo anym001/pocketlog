@@ -176,6 +176,24 @@
           <line x1="20" y1="20" x2="14" y2="14" />
           <polyline points="20 14 20 20 14 20" />
         </symbol>
+        <symbol id="icon-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 3h14v18l-3.5-2-3.5 2-3.5-2L5 21V3z"/>
+          <path d="M9 8h7M9 12h5"/>
+        </symbol>
+        <symbol id="icon-squares-four" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+        </symbol>
+        <symbol id="icon-chart-bar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20V12M8 20V6M12 20V10M16 20V4M20 20V9"/>
+          <path d="M2 20h20"/>
+        </symbol>
+        <symbol id="icon-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </symbol>
       </defs>
     </svg>
 
@@ -328,27 +346,23 @@
       <div class="drawer-content">
         <!-- Panel 0: Hauptmenü -->
         <div class="drawer-panel" id="dpMain" data-state="active">
-          <nav class="drawer-nav">
-            <button
-              class="drawer-nav-item"
-              data-panel="categories"
-              onclick="showPanel('categories')"
-            >
-              Kategorienübersicht
+          <nav class="drawer-nav" style="--sep-left: calc(var(--nav-icon-size) + var(--space-12) + var(--space-16))">
+            <button class="drawer-nav-item" data-panel="categories" onclick="showPanel('categories')" style="--nav-icon-bg: var(--blue)">
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-squares-four" /></svg></span>
+              <span class="drawer-nav-label">Kategorienübersicht</span>
             </button>
-            <button
-              class="drawer-nav-item"
-              data-panel="transactions"
-              onclick="showPanel('transactions')"
-            >
-              Buchungsübersicht
+            <button class="drawer-nav-item" data-panel="transactions" onclick="showPanel('transactions')" style="--nav-icon-bg: var(--green)">
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-receipt" /></svg></span>
+              <span class="drawer-nav-label">Buchungsübersicht</span>
             </button>
-            <button class="drawer-nav-item" onclick="drawerNav('dpReports')">
-              Auswertungen
+            <button class="drawer-nav-item" onclick="drawerNav('dpReports')" style="--nav-icon-bg: var(--accent)">
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
+              <span class="drawer-nav-label">Auswertungen</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
-            <button class="drawer-nav-item" onclick="drawerNav('dpSettings')">
-              Einstellungen
+            <button class="drawer-nav-item" onclick="drawerNav('dpSettings')" style="--nav-icon-bg: var(--text3)">
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-gear" /></svg></span>
+              <span class="drawer-nav-label">Einstellungen</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
           </nav>

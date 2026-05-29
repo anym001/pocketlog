@@ -215,6 +215,7 @@
         --space-20: 20px;
         --space-24: 24px;
         --space-56: 56px;
+        --nav-icon-size: 30px;
 
         /* Motion */
         --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
@@ -1235,7 +1236,7 @@
         color: var(--text2);
       }
       .drawer-nav {
-        margin: var(--space-16) var(--space-16) 0;
+        margin: var(--space-16);
         background: var(--bg-canvas);
         border: var(--border-hairline);
         border-radius: var(--r-md);
@@ -1243,9 +1244,10 @@
         box-shadow: var(--shadow-soft);
       }
       .drawer-nav + .drawer-nav {
-        margin-top: var(--space-16);
+        margin-top: 0;
       }
       .drawer-nav-item {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -1254,7 +1256,6 @@
         padding: var(--space-12) var(--space-16);
         background: none;
         border: none;
-        border-bottom: var(--border-hairline);
         font-family: var(--font-body);
         font-size: var(--fs-body);
         color: var(--text);
@@ -1262,8 +1263,28 @@
         text-align: left;
         transition: background var(--dur-fast);
       }
-      .drawer-nav-item:last-child {
-        border-bottom: none;
+      .drawer-nav-item:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: var(--sep-left, var(--space-16));
+        right: 0;
+        height: 0.5px;
+        background: var(--hairline-soft);
+      }
+      .drawer-nav-icon-wrap {
+        width: var(--nav-icon-size);
+        height: var(--nav-icon-size);
+        border-radius: var(--r-xs);
+        background: var(--nav-icon-bg, var(--text3));
+        color: var(--on-accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .drawer-nav-label {
+        flex: 1;
       }
       .drawer-nav-item:active {
         background: var(--surface-tint);
@@ -1304,26 +1325,21 @@
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         border-radius: 50%;
-        border: none;
-        background: var(--glass-thin);
-        -webkit-backdrop-filter: var(--blur-thin);
-        backdrop-filter: var(--blur-thin);
-        box-shadow: inset 0 0.5px 0 var(--hairline);
+        border: var(--border-hairline);
+        background: var(--bg-canvas);
         color: var(--text2);
         font-size: var(--btn-icon-size);
-        font-weight: 600;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all var(--dur-medium) var(--ease-spring);
+        transition: background var(--dur-fast);
         -webkit-tap-highlight-color: transparent;
       }
       .drawer-back-btn:hover,
       .drawer-back-btn:active {
-        background: var(--glass-thick);
+        background: var(--surface-tint);
         color: var(--text);
-        transform: scale(0.94);
       }
       .drawer-sub-title {
         font-family: var(--font-body);
