@@ -2002,7 +2002,7 @@
         border: var(--border-hairline);
         border-radius: var(--r-md);
         padding: var(--space-14);
-        font-size: var(--fs-footnote);
+        font-size: var(--fs-body);
         font-weight: 600;
         font-family: var(--font-body);
         color: var(--text);
