@@ -2654,12 +2654,13 @@
         );
         box.innerHTML = sorted
           .map(
-            (c) => `
-    <div class=”tag-pill cat-pill-edit” role=”button” tabindex=”0”
-      aria-label=”Kategorie „${_escAttr(c.name)}” bearbeiten”
-      onclick=”openCatModal(${c.id})”
-      onkeydown=”handleRowActivate(event, () => openCatModal(${c.id}))”><div class=”drawer-nav-icon-wrap” style=”--nav-icon-bg:${c.color}”>${catIconSvg(c.icon)}</div>${_escText(c.name)}</div>
-  `
+            (c) =>
+              `<div class=”drawer-nav-item cat-pill-edit” role=”button” tabindex=”0”` +
+              ` aria-label=”Kategorie „${_escAttr(c.name)}” bearbeiten”` +
+              ` onclick=”openCatModal(${c.id})”` +
+              ` onkeydown=”handleRowActivate(event, () => openCatModal(${c.id}))”` +
+              `><div class=”drawer-nav-icon-wrap” style=”--nav-icon-bg:${c.color}”>${catIconSvg(c.icon)}</div>` +
+              `<span class=”drawer-nav-label”>${_escText(c.name)}</span></div>`
           )
           .join('');
       }
