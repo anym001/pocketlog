@@ -1326,11 +1326,6 @@
             <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
           </div>
 
-          <div class="report-tiles">
-            <button type="button" class="report-tile" onclick="openReport('categories')">Kategorienanalyse</button>
-            <button type="button" class="report-tile" onclick="openReport('year')">Jahresverlauf</button>
-            <button type="button" class="report-tile" onclick="openReport('forecast')">Prognose</button>
-          </div>
         `;
 
         // Sparkline: Vorjahr des Range-Endjahres.
