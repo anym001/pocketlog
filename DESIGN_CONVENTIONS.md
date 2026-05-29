@@ -262,23 +262,34 @@ Referenz: [HIG: Color](https://developer.apple.com/design/human-interface-guidel
 
 Referenz: [HIG: Materials](https://developer.apple.com/design/human-interface-guidelines/materials).
 
-PocketLog folgt dem **Apple Inset-Grouped-Stil**: flacher grauer Canvas
-(`--bg-grouped`), weiße Karten (`--bg-canvas`). `backdrop-filter` wird
-bewusst nur an wenigen Floating-Elementen eingesetzt.
+PocketLog kombiniert **Apple Inset-Grouped** (flacher grauer Canvas `--bg-grouped`,
+weiße Karten `--bg-canvas`) mit **Liquid Glass** (iOS 26) für die Chrome-Ebene
+und alle Overlay-Panels. Drei Tiers organisieren den Einsatz:
+
+| Tier | Elemente | Token | Blur |
+|------|----------|-------|------|
+| 0 – Scrims | `.drawer-overlay`, `.modal-overlay` | `--overlay-bg`, `--blur-overlay` / `--blur-dim` | schwach |
+| 1 – Panels | `.modal`, `.drawer`, `.drawer-head`, `.drawer-sub-head` | `--glass-modal` (88 %), `--glass-drawer` (85 %) | `blur(40px) saturate(180%)` |
+| 2 – Cards | `.drawer-nav`, `.search-wrap`, `.fab`, `.header`, `.toast` | `--glass-card` (90 %), `--glass-thin`, `--glass-header`, `--glass-chrome` | `blur(20px)` – `blur(40px)` |
 
 - **Aktuelle Glass-Elemente (vollständige Liste):**
-  - `.header` — frosted Header, Inhalt scrollt darunter durch (`--glass-header` + `--blur-regular`)
-  - `.search-wrap` + `.fab` — Floating-Strip in der Bottom-Bar (`--glass-thin` + `--blur-regular`)
+  - `.header` — frosted Sticky-Header (`--glass-header` + `--blur-regular`)
+  - `.search-wrap` + `.fab` — Floating-Strip Bottom-Bar (`--glass-thin` + `--blur-regular`) + Specular-Highlight (`--shadow-floating-strip`)
   - `.drawer-overlay` — schwacher Backdrop-Scrim hinter dem Drawer (`--blur-overlay`)
   - `.modal-overlay` — Backdrop-Scrim hinter dem Modal (`--blur-dim`)
+  - `.modal` — Sheet / Card-Modal (`--glass-modal` + `blur(40px) saturate(180%)`)
+  - `.drawer` — Sidebar-Panel (`--glass-drawer` + `blur(40px) saturate(180%)`)
+  - `.drawer-head`, `.drawer-sub-head` — Sticky-Header im Drawer (`--glass-modal` + `blur(20px) saturate(150%)`)
+  - `.drawer-nav` — Card-Listen im Drawer (`--glass-card` + `blur(20px)`)
   - `.toast` — flüchtige Floating-Benachrichtigung (`--glass-chrome` + `--blur-thick`)
 - **Wann NICHT:**
-  - Cards, Listen-Reihen, Modals, Drawer-Inhalte, Formulare — immer `--bg-canvas` oder `--bg-grouped`, kein `backdrop-filter`.
-  - Neue Elemente bekommen standardmäßig **kein** Glass — Ausnahme nur für echte Floating-Overlay-Elemente.
-- **Schichtung:** Max. 3 Ebenen – Canvas → Card → Material-Overlay. Keine geblurrten Materialien übereinander.
-- **Fallback (`@supports not (backdrop-filter: blur(1px))`):** `--glass-thin` und `--glass-chrome` werden auf opake Werte überschrieben; `--glass-header` auf `--bg-grouped`. Beide Fallback-Blöcke (`@supports` + `@media prefers-reduced-transparency`) in `styles.css` pflegen.
-- **Performance:** `backdrop-filter` nur auf kleinen, statischen Flächen — nie auf scrollenden Listen.
-- **Reduzierte Transparenz:** `@media (prefers-reduced-transparency: reduce)` → Material durch opake Fläche ersetzen (bereits im Fallback-Block).
+  - Einfache Listen-Reihen (Transaktionen, Reports), Formulareingaben, Settings-Rows — immer `--bg-canvas` oder `--bg-grouped`, kein `backdrop-filter`.
+  - Neue Elemente bekommen standardmäßig **kein** Glass — nur echte Floating-Overlays oder Chrome-Panels der drei Tiers oben.
+- **Schichtung:** Max. 3 Ebenen — Canvas → Drawer/Modal-Panel (Tier 1) → Nav-Card (Tier 2). Tier-2-Elemente nicht in Tier-1-Elemente schachteln, die selbst Tier 2 verwenden.
+- **Tokens:** `--glass-modal`, `--glass-drawer`, `--glass-card` sind `color-mix()`-Ausdrücke über `--bg-grouped` / `--bg-canvas` und adaptieren Dark Mode automatisch. `--glass-thin`, `--glass-header`, `--glass-chrome` bleiben eigene rgba-Werte.
+- **Fallback:** Beide Blöcke in `styles.css` pflegen — `@supports not (backdrop-filter: blur(1px))` und `@media (prefers-reduced-transparency: reduce)`. Dort werden `--glass-modal`, `--glass-drawer`, `--glass-card` auf opake Äquivalente (`--bg-grouped` / `--bg-canvas`) überschrieben.
+- **Performance:** `backdrop-filter` nur auf statischen Flächen — nie auf scrollenden Listen oder animierten Elementen mit vielen DOM-Nachbarn.
+- **Reduzierte Transparenz:** `@media (prefers-reduced-transparency: reduce)` → alle Glass-Tokens auf opake Fläche zurücksetzen (bereits im Fallback-Block).
 
 ## App-Icons
 
