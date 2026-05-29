@@ -20,6 +20,7 @@ Tracking, keine Telemetrie.
 - [Login & Sicherheit](#login--sicherheit)
 - [Notfall-Recovery](#notfall-recovery)
 - [Image](#image)
+- [Lizenz](#lizenz)
 
 ## Funktionsumfang
 
@@ -138,6 +139,16 @@ Image: `ghcr.io/anym001/pocketlog`
 
 - `:latest` – letzter Stand von `main`
 - `:X.Y.Z` – versionierter Release (z.B. `v0.3.2`)
+
+## Lizenz
+
+PocketLog steht unter der **GNU Affero General Public License v3.0**
+(AGPL-3.0). Du darfst die Software nutzen, weitergeben und verändern – wenn du
+eine (geänderte) Version über ein Netzwerk als Dienst anbietest, musst du den
+vollständigen Quellcode anbieten (AGPL §13). Den vollständigen Lizenztext
+findest du in [`LICENSE`](LICENSE).
+
+Copyright (C) 2026 anym001
 
 ---
 
