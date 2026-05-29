@@ -549,7 +549,7 @@
       }
       .summary-card .amount {
         font-family: var(--font-display);
-        font-size: var(--fs-title-sm);
+        font-size: var(--fs-headline);
         color: var(--text);
         line-height: 1.25;
         letter-spacing: -0.02em;
@@ -1074,7 +1074,7 @@
         bottom: 0;
         width: min(300px, 88vw);
         z-index: var(--z-drawer);
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         -webkit-backdrop-filter: var(--blur-thick);
         backdrop-filter: var(--blur-thick);
         border-right: var(--border-hairline-strong);
@@ -1128,7 +1128,7 @@
         position: sticky;
         top: 0;
         z-index: 1;
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         padding: calc(env(safe-area-inset-top) + var(--space-16)) var(--space-20) var(--space-12);
         border-bottom: var(--border-hairline);
         display: flex;
@@ -1234,12 +1234,24 @@
         font-size: var(--fs-micro);
         color: var(--text2);
       }
+      .drawer-nav {
+        margin: var(--space-16) var(--space-16) 0;
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        overflow: hidden;
+        box-shadow: var(--shadow-soft);
+      }
+      .drawer-nav + .drawer-nav {
+        margin-top: var(--space-16);
+      }
       .drawer-nav-item {
         display: flex;
         align-items: center;
         justify-content: space-between;
         width: 100%;
-        padding: var(--space-16) var(--space-20);
+        min-height: 50px;
+        padding: var(--space-12) var(--space-16);
         background: none;
         border: none;
         border-bottom: var(--border-hairline);
@@ -1250,21 +1262,22 @@
         text-align: left;
         transition: background var(--dur-fast);
       }
+      .drawer-nav-item:last-child {
+        border-bottom: none;
+      }
       .drawer-nav-item:active {
-        background: var(--glass-thin);
+        background: var(--surface-tint);
       }
       .drawer-nav-item:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
-        border-radius: var(--r-sm);
       }
       .drawer-nav-item.active {
         color: var(--accent);
         font-weight: 600;
-        box-shadow: inset 3px 0 var(--accent);
       }
       .drawer-nav-item.active:focus-visible {
-        box-shadow: inset 3px 0 var(--accent), var(--focus-ring);
+        box-shadow: var(--focus-ring);
       }
       .drawer-nav-chevron {
         color: var(--text3);
@@ -1276,7 +1289,7 @@
         position: sticky;
         top: 0;
         z-index: 1;
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         padding: calc(env(safe-area-inset-top) + var(--space-8)) var(--space-20) var(--space-8);
         border-bottom: var(--border-hairline);
         display: flex;
