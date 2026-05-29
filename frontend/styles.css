@@ -2641,32 +2641,6 @@
         color: var(--green);
       }
 
-      .report-tiles {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: var(--space-8);
-      }
-      .report-tile {
-        padding: var(--space-12) var(--space-10);
-        background: var(--surface-tint);
-        border: var(--border-hairline);
-        border-radius: var(--r-md);
-        font-size: var(--fs-caption);
-        font-weight: 600;
-        color: var(--text);
-        cursor: pointer;
-        text-align: center;
-        line-height: 1.25;
-        transition: background var(--dur-base) var(--ease-soft);
-      }
-      .report-tile:active {
-        background: var(--glass-thick);
-      }
-      @media (hover: hover) and (pointer: fine) {
-        .report-tile:hover {
-          background: var(--glass-thick);
-        }
-      }
 
       .donut-wrap {
         position: relative;
