@@ -1566,17 +1566,13 @@
         gap: var(--space-8);
         align-items: center;
         padding: var(--space-8) var(--space-10);
-        background: var(--glass-thin);
-        -webkit-backdrop-filter: var(--blur-thin);
-        backdrop-filter: var(--blur-thin);
+        background: var(--bg-canvas);
         border: var(--border-hairline);
         border-radius: var(--r-md);
         min-height: 48px;
       }
       .tag-pill {
-        background: var(--glass-thick);
-        -webkit-backdrop-filter: var(--blur-thin);
-        backdrop-filter: var(--blur-thin);
+        background: var(--bg-grouped);
         border: var(--border-hairline);
         border-radius: var(--r-pill);
         padding: var(--space-4) var(--space-12);
@@ -1585,7 +1581,6 @@
         display: flex;
         align-items: center;
         gap: var(--space-4);
-        box-shadow: inset 0 0.5px 0 var(--hairline);
       }
       .tag-pill button {
         background: none;
@@ -1604,16 +1599,13 @@
         height: var(--btn-chrome-size);
         border-radius: 50%;
         border: var(--border-hairline);
-        background: var(--glass-thick);
-        -webkit-backdrop-filter: var(--blur-thin);
-        backdrop-filter: var(--blur-thin);
+        background: var(--bg-grouped);
         color: var(--text2);
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         flex-shrink: 0;
-        box-shadow: inset 0 0.5px 0 var(--hairline);
         transition: transform var(--dur-base) var(--ease-spring);
         -webkit-tap-highlight-color: transparent;
       }
