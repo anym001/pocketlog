@@ -1283,6 +1283,7 @@
           <div class="report-tx-main">
             <div class="report-tx-desc">${_escText(t.desc || cat.name)}</div>
             <div class="t-tags">${tagsHtml}</div>
+            <div class="report-tx-meta">${dateLbl}</div>
           </div>
           <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtSignedCurrency(sign)}</div>
         </div>`;
