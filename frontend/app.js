@@ -2699,11 +2699,10 @@
         box.innerHTML = sorted
           .map(
             (c) => `
-    <div class="tag-pill cat-pill-edit" role="button" tabindex="0"
-      aria-label="Kategorie „${_escAttr(c.name)}“ bearbeiten"
-      style="border-color:color-mix(in oklab, ${c.color} 40%, transparent)"
-      onclick="openCatModal(${c.id})"
-      onkeydown="handleRowActivate(event, () => openCatModal(${c.id}))"><span class="cat-pill-glyph" style="color:${c.color}">${catIconSvg(c.icon)}</span>${_escText(c.name)}</div>
+    <div class=”tag-pill cat-pill-edit” role=”button” tabindex=”0”
+      aria-label=”Kategorie „${_escAttr(c.name)}” bearbeiten”
+      onclick=”openCatModal(${c.id})”
+      onkeydown=”handleRowActivate(event, () => openCatModal(${c.id}))”><div class=”drawer-nav-icon-wrap” style=”--nav-icon-bg:${c.color}”>${catIconSvg(c.icon)}</div>${_escText(c.name)}</div>
   `
           )
           .join('');
