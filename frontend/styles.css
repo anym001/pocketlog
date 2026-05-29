@@ -51,14 +51,25 @@
       }
 
       :root {
-        /* Base canvas — ivory from html-effectiveness palette */
-        --bg-canvas: #faf9f5;
+        /* Grouped page background (Apple systemGroupedBackground): the flat
+           canvas behind the cards. A touch darker than --bg-canvas so cards
+           read as elevated surfaces, like iOS grouped lists. */
+        --bg-grouped: #f2f2f7;
+        /* Card / elevated surface — pure white, so cards lift cleanly off the
+           cool grouped canvas (Apple secondarySystemGroupedBackground). */
+        --bg-canvas: #ffffff;
 
-        /* Glass materials — light (based on ivory/paper) */
-        --glass-thin: rgba(250, 249, 245, 0.45);
-        --glass-regular: rgba(250, 249, 245, 0.65);
-        --glass-thick: rgba(250, 249, 245, 0.82);
-        --glass-chrome: rgba(250, 249, 245, 0.92);
+        /* Glass materials — light (white-based to match the neutral canvas) */
+        --glass-thin: rgba(255, 255, 255, 0.45);
+        --glass-regular: rgba(255, 255, 255, 0.65);
+        --glass-thick: rgba(255, 255, 255, 0.82);
+        --glass-chrome: rgba(255, 255, 255, 0.92);
+        /* Header material — a translucent tint of the grouped canvas so the
+           sticky header blends into the page (separated only by a hairline, no
+           drop shadow) instead of reading as a floating bar. Resolves per
+           theme via --bg-grouped; falls back to opaque in the no-backdrop /
+           reduced-transparency blocks below. */
+        --glass-header: color-mix(in srgb, var(--bg-grouped) 82%, transparent);
 
         /* Glass borders & highlights — g300-based */
         --hairline: rgba(209, 207, 197, 0.9);
@@ -181,7 +192,6 @@
         --dur-slow: 0.3s;
         --dur-progress: 0.7s; /* .cat-bar width fill */
         --dur-pulse: 1.2s; /* .sync-dot syncing animation */
-        --dur-ambient: 22s; /* body::after ambient-drift loop */
 
         /* Focus ring — gleiches Aussehen für alle fokussierten Inputs/Buttons. */
         --focus-ring: 0 0 0 3px var(--accent-tint);
@@ -226,10 +236,6 @@
         --specular-highlight: rgba(255, 255, 255, 0.45);
 
         /* Themed shadows used outside of the generic --shadow-* set. */
-        --shadow-header:
-          0 0.5px 0 rgba(255, 255, 255, 0.6) inset,
-          0 2px 10px rgba(60, 35, 20, 0.1),
-          0 8px 28px -16px rgba(60, 35, 20, 0.2);
         --shadow-floating-strip:
           inset 0 0.5px 0 var(--hairline),
           0 2px 8px rgba(20, 20, 19, 0.06),
@@ -240,13 +246,17 @@
          DARK THEME — single source of truth.
          The inline <head> script computes data-dark from system pref
          + manual override and sets it on <html>. All dark theming
-         (tokens, ambient gradients, glass fallbacks) lives in
+         (tokens, glass fallbacks) lives in
          html[data-dark='true'] selectors. Light values stay in
          :root above and are the default when data-dark='false'.
          ============================================================ */
       html[data-dark='true'] {
         color-scheme: dark;
-        --bg-canvas: #0f0e0c;
+        /* Grouped model in dark: the page keeps the familiar warm near-black,
+           cards sit a step lighter so they lift off the canvas (mirrors the
+           light-mode grouped look, iOS-style). */
+        --bg-grouped: #0f0e0c;
+        --bg-canvas: #221e19;
 
         --glass-thin: rgba(38, 35, 30, 0.45);
         --glass-regular: rgba(38, 35, 30, 0.62);
@@ -279,11 +289,6 @@
         --green: #9ab07a;
         --green-2: #b3c895;
         --green-tint: rgba(154, 176, 122, 0.18);
-
-        --shadow-header:
-          0 0.5px 0 rgba(209, 207, 197, 0.18) inset,
-          0 2px 10px rgba(0, 0, 0, 0.3),
-          0 8px 28px -16px rgba(0, 0, 0, 0.45);
       }
 
       * {
@@ -294,7 +299,7 @@
       }
 
       html {
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         color-scheme: light dark;
         /* Horizontal-Clip absichtlich hier, nicht auf body: sonst wird body
            zum Scroll-Container und `position: sticky` auf .header pinnt an
@@ -302,8 +307,7 @@
         overflow-x: hidden;
         /* Rubber-Band-Overscroll am Root unterdrücken — iOS würde sonst beim
            Swipe-Down am Listen-Anfang den gesamten Compositor-Layer mit nach
-           unten ziehen, inklusive des Sticky-Headers; der body::before-Gradient
-           erscheint dann oberhalb des Headers. Safari ≥ 16 respektiert
+           unten ziehen, inklusive des Sticky-Headers. Safari ≥ 16 respektiert
            overscroll-behavior auf der Root, was PocketLog ohnehin voraussetzt. */
         overscroll-behavior-y: none;
       }
@@ -320,53 +324,9 @@
         -moz-osx-font-smoothing: grayscale;
       }
 
-      /* Ambient color field — gives the glass something to refract.
-         Explizite 100lvh-Größe statt `inset: 0`, damit der Layer auch im
-         iOS-Standalone-PWA beim ersten Paint sofort bis unter den
-         Home-Indicator-Bereich reicht — sonst scheint bis zum ersten
-         Scroll der html-Canvas durch. */
-      body::before {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100lvh;
-        pointer-events: none;
-        z-index: 0;
-        background:
-          radial-gradient(70% 45% at 100% 0%, rgba(217, 119, 87, 0.5), transparent 60%),
-          radial-gradient(75% 50% at 0% 20%, rgba(227, 218, 204, 0.55), transparent 65%),
-          radial-gradient(85% 55% at 50% 100%, rgba(120, 140, 93, 0.28), transparent 65%),
-          radial-gradient(55% 35% at 100% 70%, rgba(42, 120, 216, 0.14), transparent 60%);
-        filter: saturate(110%);
-      }
-
-      /* Drifting light orb so the glass surfaces feel "alive" */
-      body::after {
-        content: '';
-        position: fixed;
-        top: -10%;
-        left: -10%;
-        right: -10%;
-        height: 55%;
-        pointer-events: none;
-        z-index: 0;
-        background: radial-gradient(closest-side, rgba(255, 255, 255, 0.22), transparent 70%);
-        filter: blur(28px);
-        animation: ambient-drift var(--dur-ambient) ease-in-out infinite alternate;
-      }
-      html[data-dark='true'] body::before {
-        background:
-          radial-gradient(70% 45% at 100% 0%, rgba(232, 146, 110, 0.3), transparent 60%),
-          radial-gradient(75% 50% at 0% 20%, rgba(196, 105, 74, 0.26), transparent 65%),
-          radial-gradient(85% 55% at 50% 100%, rgba(154, 176, 122, 0.2), transparent 65%),
-          radial-gradient(55% 35% at 100% 70%, rgba(40, 60, 120, 0.26), transparent 65%);
-        filter: saturate(115%);
-      }
-      html[data-dark='true'] body::after {
-        background: radial-gradient(closest-side, rgba(255, 220, 180, 0.1), transparent 70%);
-      }
+      /* Flat grouped canvas — no ambient gradient or drifting orb. The page is
+         a single calm tone (--bg-grouped) and the cards provide the only
+         layering, Apple-grouped-list style. */
 
       /* Dark mode: category palette is tuned for light backgrounds, so
          glyph contrast collapses on the dark canvas (a dark brown / forest
@@ -378,18 +338,6 @@
       html[data-dark='true'] .cat-view-icon,
       html[data-dark='true'] .cat-icon {
         color: var(--text);
-      }
-
-      @keyframes ambient-drift {
-        0% {
-          transform: translate3d(-4%, -2%, 0) scale(1);
-        }
-        50% {
-          transform: translate3d(3%, 3%, 0) scale(1.05);
-        }
-        100% {
-          transform: translate3d(6%, -1%, 0) scale(1);
-        }
       }
 
       body > *,
@@ -423,11 +371,14 @@
         top: 0;
         padding: max(env(safe-area-inset-top), var(--space-14)) var(--space-20) var(--space-14);
         z-index: var(--z-toolbar);
-        background: var(--glass-chrome);
+        /* Grouped-list chrome: the header shares the canvas tone and is set off
+           only by a hairline — no drop shadow — so it reads as part of the page
+           instead of a floating bar. The blur still frosts cards that scroll
+           underneath. */
+        background: var(--glass-header);
         -webkit-backdrop-filter: var(--blur-regular);
         backdrop-filter: var(--blur-regular);
-        border-bottom: var(--border-hairline-strong);
-        box-shadow: var(--shadow-header);
+        border-bottom: var(--border-hairline);
       }
       .header-top {
         display: flex;
@@ -547,7 +498,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 0 0 var(--space-2) var(--bg-canvas);
+        box-shadow: 0 0 0 var(--space-2) var(--bg-grouped);
         font-variant-numeric: tabular-nums;
       }
       .sync-badge[hidden] {
@@ -2928,10 +2879,13 @@
      fall back to nearly-opaque canvas tints (DESIGN_CONVENTIONS §5). */
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
         :root {
-          --glass-thin: rgba(250, 249, 245, 0.92);
-          --glass-regular: rgba(250, 249, 245, 0.95);
-          --glass-thick: rgba(250, 249, 245, 0.98);
-          --glass-chrome: rgba(250, 249, 245, 1);
+          --glass-thin: rgba(255, 255, 255, 0.92);
+          --glass-regular: rgba(255, 255, 255, 0.95);
+          --glass-thick: rgba(255, 255, 255, 0.98);
+          --glass-chrome: rgba(255, 255, 255, 1);
+          /* No blur to frost content under the header — make it fully opaque so
+             cards don't bleed through. Resolves per theme via --bg-grouped. */
+          --glass-header: var(--bg-grouped);
         }
         html[data-dark='true'] {
           --glass-thin: rgba(38, 35, 30, 0.92);
@@ -2942,19 +2896,17 @@
       }
       @media (prefers-reduced-transparency: reduce) {
         :root {
-          --glass-thin: rgba(250, 249, 245, 0.92);
-          --glass-regular: rgba(250, 249, 245, 0.95);
-          --glass-thick: rgba(250, 249, 245, 0.98);
-          --glass-chrome: rgba(250, 249, 245, 1);
+          --glass-thin: rgba(255, 255, 255, 0.92);
+          --glass-regular: rgba(255, 255, 255, 0.95);
+          --glass-thick: rgba(255, 255, 255, 0.98);
+          --glass-chrome: rgba(255, 255, 255, 1);
+          --glass-header: var(--bg-grouped);
         }
         html[data-dark='true'] {
           --glass-thin: rgba(38, 35, 30, 0.92);
           --glass-regular: rgba(38, 35, 30, 0.95);
           --glass-thick: rgba(30, 28, 24, 0.98);
           --glass-chrome: rgba(22, 20, 17, 1);
-        }
-        body::after {
-          display: none;
         }
       }
 
@@ -2974,15 +2926,15 @@
       }
 
       @media (min-width: 768px) {
-        /* Body lets the shell take over centering; viewport-fixed glass
-           layers (body::before/after) keep working because they're sized
-           relative to the viewport, not the body box. */
+        /* Body lets the shell take over centering; the flat grouped canvas
+           lives on <html>, so it always fills the viewport regardless of the
+           body box width. */
         body {
           max-width: none;
         }
 
         /* Reserve a column on the left for the sidebar — no grid, no
-           max-width on the shell so landscape iPads don't show ambient
+           max-width on the shell so landscape iPads don't show canvas
            margins. The drawer itself is position: fixed and lives
            outside the normal flow, so this padding is the only thing
            that keeps the content from sliding under it.
@@ -3118,7 +3070,7 @@
       .auth-view {
         position: fixed;
         inset: 0;
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         display: flex;
         align-items: flex-start;
         justify-content: center;
@@ -3137,11 +3089,13 @@
       .auth-card {
         width: 100%;
         max-width: 420px;
-        background: var(--surface, var(--bg-canvas));
-        border: 1px solid var(--surface-tint);
-        border-radius: var(--r-xl, 20px);
+        /* Same card recipe as the rest of the app, so the login card lifts off
+           the grouped canvas like every other surface. */
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-xl);
         padding: var(--space-24) var(--space-20) var(--space-20);
-        box-shadow: var(--shadow-md, 0 4px 24px rgba(0, 0, 0, 0.08));
+        box-shadow: var(--shadow-elevated);
       }
       .auth-brand {
         font-family: 'DM Serif Display', serif;
@@ -3274,9 +3228,6 @@
 
       /* Reduced motion */
       @media (prefers-reduced-motion: reduce) {
-        body::after {
-          animation: none;
-        }
         *,
         *::before,
         *::after {
