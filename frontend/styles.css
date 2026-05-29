@@ -549,7 +549,7 @@
       }
       .summary-card .amount {
         font-family: var(--font-display);
-        font-size: var(--fs-title-sm);
+        font-size: var(--fs-headline);
         color: var(--text);
         line-height: 1.25;
         letter-spacing: -0.02em;
@@ -1074,7 +1074,7 @@
         bottom: 0;
         width: min(300px, 88vw);
         z-index: var(--z-drawer);
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         -webkit-backdrop-filter: var(--blur-thick);
         backdrop-filter: var(--blur-thick);
         border-right: var(--border-hairline-strong);
@@ -1128,7 +1128,7 @@
         position: sticky;
         top: 0;
         z-index: 1;
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         padding: calc(env(safe-area-inset-top) + var(--space-16)) var(--space-20) var(--space-12);
         border-bottom: var(--border-hairline);
         display: flex;
