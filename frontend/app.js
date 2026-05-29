@@ -1275,13 +1275,17 @@
           const [y, m, d] = t.date.split('-');
           return `${d}.${m}.${y}`;
         })();
+        const tagsHtml = (t.tags || []).map((tag) => `<span class="t-tag">${_escText(tag)}</span>`).join('');
+        const subLine = tagsHtml
+          ? `<div class="t-tags">${tagsHtml}</div>`
+          : `<div class="report-tx-meta">${_escText(cat.name)} · ${dateLbl}</div>`;
         return `<div class="report-tx-row" role="button" tabindex="0"
           onclick="editTransaction(${t.id})"
           onkeydown="handleRowActivate(event, () => editTransaction(${t.id}))">
           <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="report-tx-main">
             <div class="report-tx-desc">${_escText(t.desc || cat.name)}</div>
-            <div class="report-tx-meta">${_escText(cat.name)} · ${dateLbl}</div>
+            ${subLine}
           </div>
           <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtSignedCurrency(sign)}</div>
         </div>`;
