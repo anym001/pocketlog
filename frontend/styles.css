@@ -1076,8 +1076,6 @@
         width: min(300px, 88vw);
         z-index: var(--z-drawer);
         background: var(--bg-grouped);
-        -webkit-backdrop-filter: var(--blur-thick);
-        backdrop-filter: var(--blur-thick);
         border-right: var(--border-hairline-strong);
         overflow: hidden;
         transform: translateX(-100%);
