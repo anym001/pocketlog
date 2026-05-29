@@ -2656,7 +2656,7 @@
           .map(
             (c) =>
               `<div class=”drawer-nav-item cat-pill-edit” role=”button” tabindex=”0”` +
-              ` aria-label=”Kategorie „${_escAttr(c.name)}“ bearbeiten”` +
+              ` aria-label=”Kategorie „${_escAttr(c.name)}” bearbeiten”` +
               ` onclick=”openCatModal(${c.id})”` +
               ` onkeydown=”handleRowActivate(event, () => openCatModal(${c.id}))”` +
               `><div class=”drawer-nav-icon-wrap” style=”--nav-icon-bg:${c.color}”>${catIconSvg(c.icon)}</div>` +
