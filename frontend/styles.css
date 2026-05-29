@@ -2302,33 +2302,13 @@
       }
 
       .report-section {
-        position: relative;
-        background: color-mix(in oklab, var(--text) 4%, var(--bg-canvas));
+        background: var(--bg-canvas);
         border: var(--border-hairline);
         border-radius: var(--r-lg);
         padding: var(--space-16) var(--space-16);
         margin-bottom: var(--space-14);
         box-shadow: var(--shadow-soft);
         overflow: hidden;
-        isolation: isolate;
-      }
-      .report-section::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        background: linear-gradient(
-          155deg,
-          rgba(255, 255, 255, 0.4) 0%,
-          rgba(255, 255, 255, 0) 35%
-        );
-        pointer-events: none;
-        z-index: 1;
-        mix-blend-mode: overlay;
-      }
-      .report-section > * {
-        position: relative;
-        z-index: 2;
       }
       .report-section-title {
         font-size: var(--fs-footnote);
@@ -2492,7 +2472,7 @@
         margin-bottom: var(--space-14);
       }
       .trend-stats .stat-card {
-        background: color-mix(in oklab, var(--text) 4%, var(--bg-canvas));
+        background: var(--bg-canvas);
         border: var(--border-hairline);
         border-radius: var(--r-lg);
         padding: var(--space-12) var(--space-14);
