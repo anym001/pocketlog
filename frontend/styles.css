@@ -1377,7 +1377,7 @@
       }
 
       .modal {
-        background: var(--bg-canvas);
+        background: var(--bg-grouped);
         border: var(--border-hairline);
         border-bottom: 0;
         border-radius: var(--r-xl) var(--r-xl) 0 0;
@@ -1425,7 +1425,7 @@
         height: var(--btn-chrome-size);
         border-radius: 50%;
         border: var(--border-hairline);
-        background: var(--bg-grouped);
+        background: var(--bg-canvas);
         color: var(--text2);
         font-size: var(--btn-icon-size);
         cursor: pointer;
@@ -1533,7 +1533,7 @@
       .form-group input,
       .form-group select {
         width: 100%;
-        background: var(--bg-grouped);
+        background: var(--bg-canvas);
         border: var(--border-hairline);
         border-radius: var(--r-md);
         padding: var(--space-14) var(--space-16);
