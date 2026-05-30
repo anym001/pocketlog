@@ -98,3 +98,33 @@ def test_cli_reset_unknown_user_returns_1(db_session, monkeypatch):
     assert rc == 1
 
 
+# ── CLI-Lokalisierung (folgt DEFAULT_LOCALE) ──────────────────────────────
+
+
+def test_cli_messages_follow_default_locale(monkeypatch):
+    """_t übersetzt nach der Deployment-Locale, nicht hart deutsch."""
+    monkeypatch.setattr(crud, "DEFAULT_LOCALE", "de-DE")
+    assert cli._t("pw_mismatch") == "Passwörter stimmen nicht überein."
+    assert "mindestens 12" in cli._t("pw_too_short", n=12)
+
+    monkeypatch.setattr(crud, "DEFAULT_LOCALE", "en-GB")
+    assert cli._t("pw_mismatch") == "Passwords do not match."
+    assert "at least 12" in cli._t("pw_too_short", n=12)
+
+
+def test_cli_unknown_user_message_is_english_under_en_locale(
+    db_session, monkeypatch, capsys
+):
+    monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(crud, "DEFAULT_LOCALE", "en-GB")
+    rc = cli.main([
+        "reset-admin-password",
+        "--username", f"no-such-user-{uuid.uuid4().hex[:8]}",
+        "--password", "Valid-password-2026",
+    ])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "not found" in err
+    assert "nicht gefunden" not in err
+
+
