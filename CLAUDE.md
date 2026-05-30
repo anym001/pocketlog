@@ -139,7 +139,7 @@ Zwei statische JSON-Bundles unter `frontend/i18n/<bundle>.json` (de/en heute), a
   - CSV-Import: `ImportRowError = {row, code, params}`; Codes via `crud.CsvRowError` (z.B. `date_unrecognised {value}`, `row_limit {max}`, `db_conflict`). Frontend-Keys unter `importExport.error.*`, Anzeige als übersetzte Zeilenliste.
   - Passwort: `validate_password_complexity` wirft `PydanticCustomError('password_complexity', …, {missing})`; 422-`type`/`ctx` werden im Frontend (`_passwordErrorMessage`) auf `pwd.*` gemappt. Länge nutzt die stabilen Pydantic-Codes `string_too_short`/`string_too_long`.
   - Import-Fallback-Kategorie folgt der User-Locale (`bundle_for_locale`), kein hartes „Sonstiges" mehr.
-  - **CLI-Ausgaben** folgen der Deployment-Locale: `cli.CLI_MESSAGES` (de/en) via `cli._t()`, gewählt über `bundle_for_locale(crud.DEFAULT_LOCALE)` (kein Per-User-Locale, da kein eingeloggter User; de = Fallback).
+  - **CLI-Ausgaben sind bewusst Englisch-only** (Operator-Tooling-Konvention; kein User sieht sie). Logs ebenfalls Englisch.
   - **Bewusst statisch deutsch:** `manifest.webmanifest` (`name`/`description`/`lang`) — eine einzelne ausgelieferte Datei; echte Lokalisierung bräuchte Server-Content-Negotiation nach `Accept-Language`.
 
 ## Deployment → [`README.md`](README.md)
