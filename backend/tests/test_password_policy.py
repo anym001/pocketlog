@@ -9,6 +9,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from pydantic_core import PydanticCustomError
 
 from app import schemas
 
@@ -34,27 +35,30 @@ def test_validate_password_complexity_accepts_valid(value):
 @pytest.mark.parametrize(
     "value, missing",
     [
-        ("nur-kleinbuchstaben-1!", "Großbuchstabe"),
-        ("NUR-GROSSBUCHSTABEN-1!", "Kleinbuchstabe"),
-        ("Ohne-Zahl-Wirklich!", "Zahl"),
-        ("OhneSonderzeichen1234", "Sonderzeichen"),
+        ("nur-kleinbuchstaben-1!", "upper"),
+        ("NUR-GROSSBUCHSTABEN-1!", "lower"),
+        ("Ohne-Zahl-Wirklich!", "digit"),
+        ("OhneSonderzeichen1234", "special"),
     ],
 )
 def test_validate_password_complexity_rejects_missing_class(value, missing):
-    with pytest.raises(ValueError) as exc:
+    # Stable machine code + missing-class codes in context (no German prose),
+    # so the frontend can translate the 422.
+    with pytest.raises(PydanticCustomError) as exc:
         schemas.validate_password_complexity(value)
+    assert exc.value.type == "password_complexity"
     assert missing in str(exc.value)
 
 
 def test_validate_password_complexity_lists_all_missing_classes():
-    """Wenn mehrere Klassen fehlen, listet die Meldung alle auf — der
-    Operator erfährt in einer Runde alles, was er nachbessern muss."""
-    with pytest.raises(ValueError) as exc:
+    """Wenn mehrere Klassen fehlen, nennt der Kontext alle Klassen-Codes —
+    das Frontend kann daraus die passende Meldung bauen."""
+    with pytest.raises(PydanticCustomError) as exc:
         schemas.validate_password_complexity("abcdefghijkl")
     msg = str(exc.value)
-    assert "Großbuchstabe" in msg
-    assert "Zahl" in msg
-    assert "Sonderzeichen" in msg
+    assert "upper" in msg
+    assert "digit" in msg
+    assert "special" in msg
 
 
 # ── Schema-Integration: NewPassword via SetupRequest ──────────────────────
@@ -63,7 +67,9 @@ def test_validate_password_complexity_lists_all_missing_classes():
 def test_setup_request_rejects_password_without_uppercase():
     with pytest.raises(ValidationError) as exc:
         schemas.SetupRequest(username="ok", password="nur-klein-1234!")
-    assert "Großbuchstabe" in str(exc.value)
+    # Stable code surfaces in the ValidationError; missing class in context.
+    assert "password_complexity" in str(exc.value)
+    assert "upper" in str(exc.value)
 
 
 def test_setup_request_rejects_password_too_short_with_clear_error():

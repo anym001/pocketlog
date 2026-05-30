@@ -697,13 +697,24 @@ def _norm_key(k: str | None) -> str:
     return (k or "").strip().lstrip("﻿").lower()
 
 
+class CsvRowError(ValueError):
+    """A per-row CSV import problem carrying a stable machine ``code`` plus
+    optional ``params``. import_csv turns these into the localized message on
+    the client side — the backend never emits German import prose."""
+
+    def __init__(self, code: str, **params):
+        super().__init__(code)
+        self.code = code
+        self.params = params
+
+
 def _parse_date(s: str) -> date_type:
     for fmt in _DATE_FORMATS:
         try:
             return datetime.strptime(s, fmt).date()
         except ValueError:
             continue
-    raise ValueError(f"Datum nicht erkennbar: {s!r}")
+    raise CsvRowError("date_unrecognised", value=s)
 
 
 def _parse_amount(s: str) -> Decimal:
@@ -720,7 +731,7 @@ def _parse_amount(s: str) -> Decimal:
     try:
         return Decimal(t)
     except InvalidOperation:
-        raise ValueError(f"Betrag nicht erkennbar: {s!r}")
+        raise CsvRowError("amount_unrecognised", value=s)
 
 
 def _build_transaction(
@@ -728,6 +739,7 @@ def _build_transaction(
     db: Session,
     user_id: int,
     tag_cache: dict[str, models.Tag],
+    fallback_category: str = "Sonstiges",
 ) -> models.Transaction | None:
     r = {_norm_key(k): (v or "").strip() for k, v in row.items() if k is not None}
     if not r:
@@ -736,9 +748,9 @@ def _build_transaction(
         return None  # skip empty rows
 
     if not r.get("amount"):
-        raise ValueError("Spalte 'amount' fehlt oder leer")
+        raise CsvRowError("amount_missing")
     if not r.get("date"):
-        raise ValueError("Spalte 'date' fehlt oder leer")
+        raise CsvRowError("date_missing")
 
     date_val = _parse_date(r["date"])
     amount = _parse_amount(r["amount"])
@@ -752,16 +764,16 @@ def _build_transaction(
         elif amount > 0:
             tx_type = "in"
         else:
-            raise ValueError("Typ unbekannt und Betrag = 0")
+            raise CsvRowError("type_unknown_zero")
     if amount < 0:
         amount = -amount
     if amount == 0:
-        raise ValueError("Betrag darf nicht 0 sein")
+        raise CsvRowError("amount_zero")
 
     desc_raw = r.get("description") or r.get("desc") or ""
     desc = schemas._CONTROL_CHARS.sub("", desc_raw).strip()[:255]
 
-    cat = get_or_create_category(db, user_id, r.get("category") or "Sonstiges")
+    cat = get_or_create_category(db, user_id, r.get("category") or fallback_category)
 
     tags_raw = r.get("tags") or ""
     # CSV import is best-effort: bad tags are skipped silently rather than
@@ -807,11 +819,22 @@ def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> 
 
     reader = csv.DictReader(io.StringIO(text), dialect=dialect)
     if not reader.fieldnames:
-        return {"imported": 0, "skipped": 0, "errors": [{"row": 1, "reason": "Header fehlt"}]}
+        return {"imported": 0, "skipped": 0, "errors": [{"row": 1, "code": "header_missing", "params": {}}]}
 
     imported = 0
     skipped = 0
     errors: list[dict] = []
+
+    # Locale-aware fallback category for rows without a category column, so an
+    # English user doesn't get a German "Sonstiges" bucket. Read-only lookup —
+    # no commit here, so the import stays a single transaction.
+    s = db.scalar(
+        select(models.UserSettings).where(models.UserSettings.user_id == user_id)
+    )
+    locale = s.locale if s else DEFAULT_LOCALE
+    fallback_category = DEFAULT_CATEGORY_NAMES.get(
+        schemas.bundle_for_locale(locale), DEFAULT_CATEGORY_NAMES["de"]
+    )["other"]
 
     # One tag-cache for the whole import — keeps row-by-row tag
     # resolution at O(distinct tags) instead of O(rows × tags).
@@ -825,11 +848,12 @@ def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> 
             # the worker process from minute-long parse loops.
             errors.append({
                 "row": idx,
-                "reason": f"Limit von {max_rows} Zeilen überschritten – Rest übersprungen.",
+                "code": "row_limit",
+                "params": {"max": max_rows},
             })
             break
         try:
-            tx = _build_transaction(row, db, user_id, tag_cache)
+            tx = _build_transaction(row, db, user_id, tag_cache, fallback_category)
             if tx is None:
                 skipped += 1
                 continue
@@ -837,10 +861,17 @@ def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> 
             imported += 1
             if imported % 200 == 0:
                 db.flush()
-        except Exception as e:  # noqa: BLE001
+        except CsvRowError as e:
             skipped += 1
             if len(errors) < 50:
-                errors.append({"row": idx, "reason": str(e)})
+                errors.append({"row": idx, "code": e.code, "params": e.params})
+        except Exception:  # noqa: BLE001
+            # Unexpected per-row failure: never surface the raw (possibly
+            # German / schema-leaking) message — emit a generic code and log.
+            logger.exception("CSV import row %s failed for user_id=%s", idx, user_id)
+            skipped += 1
+            if len(errors) < 50:
+                errors.append({"row": idx, "code": "row_invalid", "params": {}})
 
     try:
         db.commit()
@@ -853,7 +884,7 @@ def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> 
         return {
             "imported": 0,
             "skipped": imported + skipped,
-            "errors": [{"row": 0, "reason": "Datenbankkonflikt beim Speichern. Bitte erneut versuchen."}],
+            "errors": [{"row": 0, "code": "db_conflict", "params": {}}],
         }
 
     return {"imported": imported, "skipped": skipped, "errors": errors}
