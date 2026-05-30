@@ -407,6 +407,10 @@
             <span class="drawer-sub-title" data-i18n="settings.title">Einstellungen</span>
           </div>
           <nav class="drawer-nav">
+            <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
+              <span data-i18n="settings.display">Allgemein</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpCats')">
               <span data-i18n="settings.categories">Kategorien</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
@@ -419,20 +423,16 @@
               <span data-i18n="settings.importExport">Import/Export</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
-            <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
-              <span data-i18n="settings.display">Allgemein</span>
-              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
-            </button>
-            <button class="drawer-nav-item" onclick="drawerNav('dpAdmin')">
-              <span data-i18n="settings.admin">Verwaltung</span>
+            <button class="drawer-nav-item" onclick="drawerNav('dpAccount')">
+              <span data-i18n="settings.account">Konto</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item admin-only" onclick="drawerNav('dpAdminUsers')">
               <span data-i18n="settings.users">Benutzer</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
-            <button class="drawer-nav-item" onclick="drawerNav('dpAccount')">
-              <span data-i18n="settings.account">Konto</span>
+            <button class="drawer-nav-item" onclick="drawerNav('dpAdmin')">
+              <span data-i18n="settings.admin">Verwaltung</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpInfo')">
