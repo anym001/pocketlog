@@ -182,6 +182,17 @@ class UserSettings(Base):
     default_view: Mapped[str] = mapped_column(
         String(32), nullable=False, default="transactions"
     )
+    # BCP-47 locale tag ('de-DE', 'de-AT', 'en-GB' …). The UI translation
+    # bundle is derived from the primary subtag (de/en); the full tag drives
+    # Intl number/date formatting.
+    locale: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="de-DE", default="de-DE"
+    )
+    # ISO 4217 currency code used purely for display/formatting — amounts
+    # are never converted, only rendered with this symbol and locale.
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, server_default="EUR", default="EUR"
+    )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(),
         nullable=False,

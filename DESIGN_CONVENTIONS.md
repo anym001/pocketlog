@@ -450,6 +450,7 @@ Kurzregeln:
 - **Verb-first** bei Aktions-Buttons: „Speichern", „Löschen" – nicht „OK".
 - **Direkt und aktiv:** „Betrag ungültig." – nicht „Ungültige Eingabe."
 - **Kein „Bitte" / kein „Sorry"** – direkt formulieren.
-- **Beträge** via `fmtCurrency(n)` (de-DE): `1.234,56 €`, Datum intern ISO 8601.
+- **Beträge** via `fmtCurrency(n)` — Locale + Währung kommen aus den User-Settings (`I18N.getLocale()` / `I18N.getCurrency()`), nicht hartkodiert. Datum intern ISO 8601, Anzeige `toLocaleDateString(I18N.getLocale())`.
 - Destruktive Aktionen immer mit „Abbrechen" ergänzen; Dialog-Öffner enden mit `…`.
+- **Keine deutschen Inline-Texte:** statischer Text bekommt `data-i18n` / `data-i18n-attr`, dynamischer Text läuft über `tr('key')`. Neue Strings in **beide** Kataloge (`i18n/de.json`, `i18n/en.json`) mit deckungsgleichen Keys.
 

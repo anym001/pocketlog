@@ -1,6 +1,7 @@
 import csv
 import io
 import logging
+import os
 from datetime import date as date_type, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -12,15 +13,67 @@ from . import auth, models, schemas
 
 logger = logging.getLogger("uvicorn.error")
 
+# Default categories seeded once per user. Each entry carries a stable
+# ``key`` plus its icon/color; the human-readable name is looked up per
+# language in DEFAULT_CATEGORY_NAMES so a new user gets them in the
+# language chosen at creation. Once seeded they are plain user data —
+# renaming or deleting never re-translates them.
 DEFAULT_CATEGORIES: list[dict] = [
-    {"name": "Lebensmittel", "icon": "shopping-cart", "color": "#c8623a"},
-    {"name": "Wohnen", "icon": "house", "color": "#8a6a4a"},
-    {"name": "Mobilität", "icon": "car", "color": "#6a8a8a"},
-    {"name": "Freizeit", "icon": "film-strip", "color": "#a45ab0"},
-    {"name": "Gesundheit", "icon": "pill", "color": "#3a7d5c"},
-    {"name": "Sonstiges", "icon": "package", "color": "#9e9b96"},
-    {"name": "Gehalt", "icon": "wallet", "color": "#3a7d5c"},
+    {"key": "groceries", "icon": "shopping-cart", "color": "#c8623a"},
+    {"key": "housing", "icon": "house", "color": "#8a6a4a"},
+    {"key": "mobility", "icon": "car", "color": "#6a8a8a"},
+    {"key": "leisure", "icon": "film-strip", "color": "#a45ab0"},
+    {"key": "health", "icon": "pill", "color": "#3a7d5c"},
+    {"key": "other", "icon": "package", "color": "#9e9b96"},
+    {"key": "salary", "icon": "wallet", "color": "#3a7d5c"},
 ]
+
+DEFAULT_CATEGORY_NAMES: dict[str, dict[str, str]] = {
+    "de": {
+        "groceries": "Lebensmittel",
+        "housing": "Wohnen",
+        "mobility": "Mobilität",
+        "leisure": "Freizeit",
+        "health": "Gesundheit",
+        "other": "Sonstiges",
+        "salary": "Gehalt",
+    },
+    "en": {
+        "groceries": "Groceries",
+        "housing": "Housing",
+        "mobility": "Transport",
+        "leisure": "Leisure",
+        "health": "Health",
+        "other": "Other",
+        "salary": "Salary",
+    },
+}
+
+# Deployment defaults: ENV overrides the built-in fallback, a per-user
+# DB setting overrides ENV. Lets an operator ship e.g. an en-GB instance
+# without touching code, while users still pick their own locale.
+def _resolve_default_locale() -> str:
+    raw = os.environ.get("DEFAULT_LOCALE")
+    if raw:
+        try:
+            return schemas._normalise_locale(raw)
+        except ValueError:
+            logger.warning("Invalid DEFAULT_LOCALE=%r — using de-DE", raw)
+    return "de-DE"
+
+
+def _resolve_default_currency() -> str:
+    raw = os.environ.get("DEFAULT_CURRENCY")
+    if raw:
+        try:
+            return schemas._normalise_currency(raw)
+        except ValueError:
+            logger.warning("Invalid DEFAULT_CURRENCY=%r — using EUR", raw)
+    return "EUR"
+
+
+DEFAULT_LOCALE = _resolve_default_locale()
+DEFAULT_CURRENCY = _resolve_default_currency()
 
 
 # ---------- Users ----------
@@ -84,9 +137,15 @@ def create_user(
     password: str,
     is_admin: bool = False,
     force_change_password: bool = True,
+    locale: str = DEFAULT_LOCALE,
+    currency: str = DEFAULT_CURRENCY,
 ) -> models.User:
-    """Legt einen neuen User samt Standard-Kategorien an. Wirft
-    ``IntegrityError`` bei Username-Kollision."""
+    """Legt einen neuen User samt Standard-Kategorien an. ``locale``
+    bestimmt über das Primär-Subtag, in welcher Sprache die Default-
+    Kategorien geseedet werden, und wird zusammen mit ``currency`` als
+    initiale Settings-Zeile abgelegt (Admin-angelegte User erben so die
+    Präferenzen des Admins). Wirft ``IntegrityError`` bei Username-
+    Kollision."""
     user = models.User(
         username=username,
         password_hash=auth.hash_password(password),
@@ -101,7 +160,13 @@ def create_user(
         db.rollback()
         raise
     db.refresh(user)
-    _seed_default_categories(db, user.id)
+    # Categories + the initial settings row share one commit so a new user is
+    # never left with categories but no settings (or vice versa).
+    _seed_default_categories(db, user.id, locale, commit=False)
+    db.add(
+        models.UserSettings(user_id=user.id, locale=locale, currency=currency)
+    )
+    db.commit()
     return user
 
 
@@ -142,10 +207,22 @@ def delete_user(db: Session, user: models.User) -> None:
 
 # ---------- Categories ----------
 
-def _seed_default_categories(db: Session, user_id: int) -> None:
+def _seed_default_categories(
+    db: Session, user_id: int, locale: str = DEFAULT_LOCALE, *, commit: bool = True
+) -> None:
+    bundle = schemas.bundle_for_locale(locale)
+    names = DEFAULT_CATEGORY_NAMES.get(bundle, DEFAULT_CATEGORY_NAMES["de"])
     for c in DEFAULT_CATEGORIES:
-        db.add(models.Category(user_id=user_id, **c))
-    db.commit()
+        db.add(
+            models.Category(
+                user_id=user_id,
+                name=names[c["key"]],
+                icon=c["icon"],
+                color=c["color"],
+            )
+        )
+    if commit:
+        db.commit()
 
 
 def list_categories(db: Session, user_id: int) -> list[models.Category]:
