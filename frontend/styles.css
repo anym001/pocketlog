@@ -1951,6 +1951,44 @@
         accent-color: var(--accent);
       }
 
+      /* Settings selects (Appearance, Start view, Language, Currency) —
+         one labelled <select> per preference, sharing the .form-group
+         field look for a harmonious settings list. */
+      .settings-field {
+        margin-bottom: var(--space-16);
+      }
+      .settings-field:last-child {
+        margin-bottom: 0;
+      }
+      .settings-field-label {
+        display: block;
+        font-size: var(--fs-caption);
+        color: var(--text3);
+        font-weight: 600;
+        margin-bottom: var(--space-8);
+        padding-left: var(--space-4);
+      }
+      .settings-select {
+        width: 100%;
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        padding: var(--space-14) var(--space-16);
+        font-size: var(--fs-body);
+        font-family: var(--font-body);
+        color: var(--text);
+        outline: none;
+        -webkit-appearance: none;
+        appearance: none;
+        transition: all var(--dur-base) var(--ease-spring);
+      }
+      .settings-select:focus {
+        border-color: var(--accent);
+        box-shadow:
+          var(--focus-ring),
+          inset 0 0.5px 0 var(--hairline);
+      }
+
       /* ====== SETTINGS ====== */
       .settings-section {
         margin-bottom: var(--space-24);
