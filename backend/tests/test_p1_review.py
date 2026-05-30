@@ -59,7 +59,11 @@ def test_csv_import_integrity_error_returns_generic_message(monkeypatch, app):
 
     assert result["imported"] == 0
     assert result["errors"], "expected at least one error entry"
-    reasons = " | ".join(e["reason"] for e in result["errors"]).lower()
+    # Errors are now code + params; flatten both so a leaked DB internal in
+    # either would still be caught.
+    reasons = " | ".join(
+        f"{e['code']} {e.get('params', {})}" for e in result["errors"]
+    ).lower()
 
     # None of these MariaDB / pymysql / SQLAlchemy artifacts may appear:
     forbidden = [

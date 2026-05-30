@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 # Bounds for the tags array on a single transaction. The list cap keeps a
 # rogue payload from filling the JSON column with thousands of items
@@ -252,10 +253,14 @@ class SettingsUpdate(BaseModel):
 
 
 # -------- Import --------
+# Per-row errors carry a stable machine ``code`` (+ optional ``params``)
+# instead of a localized string, so the frontend can translate them. The
+# code catalogue lives in crud._CSV_ERROR_CODES / frontend i18n "import.error.*".
 
 class ImportRowError(BaseModel):
     row: int
-    reason: str
+    code: str
+    params: dict[str, str | int] = {}
 
 
 class ImportResult(BaseModel):
@@ -282,27 +287,35 @@ PASSWORD_POLICY_HINT = (
 )
 
 
-def validate_password_complexity(value: str) -> str:
-    """Erzwingt je mindestens einen Großbuchstaben, Kleinbuchstaben,
-    eine Ziffer und ein Sonderzeichen. Unicode-aware via ``str.is*`` —
-    „Ä", „ß", „é" zählen als Buchstaben (nicht Sonderzeichen), damit
-    deutsche Eingaben nicht unter die Sonderzeichen-Pflicht fallen."""
-    has_upper = any(c.isupper() for c in value)
-    has_lower = any(c.islower() for c in value)
-    has_digit = any(c.isdigit() for c in value)
-    has_special = any(not c.isalnum() for c in value)
+def password_missing_classes(value: str) -> list[str]:
+    """Stable machine codes for the character classes a password lacks.
+    Unicode-aware via ``str.is*`` — „Ä", „ß", „é" zählen als Buchstaben
+    (nicht Sonderzeichen), damit deutsche Eingaben nicht unter die
+    Sonderzeichen-Pflicht fallen."""
     missing: list[str] = []
-    if not has_upper:
-        missing.append("Großbuchstabe")
-    if not has_lower:
-        missing.append("Kleinbuchstabe")
-    if not has_digit:
-        missing.append("Zahl")
-    if not has_special:
-        missing.append("Sonderzeichen")
+    if not any(c.isupper() for c in value):
+        missing.append("upper")
+    if not any(c.islower() for c in value):
+        missing.append("lower")
+    if not any(c.isdigit() for c in value):
+        missing.append("digit")
+    if not any(not c.isalnum() for c in value):
+        missing.append("special")
+    return missing
+
+
+def validate_password_complexity(value: str) -> str:
+    """Erzwingt je mindestens einen Groß-/Kleinbuchstaben, eine Ziffer und
+    ein Sonderzeichen. Wirft einen ``PydanticCustomError`` mit stabilem Code
+    ``password_complexity`` und den fehlenden Klassen-Codes im Kontext, damit
+    das Frontend die 422-Antwort übersetzen kann (keine deutsche Prosa über
+    die API). Der Klartext-Hinweis bleibt für die CLI in PASSWORD_POLICY_HINT."""
+    missing = password_missing_classes(value)
     if missing:
-        raise ValueError(
-            "Passwort braucht mindestens je: " + ", ".join(missing) + "."
+        raise PydanticCustomError(
+            "password_complexity",
+            "Password is missing character classes: {missing}",
+            {"missing": ", ".join(missing)},
         )
     return value
 

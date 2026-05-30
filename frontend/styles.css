@@ -2090,6 +2090,23 @@
       .status-msg.ok {
         color: var(--green);
       }
+      /* Per-row CSV import errors (translated from backend codes). Capped in
+         JS; scrolls if a file has many failed rows. */
+      .import-error-list {
+        list-style: none;
+        margin: var(--space-8) 0 0;
+        padding: 0;
+        text-align: left;
+        max-height: 9.5rem;
+        overflow-y: auto;
+        color: var(--text2);
+        font-weight: 400;
+      }
+      .import-error-list li {
+        padding: var(--space-4) 0;
+        border-top: var(--border-hairline);
+        word-break: break-word;
+      }
 
       .empty-state {
         text-align: center;
