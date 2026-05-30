@@ -830,7 +830,7 @@
         // All categories, sorted alphabetically — zero if no transactions this month
         const rows = categories
           .map((cat) => ({ id: cat.id, name: cat.name, icon: cat.icon, color: cat.color, net: totals[cat.id] ?? 0 }))
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+          .sort((a, b) => a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }));
 
         el.innerHTML = rows
           .map(
@@ -1888,7 +1888,7 @@
           }
           const rest = categories
             .filter((c) => !seen.has(c.id))
-            .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+            .sort((a, b) => a.name.localeCompare(b.name, _locale()));
           for (const c of rest) {
             options.push({ id: `cat:${c.id}`, label: c.name, color: c.color });
           }
@@ -2324,7 +2324,7 @@
         // and renderCategoryView() so the user sees the same order
         // wherever they look at categories.
         catSel.innerHTML = [...categories]
-          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .sort((a, b) => a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }))
           .map((c) => `<option value="${c.id}">${_escText(c.name)}</option>`)
           .join('');
         if (tx) catSel.value = tx.category_id;
@@ -2673,7 +2673,7 @@
           return;
         }
         const sorted = [...categories].sort((a, b) =>
-          a.name.localeCompare(b.name, 'de', { sensitivity: 'base' })
+          a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' })
         );
         box.innerHTML = '';
         sorted.forEach((c) => {

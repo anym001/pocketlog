@@ -1,5 +1,5 @@
 {
-  "app": { "name": "PocketLog", "tagline": "Haushaltsbuch" },
+  "app": { "name": "PocketLog", "tagline": "Haushaltsbuch", "documentTitle": "PocketLog – Haushaltsbuch" },
   "common": {
     "save": "Speichern",
     "cancel": "Abbrechen",
