@@ -1,5 +1,5 @@
 {
-  "app": { "name": "PocketLog", "tagline": "Budget Book" },
+  "app": { "name": "PocketLog", "tagline": "Budget Book", "documentTitle": "PocketLog – Budget Book" },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
