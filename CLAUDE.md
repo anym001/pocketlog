@@ -135,7 +135,11 @@ Zwei statische JSON-Bundles unter `frontend/i18n/<bundle>.json` (de/en heute), a
 - Beide JSON-Kataloge müssen **deckungsgleiche Keys** haben (Pytest/CI-tauglich: Key-Diff = leer).
 - **CSV-Import-Beispiel** liegt pro Bundle vor (`example-import-de.csv` / `-en.csv`), `downloadExampleCSV()` wählt nach `I18N.getBundle()`.
 
-> **Phase 3 / Backlog:** Backend-erzeugte Texte (CSV-Import-Fehler, Passwort-Policy-Hinweis) sind noch deutsch. Geplant: API liefert stabile Codes/Keys, Frontend übersetzt — Backend-i18n als eigener Schritt.
+- **Backend-Fehler als Codes (Phase 3, erledigt):** Die API liefert für CSV-Import und Passwort-Policy **stabile Codes** statt deutscher Prosa; das Frontend übersetzt.
+  - CSV-Import: `ImportRowError = {row, code, params}`; Codes via `crud.CsvRowError` (z.B. `date_unrecognised {value}`, `row_limit {max}`, `db_conflict`). Frontend-Keys unter `importExport.error.*`, Anzeige als übersetzte Zeilenliste.
+  - Passwort: `validate_password_complexity` wirft `PydanticCustomError('password_complexity', …, {missing})`; 422-`type`/`ctx` werden im Frontend (`_passwordErrorMessage`) auf `pwd.*` gemappt. Länge nutzt die stabilen Pydantic-Codes `string_too_short`/`string_too_long`.
+  - Import-Fallback-Kategorie folgt der User-Locale (`bundle_for_locale`), kein hartes „Sonstiges" mehr.
+  - **Bewusst deutsch:** CLI-Ausgaben (operator-facing) + `manifest.webmanifest` (statische Einzeldatei).
 
 ## Deployment → [`README.md`](README.md)
 
