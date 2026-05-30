@@ -278,14 +278,6 @@ class ImportResult(BaseModel):
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 128
 
-# Menschlich lesbare Beschreibung der Policy — wird in der CLI-
-# Fehlermeldung wiederverwendet, damit Operator-Tools und Schema
-# dieselbe Sprache sprechen.
-PASSWORD_POLICY_HINT = (
-    f"Mindestens {MIN_PASSWORD_LENGTH} Zeichen, mit Großbuchstabe, "
-    "Kleinbuchstabe, Zahl und Sonderzeichen."
-)
-
 
 def password_missing_classes(value: str) -> list[str]:
     """Stable machine codes for the character classes a password lacks.
@@ -309,7 +301,8 @@ def validate_password_complexity(value: str) -> str:
     ein Sonderzeichen. Wirft einen ``PydanticCustomError`` mit stabilem Code
     ``password_complexity`` und den fehlenden Klassen-Codes im Kontext, damit
     das Frontend die 422-Antwort übersetzen kann (keine deutsche Prosa über
-    die API). Der Klartext-Hinweis bleibt für die CLI in PASSWORD_POLICY_HINT."""
+    die API). Die Recovery-CLI gibt operator-facing einen eigenen englischen
+    Hinweis aus."""
     missing = password_missing_classes(value)
     if missing:
         raise PydanticCustomError(
