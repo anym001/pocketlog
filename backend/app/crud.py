@@ -135,7 +135,9 @@ def create_user(
         db.rollback()
         raise
     db.refresh(user)
-    _seed_default_categories(db, user.id, language)
+    # Categories + the initial settings row share one commit so a new user is
+    # never left with categories but no settings (or vice versa).
+    _seed_default_categories(db, user.id, language, commit=False)
     db.add(
         models.UserSettings(
             user_id=user.id, language=language, currency=currency
@@ -183,7 +185,7 @@ def delete_user(db: Session, user: models.User) -> None:
 # ---------- Categories ----------
 
 def _seed_default_categories(
-    db: Session, user_id: int, language: str = DEFAULT_LANGUAGE
+    db: Session, user_id: int, language: str = DEFAULT_LANGUAGE, *, commit: bool = True
 ) -> None:
     names = DEFAULT_CATEGORY_NAMES.get(language, DEFAULT_CATEGORY_NAMES[DEFAULT_LANGUAGE])
     for c in DEFAULT_CATEGORIES:
@@ -195,7 +197,8 @@ def _seed_default_categories(
                 color=c["color"],
             )
         )
-    db.commit()
+    if commit:
+        db.commit()
 
 
 def list_categories(db: Session, user_id: int) -> list[models.Category]:
