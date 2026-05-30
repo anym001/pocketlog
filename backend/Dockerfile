@@ -22,7 +22,8 @@ COPY backend/migrations ./migrations
 COPY backend/app ./app
 
 # PWA static files (served via FastAPI StaticFiles)
-COPY frontend/index.html frontend/styles.css frontend/app.js frontend/sw.js frontend/db.js frontend/manifest.webmanifest frontend/example-import.csv ./static/
+COPY frontend/index.html frontend/styles.css frontend/app.js frontend/i18n.js frontend/sw.js frontend/db.js frontend/manifest.webmanifest frontend/example-import-de.csv frontend/example-import-en.csv ./static/
+COPY frontend/i18n ./static/i18n
 COPY frontend/icons ./static/icons
 COPY frontend/fonts ./static/fonts
 COPY frontend/vendor ./static/vendor
