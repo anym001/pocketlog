@@ -32,6 +32,9 @@ const SHELL = [
   // offline, not just the one that happened to be active first.
   '/i18n/de.json',
   '/i18n/en.json',
+  // Per-language CSV import samples.
+  '/example-import-de.csv',
+  '/example-import-en.csv',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',

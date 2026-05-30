@@ -255,6 +255,7 @@
     "example": "Download example file",
     "exportName": "PocketLog Export",
     "exampleName": "PocketLog example file",
+    "exampleFilename": "pocketlog-example.csv",
     "exportFailed": "Export failed",
     "importing": "Importing",
     "imported": "{n} transactions imported",

@@ -1,0 +1,8 @@
+date;type;amount;description;category;tags
+2026-05-01;out;42.50;Weekly groceries;Groceries;groceries,supermarket
+2026-05-03;out;9.99;Spotify Premium;Leisure;subscription
+2026-05-05;in;2500.00;Salary April;Salary;
+2026-05-08;out;15.30;Bakery;Groceries;
+2026-05-10;out;65.00;Fuel;Transport;car
+2026-05-12;out;120.00;Electricity bill;Housing;utilities
+2026-05-14;out;7.80;Lunch break;Groceries;canteen

@@ -3424,15 +3424,21 @@
       }
 
       async function downloadExampleCSV() {
+        // Per-language sample: category names + descriptions match the
+        // user's seeded default categories. Falls back to German if the
+        // active language has no example file.
+        const lang = window.I18N ? I18N.getLang() : 'de';
+        const filename = tr('importExport.exampleFilename');
         try {
-          const res = await fetch('/example-import.csv');
+          let res = await fetch('/example-import-' + lang + '.csv');
+          if (!res.ok) res = await fetch('/example-import-de.csv');
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const blob = await res.blob();
-          const file = new File([blob], 'pocketlog-beispiel.csv', { type: 'text/csv' });
+          const file = new File([blob], filename, { type: 'text/csv' });
           if (navigator.canShare?.({ files: [file] })) {
             await navigator.share({ files: [file], title: tr('importExport.exampleName') });
           } else {
-            _triggerDownload(blob, 'pocketlog-beispiel.csv');
+            _triggerDownload(blob, filename);
           }
         } catch (e) {
           if (e.name !== 'AbortError') showToast(tr('common.downloadFailed'), 'error');
