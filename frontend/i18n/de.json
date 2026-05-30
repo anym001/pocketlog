@@ -85,14 +85,14 @@
     "categories": "Kategorien",
     "tags": "Tags",
     "importExport": "Import/Export",
-    "display": "Darstellung",
+    "display": "Allgemein",
     "admin": "Verwaltung",
     "users": "Benutzer",
     "account": "Konto",
     "info": "Info"
   },
   "display": {
-    "title": "Darstellung",
+    "title": "Allgemein",
     "theme": "Erscheinungsbild",
     "themeSystem": "System",
     "themeLight": "Hell",
