@@ -45,7 +45,7 @@
     "setupTitle": "Ersteinrichtung",
     "setupIntro": "Lege das Administrator-Konto an, das künftig die App verwaltet.",
     "setupIntroExisting": "Vergib ein Passwort für das vorhandene Admin-Konto „{name}“.",
-    "setupLanguage": "Sprache",
+    "setupLanguage": "Sprache & Region",
     "passwordRepeat": "Passwort wiederholen",
     "createAccount": "Konto anlegen",
     "forcePwTitle": "Passwort wählen",
@@ -92,7 +92,7 @@
     "startView": "Startansicht",
     "startTransactions": "Buchungsübersicht",
     "startCategories": "Kategorienübersicht",
-    "language": "Sprache",
+    "language": "Sprache & Region",
     "currency": "Währung"
   },
   "lang": { "de": "Deutsch", "en": "English" },

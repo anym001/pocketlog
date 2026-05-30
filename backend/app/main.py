@@ -304,7 +304,11 @@ def _needs_setup(db: Session) -> tuple[bool, str | None]:
 @app.get("/api/auth/setup-status", response_model=schemas.SetupStatus)
 def setup_status(db: DB):
     needs, suggested = _needs_setup(db)
-    return schemas.SetupStatus(needs_setup=needs, suggested_username=suggested)
+    return schemas.SetupStatus(
+        needs_setup=needs,
+        suggested_username=suggested,
+        default_locale=crud.DEFAULT_LOCALE,
+    )
 
 
 @app.post("/api/auth/setup")
@@ -331,11 +335,11 @@ def setup_admin(
         crud.set_user_password(
             db, user, payload.password, force_change=False
         )
-        # Sprache aus dem Setup-Screen auch für den migrierten Admin
+        # Locale aus dem Setup-Screen auch für den migrierten Admin
         # übernehmen — seine Kategorien sind ggf. schon (deutsch) geseedet,
-        # aber die UI-Sprache soll der Wahl folgen.
+        # aber die UI-Locale soll der Wahl folgen.
         crud.update_settings(
-            db, user.id, schemas.SettingsUpdate(language=payload.language)
+            db, user.id, schemas.SettingsUpdate(locale=payload.locale)
         )
     else:
         # Fresh install: neuer Admin-User mit dem gewählten Username.
@@ -346,7 +350,7 @@ def setup_admin(
                 password=payload.password,
                 is_admin=True,
                 force_change_password=False,
-                language=payload.language,
+                locale=payload.locale,
             )
         except IntegrityError:
             # Race mit einem parallelen Setup-Versuch — Username
@@ -526,7 +530,7 @@ def admin_create_user(
             password=payload.password,
             is_admin=False,
             force_change_password=True,
-            language=admin_settings.language,
+            locale=admin_settings.locale,
             currency=admin_settings.currency,
         )
     except IntegrityError:

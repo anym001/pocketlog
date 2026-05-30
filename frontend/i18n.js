@@ -2,36 +2,56 @@
 //
 // Loaded as a classic <script> before app.js so the global `t()` and the
 // `window.I18N` helpers exist for every app function. Translations live in
-// static JSON bundles under /i18n/<lang>.json — shipped with the app and
+// static JSON bundles under /i18n/<bundle>.json — shipped with the app and
 // precached by the Service Worker, so language switching works offline and
 // needs no API round-trip.
 //
-// Design:
-//   - The active language drives BOTH the UI strings and the number/date
-//     LOCALE (de → de-DE, en → en-US). Currency is a separate ISO 4217
-//     code; Intl.NumberFormat resolves symbol + position from the locale.
-//   - Currency is display-only: amounts are never converted, only rendered.
-//   - Static markup carries data-i18n / data-i18n-attr; dynamic strings go
-//     through t(). A re-render after a language change re-resolves both.
+// Locale vs. bundle:
+//   - The stored preference is a full BCP-47 LOCALE (de-DE, de-AT, en-GB,
+//     en-US, …). The full tag drives the number/date LOCALE via Intl.
+//   - The translation BUNDLE is the primary subtag (de-AT → de): one en.json
+//     serves every English locale; only formatting differs (en-GB vs en-US).
+//   - Currency is a separate ISO 4217 code; display-only, never converted.
+// Static markup carries data-i18n / data-i18n-attr; dynamic strings go
+// through t(). A re-render after a locale change re-resolves both.
 (function () {
   'use strict';
 
-  const SUPPORTED = ['de', 'en'];
-  const DEFAULT_LANG = 'de';
+  // Curated locales offered in the picker. Keep in sync with the backend
+  // SUPPORTED_LOCALES and the <option> list in index.html.
+  const SUPPORTED_LOCALES = ['de-DE', 'de-AT', 'de-CH', 'en-GB', 'en-US'];
+  const BUNDLES = ['de', 'en']; // translation files that actually ship
+  const DEFAULT_LOCALE = 'de-DE';
   const DEFAULT_CURRENCY = 'EUR';
-  const LANG_KEY = 'pocketlog.lang';
+  const LOCALE_KEY = 'pocketlog.locale';
+  const LEGACY_LANG_KEY = 'pocketlog.lang'; // pre-locale builds stored 'de'/'en'
   const CURRENCY_KEY = 'pocketlog.currency';
-  // BCP-47 locale used for Intl formatting per UI language. Kept here so a
-  // new language only needs an entry plus its JSON bundle.
-  const LOCALES = { de: 'de-DE', en: 'en-US' };
 
-  let _lang = DEFAULT_LANG;
+  let _locale = DEFAULT_LOCALE;
   let _currency = DEFAULT_CURRENCY;
   let _dict = {};
-  const _cache = Object.create(null); // lang -> flat dict
+  const _cache = Object.create(null); // bundle -> flat dict
 
-  function normaliseLang(l) {
-    return SUPPORTED.indexOf(l) !== -1 ? l : DEFAULT_LANG;
+  // Translation bundle for a locale (primary subtag, fallback to first bundle).
+  function bundleFor(locale) {
+    const sub = String(locale || '').split('-')[0].toLowerCase();
+    return BUNDLES.indexOf(sub) !== -1 ? sub : BUNDLES[0];
+  }
+
+  // Coerce any input to a supported locale: exact match wins; otherwise map
+  // by primary subtag to the first supported variant (en → en-GB); else the
+  // default. Also case-normalises (de_at → de-AT).
+  function normaliseLocale(loc) {
+    if (!loc) return DEFAULT_LOCALE;
+    const parts = String(loc).replace('_', '-').split('-');
+    const lang = (parts[0] || '').toLowerCase();
+    const region = (parts[1] || '').toUpperCase();
+    const full = region ? lang + '-' + region : lang;
+    if (SUPPORTED_LOCALES.indexOf(full) !== -1) return full;
+    for (let i = 0; i < SUPPORTED_LOCALES.length; i++) {
+      if (SUPPORTED_LOCALES[i].split('-')[0] === lang) return SUPPORTED_LOCALES[i];
+    }
+    return DEFAULT_LOCALE;
   }
 
   // Nested catalogue → flat dotted keys, so the JSON can be grouped by area
@@ -50,21 +70,18 @@
     return out;
   }
 
-  async function loadDict(lang) {
-    lang = normaliseLang(lang);
-    if (_cache[lang]) return _cache[lang];
+  async function loadDict(bundle) {
+    bundle = BUNDLES.indexOf(bundle) !== -1 ? bundle : BUNDLES[0];
+    if (_cache[bundle]) return _cache[bundle];
     try {
-      const res = await fetch('/i18n/' + lang + '.json', { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('i18n ' + lang + ' → ' + res.status);
-      _cache[lang] = _flatten(await res.json(), '', Object.create(null));
+      const res = await fetch('/i18n/' + bundle + '.json', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('i18n ' + bundle + ' → ' + res.status);
+      _cache[bundle] = _flatten(await res.json(), '', Object.create(null));
     } catch (e) {
-      // Offline before the bundle was ever cached, or a fetch error: fall
-      // back to whatever is loaded (possibly the empty dict, in which case
-      // t() returns the key — better than throwing during render).
-      console.warn('i18n: failed to load', lang, e);
-      _cache[lang] = _cache[lang] || Object.create(null);
+      console.warn('i18n: failed to load', bundle, e);
+      _cache[bundle] = _cache[bundle] || Object.create(null);
     }
-    return _cache[lang];
+    return _cache[bundle];
   }
 
   // Translate. Unknown keys return the key itself (visible, greppable),
@@ -80,11 +97,11 @@
     return s;
   }
 
-  function getLang() {
-    return _lang;
-  }
   function getLocale() {
-    return LOCALES[_lang] || LOCALES[DEFAULT_LANG];
+    return _locale;
+  }
+  function getBundle() {
+    return bundleFor(_locale);
   }
   function getCurrency() {
     return _currency;
@@ -111,28 +128,28 @@
         if (attr && key) attrNodes[i].setAttribute(attr, t(key));
       }
     }
-    document.documentElement.setAttribute('lang', _lang);
+    document.documentElement.setAttribute('lang', bundleFor(_locale));
   }
 
-  // Switch language: load bundle, persist, re-translate static markup, and
+  // Switch locale: load the bundle, persist, re-translate static markup, and
   // notify the app (app.js listens on 'i18n:changed' to re-render dynamic
   // views and rebuild month names). Returns a promise the caller can await.
-  async function setLanguage(lang, opts) {
+  async function setLocale(locale, opts) {
     opts = opts || {};
-    _lang = normaliseLang(lang);
+    _locale = normaliseLocale(locale);
     if (opts.persist !== false) {
       try {
-        localStorage.setItem(LANG_KEY, _lang);
+        localStorage.setItem(LOCALE_KEY, _locale);
       } catch (e) {}
     }
-    _dict = await loadDict(_lang);
+    _dict = await loadDict(bundleFor(_locale));
     applyStatic(document);
     if (opts.silent !== true) {
       document.dispatchEvent(
-        new CustomEvent('i18n:changed', { detail: { lang: _lang, currency: _currency } })
+        new CustomEvent('i18n:changed', { detail: { locale: _locale, currency: _currency } })
       );
     }
-    return _lang;
+    return _locale;
   }
 
   function setCurrency(cur, opts) {
@@ -145,15 +162,15 @@
     }
     if (opts.silent !== true) {
       document.dispatchEvent(
-        new CustomEvent('i18n:changed', { detail: { lang: _lang, currency: _currency } })
+        new CustomEvent('i18n:changed', { detail: { locale: _locale, currency: _currency } })
       );
     }
   }
 
-  // The decimal separator of the active locale ("," for de, "." for en).
+  // The decimal separator of the active locale ("," for de-*, "." for en-*).
   function decimalSeparator() {
     try {
-      const parts = new Intl.NumberFormat(getLocale()).formatToParts(1.1);
+      const parts = new Intl.NumberFormat(_locale).formatToParts(1.1);
       const dec = parts.find(function (p) {
         return p.type === 'decimal';
       });
@@ -166,56 +183,58 @@
   // The currency symbol of the active locale+currency ("€", "$", "CHF" …).
   function currencySymbol() {
     try {
-      const parts = new Intl.NumberFormat(getLocale(), {
+      const parts = new Intl.NumberFormat(_locale, {
         style: 'currency',
-        currency: getCurrency(),
+        currency: _currency,
       }).formatToParts(0);
       const cur = parts.find(function (p) {
         return p.type === 'currency';
       });
-      return cur ? cur.value : getCurrency();
+      return cur ? cur.value : _currency;
     } catch (e) {
-      return getCurrency();
+      return _currency;
     }
   }
 
   // Synchronous bootstrap from localStorage (the JSON bundle still loads
-  // async via setLanguage()). Falls back to the browser language on first
-  // run so a fresh install opens in the user's language when supported.
+  // async via setLocale()). Order: stored locale → legacy 'de'/'en' key →
+  // browser language → default. So a fresh install opens in the user's
+  // locale when supported.
   (function bootstrap() {
     try {
-      const storedLang = localStorage.getItem(LANG_KEY);
-      if (storedLang) {
-        _lang = normaliseLang(storedLang);
+      const stored = localStorage.getItem(LOCALE_KEY);
+      if (stored) {
+        _locale = normaliseLocale(stored);
       } else {
-        const nav = (navigator.language || '').slice(0, 2).toLowerCase();
-        _lang = normaliseLang(nav);
+        const legacy = localStorage.getItem(LEGACY_LANG_KEY);
+        _locale = normaliseLocale(legacy || navigator.language || '');
       }
       const storedCur = localStorage.getItem(CURRENCY_KEY);
       if (storedCur) _currency = storedCur.toUpperCase();
     } catch (e) {}
-    document.documentElement.setAttribute('lang', _lang);
+    document.documentElement.setAttribute('lang', bundleFor(_locale));
   })();
 
   window.I18N = {
-    SUPPORTED: SUPPORTED,
-    DEFAULT_LANG: DEFAULT_LANG,
+    SUPPORTED_LOCALES: SUPPORTED_LOCALES,
+    BUNDLES: BUNDLES,
+    DEFAULT_LOCALE: DEFAULT_LOCALE,
     DEFAULT_CURRENCY: DEFAULT_CURRENCY,
-    LOCALES: LOCALES,
     t: t,
-    getLang: getLang,
     getLocale: getLocale,
+    getBundle: getBundle,
     getCurrency: getCurrency,
-    setLanguage: setLanguage,
+    setLocale: setLocale,
     setCurrency: setCurrency,
     applyStatic: applyStatic,
     loadDict: loadDict,
-    normaliseLang: normaliseLang,
+    normaliseLocale: normaliseLocale,
+    bundleFor: bundleFor,
     decimalSeparator: decimalSeparator,
     currencySymbol: currencySymbol,
   };
-  // Convenience global — app.js calls t() heavily.
+  // Convenience global — app.js calls t() heavily (via its own `tr` alias).
   window.t = t;
   // Kicks off the initial bundle load; app.js awaits this before first render.
-  window.I18N.ready = setLanguage(_lang, { persist: false, silent: true });
+  window.I18N.ready = setLocale(_locale, { persist: false, silent: true });
 })();

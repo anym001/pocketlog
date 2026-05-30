@@ -45,7 +45,7 @@
     "setupTitle": "First-time setup",
     "setupIntro": "Create the administrator account that will manage the app from now on.",
     "setupIntroExisting": "Set a password for the existing admin account “{name}”.",
-    "setupLanguage": "Language",
+    "setupLanguage": "Language & region",
     "passwordRepeat": "Repeat password",
     "createAccount": "Create account",
     "forcePwTitle": "Choose a password",
@@ -92,7 +92,7 @@
     "startView": "Start view",
     "startTransactions": "Transactions",
     "startCategories": "Categories",
-    "language": "Language",
+    "language": "Language & region",
     "currency": "Currency"
   },
   "lang": { "de": "Deutsch", "en": "English" },

@@ -182,10 +182,11 @@ class UserSettings(Base):
     default_view: Mapped[str] = mapped_column(
         String(32), nullable=False, default="transactions"
     )
-    # UI language tag ('de' | 'en' today). VARCHAR(8) so BCP-47 subtags
-    # (e.g. 'pt-BR') stay possible without a schema change.
-    language: Mapped[str] = mapped_column(
-        String(8), nullable=False, server_default="de", default="de"
+    # BCP-47 locale tag ('de-DE', 'de-AT', 'en-GB' …). The UI translation
+    # bundle is derived from the primary subtag (de/en); the full tag drives
+    # Intl number/date formatting.
+    locale: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="de-DE", default="de-DE"
     )
     # ISO 4217 currency code used purely for display/formatting — amounts
     # are never converted, only rendered with this symbol and locale.

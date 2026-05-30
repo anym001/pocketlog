@@ -1,6 +1,7 @@
 import csv
 import io
 import logging
+import os
 from datetime import date as date_type, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -48,8 +49,31 @@ DEFAULT_CATEGORY_NAMES: dict[str, dict[str, str]] = {
     },
 }
 
-DEFAULT_LANGUAGE = "de"
-DEFAULT_CURRENCY = "EUR"
+# Deployment defaults: ENV overrides the built-in fallback, a per-user
+# DB setting overrides ENV. Lets an operator ship e.g. an en-GB instance
+# without touching code, while users still pick their own locale.
+def _resolve_default_locale() -> str:
+    raw = os.environ.get("DEFAULT_LOCALE")
+    if raw:
+        try:
+            return schemas._normalise_locale(raw)
+        except ValueError:
+            logger.warning("Invalid DEFAULT_LOCALE=%r — using de-DE", raw)
+    return "de-DE"
+
+
+def _resolve_default_currency() -> str:
+    raw = os.environ.get("DEFAULT_CURRENCY")
+    if raw:
+        try:
+            return schemas._normalise_currency(raw)
+        except ValueError:
+            logger.warning("Invalid DEFAULT_CURRENCY=%r — using EUR", raw)
+    return "EUR"
+
+
+DEFAULT_LOCALE = _resolve_default_locale()
+DEFAULT_CURRENCY = _resolve_default_currency()
 
 
 # ---------- Users ----------
@@ -113,14 +137,15 @@ def create_user(
     password: str,
     is_admin: bool = False,
     force_change_password: bool = True,
-    language: str = DEFAULT_LANGUAGE,
+    locale: str = DEFAULT_LOCALE,
     currency: str = DEFAULT_CURRENCY,
 ) -> models.User:
-    """Legt einen neuen User samt Standard-Kategorien an. ``language``
-    bestimmt, in welcher Sprache die Default-Kategorien geseedet werden
-    und wird zusammen mit ``currency`` als initiale Settings-Zeile
-    abgelegt (Admin-angelegte User erben so die Präferenzen des Admins).
-    Wirft ``IntegrityError`` bei Username-Kollision."""
+    """Legt einen neuen User samt Standard-Kategorien an. ``locale``
+    bestimmt über das Primär-Subtag, in welcher Sprache die Default-
+    Kategorien geseedet werden, und wird zusammen mit ``currency`` als
+    initiale Settings-Zeile abgelegt (Admin-angelegte User erben so die
+    Präferenzen des Admins). Wirft ``IntegrityError`` bei Username-
+    Kollision."""
     user = models.User(
         username=username,
         password_hash=auth.hash_password(password),
@@ -137,11 +162,9 @@ def create_user(
     db.refresh(user)
     # Categories + the initial settings row share one commit so a new user is
     # never left with categories but no settings (or vice versa).
-    _seed_default_categories(db, user.id, language, commit=False)
+    _seed_default_categories(db, user.id, locale, commit=False)
     db.add(
-        models.UserSettings(
-            user_id=user.id, language=language, currency=currency
-        )
+        models.UserSettings(user_id=user.id, locale=locale, currency=currency)
     )
     db.commit()
     return user
@@ -185,9 +208,10 @@ def delete_user(db: Session, user: models.User) -> None:
 # ---------- Categories ----------
 
 def _seed_default_categories(
-    db: Session, user_id: int, language: str = DEFAULT_LANGUAGE, *, commit: bool = True
+    db: Session, user_id: int, locale: str = DEFAULT_LOCALE, *, commit: bool = True
 ) -> None:
-    names = DEFAULT_CATEGORY_NAMES.get(language, DEFAULT_CATEGORY_NAMES[DEFAULT_LANGUAGE])
+    bundle = schemas.bundle_for_locale(locale)
+    names = DEFAULT_CATEGORY_NAMES.get(bundle, DEFAULT_CATEGORY_NAMES["de"])
     for c in DEFAULT_CATEGORIES:
         db.add(
             models.Category(
