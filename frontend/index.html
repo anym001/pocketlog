@@ -206,10 +206,10 @@
     <div class="auth-view" id="loginView" hidden>
       <div class="auth-card" role="main" aria-labelledby="loginTitle">
         <h1 class="auth-brand">Pocket<span>Log</span></h1>
-        <h2 id="loginTitle" class="auth-headline">Anmelden</h2>
+        <h2 id="loginTitle" class="auth-headline" data-i18n="auth.loginTitle">Anmelden</h2>
         <form id="loginForm" class="auth-form" onsubmit="event.preventDefault(); submitLogin();">
           <div class="form-group">
-            <label for="loginUsername">Benutzername</label>
+            <label for="loginUsername" data-i18n="auth.username">Benutzername</label>
             <input
               type="text"
               id="loginUsername"
@@ -221,7 +221,7 @@
             />
           </div>
           <div class="form-group">
-            <label for="loginPassword">Passwort</label>
+            <label for="loginPassword" data-i18n="auth.password">Passwort</label>
             <input
               type="password"
               id="loginPassword"
@@ -231,10 +231,10 @@
           </div>
           <label class="auth-remember">
             <input type="checkbox" id="loginRemember" />
-            Eingeloggt bleiben
+            <span data-i18n="auth.rememberMe">Eingeloggt bleiben</span>
           </label>
           <p class="auth-error" id="loginError" hidden role="alert"></p>
-          <button type="submit" class="submit-btn" id="loginSubmit">Anmelden</button>
+          <button type="submit" class="submit-btn" id="loginSubmit" data-i18n="auth.loginSubmit">Anmelden</button>
         </form>
       </div>
     </div>
@@ -242,13 +242,20 @@
     <div class="auth-view" id="setupView" hidden>
       <div class="auth-card" role="main" aria-labelledby="setupTitle">
         <h1 class="auth-brand">Pocket<span>Log</span></h1>
-        <h2 id="setupTitle" class="auth-headline">Ersteinrichtung</h2>
-        <p class="auth-intro" id="setupIntro">
+        <h2 id="setupTitle" class="auth-headline" data-i18n="auth.setupTitle">Ersteinrichtung</h2>
+        <p class="auth-intro" id="setupIntro" data-i18n="auth.setupIntro">
           Lege das Administrator-Konto an, das künftig die App verwaltet.
         </p>
         <form id="setupForm" class="auth-form" onsubmit="event.preventDefault(); submitSetup();">
           <div class="form-group">
-            <label for="setupUsername">Benutzername</label>
+            <label for="setupLanguage" data-i18n="auth.setupLanguage">Sprache</label>
+            <select id="setupLanguage" onchange="setLanguageFromSetup(this.value)">
+              <option value="de">Deutsch</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="setupUsername" data-i18n="auth.username">Benutzername</label>
             <input
               type="text"
               id="setupUsername"
@@ -260,7 +267,7 @@
             />
           </div>
           <div class="form-group">
-            <label for="setupPassword">Passwort</label>
+            <label for="setupPassword" data-i18n="auth.password">Passwort</label>
             <input
               type="password"
               id="setupPassword"
@@ -271,7 +278,7 @@
             />
           </div>
           <div class="form-group">
-            <label for="setupPasswordConfirm">Passwort wiederholen</label>
+            <label for="setupPasswordConfirm" data-i18n="auth.passwordRepeat">Passwort wiederholen</label>
             <input
               type="password"
               id="setupPasswordConfirm"
@@ -282,7 +289,7 @@
             />
           </div>
           <p class="auth-error" id="setupError" hidden role="alert"></p>
-          <button type="submit" class="submit-btn">Konto anlegen</button>
+          <button type="submit" class="submit-btn" data-i18n="auth.createAccount">Konto anlegen</button>
         </form>
       </div>
     </div>
@@ -290,13 +297,13 @@
     <div class="auth-view" id="forcePwView" hidden>
       <div class="auth-card" role="main" aria-labelledby="forcePwTitle">
         <h1 class="auth-brand">Pocket<span>Log</span></h1>
-        <h2 id="forcePwTitle" class="auth-headline">Passwort wählen</h2>
-        <p class="auth-intro">
+        <h2 id="forcePwTitle" class="auth-headline" data-i18n="auth.forcePwTitle">Passwort wählen</h2>
+        <p class="auth-intro" data-i18n="auth.forcePwIntro">
           Vergib ein eigenes Passwort, bevor du fortfährst.
         </p>
         <form id="forcePwForm" class="auth-form" onsubmit="event.preventDefault(); submitForcePassword();">
           <div class="form-group">
-            <label for="forcePwNew">Neues Passwort</label>
+            <label for="forcePwNew" data-i18n="auth.newPassword">Neues Passwort</label>
             <input
               type="password"
               id="forcePwNew"
@@ -307,7 +314,7 @@
             />
           </div>
           <div class="form-group">
-            <label for="forcePwConfirm">Neues Passwort wiederholen</label>
+            <label for="forcePwConfirm" data-i18n="auth.newPasswordRepeat">Neues Passwort wiederholen</label>
             <input
               type="password"
               id="forcePwConfirm"
@@ -318,7 +325,7 @@
             />
           </div>
           <p class="auth-error" id="forcePwError" hidden role="alert"></p>
-          <button type="submit" class="submit-btn">Passwort speichern</button>
+          <button type="submit" class="submit-btn" data-i18n="auth.savePassword">Passwort speichern</button>
         </form>
       </div>
     </div>
@@ -335,10 +342,10 @@
     <div class="drawer-overlay" id="drawerOverlay" aria-hidden="true" onclick="closeDrawer()"></div>
 
     <!-- DRAWER -->
-    <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Menü">
+    <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Menü" data-i18n-attr="aria-label:menu.title">
       <div class="drawer-head">
         <h2 class="drawer-head-title">Pocket<span>Log</span></h2>
-        <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen">
+        <button class="drawer-close-btn" onclick="closeDrawer()" aria-label="Menü schließen" data-i18n-attr="aria-label:menu.close">
           <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
         </button>
       </div>
@@ -349,20 +356,20 @@
           <nav class="drawer-nav" style="--sep-left: calc(var(--nav-icon-size) + var(--space-12) + var(--space-16))">
             <button class="drawer-nav-item" data-panel="categories" onclick="showPanel('categories')" style="--nav-icon-bg: var(--blue)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-squares-four" /></svg></span>
-              <span class="drawer-nav-label">Kategorienübersicht</span>
+              <span class="drawer-nav-label" data-i18n="nav.categories">Kategorienübersicht</span>
             </button>
             <button class="drawer-nav-item" data-panel="transactions" onclick="showPanel('transactions')" style="--nav-icon-bg: var(--green)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-receipt" /></svg></span>
-              <span class="drawer-nav-label">Buchungsübersicht</span>
+              <span class="drawer-nav-label" data-i18n="nav.transactions">Buchungsübersicht</span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpReports')" style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
-              <span class="drawer-nav-label">Auswertungen</span>
+              <span class="drawer-nav-label" data-i18n="nav.reports">Auswertungen</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpSettings')" style="--nav-icon-bg: var(--text3)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-gear" /></svg></span>
-              <span class="drawer-nav-label">Einstellungen</span>
+              <span class="drawer-nav-label" data-i18n="nav.settings">Einstellungen</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
           </nav>
@@ -371,62 +378,62 @@
         <!-- Panel 1a: Auswertungen -->
         <div class="drawer-panel" id="dpReports" data-state="right">
           <div class="drawer-sub-head">
-            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">
+            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück" data-i18n-attr="aria-label:common.back">
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Auswertungen</span>
+            <span class="drawer-sub-title" data-i18n="nav.reports">Auswertungen</span>
           </div>
           <nav class="drawer-nav">
-            <button class="drawer-nav-item" onclick="openReport('overview')">Übersicht</button>
-            <button class="drawer-nav-item" onclick="openReport('month')">Monatsverlauf</button>
-            <button class="drawer-nav-item" onclick="openReport('year')">Jahresverlauf</button>
-            <button class="drawer-nav-item" onclick="openReport('categories')">Kategorienanalyse</button>
-            <button class="drawer-nav-item" onclick="openReport('tags')">Taganalyse</button>
-            <button class="drawer-nav-item" onclick="openReport('trend')">Trend</button>
-            <button class="drawer-nav-item" onclick="openReport('forecast')">Prognose</button>
-            <button class="drawer-nav-item" onclick="openReport('top')">Größte Ausgaben</button>
+            <button class="drawer-nav-item" onclick="openReport('overview')" data-i18n="reports.overview">Übersicht</button>
+            <button class="drawer-nav-item" onclick="openReport('month')" data-i18n="reports.month">Monatsverlauf</button>
+            <button class="drawer-nav-item" onclick="openReport('year')" data-i18n="reports.year">Jahresverlauf</button>
+            <button class="drawer-nav-item" onclick="openReport('categories')" data-i18n="reports.categories">Kategorienanalyse</button>
+            <button class="drawer-nav-item" onclick="openReport('tags')" data-i18n="reports.tags">Taganalyse</button>
+            <button class="drawer-nav-item" onclick="openReport('trend')" data-i18n="reports.trend">Trend</button>
+            <button class="drawer-nav-item" onclick="openReport('forecast')" data-i18n="reports.forecast">Prognose</button>
+            <button class="drawer-nav-item" onclick="openReport('top')" data-i18n="reports.top">Größte Ausgaben</button>
           </nav>
         </div>
 
         <!-- Panel 1: Einstellungen -->
         <div class="drawer-panel" id="dpSettings" data-state="right">
           <div class="drawer-sub-head">
-            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück">
+            <button class="drawer-back-btn" onclick="drawerBack()" aria-label="Zurück" data-i18n-attr="aria-label:common.back">
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Einstellungen</span>
+            <span class="drawer-sub-title" data-i18n="settings.title">Einstellungen</span>
           </div>
           <nav class="drawer-nav">
             <button class="drawer-nav-item" onclick="drawerNav('dpCats')">
-              Kategorien
+              <span data-i18n="settings.categories">Kategorien</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpTags')">
-              Tags
+              <span data-i18n="settings.tags">Tags</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpImport')">
-              Import/Export
+              <span data-i18n="settings.importExport">Import/Export</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpDisplay')">
-              Darstellung
+              <span data-i18n="settings.display">Darstellung</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpAdmin')">
-              Verwaltung
+              <span data-i18n="settings.admin">Verwaltung</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item admin-only" onclick="drawerNav('dpAdminUsers')">
-              Benutzer
+              <span data-i18n="settings.users">Benutzer</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpAccount')">
-              Konto
+              <span data-i18n="settings.account">Konto</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpInfo')">
-              Info
+              <span data-i18n="settings.info">Info</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
           </nav>
@@ -439,13 +446,14 @@
               class="drawer-back-btn"
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Kategorien</span>
+            <span class="drawer-sub-title" data-i18n="categories.title">Kategorien</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" onclick="openCatModal()">Kategorie erstellen</button>
+            <button class="save-btn" onclick="openCatModal()" data-i18n="categories.create">Kategorie erstellen</button>
             <div id="catList" class="drawer-chip-list"></div>
           </div>
         </div>
@@ -457,13 +465,14 @@
               class="drawer-back-btn"
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Tags</span>
+            <span class="drawer-sub-title" data-i18n="tags.title">Tags</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" onclick="openTagModal()">Tag erstellen</button>
+            <button class="save-btn" onclick="openTagModal()" data-i18n="tags.create">Tag erstellen</button>
             <div id="tagList" class="drawer-chip-list"></div>
           </div>
         </div>
@@ -475,18 +484,20 @@
               class="drawer-back-btn"
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Import/Export</span>
+            <span class="drawer-sub-title" data-i18n="settings.importExport">Import/Export</span>
           </div>
           <div class="drawer-section">
             <div class="settings-section">
-              <button class="save-btn" onclick="exportCSV()">Als CSV exportieren</button>
+              <button class="save-btn" onclick="exportCSV()" data-i18n="importExport.export">Als CSV exportieren</button>
               <button
                 class="save-btn"
                 style="margin-top: var(--space-8)"
                 onclick="document.getElementById('importFile').click()"
+                data-i18n="importExport.import"
               >
                 Aus CSV importieren…
               </button>
@@ -501,6 +512,7 @@
                 class="save-btn"
                 style="margin-top: var(--space-8)"
                 onclick="downloadExampleCSV()"
+                data-i18n="importExport.example"
               >Beispieldatei herunterladen</button>
               <div class="status-msg" id="importStatus"></div>
             </div>
@@ -514,65 +526,44 @@
               class="drawer-back-btn"
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Darstellung</span>
+            <span class="drawer-sub-title" data-i18n="display.title">Darstellung</span>
           </div>
           <div class="drawer-section">
-            <h3>Erscheinungsbild</h3>
-            <div class="settings-section">
-              <label class="radio-row">
-                <input
-                  type="radio"
-                  name="appTheme"
-                  value="system"
-                  onchange="saveTheme(this.value)"
-                />
-                System
-              </label>
-              <label class="radio-row">
-                <input
-                  type="radio"
-                  name="appTheme"
-                  value="light"
-                  onchange="saveTheme(this.value)"
-                />
-                Hell
-              </label>
-              <label class="radio-row">
-                <input
-                  type="radio"
-                  name="appTheme"
-                  value="dark"
-                  onchange="saveTheme(this.value)"
-                />
-                Dunkel
-              </label>
+            <div class="settings-field">
+              <label class="settings-field-label" for="selTheme" data-i18n="display.theme">Erscheinungsbild</label>
+              <select id="selTheme" class="settings-select" onchange="saveTheme(this.value)">
+                <option value="system" data-i18n="display.themeSystem">System</option>
+                <option value="light" data-i18n="display.themeLight">Hell</option>
+                <option value="dark" data-i18n="display.themeDark">Dunkel</option>
+              </select>
             </div>
-          </div>
-          <div class="drawer-section-divider"></div>
-          <div class="drawer-section">
-            <h3>Startansicht</h3>
-            <div class="settings-section">
-              <label class="radio-row">
-                <input
-                  type="radio"
-                  name="defaultView"
-                  value="transactions"
-                  onchange="saveDefaultView(this.value)"
-                />
-                Buchungsübersicht
-              </label>
-              <label class="radio-row">
-                <input
-                  type="radio"
-                  name="defaultView"
-                  value="categories"
-                  onchange="saveDefaultView(this.value)"
-                />
-                Kategorienübersicht
-              </label>
+            <div class="settings-field">
+              <label class="settings-field-label" for="selDefaultView" data-i18n="display.startView">Startansicht</label>
+              <select id="selDefaultView" class="settings-select" onchange="saveDefaultView(this.value)">
+                <option value="transactions" data-i18n="display.startTransactions">Buchungsübersicht</option>
+                <option value="categories" data-i18n="display.startCategories">Kategorienübersicht</option>
+              </select>
+            </div>
+            <div class="settings-field">
+              <label class="settings-field-label" for="selLanguage" data-i18n="display.language">Sprache</label>
+              <select id="selLanguage" class="settings-select" onchange="saveLanguage(this.value)">
+                <option value="de">Deutsch</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div class="settings-field">
+              <label class="settings-field-label" for="selCurrency" data-i18n="display.currency">Währung</label>
+              <select id="selCurrency" class="settings-select" onchange="saveCurrency(this.value)">
+                <option value="EUR">Euro (€)</option>
+                <option value="USD">US-Dollar ($)</option>
+                <option value="GBP">Pfund (£)</option>
+                <option value="CHF">Franken (CHF)</option>
+                <option value="JPY">Yen (¥)</option>
+              </select>
             </div>
           </div>
         </div>
@@ -584,16 +575,18 @@
               class="drawer-back-btn"
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Verwaltung</span>
+            <span class="drawer-sub-title" data-i18n="settings.admin">Verwaltung</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" onclick="openCacheModal()">
+            <button class="save-btn" onclick="openCacheModal()" data-i18n="admin.cacheClear">
               Cache leeren
             </button>
             <p
+              data-i18n="admin.cacheHint"
               style="
                 font-size: var(--fs-caption);
                 color: var(--text3);
@@ -603,10 +596,11 @@
               Verwirft den API-Cache und nicht synchronisierte Änderungen. Server-Daten bleiben
               unverändert.
             </p>
-            <button class="save-btn btn-destructive" onclick="openResetModal()">
+            <button class="save-btn btn-destructive" onclick="openResetModal()" data-i18n="admin.dataDelete">
               Daten löschen
             </button>
             <p
+              data-i18n="admin.dataHint"
               style="
                 font-size: var(--fs-caption);
                 color: var(--text3);
@@ -626,14 +620,15 @@
               class="drawer-back-btn"
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Benutzer</span>
+            <span class="drawer-sub-title" data-i18n="settings.users">Benutzer</span>
           </div>
           <div class="drawer-section">
             <div id="adminUserList" class="drawer-chip-list"></div>
-            <button class="save-btn" onclick="openAdminCreateUserModal()">
+            <button class="save-btn" onclick="openAdminCreateUserModal()" data-i18n="users.add">
               Benutzer hinzufügen
             </button>
           </div>
@@ -646,10 +641,11 @@
               class="drawer-back-btn"
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Konto</span>
+            <span class="drawer-sub-title" data-i18n="settings.account">Konto</span>
           </div>
           <div class="drawer-section">
             <p class="account-username" id="accountUsername" style="
@@ -657,13 +653,14 @@
               color: var(--text2);
               margin: 0 0 var(--space-16);
             "></p>
-            <button class="save-btn" onclick="openChangePasswordModal()">
+            <button class="save-btn" onclick="openChangePasswordModal()" data-i18n="account.changePassword">
               Passwort ändern
             </button>
             <button
               class="save-btn"
               style="margin-top: var(--space-16)"
               onclick="logoutWithConfirm()"
+              data-i18n="account.logout"
             >
               Abmelden
             </button>
@@ -677,100 +674,101 @@
               class="drawer-back-btn"
               onclick="drawerBack()"
               aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
             </button>
-            <span class="drawer-sub-title">Info</span>
+            <span class="drawer-sub-title" data-i18n="settings.info">Info</span>
           </div>
           <div class="drawer-section">
-            <h3>Versionen</h3>
+            <h3 data-i18n="info.versions">Versionen</h3>
             <dl class="info-list">
               <div class="info-row">
-                <dt>App (Backend)</dt>
+                <dt data-i18n="info.backend">App (Backend)</dt>
                 <dd id="infoBackendVersion">–</dd>
               </div>
               <div class="info-row">
-                <dt>Service Worker</dt>
+                <dt data-i18n="info.serviceWorker">Service Worker</dt>
                 <dd id="infoSwVersion">–</dd>
               </div>
             </dl>
           </div>
           <div class="drawer-section-divider"></div>
           <div class="drawer-section">
-            <h3>Status</h3>
+            <h3 data-i18n="info.status">Status</h3>
             <dl class="info-list">
               <div class="info-row">
-                <dt>Verbindung</dt>
+                <dt data-i18n="info.connection">Verbindung</dt>
                 <dd id="infoOnline">–</dd>
               </div>
               <div class="info-row">
-                <dt>Service-Worker-Status</dt>
+                <dt data-i18n="info.swState">Service-Worker-Status</dt>
                 <dd id="infoSwState">–</dd>
               </div>
               <div class="info-row">
-                <dt>Ausstehende Änderungen</dt>
+                <dt data-i18n="info.pendingChanges">Ausstehende Änderungen</dt>
                 <dd id="infoOutbox">–</dd>
               </div>
             </dl>
           </div>
           <div class="drawer-section-divider"></div>
           <div class="drawer-section">
-            <h3>Gerät</h3>
+            <h3 data-i18n="info.device">Gerät</h3>
             <dl class="info-list">
               <div class="info-row">
-                <dt>Plattform</dt>
+                <dt data-i18n="info.platform">Plattform</dt>
                 <dd id="infoPlatform">–</dd>
               </div>
               <div class="info-row">
-                <dt>Browser</dt>
+                <dt data-i18n="info.browser">Browser</dt>
                 <dd id="infoBrowser">–</dd>
               </div>
               <div class="info-row">
-                <dt>Modus</dt>
+                <dt data-i18n="info.mode">Modus</dt>
                 <dd id="infoDisplayMode">–</dd>
               </div>
               <div class="info-row">
-                <dt>Eingabe</dt>
+                <dt data-i18n="info.pointer">Eingabe</dt>
                 <dd id="infoPointer">–</dd>
               </div>
             </dl>
           </div>
           <div class="drawer-section-divider"></div>
           <div class="drawer-section">
-            <h3>Anzeige</h3>
+            <h3 data-i18n="info.displayHead">Anzeige</h3>
             <dl class="info-list">
               <div class="info-row">
-                <dt>Viewport</dt>
+                <dt data-i18n="info.viewport">Viewport</dt>
                 <dd id="infoViewport">–</dd>
               </div>
               <div class="info-row">
-                <dt>Bildschirm</dt>
+                <dt data-i18n="info.screen">Bildschirm</dt>
                 <dd id="infoScreen">–</dd>
               </div>
               <div class="info-row">
-                <dt>Pixel-Dichte</dt>
+                <dt data-i18n="info.dpr">Pixel-Dichte</dt>
                 <dd id="infoDpr">–</dd>
               </div>
               <div class="info-row">
-                <dt>Zoom</dt>
+                <dt data-i18n="info.zoom">Zoom</dt>
                 <dd id="infoZoom">–</dd>
               </div>
               <div class="info-row">
-                <dt>Physisch</dt>
+                <dt data-i18n="info.physical">Physisch</dt>
                 <dd id="infoPhysical">–</dd>
               </div>
             </dl>
           </div>
           <div class="drawer-section-divider"></div>
           <div class="drawer-section">
-            <h3>Umgebung</h3>
+            <h3 data-i18n="info.environment">Umgebung</h3>
             <dl class="info-list">
               <div class="info-row">
-                <dt>Sprache</dt>
+                <dt data-i18n="info.language">Sprache</dt>
                 <dd id="infoLang">–</dd>
               </div>
               <div class="info-row info-row-stack">
-                <dt>Browser-Kennung</dt>
+                <dt data-i18n="info.userAgent">Browser-Kennung</dt>
                 <dd id="infoUserAgent">–</dd>
               </div>
             </dl>
@@ -786,7 +784,7 @@
     <!-- HEADER -->
     <div class="header">
       <div class="header-top">
-        <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen">
+        <button class="hamburger-btn" onclick="openDrawer()" aria-label="Menü öffnen" data-i18n-attr="aria-label:menu.open">
           <svg class="ui-icon" aria-hidden="true"><use href="#icon-menu" /></svg>
         </button>
         <button
@@ -795,6 +793,7 @@
           aria-pressed="false"
           aria-label="Seitenleiste umschalten"
           title="Seitenleiste umschalten"
+          data-i18n-attr="aria-label:header.toggleSidebar;title:header.toggleSidebar"
         >
           <!-- Two state-dependent icons. Mental model: the icon hints
                at what's about to happen to the *content area* on click.
@@ -808,15 +807,15 @@
           <svg class="ui-icon st-icon st-expand" aria-hidden="true"><use href="#icon-arrows-in" /></svg>
         </button>
         <div class="month-nav">
-          <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat">
+          <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat" data-i18n-attr="aria-label:header.prevMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
           <span class="month-label" id="monthLabel"></span>
-          <button onclick="changeMonth(1)" aria-label="Nächster Monat">
+          <button onclick="changeMonth(1)" aria-label="Nächster Monat" data-i18n-attr="aria-label:header.nextMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
         </div>
-        <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren">
+        <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren" data-i18n-attr="aria-label:header.sync">
           <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
           <span class="sync-badge" id="syncBadge" hidden></span>
         </button>
@@ -827,11 +826,11 @@
     <!-- SUMMARY -->
     <div class="summary">
       <div class="summary-card">
-        <div class="label">Ausgaben</div>
+        <div class="label" data-i18n="summary.expenses">Ausgaben</div>
         <div class="amount negative" id="totalOut">0,00 €</div>
       </div>
       <div class="summary-card">
-        <div class="label">Einnahmen</div>
+        <div class="label" data-i18n="summary.income">Einnahmen</div>
         <div class="amount positive" id="totalIn">0,00 €</div>
       </div>
     </div>
@@ -849,33 +848,33 @@
     <!-- CHARTS PANEL -->
     <div class="panel" id="panel-charts">
       <div class="report-head">
-        <h2 class="report-title" id="reportTitle">Übersicht</h2>
+        <h2 class="report-title" id="reportTitle" data-i18n="reports.overview">Übersicht</h2>
         <p class="report-subtitle" id="reportRangeLabel" aria-live="polite"></p>
       </div>
 
       <div class="range-picker">
-        <div class="segmented" role="tablist" aria-label="Zeitraum" id="rangeKindTabs">
-          <button role="tab" type="button" aria-selected="true" data-kind="month" onclick="setRangeKind('month')">Monat</button>
-          <button role="tab" type="button" aria-selected="false" data-kind="quarter" onclick="setRangeKind('quarter')">Quartal</button>
-          <button role="tab" type="button" aria-selected="false" data-kind="year" onclick="setRangeKind('year')">Jahr</button>
-          <button role="tab" type="button" aria-selected="false" data-kind="custom" onclick="setRangeKind('custom')">Eigen</button>
+        <div class="segmented" role="tablist" aria-label="Zeitraum" data-i18n-attr="aria-label:reports.rangeLabel" id="rangeKindTabs">
+          <button role="tab" type="button" aria-selected="true" data-kind="month" onclick="setRangeKind('month')" data-i18n="reports.rangeMonth">Monat</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="quarter" onclick="setRangeKind('quarter')" data-i18n="reports.rangeQuarter">Quartal</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="year" onclick="setRangeKind('year')" data-i18n="reports.rangeYear">Jahr</button>
+          <button role="tab" type="button" aria-selected="false" data-kind="custom" onclick="setRangeKind('custom')" data-i18n="reports.rangeCustom">Eigen</button>
         </div>
         <div class="range-stepper" id="rangeStepper">
-          <button type="button" onclick="shiftRange(-1)" aria-label="Zurück">
+          <button type="button" onclick="shiftRange(-1)" aria-label="Zurück" data-i18n-attr="aria-label:common.back">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
           <span id="rangeStepperLabel"></span>
-          <button type="button" onclick="shiftRange(1)" aria-label="Vor">
+          <button type="button" onclick="shiftRange(1)" aria-label="Vor" data-i18n-attr="aria-label:header.nextMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
         </div>
         <div class="range-custom" id="rangeCustom" hidden>
           <label class="range-custom-field">
-            <span>Von</span>
+            <span data-i18n="reports.rangeFrom">Von</span>
             <input type="date" id="rangeFrom" onchange="onCustomRangeChange()" />
           </label>
           <label class="range-custom-field">
-            <span>Bis</span>
+            <span data-i18n="reports.rangeTo">Bis</span>
             <input type="date" id="rangeTo" onchange="onCustomRangeChange()" />
           </label>
         </div>
@@ -892,7 +891,7 @@
     <!-- BOTTOM BAR -->
     <div class="bottom-bar">
       <form class="search-form" role="search" onsubmit="event.preventDefault()">
-        <label for="searchInput" class="visually-hidden">Buchungen durchsuchen</label>
+        <label for="searchInput" class="visually-hidden" data-i18n="search.label">Buchungen durchsuchen</label>
         <div class="search-wrap">
           <span class="search-icon" aria-hidden="true">
             <svg class="ui-icon"><use href="#icon-search" /></svg>
@@ -902,6 +901,7 @@
             id="searchInput"
             type="search"
             placeholder="Buchungen durchsuchen"
+            data-i18n-attr="placeholder:search.placeholder"
             oninput="onSearch(this.value)"
             enterkeyhint="search"
             inputmode="search"
@@ -912,7 +912,7 @@
           />
         </div>
       </form>
-      <button class="fab" onclick="openModal()" aria-label="Neue Buchung">
+      <button class="fab" onclick="openModal()" aria-label="Neue Buchung" data-i18n-attr="aria-label:fab.newTransaction">
         <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
       </button>
     </div>
@@ -922,18 +922,18 @@
     <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="modalTitle">Neue Buchung</h2>
+          <h2 id="modalTitle" data-i18n="tx.newTitle">Neue Buchung</h2>
         </div>
         <div class="modal-body">
           <div class="type-toggle">
-            <button class="type-btn active out" onclick="setType('out', this)">Ausgabe</button>
-            <button class="type-btn in" onclick="setType('in', this)">Einnahme</button>
+            <button class="type-btn active out" onclick="setType('out', this)" data-i18n="tx.expense">Ausgabe</button>
+            <button class="type-btn in" onclick="setType('in', this)" data-i18n="tx.income">Einnahme</button>
           </div>
           <div class="form-group">
-            <label>Betrag (€)</label>
+            <label id="lblAmount">Betrag (€)</label>
             <!-- type="text" so iOS honours inputmode="decimal" and shows
                  the full decimal keypad (with the comma key on de_DE
                  locale). type="number" overrides inputmode on iOS Safari
@@ -953,25 +953,26 @@
             />
           </div>
           <div class="form-group">
-            <label>Datum</label>
+            <label data-i18n="tx.date">Datum</label>
             <input type="date" id="inputDate" />
           </div>
           <div class="form-group">
-            <label>Kategorie</label>
+            <label data-i18n="tx.category">Kategorie</label>
             <select id="inputCat"></select>
           </div>
           <div class="form-group">
-            <label>Notizen</label>
-            <input type="text" id="inputDesc" placeholder="z.B. Supermarkt" />
+            <label data-i18n="tx.notes">Notizen</label>
+            <input type="text" id="inputDesc" placeholder="z.B. Supermarkt" data-i18n-attr="placeholder:tx.notesPlaceholder" />
           </div>
           <div class="form-group">
-            <label>Tags</label>
+            <label data-i18n="tx.tags">Tags</label>
             <div class="tags-input-wrap" id="tagsWrap">
               <button
                 type="button"
                 class="tag-add-btn"
                 id="tagPickerBtn"
                 aria-label="Tag hinzufügen"
+                data-i18n-attr="aria-label:tags.addAria"
                 onclick="openTagPicker()"
               >
                 <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
@@ -981,7 +982,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" id="submitBtn" onclick="addTransaction()">
+          <button class="submit-btn" id="submitBtn" onclick="addTransaction()" data-i18n="tx.saveExpense">
             Ausgabe speichern
           </button>
           <button
@@ -989,6 +990,7 @@
             id="deleteBtn"
             onclick="deleteCurrentTransaction()"
             style="display: none"
+            data-i18n="common.delete"
           >
             Löschen
           </button>
@@ -1000,23 +1002,24 @@
     <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tagModalTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="tagModalTitle">Tag bearbeiten</h2>
+          <h2 id="tagModalTitle" data-i18n="tags.editTitle">Tag bearbeiten</h2>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Name</label>
+            <label data-i18n="tags.name">Name</label>
             <input type="text" id="tagEditName" maxlength="64" />
           </div>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" onclick="saveTagEdit()">Speichern</button>
+          <button class="submit-btn" onclick="saveTagEdit()" data-i18n="common.save">Speichern</button>
           <button
             class="submit-btn btn-destructive"
             id="tagDeleteBtn"
             onclick="deleteTagEdit()"
+            data-i18n="common.delete"
           >
             Löschen
           </button>
@@ -1028,20 +1031,21 @@
     <div class="modal-overlay" id="tagPickerOverlay" onclick="closeTagPickerOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tagPickerTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeTagPicker()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeTagPicker()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="tagPickerTitle">Tag wählen</h2>
+          <h2 id="tagPickerTitle" data-i18n="tags.pickTitle">Tag wählen</h2>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Neuen Tag anlegen</label>
+            <label data-i18n="tags.newLabel">Neuen Tag anlegen</label>
             <div class="tag-create-row">
               <input
                 type="text"
                 id="tagPickerNew"
                 maxlength="64"
                 placeholder="Neuer Tag"
+                data-i18n-attr="placeholder:tags.newPlaceholder"
                 autocomplete="off"
                 onkeydown="handleTagPickerNew(event)"
               />
@@ -1050,13 +1054,14 @@
                 class="tag-add-btn"
                 onclick="addTagFromPicker()"
                 aria-label="Tag erstellen"
+                data-i18n-attr="aria-label:tags.createAria"
               >
                 <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
               </button>
             </div>
           </div>
           <div class="form-group">
-            <label>Vorhandene Tags</label>
+            <label data-i18n="tags.existing">Vorhandene Tags</label>
             <div class="search-wrap tag-picker-search">
               <span class="search-icon" aria-hidden="true">
                 <svg class="ui-icon"><use href="#icon-search" /></svg>
@@ -1066,6 +1071,7 @@
                 id="tagPickerFilter"
                 type="search"
                 placeholder="Tags durchsuchen"
+                data-i18n-attr="placeholder:tags.searchPlaceholder"
                 enterkeyhint="search"
                 inputmode="search"
                 oninput="renderTagPickerChips()"
@@ -1079,7 +1085,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" onclick="commitTagPicker()">Übernehmen</button>
+          <button class="submit-btn" onclick="commitTagPicker()" data-i18n="common.apply">Übernehmen</button>
         </div>
       </div>
     </div>
@@ -1088,18 +1094,18 @@
     <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="catModalTitle">Kategorie bearbeiten</h2>
+          <h2 id="catModalTitle" data-i18n="categories.editTitle">Kategorie bearbeiten</h2>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Name</label>
+            <label data-i18n="categories.name">Name</label>
             <input type="text" id="catEditName" maxlength="100" />
           </div>
           <div class="form-group">
-            <label>Icon</label>
+            <label data-i18n="categories.icon">Icon</label>
             <button
               type="button"
               class="icon-trigger"
@@ -1108,21 +1114,22 @@
               aria-haspopup="dialog"
             >
               <span class="icon-trigger-glyph" id="catEditIconPreview" aria-hidden="true"></span>
-              <span class="icon-trigger-label">Icon ändern</span>
+              <span class="icon-trigger-label" data-i18n="categories.iconChange">Icon ändern</span>
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
             </button>
           </div>
           <div class="form-group">
-            <label>Farbe</label>
+            <label data-i18n="categories.color">Farbe</label>
             <div class="color-swatches" id="catEditColors"></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" onclick="saveCategoryEdit()">Speichern</button>
+          <button class="submit-btn" onclick="saveCategoryEdit()" data-i18n="common.save">Speichern</button>
           <button
             class="submit-btn btn-destructive"
             id="catDeleteBtn"
             onclick="deleteCategoryEdit()"
+            data-i18n="common.delete"
           >
             Löschen
           </button>
@@ -1134,10 +1141,10 @@
     <div class="modal-overlay" id="iconPickerOverlay" onclick="closeIconPickerOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="iconPickerTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeIconPicker()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeIconPicker()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="iconPickerTitle">Icon wählen</h2>
+          <h2 id="iconPickerTitle" data-i18n="categories.iconPick">Icon wählen</h2>
         </div>
         <div class="modal-body">
           <div id="iconPickerSections"></div>
@@ -1149,19 +1156,19 @@
     <div class="modal-overlay" id="cacheModalOverlay" onclick="closeCacheModalOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cacheModalTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeCacheModal()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeCacheModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="cacheModalTitle">Cache wirklich leeren?</h2>
+          <h2 id="cacheModalTitle" data-i18n="admin.cacheConfirmTitle">Cache wirklich leeren?</h2>
         </div>
         <div class="modal-body">
           <p class="confirm-msg" id="cacheModalMsg"></p>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" id="cacheModalConfirm" onclick="confirmClearAppCache()">
+          <button class="submit-btn" id="cacheModalConfirm" onclick="confirmClearAppCache()" data-i18n="admin.cacheClear">
             Cache leeren
           </button>
-          <button class="confirm-cancel" onclick="closeCacheModal()">Abbrechen</button>
+          <button class="confirm-cancel" onclick="closeCacheModal()" data-i18n="common.cancel">Abbrechen</button>
         </div>
       </div>
     </div>
@@ -1170,29 +1177,30 @@
     <div class="modal-overlay" id="resetModalOverlay" onclick="closeResetModalOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeResetModal()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeResetModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="resetModalTitle">Daten wirklich löschen?</h2>
+          <h2 id="resetModalTitle" data-i18n="admin.resetTitle">Daten wirklich löschen?</h2>
         </div>
         <div class="modal-body">
-          <p class="confirm-msg">
+          <p class="confirm-msg" data-i18n="admin.resetBody">
             Diese Aktion entfernt Daten dauerhaft vom Server und lässt sich nicht rückgängig
             machen.
           </p>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn btn-destructive" onclick="resetAllData()">
+          <button class="submit-btn btn-destructive" onclick="resetAllData()" data-i18n="admin.deleteAll">
             Alle Daten löschen
           </button>
           <button
             class="submit-btn btn-destructive"
             style="margin-top: var(--space-8)"
             onclick="resetTransactionsOnly()"
+            data-i18n="admin.deleteTxOnly"
           >
             Nur Buchungen löschen
           </button>
-          <button class="confirm-cancel" onclick="closeResetModal()">Abbrechen</button>
+          <button class="confirm-cancel" onclick="closeResetModal()" data-i18n="common.cancel">Abbrechen</button>
         </div>
       </div>
     </div>
@@ -1201,14 +1209,14 @@
     <div class="modal-overlay" id="pwModalOverlay" onclick="closePwModalOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pwModalTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closePwModal()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closePwModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="pwModalTitle">Passwort ändern</h2>
+          <h2 id="pwModalTitle" data-i18n="account.changePassword">Passwort ändern</h2>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Aktuelles Passwort</label>
+            <label data-i18n="account.currentPassword">Aktuelles Passwort</label>
             <input
               type="password"
               id="pwModalCurrent"
@@ -1216,7 +1224,7 @@
             />
           </div>
           <div class="form-group">
-            <label>Neues Passwort</label>
+            <label data-i18n="auth.newPassword">Neues Passwort</label>
             <input
               type="password"
               id="pwModalNew"
@@ -1226,7 +1234,7 @@
             />
           </div>
           <div class="form-group">
-            <label>Neues Passwort wiederholen</label>
+            <label data-i18n="auth.newPasswordRepeat">Neues Passwort wiederholen</label>
             <input
               type="password"
               id="pwModalConfirm"
@@ -1238,7 +1246,7 @@
           <p class="auth-error" id="pwModalError" hidden role="alert"></p>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" onclick="submitChangePassword()">Speichern</button>
+          <button class="submit-btn" onclick="submitChangePassword()" data-i18n="common.save">Speichern</button>
         </div>
       </div>
     </div>
@@ -1247,14 +1255,14 @@
     <div class="modal-overlay" id="adminCreateUserOverlay" onclick="closeAdminCreateUserModalOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminCreateUserTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeAdminCreateUserModal()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeAdminCreateUserModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="adminCreateUserTitle">Benutzer hinzufügen</h2>
+          <h2 id="adminCreateUserTitle" data-i18n="users.addTitle">Benutzer hinzufügen</h2>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Benutzername</label>
+            <label data-i18n="users.username">Benutzername</label>
             <input
               type="text"
               id="adminCreateUsername"
@@ -1265,7 +1273,7 @@
             />
           </div>
           <div class="form-group">
-            <label>Startpasswort</label>
+            <label data-i18n="users.startPassword">Startpasswort</label>
             <input
               type="password"
               id="adminCreatePassword"
@@ -1274,13 +1282,13 @@
               maxlength="128"
             />
           </div>
-          <p class="confirm-msg">
+          <p class="confirm-msg" data-i18n="users.mustChangeHint">
             Der Benutzer muss sich beim ersten Login ein eigenes Passwort vergeben.
           </p>
           <p class="auth-error" id="adminCreateError" hidden role="alert"></p>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" onclick="submitAdminCreateUser()">Anlegen</button>
+          <button class="submit-btn" onclick="submitAdminCreateUser()" data-i18n="users.create">Anlegen</button>
         </div>
       </div>
     </div>
@@ -1289,15 +1297,15 @@
     <div class="modal-overlay" id="adminResetPwOverlay" onclick="closeAdminResetPwModalOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminResetPwTitle">
         <div class="modal-header">
-          <button class="modal-cancel-btn" onclick="closeAdminResetPwModal()" aria-label="Schließen">
+          <button class="modal-cancel-btn" onclick="closeAdminResetPwModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="adminResetPwTitle">Passwort zurücksetzen</h2>
+          <h2 id="adminResetPwTitle" data-i18n="users.resetTitle">Passwort zurücksetzen</h2>
         </div>
         <div class="modal-body">
           <p class="confirm-msg" id="adminResetPwIntro"></p>
           <div class="form-group">
-            <label>Neues Passwort</label>
+            <label data-i18n="auth.newPassword">Neues Passwort</label>
             <input
               type="password"
               id="adminResetPwInput"
@@ -1306,17 +1314,18 @@
               maxlength="128"
             />
           </div>
-          <p class="confirm-msg">
+          <p class="confirm-msg" data-i18n="users.resetMustChangeHint">
             Der Benutzer muss das Passwort beim nächsten Login erneut ändern.
           </p>
           <p class="auth-error" id="adminResetPwError" hidden role="alert"></p>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" onclick="submitAdminResetPassword()">Speichern</button>
+          <button class="submit-btn" onclick="submitAdminResetPassword()" data-i18n="common.save">Speichern</button>
         </div>
       </div>
     </div>
 
+    <script src="/i18n.js" defer></script>
     <script src="/app.js" defer></script>
   </body>
 </html>
