@@ -248,10 +248,13 @@
         </p>
         <form id="setupForm" class="auth-form" onsubmit="event.preventDefault(); submitSetup();">
           <div class="form-group">
-            <label for="setupLanguage" data-i18n="auth.setupLanguage">Sprache</label>
-            <select id="setupLanguage" onchange="setLanguageFromSetup(this.value)">
-              <option value="de">Deutsch</option>
-              <option value="en">English</option>
+            <label for="setupLocale" data-i18n="auth.setupLanguage">Sprache &amp; Region</label>
+            <select id="setupLocale" onchange="setLocaleFromSetup(this.value)">
+              <option value="de-DE">Deutsch (Deutschland)</option>
+              <option value="de-AT">Deutsch (Österreich)</option>
+              <option value="de-CH">Deutsch (Schweiz)</option>
+              <option value="en-GB">English (UK)</option>
+              <option value="en-US">English (US)</option>
             </select>
           </div>
           <div class="form-group">
@@ -549,10 +552,13 @@
               </select>
             </div>
             <div class="settings-field">
-              <label class="settings-field-label" for="selLanguage" data-i18n="display.language">Sprache</label>
-              <select id="selLanguage" class="settings-select" onchange="saveLanguage(this.value)">
-                <option value="de">Deutsch</option>
-                <option value="en">English</option>
+              <label class="settings-field-label" for="selLocale" data-i18n="display.language">Sprache &amp; Region</label>
+              <select id="selLocale" class="settings-select" onchange="saveLocale(this.value)">
+                <option value="de-DE">Deutsch (Deutschland)</option>
+                <option value="de-AT">Deutsch (Österreich)</option>
+                <option value="de-CH">Deutsch (Schweiz)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="en-US">English (US)</option>
               </select>
             </div>
             <div class="settings-field">

@@ -108,8 +108,8 @@ transaction_tags  transaction_id FK CASCADE, tag_id FK CASCADE
                   PK(transaction_id, tag_id)
 
 user_settings   user_id PK FK CASCADE, theme, default_view,
-                language ('de'|'en'), currency (ISO 4217, display-only),
-                updated_at
+                locale (BCP-47, z.B. de-DE/de-AT/en-GB), currency (ISO 4217,
+                display-only), updated_at
 ```
 Tags sind Many-to-Many via `transaction_tags` (kein JSON-Array mehr, entfernt in Migration 0008). Default-Kategorien werden einmalig bei `crud.create_user` geseedet.
 
@@ -124,15 +124,16 @@ Brute-Force: ab 5. Fehlversuch exponentieller Lockout (1s → 60s Cap). Unbekann
 ## Offline / PWA
 `sw.js`: network-first für HTML-Shell + GET /api/\*, cache-first für Vendor/Fonts/Icons. Offline-Outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache-Keys aus `__APP_VERSION__` (Dockerfile substituiert beim Build). Beide i18n-Bundles (`i18n/de.json`, `i18n/en.json`) liegen im SHELL-Precache, damit der Sprachwechsel offline funktioniert.
 
-## i18n (Sprache & Währung)
-Zwei statische JSON-Bundles unter `frontend/i18n/<lang>.json` (de/en heute), ausgeliefert mit dem Code — **keine** DB-Übersetzungstabelle. `i18n.js` stellt `window.I18N` + globales `tr(key, params)` bereit; `t` ist als TX-Loop-Variable belegt, deshalb heißt der Helper `tr`.
+## i18n (Locale & Währung)
+Zwei statische JSON-Bundles unter `frontend/i18n/<bundle>.json` (de/en heute), ausgeliefert mit dem Code — **keine** DB-Übersetzungstabelle. `i18n.js` stellt `window.I18N` + globales `tr(key, params)` bereit; `t` ist als TX-Loop-Variable belegt, deshalb heißt der Helper `tr`.
 
-- **Statisches Markup:** `data-i18n="key"` (textContent) bzw. `data-i18n-attr="attr:key;attr2:key2"`. `I18N.applyStatic()` übersetzt beim Sprachwechsel neu.
+- **Gespeichert wird die volle Locale (BCP-47)**, z.B. `de-DE`, `de-AT`, `en-GB`, `en-US`. Das **Übersetzungs-Bundle** ist der **Primär-Subtag** (`de-AT`→`de`, `I18N.getBundle()`): ein `en.json` bedient jedes Englisch, nur die **Formatierung** (Datum/Zahl via `Intl`, `I18N.getLocale()`) unterscheidet en-GB vs en-US. Kuratierte Liste in `SUPPORTED_LOCALES` (i18n.js + schemas.py + Picker-`<option>`s synchron halten).
+- **Statisches Markup:** `data-i18n="key"` (textContent) bzw. `data-i18n-attr="attr:key;attr2:key2"`. `I18N.applyStatic()` übersetzt beim Locale-Wechsel neu.
 - **Dynamische Strings:** `tr('key', { n: 3 })` mit `{platzhalter}`-Interpolation.
-- **Sprache steuert die Locale** (de→de-DE, en→en-US) für Zahl/Datum; **Währung ist ein separater ISO-Code** (`fmtCurrency`, `Intl`), reine Anzeige — keine Umrechnung.
-- **Monatsnamen** kommen aus `Intl` (`rebuildMonthNames()`), nicht hartkodiert.
-- Sprache/Währung liegen wie Theme in `user_settings` (+ localStorage-Spiegel) und werden beim Login per `reconcileSettingsFromServer` abgeglichen. `i18n:changed`-Event → Re-Render.
+- **Währung ist ein separater ISO-Code** (`fmtCurrency`, `Intl`), reine Anzeige — keine Umrechnung. **Monatsnamen** aus `Intl` (`rebuildMonthNames()`).
+- **Deployment-Default → Nutzer-Override:** `DEFAULT_LOCALE` / `DEFAULT_CURRENCY` als ENV (validiert, Fallback `de-DE`/`EUR`) seeden neue User; `/api/auth/setup-status` liefert `default_locale` an den Setup-Screen. Per-User-Werte in `user_settings` (+ localStorage-Spiegel), beim Login per `reconcileSettingsFromServer` abgeglichen. `i18n:changed`-Event → Re-Render.
 - Beide JSON-Kataloge müssen **deckungsgleiche Keys** haben (Pytest/CI-tauglich: Key-Diff = leer).
+- **CSV-Import-Beispiel** liegt pro Bundle vor (`example-import-de.csv` / `-en.csv`), `downloadExampleCSV()` wählt nach `I18N.getBundle()`.
 
 > **Phase 3 / Backlog:** Backend-erzeugte Texte (CSV-Import-Fehler, Passwort-Policy-Hinweis) sind noch deutsch. Geplant: API liefert stabile Codes/Keys, Frontend übersetzt — Backend-i18n als eigener Schritt.
 

@@ -3194,9 +3194,9 @@
       // Both are display preferences mirrored to the server like theme. The
       // i18n runtime (i18n.js) owns the localStorage + the live re-render via
       // the 'i18n:changed' event; these just persist to the DB on top.
-      function saveLanguage(lang) {
-        pushSettings({ language: lang });
-        if (window.I18N) I18N.setLanguage(lang); // persists + dispatches i18n:changed
+      function saveLocale(locale) {
+        pushSettings({ locale });
+        if (window.I18N) I18N.setLocale(locale); // persists + dispatches i18n:changed
       }
 
       function saveCurrency(cur) {
@@ -3214,7 +3214,7 @@
         set('selTheme', loadTheme());
         set('selDefaultView', loadDefaultView());
         if (window.I18N) {
-          set('selLanguage', I18N.getLang());
+          set('selLocale', I18N.getLocale());
           set('selCurrency', I18N.getCurrency());
         }
       }
@@ -3283,10 +3283,10 @@
         }
         // Language/currency: the server is the source of truth across
         // devices, so apply a divergent value live (re-renders via
-        // i18n:changed). setLanguage is async; we don't need to await it.
+        // i18n:changed). setLocale is async; we don't need to await it.
         if (window.I18N) {
-          if (s.language && s.language !== I18N.getLang()) {
-            I18N.setLanguage(s.language);
+          if (s.locale && s.locale !== I18N.getLocale()) {
+            I18N.setLocale(s.locale);
           }
           if (s.currency && s.currency !== I18N.getCurrency()) {
             I18N.setCurrency(s.currency);
@@ -3427,10 +3427,10 @@
         // Per-language sample: category names + descriptions match the
         // user's seeded default categories. Falls back to German if the
         // active language has no example file.
-        const lang = window.I18N ? I18N.getLang() : 'de';
+        const bundle = window.I18N ? I18N.getBundle() : 'de';
         const filename = tr('importExport.exampleFilename');
         try {
-          let res = await fetch('/example-import-' + lang + '.csv');
+          let res = await fetch('/example-import-' + bundle + '.csv');
           if (!res.ok) res = await fetch('/example-import-de.csv');
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const blob = await res.blob();
@@ -4185,7 +4185,7 @@
         }
         try {
           const res = await authFetch('POST', '/auth/setup',
-            { username, password, language: window.I18N ? I18N.getLang() : 'de' },
+            { username, password, locale: window.I18N ? I18N.getLocale() : 'de-DE' },
             { csrf: false, reloadOn401: false });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
@@ -4206,8 +4206,8 @@
       // Setup-screen language picker: switch the UI live (not logged in yet,
       // so no server persistence — the chosen language is sent with setup
       // and seeds the default categories).
-      function setLanguageFromSetup(lang) {
-        if (window.I18N) I18N.setLanguage(lang);
+      function setLocaleFromSetup(locale) {
+        if (window.I18N) I18N.setLocale(locale);
       }
 
       async function submitForcePassword() {
@@ -4320,6 +4320,7 @@
         // 1) Setup-Status: braucht die DB einen ersten Admin?
         let needsSetup = false;
         let suggested = null;
+        let defaultLocale = null;
         try {
           const res = await fetch(API + '/auth/setup-status', {
             credentials: 'same-origin',
@@ -4328,6 +4329,7 @@
             const data = await res.json();
             needsSetup = !!data.needs_setup;
             suggested = data.suggested_username || null;
+            defaultLocale = data.default_locale || null;
           }
         } catch (e) {
           // Backend nicht erreichbar — Login-View zeigen, der User
@@ -4346,9 +4348,13 @@
               intro.removeAttribute('data-i18n'); // dynamic now; don't let applyStatic overwrite
             }
           }
-          // Reflect the active (browser-detected) language in the picker.
-          const sl = document.getElementById('setupLanguage');
-          if (sl && window.I18N) sl.value = I18N.getLang();
+          // On a fresh instance, prefer the operator's ENV default locale
+          // over the browser guess (unless the user already chose one).
+          if (defaultLocale && window.I18N && !localStorage.getItem('pocketlog.locale')) {
+            I18N.setLocale(defaultLocale);
+          }
+          const sl = document.getElementById('setupLocale');
+          if (sl && window.I18N) sl.value = I18N.getLocale();
           _showAuthView('setup');
           setTimeout(() => {
             const focusEl = document.getElementById(
