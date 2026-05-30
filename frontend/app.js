@@ -45,7 +45,7 @@
         forecast: 'reports.forecast',
         top: 'reports.top',
       };
-      const reportTitle = (id) => t(REPORT_TITLE_KEYS[id] || 'reports.overview');
+      const reportTitle = (id) => tr(REPORT_TITLE_KEYS[id] || 'reports.overview');
       let currentReport = (() => {
         const v = localStorage.getItem(REPORT_STORAGE_KEY);
         return REPORT_IDS.includes(v) ? v : 'overview';
@@ -696,7 +696,7 @@
           document.getElementById('panel-search').classList.add('active');
           fab.innerHTML = ICON_SVG.close;
           fab.classList.add('search-exit');
-          fab.setAttribute('aria-label', 'Suche beenden');
+          fab.setAttribute('aria-label', tr('fab.exitSearch'));
           fab.onclick = clearSearch;
           // Only load the global pool for text search — category drill-down
           // stays month-scoped via the already-loaded `transactions`.
@@ -745,7 +745,7 @@
       function getCatById(id) {
         return (
           categories.find((c) => c.id === Number(id)) || {
-            name: 'Sonstiges',
+            name: tr('categories.fallbackName'),
             icon: 'package',
             color: '#9e9b96',
           }
@@ -1108,7 +1108,7 @@
         const to = document.getElementById('rangeTo').value;
         if (!from || !to) return;
         if (from > to) {
-          toast('Enddatum muss nach Startdatum liegen.');
+          toast(tr('reports.endAfterStart'));
           return;
         }
         reportRange.from = from;
@@ -2861,7 +2861,7 @@
           presets
             .map((p) => {
               const isActive = p.hex.toLowerCase() === editingCatColor.toLowerCase();
-              return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="Farbe ${p.name} wählen" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
+              return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
             })
             .join('') +
           `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
