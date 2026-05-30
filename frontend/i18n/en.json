@@ -1,15 +1,15 @@
 {
-  "app": { "name": "PocketLog", "tagline": "Budget Book", "documentTitle": "PocketLog – Budget Book" },
+  "app": {
+    "documentTitle": "PocketLog – Budget Book"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
     "confirm": "Confirm",
     "apply": "Apply",
-    "create": "Create",
     "back": "Back",
     "close": "Close",
-    "placeholder": "–",
     "connectionFailed": "Connection to the server failed.",
     "actionFailed": "Action failed.",
     "downloadFailed": "Download failed",
@@ -33,9 +33,18 @@
     "toggleSidebar": "Toggle sidebar",
     "sync": "Sync"
   },
-  "summary": { "expenses": "Expenses", "income": "Income" },
-  "search": { "placeholder": "Search transactions", "label": "Search transactions" },
-  "fab": { "newTransaction": "New transaction", "exitSearch": "Exit search" },
+  "summary": {
+    "expenses": "Expenses",
+    "income": "Income"
+  },
+  "search": {
+    "placeholder": "Search transactions",
+    "label": "Search transactions"
+  },
+  "fab": {
+    "newTransaction": "New transaction",
+    "exitSearch": "Exit search"
+  },
   "auth": {
     "loginTitle": "Sign in",
     "username": "Username",
@@ -84,7 +93,6 @@
   },
   "display": {
     "title": "Appearance",
-    "appearance": "Theme",
     "theme": "Theme",
     "themeSystem": "System",
     "themeLight": "Light",
@@ -95,7 +103,6 @@
     "language": "Language & region",
     "currency": "Currency"
   },
-  "lang": { "de": "Deutsch", "en": "English" },
   "catIcons": {
     "home": "Home & household",
     "clothing": "Clothing & care",
@@ -156,7 +163,6 @@
     "expense": "Expense",
     "income": "Income",
     "amount": "Amount ({symbol})",
-    "amountPlaceholder": "0.00",
     "date": "Date",
     "category": "Category",
     "notes": "Notes",
@@ -170,7 +176,6 @@
     "amountDateRequired": "Enter an amount and a date.",
     "saveFailed": "Error while saving: ",
     "deleteFailed": "Error while deleting: ",
-    "loadError": "Error while loading:",
     "emptyMonth": "No transactions this month.",
     "emptyMonthHint": "Tap <strong>+</strong> to add one.",
     "emptySearch": "No transactions match “{query}”.",
@@ -230,7 +235,6 @@
   },
   "forecast": {
     "notEnough": "Not enough data for a forecast yet. At least four weeks of transactions are needed.",
-    "aboveAvg": "above avg",
     "projMonth": "Projected monthly expenses",
     "projQuarter": "Projected quarterly expenses",
     "projYear": "Projected yearly expenses",
@@ -261,7 +265,6 @@
     "imported": "{n} transactions imported",
     "skipped": "{n} skipped",
     "errorRows": "{n} rows skipped",
-    "errorTitle": "CSV import: rows with errors",
     "importFailed": "Import failed – check your connection"
   },
   "admin": {
@@ -341,11 +344,12 @@
     "offlineSaving": "Offline – changes are being saved",
     "failed": "Sync failed – check your connection",
     "oneFailed": "1 transaction couldn’t be saved.",
-    "manyFailed": "{n} transactions couldn’t be saved.",
-    "pendingOne": "{n} unsynced change",
-    "pendingOther": "{n} unsynced changes"
+    "manyFailed": "{n} transactions couldn’t be saved."
   },
-  "date": { "today": "Today", "yesterday": "Yesterday" },
+  "date": {
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
   "info": {
     "versions": "Versions",
     "backend": "App (backend)",
