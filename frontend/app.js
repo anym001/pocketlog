@@ -2445,7 +2445,7 @@
         wrap.innerHTML = currentTags
           .map(
             (t) =>
-              `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-tag="${_escAttr(t)}" aria-label="Tag „${_escAttr(t)}“ entfernen">${ICON_SVG.close}</button></span>`
+              `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-tag="${_escAttr(t)}" aria-label="${_escAttr(tr('tags.removeAria', { name: t }))}">${ICON_SVG.close}</button></span>`
           )
           .join('');
         wrap.querySelectorAll('[data-remove-tag]').forEach((el) => {
