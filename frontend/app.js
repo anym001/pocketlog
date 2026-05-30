@@ -3204,7 +3204,7 @@
         if (window.I18N) I18N.setCurrency(cur); // persists + dispatches i18n:changed
       }
 
-      // Mirror the persisted preferences into the four Darstellung selects.
+      // Mirror the persisted preferences into the four "Allgemein" selects.
       // Called when the panel opens and after a server reconcile.
       function syncDisplaySelects() {
         const set = (id, val) => {
