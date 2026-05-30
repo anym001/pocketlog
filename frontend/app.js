@@ -6,6 +6,13 @@
         close: '<svg class="ui-icon" aria-hidden="true"><use href="#icon-close"/></svg>',
       };
 
+      // ── i18n SHORTHAND ────────────────────────────────────────────────────────────
+      // `tr()` (not `t()`) is the translation helper: `t` is used pervasively
+      // as the transaction loop variable in .map((t) => …) callbacks, so a
+      // global `t` would shadow-collide. tr() delegates to i18n.js and falls
+      // back to the key when the runtime isn't ready (keeps render safe).
+      const tr = (key, params) => (window.I18N ? I18N.t(key, params) : key);
+
       // ── API-BASIS ─────────────────────────────────────────────────────────────────
       // Same-origin. The PWA and the FastAPI backend live behind the same
       // SWAG vhost — there is no supported deployment where they sit on
@@ -26,16 +33,19 @@
       // Persistiert in localStorage, damit ein Reload den letzten Stand zeigt.
       const REPORT_STORAGE_KEY = 'pocketlog.report';
       const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'tags', 'trend', 'forecast', 'top'];
-      const REPORT_TITLES = {
-        overview: 'Übersicht',
-        month: 'Monatsverlauf',
-        year: 'Jahresverlauf',
-        categories: 'Kategorienanalyse',
-        tags: 'Taganalyse',
-        trend: 'Trend',
-        forecast: 'Prognose',
-        top: 'Größte Ausgaben',
+      // Report id → i18n key. Resolved through t() at render time so the
+      // titles follow the active language.
+      const REPORT_TITLE_KEYS = {
+        overview: 'reports.overview',
+        month: 'reports.month',
+        year: 'reports.year',
+        categories: 'reports.categories',
+        tags: 'reports.tags',
+        trend: 'reports.trend',
+        forecast: 'reports.forecast',
+        top: 'reports.top',
       };
+      const reportTitle = (id) => tr(REPORT_TITLE_KEYS[id] || 'reports.overview');
       let currentReport = (() => {
         const v = localStorage.getItem(REPORT_STORAGE_KEY);
         return REPORT_IDS.includes(v) ? v : 'overview';
@@ -217,60 +227,58 @@
       const PWD_MIN_LENGTH = 12;
       function validateNewPassword(pw) {
         if (pw.length < PWD_MIN_LENGTH) {
-          return `Das Passwort muss mindestens ${PWD_MIN_LENGTH} Zeichen lang sein.`;
+          return tr('pwd.tooShort', { n: PWD_MIN_LENGTH });
         }
         if (!/\p{Lu}/u.test(pw)) {
-          return 'Das Passwort braucht mindestens einen Großbuchstaben.';
+          return tr('pwd.needUpper');
         }
         if (!/\p{Ll}/u.test(pw)) {
-          return 'Das Passwort braucht mindestens einen Kleinbuchstaben.';
+          return tr('pwd.needLower');
         }
         if (!/\d/.test(pw)) {
-          return 'Das Passwort braucht mindestens eine Zahl.';
+          return tr('pwd.needDigit');
         }
         if (!/[^\p{L}\p{N}]/u.test(pw)) {
-          return 'Das Passwort braucht mindestens ein Sonderzeichen.';
+          return tr('pwd.needSpecial');
         }
         return null;
       }
 
       // ── FORMATTING ────────────────────────────────────────────────────────────────
+      // Locale + currency come from i18n.js (the active language drives the
+      // number/date locale; currency is a separate ISO code, display-only).
+      // Resolved per-call so a language/currency switch takes effect on the
+      // next render without rebuilding cached formatters.
+      const _locale = () => (window.I18N ? I18N.getLocale() : 'de-DE');
+      const _currencyCode = () => (window.I18N ? I18N.getCurrency() : 'EUR');
       const fmtCurrency = (n) =>
-        new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
+        new Intl.NumberFormat(_locale(), { style: 'currency', currency: _currencyCode() }).format(n);
       const fmtSignedCurrency = (n) =>
-        new Intl.NumberFormat('de-DE', {
+        new Intl.NumberFormat(_locale(), {
           style: 'currency',
-          currency: 'EUR',
+          currency: _currencyCode(),
           signDisplay: 'always',
         }).format(n);
-      const MONTHS = [
-        'Januar',
-        'Februar',
-        'März',
-        'April',
-        'Mai',
-        'Juni',
-        'Juli',
-        'August',
-        'September',
-        'Oktober',
-        'November',
-        'Dezember',
-      ];
-      const MONTHS_SHORT = [
-        'Jan',
-        'Feb',
-        'Mär',
-        'Apr',
-        'Mai',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Okt',
-        'Nov',
-        'Dez',
-      ];
+      // Month names are derived from the active locale via Intl rather than
+      // hardcoded, so they follow the language setting. Rebuilt on startup
+      // and on every i18n:changed (see registerI18nListener).
+      let MONTHS = [];
+      let MONTHS_SHORT = [];
+      function rebuildMonthNames() {
+        const loc = _locale();
+        const long = new Intl.DateTimeFormat(loc, { month: 'long' });
+        const short = new Intl.DateTimeFormat(loc, { month: 'short' });
+        MONTHS = [];
+        MONTHS_SHORT = [];
+        for (let m = 0; m < 12; m++) {
+          const d = new Date(2021, m, 1);
+          MONTHS.push(long.format(d));
+          // Some locales append a dot to the short month ("Jan."); drop it
+          // for the compact chart axis labels.
+          MONTHS_SHORT.push(short.format(d).replace(/\.$/, ''));
+        }
+      }
+      rebuildMonthNames();
 
       // ── TOAST + CONFIRM (replaces native alert/confirm) ──────────────────────────
       function toast(message, type = 'info') {
@@ -291,8 +299,8 @@
       function confirmAction({
         title,
         message = '',
-        confirmLabel = 'Bestätigen',
-        cancelLabel = 'Abbrechen',
+        confirmLabel = tr('common.confirm'),
+        cancelLabel = tr('common.cancel'),
         destructive = true,
       }) {
         return new Promise((resolve) => {
@@ -389,7 +397,7 @@
         if (fab) {
           fab.innerHTML = ICON_SVG.plus;
           fab.classList.remove('search-exit');
-          fab.setAttribute('aria-label', 'Neue Buchung');
+          fab.setAttribute('aria-label', tr('fab.newTransaction'));
           fab.onclick = () => openModal();
         }
       }
@@ -435,7 +443,7 @@
         document.getElementById('drawer').classList.add('sub-active');
         if (panelId === 'dpCats') renderCategories();
         if (panelId === 'dpTags') renderTagList();
-        if (panelId === 'dpDisplay') syncDefaultViewRadios();
+        if (panelId === 'dpDisplay') syncDisplaySelects();
         if (panelId === 'dpInfo') renderInfoPanel();
         if (panelId === 'dpAdminUsers') loadAdminUsers();
       }
@@ -688,7 +696,7 @@
           document.getElementById('panel-search').classList.add('active');
           fab.innerHTML = ICON_SVG.close;
           fab.classList.add('search-exit');
-          fab.setAttribute('aria-label', 'Suche beenden');
+          fab.setAttribute('aria-label', tr('fab.exitSearch'));
           fab.onclick = clearSearch;
           // Only load the global pool for text search — category drill-down
           // stays month-scoped via the already-loaded `transactions`.
@@ -708,7 +716,7 @@
           document.getElementById('panel-' + _activePanel).classList.add('active');
           fab.innerHTML = ICON_SVG.plus;
           fab.classList.remove('search-exit');
-          fab.setAttribute('aria-label', 'Neue Buchung');
+          fab.setAttribute('aria-label', tr('fab.newTransaction'));
           fab.onclick = () => openModal();
         }
       }
@@ -737,7 +745,7 @@
       function getCatById(id) {
         return (
           categories.find((c) => c.id === Number(id)) || {
-            name: 'Sonstiges',
+            name: tr('categories.fallbackName'),
             icon: 'package',
             color: '#9e9b96',
           }
@@ -747,8 +755,8 @@
       function renderTransactions(txs, el = document.getElementById('transactionList')) {
         if (!txs.length) {
           el.innerHTML = _searchQuery
-            ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>Keine Buchungen passen zu „${_escText(_searchQuery)}“.<br>Andere Schreibweise versuchen.</p></div>`
-            : `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>Keine Buchungen in diesem Monat.<br>Tippe auf <strong>+</strong>, um eine hinzuzufügen.</p></div>`;
+            ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>${tr('tx.emptySearch', { query: _escText(_searchQuery) })}<br>${tr('tx.emptySearchHint')}</p></div>`
+            : `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>${tr('tx.emptyMonth')}<br>${tr('tx.emptyMonthHint')}</p></div>`;
           return;
         }
         // Group by date
@@ -764,10 +772,10 @@
             const dDay = new Date(date + 'T00:00:00');
             const label =
               dDay.getTime() === today.getTime()
-                ? 'Heute'
+                ? tr('date.today')
                 : dDay.getTime() === today.getTime() - 86400000
-                  ? 'Gestern'
-                  : d.toLocaleDateString('de-DE', {
+                  ? tr('date.yesterday')
+                  : d.toLocaleDateString(_locale(), {
                       weekday: 'long',
                       day: 'numeric',
                       month: 'long',
@@ -783,7 +791,7 @@
                     .join('');
                   const note = (t.desc || '').trim();
                   return `<div class="tx-row" data-id="${t.id}">
-        <button class="tx-action" type="button" aria-label="Buchung löschen">Löschen</button>
+        <button class="tx-action" type="button" aria-label="${_escAttr(tr('tx.deleteAria'))}">${tr('common.delete')}</button>
         <div class="transaction">
           <div class="t-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <span class="visually-hidden">${_escText(cat.name)}</span>
@@ -807,7 +815,7 @@
         if (!el) return;
 
         if (!categories.length) {
-          el.innerHTML = `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>Keine Kategorien vorhanden.<br>Erstelle Kategorien in den Einstellungen.</p></div>`;
+          el.innerHTML = `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>${tr('categories.emptyView')}<br>${tr('categories.emptyViewHint')}</p></div>`;
           return;
         }
 
@@ -822,13 +830,13 @@
         // All categories, sorted alphabetically — zero if no transactions this month
         const rows = categories
           .map((cat) => ({ id: cat.id, name: cat.name, icon: cat.icon, color: cat.color, net: totals[cat.id] ?? 0 }))
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+          .sort((a, b) => a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }));
 
         el.innerHTML = rows
           .map(
             (r) => `
     <div class="cat-view-row" role="button" tabindex="0"
-      aria-label="Kategorie „${_escAttr(r.name)}“ bearbeiten"
+      aria-label="${_escAttr(tr('categories.editAria', { name: r.name }))}"
       onclick="openModalForCategory(${r.id})"
       onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
       <span class="cat-view-icon" style="--cat-color:${r.color}">${catIconSvg(r.icon)}</span>
@@ -837,7 +845,7 @@
       <button
         type="button"
         class="cat-view-more"
-        aria-label="Buchungen in „${_escAttr(r.name)}“ ansehen"
+        aria-label="${_escAttr(tr('categories.viewTxAria', { name: r.name }))}"
         onclick="event.stopPropagation(); showTransactionsForCategory(${r.id})"
       ><svg class="ui-icon" aria-hidden="true"><use href="#icon-more-vertical"/></svg></button>
     </div>
@@ -960,8 +968,8 @@
           const deleteRow = async () => {
             const id = Number(row.dataset.id);
             const ok = await confirmAction({
-              title: 'Buchung wirklich löschen?',
-              confirmLabel: 'Löschen',
+              title: tr('tx.deleteConfirm'),
+              confirmLabel: tr('common.delete'),
             });
             if (!ok) {
               row.classList.remove('swiped');
@@ -983,7 +991,7 @@
                 updateSyncBadge();
                 return;
               }
-              toast('Fehler beim Löschen: ' + err.message, 'error');
+              toast(tr('tx.deleteFailed') + err.message, 'error');
               row.classList.remove('swiped');
             }
           };
@@ -1100,7 +1108,7 @@
         const to = document.getElementById('rangeTo').value;
         if (!from || !to) return;
         if (from > to) {
-          toast('Enddatum muss nach Startdatum liegen.');
+          toast(tr('reports.endAfterStart'));
           return;
         }
         reportRange.from = from;
@@ -1127,11 +1135,11 @@
       }
 
       function _rangeSubtitle(txCount) {
-        const noun = txCount === 1 ? 'Buchung' : 'Buchungen';
+        const noun = txCount === 1 ? tr('tx.countOne') : tr('tx.countOther');
         if (reportRange.kind === 'custom') {
           const fmt = (iso) => {
             const [y, m, d] = iso.split('-');
-            return `${d}.${m}.${y}`;
+            return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(_locale());
           };
           return `${fmt(reportRange.from)} – ${fmt(reportRange.to)} · ${txCount} ${noun}`;
         }
@@ -1200,7 +1208,7 @@
           applyRange({ skipRender: true });
         }
         updatePickerUI();
-        document.getElementById('reportTitle').textContent = REPORT_TITLES[id];
+        document.getElementById('reportTitle').textContent = reportTitle(id);
 
         Object.keys(chartInsts).forEach((k) => {
           if (chartInsts[k]) {
@@ -1309,24 +1317,24 @@
 
         body.innerHTML = `
           <div class="report-kpis">
-            <div class="summary-card"><div class="label">Einnahmen</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
-            <div class="summary-card"><div class="label">Ausgaben</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">Bilanz</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(balance)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(balance)}</div></div>
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">Top-Kategorien</h3>
-            <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat, { drillDown: true })).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
+            <h3 class="report-section-title">${tr('reports.topCategories')}</h3>
+            <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat, { drillDown: true })).join('') : _emptyState(tr('reports.noExpenses'))}</div>
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">Top-Tags</h3>
-            <div id="overviewTags">${tags.length ? tags.map((t) => _tagRowMarkup(t.name, t.amount, maxTag, { drillDown: true })).join('') : _emptyState('Keine getaggten Ausgaben im Zeitraum.')}</div>
+            <h3 class="report-section-title">${tr('reports.topTags')}</h3>
+            <div id="overviewTags">${tags.length ? tags.map((t2) => _tagRowMarkup(t2.name, t2.amount, maxTag, { drillDown: true })).join('') : _emptyState(tr('reports.noTaggedExpenses'))}</div>
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">Größte Ausgaben</h3>
-            <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState('Keine Ausgaben im Zeitraum.')}</div>
+            <h3 class="report-section-title">${tr('reports.top')}</h3>
+            <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState(tr('reports.noExpenses'))}</div>
           </div>
 
         `;
@@ -1352,12 +1360,12 @@
         body.innerHTML = `
           <div class="report-section">
             <div class="report-canvas-wrap"><canvas id="monthChart" role="img" aria-labelledby="reportTitle" aria-describedby="monthChartSummary"></canvas></div>
-            <p id="monthChartSummary" class="visually-hidden" aria-live="polite">${MONTHS[a.m]} ${a.y}: Einnahmen ${fmtCurrency(totals.in)}, Ausgaben ${fmtCurrency(totals.out)}.</p>
+            <p id="monthChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.monthSummary', { month: MONTHS[a.m], year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
           </div>
           <div class="report-kpis">
-            <div class="summary-card"><div class="label">Einnahmen</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
-            <div class="summary-card"><div class="label">Ausgaben</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">Bilanz</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
           </div>
         `;
 
@@ -1367,8 +1375,8 @@
           data: {
             labels,
             datasets: [
-              { label: 'Ausgaben', data: outData, backgroundColor: cssColor('--accent', 0.7), borderRadius: 4, borderSkipped: false },
-              { label: 'Einnahmen', data: inData, backgroundColor: cssColor('--green', 0.7), borderRadius: 4, borderSkipped: false },
+              { label: tr('reports.expenses'), data: outData, backgroundColor: cssColor('--accent', 0.7), borderRadius: 4, borderSkipped: false },
+              { label: tr('reports.income'), data: inData, backgroundColor: cssColor('--green', 0.7), borderRadius: 4, borderSkipped: false },
             ],
           },
           options: {
@@ -1403,23 +1411,23 @@
         body.innerHTML = `
           <div class="report-section">
             <div class="report-canvas-wrap"><canvas id="yearChart" role="img" aria-labelledby="reportTitle" aria-describedby="yearChartSummary"></canvas></div>
-            <p id="yearChartSummary" class="visually-hidden" aria-live="polite">Jahr ${a.y}: Einnahmen ${fmtCurrency(totals.in)}, Ausgaben ${fmtCurrency(totals.out)}.</p>
+            <p id="yearChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.yearSummary', { year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
           </div>
           <div class="report-kpis">
-            <div class="summary-card"><div class="label">Einnahmen</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
-            <div class="summary-card"><div class="label">Ausgaben</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">Bilanz</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
           </div>
         `;
 
         const c = getChartColors();
         const datasets = [
-          { label: `Ausgaben ${a.y}`, data: monthly.map((m) => m.out), borderColor: cssColor('--accent'), backgroundColor: cssColor('--accent', 0.1), tension: 0.4, fill: true, pointRadius: 3 },
-          { label: `Einnahmen ${a.y}`, data: monthly.map((m) => m.in), borderColor: cssColor('--green'), backgroundColor: cssColor('--green', 0.1), tension: 0.4, fill: true, pointRadius: 3 },
+          { label: tr('reports.expensesYear', { year: a.y }), data: monthly.map((m) => m.out), borderColor: cssColor('--accent'), backgroundColor: cssColor('--accent', 0.1), tension: 0.4, fill: true, pointRadius: 3 },
+          { label: tr('reports.incomeYear', { year: a.y }), data: monthly.map((m) => m.in), borderColor: cssColor('--green'), backgroundColor: cssColor('--green', 0.1), tension: 0.4, fill: true, pointRadius: 3 },
         ];
         if (prevMonthly) {
           datasets.push({
-            label: `Ausgaben ${a.y - 1}`,
+            label: tr('reports.expensesYear', { year: a.y - 1 }),
             data: prevMonthly.map((m) => m.out),
             borderColor: cssColor('--accent', 0.5),
             borderDash: [5, 4],
@@ -1448,7 +1456,7 @@
       function renderReportCategories(body, txs) {
         const sorted = _totalsByCategory(txs, 'out');
         if (!sorted.length) {
-          body.innerHTML = _emptyState('Keine Ausgaben im Zeitraum.');
+          body.innerHTML = _emptyState(tr('reports.noExpenses'));
           return;
         }
         const total = sorted.reduce((s, c) => s + c.amount, 0);
@@ -1457,10 +1465,10 @@
         body.innerHTML = `
           <div class="report-section">
             <div class="donut-wrap">
-              <canvas id="categoriesDonut" role="img" aria-label="Ausgaben pro Kategorie"></canvas>
+              <canvas id="categoriesDonut" role="img" aria-label="${_escAttr(tr('reports.expensesPerCategory'))}"></canvas>
               <div class="donut-center">
                 <div class="donut-center-value">${fmtCurrency(total)}</div>
-                <div class="donut-center-label">Ausgaben gesamt</div>
+                <div class="donut-center-label">${tr('reports.expensesTotal')}</div>
               </div>
             </div>
           </div>
@@ -1555,7 +1563,7 @@
       function renderReportTags(body, txs) {
         const sorted = _totalsByTag(txs, 'out');
         if (!sorted.length) {
-          body.innerHTML = _emptyState('Keine Ausgaben mit Tags im Zeitraum.');
+          body.innerHTML = _emptyState(tr('reports.noTagExpenses'));
           return;
         }
         const total = sorted.reduce((s, t) => s + t.amount, 0);
@@ -1564,10 +1572,10 @@
         body.innerHTML = `
           <div class="report-section">
             <div class="donut-wrap">
-              <canvas id="tagsDonut" role="img" aria-label="Ausgaben pro Tag"></canvas>
+              <canvas id="tagsDonut" role="img" aria-label="${_escAttr(tr('reports.expensesPerTag'))}"></canvas>
               <div class="donut-center">
                 <div class="donut-center-value">${fmtCurrency(total)}</div>
-                <div class="donut-center-label">Ausgaben gesamt</div>
+                <div class="donut-center-label">${tr('reports.expensesTotal')}</div>
               </div>
             </div>
           </div>
@@ -1880,7 +1888,7 @@
           }
           const rest = categories
             .filter((c) => !seen.has(c.id))
-            .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+            .sort((a, b) => a.name.localeCompare(b.name, _locale()));
           for (const c of rest) {
             options.push({ id: `cat:${c.id}`, label: c.name, color: c.color });
           }
@@ -1912,24 +1920,24 @@
       function _trendStatsMarkup(stats) {
         if (!stats || stats.monthCount === 0) return '';
         const meanCard = `<div class="stat-card">
-          <div class="trend-stat-label">Mittelwert</div>
+          <div class="trend-stat-label">${tr('reports.trendMean')}</div>
           <div class="trend-stat-value">${fmtCurrency(stats.mean)}</div>
-          <div class="trend-stat-sub">pro Monat</div>
+          <div class="trend-stat-sub">${tr('reports.perMonth')}</div>
         </div>`;
         const peakCard = stats.peak && stats.peak.value > 0
           ? `<div class="stat-card">
-              <div class="trend-stat-label">Höchster Monat</div>
+              <div class="trend-stat-label">${tr('reports.trendPeak')}</div>
               <div class="trend-stat-value">${fmtCurrency(stats.peak.value)}</div>
               <div class="trend-stat-sub">${_trendPeakLabel(stats.peak.key)}</div>
             </div>`
           : '';
         const yoyCard = stats.yoy && stats.yoy.pct !== null
           ? `<div class="stat-card wide">
-              <div class="trend-stat-label">Veränderung pro Jahr</div>
+              <div class="trend-stat-label">${tr('reports.trendYoy')}</div>
               <div class="trend-stat-value">${stats.yoy.firstYear} → ${stats.yoy.lastYear}
                 <span class="trend-stat-delta">${stats.yoy.pct >= 0 ? '+' : ''}${stats.yoy.pct.toFixed(0)} %</span>
               </div>
-              <div class="trend-stat-sub">⌀ ${fmtCurrency(stats.yoy.firstMean)} → ⌀ ${fmtCurrency(stats.yoy.lastMean)} pro Monat</div>
+              <div class="trend-stat-sub">${tr('forecast.perMonth', { from: fmtCurrency(stats.yoy.firstMean), to: fmtCurrency(stats.yoy.lastMean) })}</div>
             </div>`
           : '';
         return `<div class="trend-stats">${meanCard}${peakCard}${yoyCard}</div>`;
@@ -2020,12 +2028,12 @@
 
         const yearPickerMarkup = `<div class="range-custom trend-year-picker">
             <label class="range-custom-field">
-              <span>Von</span>
-              <select aria-label="Von Jahr" onchange="setTrendYear('from', +this.value)">${yearOptions(_trendYearFrom || today)}</select>
+              <span>${tr('reports.rangeFrom')}</span>
+              <select aria-label="${_escAttr(tr('reports.fromYear'))}" onchange="setTrendYear('from', +this.value)">${yearOptions(_trendYearFrom || today)}</select>
             </label>
             <label class="range-custom-field">
-              <span>Bis</span>
-              <select aria-label="Bis Jahr" onchange="setTrendYear('to', +this.value)">${yearOptions(_trendYearTo || today)}</select>
+              <span>${tr('reports.rangeTo')}</span>
+              <select aria-label="${_escAttr(tr('reports.toYear'))}" onchange="setTrendYear('to', +this.value)">${yearOptions(_trendYearTo || today)}</select>
             </label>
           </div>`;
 
@@ -2033,11 +2041,11 @@
         const chipsMarkup = options
           .map((o) => _trendChipMarkup(o.id, o.label, o.color, selected && o.id === selected.id))
           .join('');
-        const searchPlaceholder = _trendKind === 'category' ? 'Kategorie suchen' : 'Tag suchen';
+        const searchPlaceholder = _trendKind === 'category' ? tr('reports.searchCategory') : tr('reports.searchTag');
 
-        const segmentedMarkup = `<div class="segmented" role="tablist" aria-label="Trend-Auswahl">
-            <button type="button" role="tab" aria-selected="${_trendKind === 'category'}" class="${_trendKind === 'category' ? 'is-active' : ''}" onclick="setTrendKind('category')">Kategorien</button>
-            <button type="button" role="tab" aria-selected="${_trendKind === 'tag'}" class="${_trendKind === 'tag' ? 'is-active' : ''}" onclick="setTrendKind('tag')">Tags</button>
+        const segmentedMarkup = `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.trendSelect'))}">
+            <button type="button" role="tab" aria-selected="${_trendKind === 'category'}" class="${_trendKind === 'category' ? 'is-active' : ''}" onclick="setTrendKind('category')">${tr('reports.kindCategories')}</button>
+            <button type="button" role="tab" aria-selected="${_trendKind === 'tag'}" class="${_trendKind === 'tag' ? 'is-active' : ''}" onclick="setTrendKind('tag')">${tr('reports.kindTags')}</button>
           </div>`;
 
         const activeMarkup = selected
@@ -2046,10 +2054,10 @@
                 <span class="trend-active-dot" style="background:${selected.color}"></span>
                 <div class="trend-active-text">
                   <div class="trend-active-label">${_escText(selected.kind === 'tag' ? `#${selected.name}` : selected.name)}</div>
-                  <span class="trend-active-sub">Größter Posten im Zeitraum</span>
+                  <span class="trend-active-sub">${tr('reports.largestItem')}</span>
                 </div>
               </div>
-              <button type="button" class="trend-switch-btn" onclick="toggleTrendPicker(true)">Wechseln</button>
+              <button type="button" class="trend-switch-btn" onclick="toggleTrendPicker(true)">${tr('reports.switch')}</button>
             </div>`
           : '';
 
@@ -2065,7 +2073,7 @@
           body.innerHTML = `
             ${yearPickerMarkup}
             <div class="report-section">${segmentedMarkup}${pickerOpenMarkup}</div>
-            <div class="report-section">${_emptyState(_trendKind === 'category' ? 'Keine Kategorien mit Ausgaben im Zeitraum.' : 'Keine Tags mit Ausgaben im Zeitraum.')}</div>
+            <div class="report-section">${_emptyState(_trendKind === 'category' ? tr('reports.noCategoriesInRange') : tr('reports.noTagsInRange'))}</div>
           `;
           _bindTrendChipHandlers(body);
           return;
@@ -2092,7 +2100,7 @@
           <div class="report-section">${segmentedMarkup}${activeMarkup}${pickerOpenMarkup}</div>
           <div class="report-section">
             <div class="report-canvas-wrap"><canvas id="trendChart" role="img" aria-labelledby="reportTitle" aria-describedby="trendChartSummary"></canvas></div>
-            <p id="trendChartSummary" class="visually-hidden" aria-live="polite">${_escText(series.label)}, Mittelwert ${fmtCurrency(stats?.mean || 0)} pro Monat.</p>
+            <p id="trendChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.trendSummary', { label: _escText(series.label), mean: fmtCurrency(stats?.mean || 0) })}</p>
           </div>
           ${_trendStatsMarkup(stats)}
         `;
@@ -2117,7 +2125,7 @@
         if (bucketKeys.length >= maWindow * 2) {
           const smoothed = _movingAverage(series.data, maWindow);
           datasets.push({
-            label: `${series.label} (Glättung)`,
+            label: tr('reports.smoothing', { label: series.label }),
             data: smoothed,
             borderColor: series.color,
             borderDash: [4, 3],
@@ -2179,7 +2187,7 @@
         const histOut = histTxs.filter((t) => t.type === 'out');
 
         if (histOut.length === 0) {
-          body.innerHTML = _emptyState('Noch nicht genug Daten für eine Prognose. Mindestens vier Wochen Buchungen werden benötigt.');
+          body.innerHTML = _emptyState(tr('forecast.notEnough'));
           return;
         }
 
@@ -2237,24 +2245,24 @@
           if (avg <= 0 || daysPassed === 0) return { label: '', cls: '' };
           const pace = (cur / daysPassed) * daysTotal;
           const ratio = pace / avg;
-          if (ratio < 0.9) return { label: 'unter Ø', cls: 'is-ok' };
-          if (ratio < 1.1) return { label: 'auf Ø', cls: 'is-neutral' };
-          return { label: 'über Ø', cls: 'is-warn' };
+          if (ratio < 0.9) return { label: tr('forecast.statusUnder'), cls: 'is-ok' };
+          if (ratio < 1.1) return { label: tr('forecast.statusOn'), cls: 'is-neutral' };
+          return { label: tr('forecast.statusOver'), cls: 'is-warn' };
         };
 
         // Labels skalieren mit Time-Picker-Kind.
         const kind = reportRange.kind;
-        const cardLabel = kind === 'month' ? 'Voraussichtliche Monats-Ausgaben'
-          : kind === 'quarter' ? 'Voraussichtliche Quartals-Ausgaben'
-          : kind === 'year' ? 'Voraussichtliche Jahres-Ausgaben'
-          : 'Voraussichtliche Ausgaben';
-        const avgColLabel = kind === 'month' ? 'Ø Monat'
-          : kind === 'quarter' ? 'Ø Quartal'
-          : kind === 'year' ? 'Ø Jahr'
-          : 'Ø Zeitraum';
+        const cardLabel = kind === 'month' ? tr('forecast.projMonth')
+          : kind === 'quarter' ? tr('forecast.projQuarter')
+          : kind === 'year' ? tr('forecast.projYear')
+          : tr('forecast.proj');
+        const avgColLabel = kind === 'month' ? tr('forecast.avgMonth')
+          : kind === 'quarter' ? tr('forecast.avgQuarter')
+          : kind === 'year' ? tr('forecast.avgYear')
+          : tr('forecast.avgPeriod');
         const periodLabel = kind === 'custom'
           ? (() => {
-              const fmt = (iso) => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
+              const fmt = (iso) => { const [y, m, d] = iso.split('-'); return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(_locale()); };
               return `${fmt(rangeFromIso)} – ${fmt(rangeToIso)}`;
             })()
           : _rangeStepperLabel();
@@ -2264,13 +2272,13 @@
             <div class="forecast-card">
               <div class="forecast-card-label">${cardLabel}</div>
               <div class="forecast-card-value">${fmtCurrency(projected)}</div>
-              <div class="forecast-card-hint">${periodLabel} · Tag ${daysPassed} von ${daysTotal} · Basis: letzte 12 Monate</div>
+              <div class="forecast-card-hint">${periodLabel} · ${tr('forecast.basis', { day: daysPassed, total: daysTotal })}</div>
             </div>
           </div>
           <div class="report-section">
-            <h3 class="report-section-title">Pro Kategorie</h3>
+            <h3 class="report-section-title">${tr('forecast.perCategory')}</h3>
             <table class="forecast-table">
-              <thead><tr><th>Kategorie</th><th class="num">${avgColLabel}</th><th class="num">Aktuell</th><th class="num">Status</th></tr></thead>
+              <thead><tr><th>${tr('forecast.colCategory')}</th><th class="num">${avgColLabel}</th><th class="num">${tr('forecast.colCurrent')}</th><th class="num">${tr('forecast.colStatus')}</th></tr></thead>
               <tbody>
                 ${rows.map((r) => {
                   const cat = getCatById(r.catId);
@@ -2296,7 +2304,7 @@
       function renderReportTop(body, txs) {
         const top = txs.filter((t) => t.type === 'out').sort((a, b) => b.amount - a.amount).slice(0, 10);
         if (!top.length) {
-          body.innerHTML = _emptyState('Keine Ausgaben im Zeitraum.');
+          body.innerHTML = _emptyState(tr('reports.noExpenses'));
           return;
         }
         body.innerHTML = `<div class="report-section">${top.map(_txRowMarkup).join('')}</div>`;
@@ -2316,7 +2324,7 @@
         // and renderCategoryView() so the user sees the same order
         // wherever they look at categories.
         catSel.innerHTML = [...categories]
-          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .sort((a, b) => a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }))
           .map((c) => `<option value="${c.id}">${_escText(c.name)}</option>`)
           .join('');
         if (tx) catSel.value = tx.category_id;
@@ -2324,8 +2332,13 @@
         renderTagPills();
         renderTagSuggestions();
         document.querySelector('.modal h2').textContent = tx
-          ? 'Buchung bearbeiten'
-          : 'Neue Buchung';
+          ? tr('tx.editTitle')
+          : tr('tx.newTitle');
+        // Amount label carries the active currency symbol; placeholder uses
+        // the locale decimal separator.
+        const lblAmount = document.getElementById('lblAmount');
+        if (lblAmount) lblAmount.textContent = tr('tx.amount', { symbol: window.I18N ? I18N.currencySymbol() : '€' });
+        document.getElementById('inputAmount').placeholder = _formatAmountInput(0);
         document.getElementById('deleteBtn').style.display = tx ? 'block' : 'none';
         document.getElementById('modalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -2352,13 +2365,13 @@
         }
         // Falls die TX in keinem Pool liegt (etwa weil sie gerade per Sync entfernt
         // wurde): kein stilles Öffnen der Neuanlage — Hinweis geben.
-        toast('Buchung wurde nicht gefunden.');
+        toast(tr('tx.notFound'));
       }
 
       async function deleteCurrentTransaction() {
         const editId = document.getElementById('modalOverlay').dataset.editId;
         if (!editId) return;
-        if (!(await confirmAction({ title: 'Buchung wirklich löschen?', confirmLabel: 'Löschen' })))
+        if (!(await confirmAction({ title: tr('tx.deleteConfirm'), confirmLabel: tr('common.delete') })))
           return;
         try {
           await api('DELETE', `/transactions/${editId}`);
@@ -2374,7 +2387,7 @@
             updateSyncBadge();
             return;
           }
-          toast('Fehler beim Löschen: ' + e.message, 'error');
+          toast(tr('tx.deleteFailed') + e.message, 'error');
         }
       }
 
@@ -2385,24 +2398,34 @@
         document.getElementById('submitBtn').className =
           'submit-btn' + (type === 'in' ? ' green' : '');
         document.getElementById('submitBtn').textContent =
-          type === 'out' ? 'Ausgabe speichern' : 'Einnahme speichern';
+          type === 'out' ? tr('tx.saveExpense') : tr('tx.saveIncome');
       }
 
-      // The amount field is type="text" so iOS shows the decimal keypad
-      // (which uses a comma on de_DE), so we accept both `,` and `.` as
-      // the decimal separator here. Used by both the on-blur normalize
-      // and by the save handler.
+      // The amount field is type="text" so iOS shows the decimal keypad.
+      // Parsing is locale-aware: in a comma-decimal locale (de) dots are
+      // thousands separators and the comma is the decimal point; in a
+      // dot-decimal locale (en) it's the reverse. We also strip currency
+      // symbols/spaces so a pasted "1.234,56 €" still parses.
       function parseAmount(raw) {
         if (raw == null) return NaN;
-        return parseFloat(String(raw).trim().replace(',', '.'));
+        let s = String(raw).trim().replace(/[^\d.,-]/g, '');
+        const sep = window.I18N ? I18N.decimalSeparator() : ',';
+        if (sep === ',') {
+          s = s.replace(/\./g, '').replace(',', '.');
+        } else {
+          s = s.replace(/,/g, '');
+        }
+        return parseFloat(s);
       }
 
-      // Display the amount in the input with the German decimal comma so
-      // it matches what the user typed on the iOS decimal keypad and the
-      // formatted output everywhere else (fmtCurrency). No thousand
-      // separator — keeps round-tripping through parseAmount() lossless.
+      // Display the amount in the input with the locale decimal separator
+      // so it matches the formatted output everywhere else (fmtCurrency).
+      // No thousand separator — keeps round-tripping through parseAmount()
+      // lossless.
       function _formatAmountInput(n) {
-        return n.toFixed(2).replace('.', ',');
+        const s = n.toFixed(2);
+        const sep = window.I18N ? I18N.decimalSeparator() : ',';
+        return sep === ',' ? s.replace('.', ',') : s;
       }
 
       function normalizeAmountInput() {
@@ -2422,7 +2445,7 @@
         wrap.innerHTML = currentTags
           .map(
             (t) =>
-              `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-tag="${_escAttr(t)}" aria-label="Tag „${_escAttr(t)}“ entfernen">${ICON_SVG.close}</button></span>`
+              `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-tag="${_escAttr(t)}" aria-label="${_escAttr(tr('tags.removeAria', { name: t }))}">${ICON_SVG.close}</button></span>`
           )
           .join('');
         wrap.querySelectorAll('[data-remove-tag]').forEach((el) => {
@@ -2437,7 +2460,7 @@
         const cat = parseInt(document.getElementById('inputCat').value);
         const date = document.getElementById('inputDate').value;
         if (!amount || !date) {
-          toast('Gib Betrag und Datum ein.', 'error');
+          toast(tr('tx.amountDateRequired'), 'error');
           return;
         }
         const body = {
@@ -2464,7 +2487,7 @@
             updateSyncBadge();
             return;
           }
-          toast('Fehler beim Speichern: ' + e.message, 'error');
+          toast(tr('tx.saveFailed') + e.message, 'error');
         }
       }
 
@@ -2646,11 +2669,11 @@
         if (!box) return;
         if (!categories.length) {
           box.innerHTML =
-            '<p class="empty-state-hint">Noch keine Kategorien vorhanden.</p>';
+            `<p class="empty-state-hint">${tr('categories.none')}</p>`;
           return;
         }
         const sorted = [...categories].sort((a, b) =>
-          a.name.localeCompare(b.name, 'de', { sensitivity: 'base' })
+          a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' })
         );
         box.innerHTML = '';
         sorted.forEach((c) => {
@@ -2658,7 +2681,7 @@
           row.className = 'drawer-nav-item cat-pill-edit';
           row.setAttribute('role', 'button');
           row.setAttribute('tabindex', '0');
-          row.setAttribute('aria-label', 'Kategorie „' + c.name + '“ bearbeiten');
+          row.setAttribute('aria-label', tr('categories.editAria', { name: c.name }));
           row.onclick = () => openCatModal(c.id);
           row.onkeydown = (e) => handleRowActivate(e, () => openCatModal(c.id));
           const iconWrap = document.createElement('div');
@@ -2692,20 +2715,20 @@
       // a group is the order the picker renders.
       const CAT_ICON_GROUPS = [
         {
-          title: 'Haus & Haushalt',
+          titleKey: 'catIcons.home',
           ids: ['house', 'buildings', 'door', 'bed', 'armchair', 'couch',
             'chair', 'television', 'lightbulb', 'fan', 'oven', 'plug',
             'key', 'wrench', 'hammer', 'paint-brush', 'broom', 'fire'],
         },
         {
-          title: 'Kleidung & Pflege',
+          titleKey: 'catIcons.clothing',
           ids: ['t-shirt', 'dress', 'hoodie', 'pants', 'sneaker',
             'eyeglasses', 'watch', 'backpack', 'handbag', 'baby',
             'coat-hanger', 'washing-machine', 'scissors', 'shower',
             'drop', 'toilet-paper'],
         },
         {
-          title: 'Lebensmittel & Getränke',
+          titleKey: 'catIcons.food',
           ids: ['shopping-cart', 'basket', 'bag', 'bag-simple', 'bread',
             'egg', 'carrot', 'fish', 'orange', 'avocado', 'pepper',
             'hamburger', 'pizza', 'cookie', 'cake', 'ice-cream',
@@ -2713,40 +2736,40 @@
             'martini', 'fork-knife', 'knife'],
         },
         {
-          title: 'Mobilität',
+          titleKey: 'catIcons.mobility',
           ids: ['car', 'taxi', 'bus', 'truck', 'motorcycle', 'scooter',
             'bicycle', 'train', 'train-regional', 'airplane', 'boat',
             'gas-pump', 'map-pin', 'road-horizon'],
         },
         {
-          title: 'Freizeit',
+          titleKey: 'catIcons.leisure',
           ids: ['film-strip', 'camera', 'game-controller', 'dice-five',
             'music-note', 'guitar', 'headphones', 'microphone',
             'palette', 'confetti', 'book', 'books', 'gift', 'ticket',
             'soccer-ball', 'basketball', 'tennis-ball', 'tree-palm'],
         },
         {
-          title: 'Gesundheit',
+          titleKey: 'catIcons.health',
           ids: ['pill', 'first-aid-kit', 'bandaids', 'heartbeat',
             'stethoscope', 'syringe', 'hospital', 'brain', 'virus',
             'mask-happy', 'tooth', 'dog', 'cat'],
         },
         {
-          title: 'Büro & Bildung',
+          titleKey: 'catIcons.office',
           ids: ['briefcase', 'graduation-cap', 'chalkboard', 'book-open',
             'pencil', 'envelope', 'calendar', 'clipboard', 'calculator',
             'laptop', 'folder', 'files', 'magnifying-glass',
             'newspaper-clipping', 'paperclip'],
         },
         {
-          title: 'Finanzen',
+          titleKey: 'catIcons.finance',
           ids: ['wallet', 'credit-card', 'bank', 'vault', 'coins', 'coin',
             'coin-vertical', 'piggy-bank', 'currency-eur',
             'currency-dollar', 'hand-coins', 'receipt', 'invoice',
             'money', 'trend-up', 'trend-down', 'chart-line', 'percent'],
         },
         {
-          title: 'Sonstiges',
+          titleKey: 'catIcons.other',
           ids: ['package', 'star', 'heart', 'sparkle', 'magic-wand',
             'globe', 'bell', 'alarm', 'sun', 'moon', 'cloud', 'snowflake',
             'umbrella', 'mountains', 'tree', 'plant', 'leaf',
@@ -2802,14 +2825,14 @@
           editingCatColor = c.color || '#9e9b96';
           editingCatIcon = CAT_ICON_VALID.has(c.icon) ? c.icon : CAT_ICON_FALLBACK;
           document.getElementById('catEditName').value = c.name || '';
-          title.textContent = 'Kategorie bearbeiten';
+          title.textContent = tr('categories.editTitle');
           deleteBtn.style.display = '';
         } else {
           editingCatId = null;
           editingCatColor = CAT_CREATE_COLORS[categories.length % CAT_CREATE_COLORS.length];
           editingCatIcon = CAT_ICON_FALLBACK;
           document.getElementById('catEditName').value = '';
-          title.textContent = 'Neue Kategorie';
+          title.textContent = tr('categories.newTitle');
           deleteBtn.style.display = 'none';
         }
         renderCatColorSwatches();
@@ -2832,17 +2855,17 @@
         const hasCurrent = presets.some(
           (p) => p.hex.toLowerCase() === editingCatColor.toLowerCase()
         );
-        if (!hasCurrent) presets.push({ hex: editingCatColor, name: 'Eigene Farbe' });
+        if (!hasCurrent) presets.push({ hex: editingCatColor, name: tr('categories.customColorName') });
         const box = document.getElementById('catEditColors');
         box.innerHTML =
           presets
             .map((p) => {
               const isActive = p.hex.toLowerCase() === editingCatColor.toLowerCase();
-              return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="Farbe ${p.name} wählen" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
+              return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
             })
             .join('') +
-          `<label class="color-swatch-custom" title="Eigene Farbe">
-     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)" aria-label="Eigene Farbe wählen">
+          `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
+     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
    </label>`;
       }
 
@@ -2897,7 +2920,7 @@
               onclick="pickIcon('${id}')">${catIconSvg(id)}</button>`;
           }).join('');
           return `<section class="icon-picker-section">
-            <h3 class="icon-picker-section-title">${g.title}</h3>
+            <h3 class="icon-picker-section-title">${tr(g.titleKey)}</h3>
             <div class="icon-picker-grid">${cells}</div>
           </section>`;
         }).join('');
@@ -2915,14 +2938,11 @@
           ? editingCatIcon
           : CAT_ICON_FALLBACK;
         if (!name) {
-          toast('Name ist ein Pflichtfeld.', 'error');
+          toast(tr('common.nameRequired'), 'error');
           return;
         }
         if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) {
-          toast(
-            'Die Farbe ist ungültig. Ein gültiger Hex-Wert wird benötigt, z. B. #D97757.',
-            'error'
-          );
+          toast(tr('categories.invalidColor'), 'error');
           return;
         }
         try {
@@ -2937,9 +2957,9 @@
           await loadAndRender();
         } catch (e) {
           if (e.message && e.message.includes('409')) {
-            toast('Eine Kategorie mit diesem Namen existiert bereits.', 'error');
+            toast(tr('categories.exists'), 'error');
           } else {
-            toast('Fehler beim Speichern: ' + e.message, 'error');
+            toast(tr('tx.saveFailed') + e.message, 'error');
           }
         }
       }
@@ -2947,8 +2967,8 @@
       async function deleteCategoryEdit() {
         if (!editingCatId) return;
         const ok = await confirmAction({
-          title: 'Kategorie wirklich löschen?',
-          confirmLabel: 'Löschen',
+          title: tr('categories.deleteConfirm'),
+          confirmLabel: tr('common.delete'),
         });
         if (!ok) return;
         try {
@@ -2959,12 +2979,9 @@
           await loadAndRender();
         } catch (e) {
           if (e.message && e.message.includes('409')) {
-            toast(
-              'Kategorie wird noch in Buchungen verwendet und kann nicht gelöscht werden.',
-              'error'
-            );
+            toast(tr('categories.deleteInUse'), 'error');
           } else {
-            toast('Fehler beim Löschen: ' + e.message, 'error');
+            toast(tr('tx.deleteFailed') + e.message, 'error');
           }
         }
       }
@@ -2977,7 +2994,7 @@
         if (!box) return;
         if (!availableTags.length) {
           box.innerHTML =
-            '<p class="empty-state-hint">Noch keine Tags vorhanden.</p>';
+            `<p class="empty-state-hint">${tr('tags.none')}</p>`;
           return;
         }
         box.innerHTML = availableTags
@@ -2998,12 +3015,12 @@
         if (name) {
           editingTagName = name;
           document.getElementById('tagEditName').value = name;
-          title.textContent = 'Tag bearbeiten';
+          title.textContent = tr('tags.editTitle');
           deleteBtn.style.display = '';
         } else {
           editingTagName = null;
           document.getElementById('tagEditName').value = '';
-          title.textContent = 'Neuer Tag';
+          title.textContent = tr('tags.newTitle');
           deleteBtn.style.display = 'none';
         }
         document.getElementById('tagModalOverlay').classList.add('open');
@@ -3026,7 +3043,7 @@
       async function saveTagEdit() {
         const newName = document.getElementById('tagEditName').value.trim();
         if (!newName) {
-          toast('Name ist ein Pflichtfeld.', 'error');
+          toast(tr('common.nameRequired'), 'error');
           return;
         }
         if (editingTagName && newName === editingTagName) {
@@ -3045,9 +3062,9 @@
           await loadAndRender();
         } catch (e) {
           if (e.message && e.message.includes('409')) {
-            toast('Ein Tag mit diesem Namen existiert bereits.', 'error');
+            toast(tr('tags.exists'), 'error');
           } else {
-            toast('Fehler beim Speichern: ' + e.message, 'error');
+            toast(tr('tx.saveFailed') + e.message, 'error');
           }
         }
       }
@@ -3055,9 +3072,9 @@
       async function deleteTagEdit() {
         if (!editingTagName) return;
         const ok = await confirmAction({
-          title: 'Tag wirklich löschen?',
-          message: 'Der Tag wird aus allen Buchungen entfernt.',
-          confirmLabel: 'Löschen',
+          title: tr('tags.deleteConfirm'),
+          message: tr('tags.deleteRemoves'),
+          confirmLabel: tr('common.delete'),
         });
         if (!ok) return;
         try {
@@ -3067,7 +3084,7 @@
           renderTagList();
           await loadAndRender();
         } catch (e) {
-          toast('Fehler beim Löschen: ' + e.message, 'error');
+          toast(tr('tx.deleteFailed') + e.message, 'error');
         }
       }
 
@@ -3089,7 +3106,7 @@
 
       function setSyncAria(status) {
         const btn = document.getElementById('syncBtn');
-        if (btn) btn.setAttribute('aria-label', `Synchronisieren – ${status}`);
+        if (btn) btn.setAttribute('aria-label', tr('sync.label', { status }));
         // The dedicated live region announces the change actively; the
         // aria-label above gives a stable description on focus.
         const live = document.getElementById('syncAriaLive');
@@ -3103,7 +3120,7 @@
         btn.classList.remove('error');
         dot.classList.remove('error');
         dot.classList.add('syncing');
-        setSyncAria('Wird synchronisiert');
+        setSyncAria(tr('sync.syncing'));
 
         let flushed = 0;
         let failed = 0;
@@ -3137,7 +3154,7 @@
           btn.classList.add('error');
           dot.classList.add('error');
           setSyncBadge(remaining);
-          const msg = 'Offline – Änderungen werden gespeichert';
+          const msg = tr('sync.offlineSaving');
           setSyncAria(msg);
           toast(msg, 'error');
           return;
@@ -3146,18 +3163,18 @@
           btn.classList.add('error');
           dot.classList.add('error');
           setSyncBadge(remaining);
-          const msg = 'Synchronisation fehlgeschlagen – Verbindung prüfen';
+          const msg = tr('sync.failed');
           setSyncAria(msg);
           toast(msg, 'error');
           return;
         }
 
         setSyncBadge(0);
-        setSyncAria('Gespeichert');
+        setSyncAria(tr('sync.synced'));
         if (failed > 0) {
           const msg = failed === 1
-            ? '1 Buchung konnte nicht gespeichert werden.'
-            : `${failed} Buchungen konnten nicht gespeichert werden.`;
+            ? tr('sync.oneFailed')
+            : tr('sync.manyFailed', { n: failed });
           toast(msg, 'error');
         }
         if (flushed > 0 || failed > 0) await loadTags();
@@ -3173,11 +3190,33 @@
         return localStorage.getItem('pocketlog.defaultView') || 'transactions';
       }
 
-      function syncDefaultViewRadios() {
-        const val = loadDefaultView();
-        document.querySelectorAll('input[name="defaultView"]').forEach((r) => {
-          r.checked = r.value === val;
-        });
+      // ── LANGUAGE & CURRENCY ───────────────────────────────────────────────────────
+      // Both are display preferences mirrored to the server like theme. The
+      // i18n runtime (i18n.js) owns the localStorage + the live re-render via
+      // the 'i18n:changed' event; these just persist to the DB on top.
+      function saveLocale(locale) {
+        pushSettings({ locale });
+        if (window.I18N) I18N.setLocale(locale); // persists + dispatches i18n:changed
+      }
+
+      function saveCurrency(cur) {
+        pushSettings({ currency: cur });
+        if (window.I18N) I18N.setCurrency(cur); // persists + dispatches i18n:changed
+      }
+
+      // Mirror the persisted preferences into the four Darstellung selects.
+      // Called when the panel opens and after a server reconcile.
+      function syncDisplaySelects() {
+        const set = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.value = val;
+        };
+        set('selTheme', loadTheme());
+        set('selDefaultView', loadDefaultView());
+        if (window.I18N) {
+          set('selLocale', I18N.getLocale());
+          set('selCurrency', I18N.getCurrency());
+        }
       }
 
       // ── THEME ─────────────────────────────────────────────────────────────────────
@@ -3217,13 +3256,6 @@
         return localStorage.getItem(THEME_KEY) || 'system';
       }
 
-      function syncThemeRadios() {
-        const val = loadTheme();
-        document.querySelectorAll('input[name="appTheme"]').forEach((r) => {
-          r.checked = r.value === val;
-        });
-      }
-
       // ── SETTINGS-BACKUP (Server) ──────────────────────────────────────────────────
       // localStorage rendert sofort — diese Helpers gleichen das mit der DB ab,
       // damit das Theme + die Startansicht eine iOS-localStorage-Eviction überleben.
@@ -3243,14 +3275,24 @@
         if (s.theme && s.theme !== loadTheme()) {
           localStorage.setItem(THEME_KEY, s.theme);
           applyTheme(s.theme);
-          syncThemeRadios();
         }
         if (s.default_view && s.default_view !== loadDefaultView()) {
           // Panel-Switch mitten in der Session wäre disruptiv — nur die
           // Persistenz nachziehen, beim nächsten Start greift der Wert.
           localStorage.setItem('pocketlog.defaultView', s.default_view);
-          syncDefaultViewRadios();
         }
+        // Language/currency: the server is the source of truth across
+        // devices, so apply a divergent value live (re-renders via
+        // i18n:changed). setLocale is async; we don't need to await it.
+        if (window.I18N) {
+          if (s.locale && s.locale !== I18N.getLocale()) {
+            I18N.setLocale(s.locale);
+          }
+          if (s.currency && s.currency !== I18N.getCurrency()) {
+            I18N.setCurrency(s.currency);
+          }
+        }
+        syncDisplaySelects();
       }
 
 
@@ -3261,18 +3303,18 @@
           btn.classList.remove('error');
           dot.classList.remove('error');
           setSyncBadge(0);
-          setSyncAria('Gespeichert');
+          setSyncAria(tr('sync.synced'));
           return;
         }
         const pending = await window.PocketLogOutbox.count();
         if (pending > 0) {
           setSyncBadge(pending);
-          setSyncAria('Änderungen werden gespeichert');
+          setSyncAria(tr('sync.saving'));
         } else {
           btn.classList.remove('error');
           dot.classList.remove('error');
           setSyncBadge(0);
-          setSyncAria('Gespeichert');
+          setSyncAria(tr('sync.synced'));
         }
       }
 
@@ -3354,8 +3396,8 @@
             const failed = ev.data.failed || 0;
             if (failed > 0) {
               const msg = failed === 1
-                ? '1 Buchung konnte nicht gespeichert werden.'
-                : `${failed} Buchungen konnten nicht gespeichert werden.`;
+                ? tr('sync.oneFailed')
+                : tr('sync.manyFailed', { n: failed });
               toast(msg, 'error');
             }
             loadTags();
@@ -3372,28 +3414,34 @@
           const blob = await res.blob();
           const file = new File([blob], 'pocketlog.csv', { type: 'text/csv' });
           if (navigator.canShare?.({ files: [file] })) {
-            await navigator.share({ files: [file], title: 'PocketLog Export' });
+            await navigator.share({ files: [file], title: tr('importExport.exportName') });
           } else {
             _triggerDownload(blob, 'pocketlog.csv');
           }
         } catch (e) {
-          if (e.name !== 'AbortError') showToast('Export fehlgeschlagen', 'error');
+          if (e.name !== 'AbortError') showToast(tr('importExport.exportFailed'), 'error');
         }
       }
 
       async function downloadExampleCSV() {
+        // Per-language sample: category names + descriptions match the
+        // user's seeded default categories. Falls back to German if the
+        // active language has no example file.
+        const bundle = window.I18N ? I18N.getBundle() : 'de';
+        const filename = tr('importExport.exampleFilename');
         try {
-          const res = await fetch('/example-import.csv');
+          let res = await fetch('/example-import-' + bundle + '.csv');
+          if (!res.ok) res = await fetch('/example-import-de.csv');
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const blob = await res.blob();
-          const file = new File([blob], 'pocketlog-beispiel.csv', { type: 'text/csv' });
+          const file = new File([blob], filename, { type: 'text/csv' });
           if (navigator.canShare?.({ files: [file] })) {
-            await navigator.share({ files: [file], title: 'PocketLog Beispieldatei' });
+            await navigator.share({ files: [file], title: tr('importExport.exampleName') });
           } else {
-            _triggerDownload(blob, 'pocketlog-beispiel.csv');
+            _triggerDownload(blob, filename);
           }
         } catch (e) {
-          if (e.name !== 'AbortError') showToast('Download fehlgeschlagen', 'error');
+          if (e.name !== 'AbortError') showToast(tr('common.downloadFailed'), 'error');
         }
       }
 
@@ -3412,7 +3460,7 @@
         const file = ev.target.files && ev.target.files[0];
         if (!file) return;
         const status = document.getElementById('importStatus');
-        status.textContent = 'Wird importiert';
+        status.textContent = tr('importExport.importing');
         status.className = 'status-msg';
         const fd = new FormData();
         fd.append('file', file);
@@ -3423,11 +3471,11 @@
             throw new Error('HTTP ' + res.status + ' – ' + txt.slice(0, 200));
           }
           const r = await res.json();
-          const parts = [`${r.imported} Buchungen importiert`];
-          if (r.skipped) parts.push(`${r.skipped} übersprungen`);
+          const parts = [tr('importExport.imported', { n: r.imported })];
+          if (r.skipped) parts.push(tr('importExport.skipped', { n: r.skipped }));
           if (r.errors && r.errors.length) {
-            parts.push(`${r.errors.length} Zeilen übersprungen`);
-            console.warn('CSV-Import: Fehlerhafte Zeilen', r.errors);
+            parts.push(tr('importExport.errorRows', { n: r.errors.length }));
+            console.warn('CSV import: rows with errors', r.errors);
           }
           status.textContent = parts.join(' · ');
           status.className = 'status-msg ' + (r.imported > 0 ? 'ok' : 'err');
@@ -3435,7 +3483,7 @@
           await loadTags();
           await loadAndRender();
         } catch (e) {
-          status.textContent = 'Import fehlgeschlagen – Verbindung prüfen';
+          status.textContent = tr('importExport.importFailed');
           status.className = 'status-msg err';
         } finally {
           ev.target.value = ''; // gleichen File-Reimport erlauben
@@ -3470,16 +3518,16 @@
           await loadAndRender();
           toast(successMsg, 'ok');
         } catch (e) {
-          toast('Löschen fehlgeschlagen: ' + e.message, 'error');
+          toast(tr('admin.deleteFailed') + e.message, 'error');
         }
       }
 
       async function resetTransactionsOnly() {
-        await _runReset('/admin/transactions', 'Alle Buchungen gelöscht.');
+        await _runReset('/admin/transactions', tr('admin.txDeleted'));
       }
 
       async function resetAllData() {
-        await _runReset('/admin/all-data', 'Alle Daten gelöscht.');
+        await _runReset('/admin/all-data', tr('admin.allDeleted'));
       }
 
       // ── CACHE-CLEAR ───────────────────────────────────────────────────────────────
@@ -3496,10 +3544,10 @@
         } catch (_) {}
         const msg =
           pending === null
-            ? 'Möglicherweise nicht synchronisierte Änderungen gehen dabei verloren.'
+            ? tr('admin.cacheUnsynced')
             : pending > 0
-              ? `${pending} noch nicht synchronisierte Änderungen gehen dabei verloren.`
-              : 'App-Daten werden beim nächsten Laden neu geholt.';
+              ? tr('admin.cacheUnsyncedN', { n: pending })
+              : tr('admin.cacheRefetch');
         document.getElementById('cacheModalMsg').textContent = msg;
         document.getElementById('cacheModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -3532,9 +3580,9 @@
           closeDrawer();
           updateSyncBadge();
           await loadAndRender();
-          toast('Cache geleert.', 'ok');
+          toast(tr('admin.cacheCleared'), 'ok');
         } catch (e) {
-          toast('Cache konnte nicht geleert werden: ' + e.message, 'error');
+          toast(tr('admin.cacheFailed') + e.message, 'error');
         }
       }
 
@@ -3569,7 +3617,7 @@
         }
         if (/CrOS/.test(ua)) return 'ChromeOS';
         if (/Linux/.test(ua)) return 'Linux';
-        return 'Unbekannt';
+        return tr('info.pointerUnknown');
       }
 
       function _detectBrowser() {
@@ -3596,11 +3644,11 @@
       function _detectDisplayMode() {
         if (window.matchMedia('(display-mode: standalone)').matches) return 'PWA (standalone)';
         if (window.matchMedia('(display-mode: minimal-ui)').matches) return 'PWA (minimal-ui)';
-        if (window.matchMedia('(display-mode: fullscreen)').matches) return 'Vollbild';
+        if (window.matchMedia('(display-mode: fullscreen)').matches) return tr('info.displayFullscreen');
         // iOS-Safari nutzt die nicht-standardisierte navigator.standalone-Flag
         // statt display-mode, bis heute.
-        if (navigator.standalone === true) return 'PWA (Home-Bildschirm)';
-        return 'Browser-Tab';
+        if (navigator.standalone === true) return tr('info.displayHomescreen');
+        return tr('info.displayBrowserTab');
       }
 
       function _detectPointer() {
@@ -3608,13 +3656,13 @@
         const fine = window.matchMedia('(pointer: fine)').matches;
         const hover = window.matchMedia('(hover: hover)').matches;
         const parts = [];
-        if (coarse && fine) parts.push('Touch + Maus');
-        else if (coarse) parts.push('Touch');
-        else if (fine) parts.push('Maus/Trackpad');
-        else parts.push('Unbekannt');
+        if (coarse && fine) parts.push(tr('info.pointerTouchMouse'));
+        else if (coarse) parts.push(tr('info.pointerTouch'));
+        else if (fine) parts.push(tr('info.pointerMouse'));
+        else parts.push(tr('info.pointerUnknown'));
         const touchPts = navigator.maxTouchPoints || 0;
-        if (touchPts > 0) parts.push(`max ${touchPts} Touch-Punkte`);
-        if (!hover) parts.push('kein Hover');
+        if (touchPts > 0) parts.push(tr('info.touchPoints', { n: touchPts }));
+        if (!hover) parts.push(tr('info.noHover'));
         return parts.join(' · ');
       }
 
@@ -3649,9 +3697,9 @@
           zoomParts.push(`Pinch ${Math.round(pinch * 100) / 100}×`);
         }
 
-        set('infoBackendVersion', 'Wird geladen');
+        set('infoBackendVersion', tr('info.loadingValue'));
         set('infoSwVersion', '–');
-        set('infoOnline', navigator.onLine ? 'Prüfe Backend…' : 'Offline');
+        set('infoOnline', navigator.onLine ? tr('info.checking') : tr('info.offline'));
         set('infoPlatform', _detectPlatform());
         set('infoBrowser', _detectBrowser());
         set('infoDisplayMode', _detectDisplayMode());
@@ -3669,15 +3717,15 @@
           try {
             const reg = await navigator.serviceWorker.getRegistration();
             if (!reg) {
-              set('infoSwState', 'Nicht registriert');
+              set('infoSwState', tr('info.swNotRegistered'));
             } else {
               const sw = reg.active || reg.waiting || reg.installing;
-              const state = sw ? sw.state : 'unbekannt';
-              const controlled = navigator.serviceWorker.controller ? ' · aktiv' : '';
+              const state = sw ? sw.state : tr('info.swUnknown');
+              const controlled = navigator.serviceWorker.controller ? ' · ' + tr('info.swActive') : '';
               set('infoSwState', `${state}${controlled}`);
             }
           } catch (e) {
-            set('infoSwState', 'Fehler');
+            set('infoSwState', tr('info.error'));
           }
           try {
             const keys = await caches.keys();
@@ -3687,7 +3735,7 @@
             set('infoSwVersion', '–');
           }
         } else {
-          set('infoSwState', 'Nicht unterstützt');
+          set('infoSwState', tr('info.unsupported'));
         }
 
         // Outbox-Stand
@@ -3705,9 +3753,9 @@
         if (navigator.onLine) {
           try {
             const res = await fetch(API + '/health', { cache: 'no-store' });
-            set('infoOnline', res.ok ? 'Online · Backend erreichbar' : `Online · HTTP ${res.status}`);
+            set('infoOnline', res.ok ? tr('info.onlineReachable') : tr('info.onlineHttp', { status: res.status }));
           } catch (e) {
-            set('infoOnline', 'Online · Backend unerreichbar');
+            set('infoOnline', tr('info.onlineUnreachable'));
           }
         }
 
@@ -3735,11 +3783,11 @@
         } catch (_) {}
         if (pending > 0) {
           const ok = await confirmAction({
-            title: 'Trotzdem abmelden?',
-            message:
-              `${pending} noch nicht synchronisierte Änderung${pending === 1 ? '' : 'en'} ` +
-              'geht beim Abmelden verloren.',
-            confirmLabel: 'Trotzdem abmelden',
+            title: tr('account.logoutTitle'),
+            message: pending === 1
+              ? tr('account.logoutBodyOne', { n: pending })
+              : tr('account.logoutBodyOther', { n: pending }),
+            confirmLabel: tr('account.logoutConfirm'),
             destructive: true,
           });
           if (!ok) return;
@@ -3785,7 +3833,7 @@
         const next = document.getElementById('pwModalNew').value;
         const confirmPw = document.getElementById('pwModalConfirm').value;
         if (next !== confirmPw) {
-          _setAuthError('pwModalError', 'Die neuen Passwörter stimmen nicht überein.');
+          _setAuthError('pwModalError', tr('pwd.newMismatch'));
           return;
         }
         const pwErr = validateNewPassword(next);
@@ -3794,8 +3842,7 @@
           return;
         }
         if (next === current) {
-          _setAuthError('pwModalError',
-            'Das neue Passwort muss sich vom alten unterscheiden.');
+          _setAuthError('pwModalError', tr('pwd.mustDiffer'));
           return;
         }
         try {
@@ -3805,25 +3852,24 @@
           if (res.status === 400) {
             const data = await res.json().catch(() => ({}));
             if (data.detail === 'current_password_wrong') {
-              _setAuthError('pwModalError', 'Das aktuelle Passwort stimmt nicht.');
+              _setAuthError('pwModalError', tr('pwd.currentWrong'));
             } else if (data.detail === 'password_reused') {
-              _setAuthError('pwModalError',
-                'Das neue Passwort muss sich vom alten unterscheiden.');
+              _setAuthError('pwModalError', tr('pwd.mustDiffer'));
             } else {
-              _setAuthError('pwModalError', 'Passwortwechsel fehlgeschlagen.');
+              _setAuthError('pwModalError', tr('pwd.changeFailed'));
             }
             return;
           }
           if (!res.ok) {
-            _setAuthError('pwModalError', 'Passwortwechsel fehlgeschlagen.');
+            _setAuthError('pwModalError', tr('pwd.changeFailed'));
             return;
           }
           closePwModal();
           // Andere Sessions sind serverseitig gekillt — diese hier
           // bleibt aktiv. Toast nur zur Bestätigung.
-          toast('Passwort geändert.', 'ok');
+          toast(tr('pwd.changed'), 'ok');
         } catch (e) {
-          _setAuthError('pwModalError', 'Verbindung zum Server fehlgeschlagen.');
+          _setAuthError('pwModalError', tr('common.connectionFailed'));
         }
       }
 
@@ -3834,11 +3880,11 @@
       async function loadAdminUsers() {
         const list = document.getElementById('adminUserList');
         if (!list) return;
-        list.textContent = 'Wird geladen …';
+        list.textContent = tr('common.loading');
         try {
           _adminUsers = await api('GET', '/admin/users');
         } catch (e) {
-          list.textContent = 'Liste konnte nicht geladen werden.';
+          list.textContent = tr('users.loadFailed');
           return;
         }
         // Aktuelle Identität nochmal frisch ziehen, falls das Body-Flag
@@ -3860,7 +3906,7 @@
         const list = document.getElementById('adminUserList');
         if (!list) return;
         if (!_adminUsers.length) {
-          list.textContent = 'Keine Benutzer gefunden.';
+          list.textContent = tr('users.none');
           return;
         }
         // _currentMe MUSS gesetzt sein, sonst kann die UI ihre Self-Schutz-
@@ -3868,7 +3914,7 @@
         // aktivierbar wirken, obwohl das Backend sie 400/403't). Lieber
         // einen Render-Fehler zeigen als eine UI-Lüge.
         if (!_currentMe || _currentMe.id == null) {
-          list.textContent = 'Benutzerliste kann ohne Identitätsdaten nicht angezeigt werden.';
+          list.textContent = tr('users.noIdentity');
           return;
         }
         const meId = _currentMe.id;
@@ -3876,34 +3922,34 @@
           .map((u) => {
             const isSelf = u.id === meId;
             const tags = [];
-            if (u.is_admin) tags.push('<span class="admin-user-tag admin">Administrator</span>');
-            if (!u.is_active) tags.push('<span class="admin-user-tag inactive">Deaktiviert</span>');
+            if (u.is_admin) tags.push(`<span class="admin-user-tag admin">${tr('users.tagAdmin')}</span>`);
+            if (!u.is_active) tags.push(`<span class="admin-user-tag inactive">${tr('users.tagInactive')}</span>`);
             if (u.force_change_password)
-              tags.push('<span class="admin-user-tag">Passwortwechsel offen</span>');
+              tags.push(`<span class="admin-user-tag">${tr('users.pwPending')}</span>`);
             const actions = [];
             actions.push(
-              `<button type="button" onclick="openAdminResetPwModal(${u.id})">Passwort zurücksetzen</button>`
+              `<button type="button" onclick="openAdminResetPwModal(${u.id})">${tr('users.resetPw')}</button>`
             );
             if (!u.is_admin) {
               if (u.is_active) {
                 actions.push(
                   `<button type="button" ${isSelf ? 'disabled' : ''} ` +
-                  `onclick="adminToggleActive(${u.id}, false)">Deaktivieren</button>`
+                  `onclick="adminToggleActive(${u.id}, false)">${tr('users.deactivate')}</button>`
                 );
               } else {
                 actions.push(
-                  `<button type="button" onclick="adminToggleActive(${u.id}, true)">Reaktivieren</button>`
+                  `<button type="button" onclick="adminToggleActive(${u.id}, true)">${tr('users.reactivate')}</button>`
                 );
               }
             }
             actions.push(
               `<button type="button" class="btn-destructive" ${isSelf ? 'disabled' : ''} ` +
-              `onclick="adminDeleteUserConfirm(${u.id})">Löschen</button>`
+              `onclick="adminDeleteUserConfirm(${u.id})">${tr('common.delete')}</button>`
             );
             return `
               <div class="admin-user-row">
                 <div class="admin-user-row-head">
-                  <span class="admin-user-name">${_escText(u.username)}${isSelf ? ' (du)' : ''}</span>
+                  <span class="admin-user-name">${_escText(u.username)}${isSelf ? tr('users.selfSuffix') : ''}</span>
                 </div>
                 ${tags.length ? `<div class="admin-user-tags">${tags.join('')}</div>` : ''}
                 <div class="admin-user-actions">${actions.join('')}</div>
@@ -3942,18 +3988,18 @@
         try {
           const res = await authFetch('POST', '/admin/users', { username, password });
           if (res.status === 409) {
-            _setAuthError('adminCreateError', 'Der Benutzername ist bereits vergeben.');
+            _setAuthError('adminCreateError', tr('users.exists'));
             return;
           }
           if (!res.ok) {
-            _setAuthError('adminCreateError', 'Benutzer konnte nicht angelegt werden.');
+            _setAuthError('adminCreateError', tr('users.createFailed'));
             return;
           }
           closeAdminCreateUserModal();
           await loadAdminUsers();
-          toast('Benutzer angelegt.', 'ok');
+          toast(tr('users.created'), 'ok');
         } catch (e) {
-          _setAuthError('adminCreateError', 'Verbindung zum Server fehlgeschlagen.');
+          _setAuthError('adminCreateError', tr('common.connectionFailed'));
         }
       }
 
@@ -3962,7 +4008,7 @@
         _resetPwTargetId = userId;
         const target = _adminUsers.find((u) => u.id === userId);
         document.getElementById('adminResetPwIntro').textContent = target
-          ? `Setzt das Passwort für „${target.username}" zurück.`
+          ? tr('users.resetIntro', { name: target.username })
           : '';
         document.getElementById('adminResetPwInput').value = '';
         _setAuthError('adminResetPwError', '');
@@ -3996,26 +4042,26 @@
             { new_password: pw }
           );
           if (!res.ok) {
-            _setAuthError('adminResetPwError', 'Passwort konnte nicht gesetzt werden.');
+            _setAuthError('adminResetPwError', tr('users.resetFailed'));
             return;
           }
           closeAdminResetPwModal();
           await loadAdminUsers();
-          toast('Passwort zurückgesetzt.', 'ok');
+          toast(tr('users.reset'), 'ok');
         } catch (e) {
-          _setAuthError('adminResetPwError', 'Verbindung zum Server fehlgeschlagen.');
+          _setAuthError('adminResetPwError', tr('common.connectionFailed'));
         }
       }
 
       async function adminToggleActive(userId, activate) {
         const target = _adminUsers.find((u) => u.id === userId);
-        const name = target ? target.username : 'Benutzer';
+        const name = target ? target.username : tr('users.fallbackName');
         const ok = await confirmAction({
-          title: activate ? `${name} reaktivieren?` : `${name} deaktivieren?`,
+          title: activate ? tr('users.reactivateTitle', { name }) : tr('users.deactivateTitle', { name }),
           message: activate
-            ? `${name} kann sich anschließend wieder anmelden.`
-            : `${name} kann sich danach nicht mehr anmelden. Daten bleiben erhalten.`,
-          confirmLabel: activate ? 'Reaktivieren' : 'Deaktivieren',
+            ? tr('users.activateConfirm', { name })
+            : tr('users.deactivateConfirm', { name }),
+          confirmLabel: activate ? tr('users.reactivate') : tr('users.deactivate'),
           destructive: !activate,
         });
         if (!ok) return;
@@ -4025,38 +4071,36 @@
             `/admin/users/${userId}/${activate ? 'activate' : 'deactivate'}`
           );
           if (!res.ok) {
-            toast('Aktion fehlgeschlagen.', 'error');
+            toast(tr('common.actionFailed'), 'error');
             return;
           }
           await loadAdminUsers();
-          toast(activate ? 'Benutzer reaktiviert.' : 'Benutzer deaktiviert.', 'ok');
+          toast(activate ? tr('users.activated') : tr('users.deactivated'), 'ok');
         } catch (e) {
-          toast('Verbindung fehlgeschlagen.', 'error');
+          toast(tr('common.connectionFailed'), 'error');
         }
       }
 
       async function adminDeleteUserConfirm(userId) {
         const target = _adminUsers.find((u) => u.id === userId);
-        const name = target ? target.username : 'Benutzer';
+        const name = target ? target.username : tr('users.fallbackName');
         const ok = await confirmAction({
-          title: `${name} löschen?`,
-          message:
-            `Alle Buchungen, Kategorien und Tags von ${name} werden ebenfalls gelöscht. ` +
-            'Diese Aktion lässt sich nicht rückgängig machen.',
-          confirmLabel: 'Endgültig löschen',
+          title: tr('users.deleteConfirm', { name }),
+          message: tr('users.deleteBody', { name }) + tr('users.deleteIrreversible'),
+          confirmLabel: tr('users.deleteFinal'),
           destructive: true,
         });
         if (!ok) return;
         try {
           const res = await authFetch('DELETE', `/admin/users/${userId}`);
           if (!res.ok) {
-            toast('Löschen fehlgeschlagen.', 'error');
+            toast(tr('users.deleteFailed'), 'error');
             return;
           }
           await loadAdminUsers();
-          toast('Benutzer gelöscht.', 'ok');
+          toast(tr('users.deleted'), 'ok');
         } catch (e) {
-          toast('Verbindung fehlgeschlagen.', 'error');
+          toast(tr('common.connectionFailed'), 'error');
         }
       }
 
@@ -4111,7 +4155,7 @@
             return;
           }
           if (!res.ok) {
-            _setAuthError('loginError', 'Benutzername oder Passwort stimmt nicht.');
+            _setAuthError('loginError', tr('auth.badCredentials'));
             return;
           }
           const data = await res.json();
@@ -4119,7 +4163,7 @@
           _broadcastCsrfToSw(window._csrfToken);
           await _afterAuthSuccess(data.user);
         } catch (e) {
-          _setAuthError('loginError', 'Verbindung zum Server fehlgeschlagen.');
+          _setAuthError('loginError', tr('common.connectionFailed'));
         } finally {
           if (btn) btn.disabled = false;
         }
@@ -4131,7 +4175,7 @@
         const password = document.getElementById('setupPassword').value;
         const confirm = document.getElementById('setupPasswordConfirm').value;
         if (password !== confirm) {
-          _setAuthError('setupError', 'Die Passwörter stimmen nicht überein.');
+          _setAuthError('setupError', tr('auth.passwordsMismatch'));
           return;
         }
         const pwErr = validateNewPassword(password);
@@ -4141,23 +4185,29 @@
         }
         try {
           const res = await authFetch('POST', '/auth/setup',
-            { username, password }, { csrf: false, reloadOn401: false });
+            { username, password, locale: window.I18N ? I18N.getLocale() : 'de-DE' },
+            { csrf: false, reloadOn401: false });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             const detail = data.detail || '';
             if (detail === 'setup_already_done') {
-              _setAuthError('setupError',
-                'Die Ersteinrichtung ist bereits abgeschlossen. Bitte neu laden.');
+              _setAuthError('setupError', tr('auth.setupAlreadyDone'));
             } else {
-              _setAuthError('setupError',
-                'Einrichtung fehlgeschlagen. Eingaben prüfen und erneut versuchen.');
+              _setAuthError('setupError', tr('auth.setupFailed'));
             }
             return;
           }
           location.reload();
         } catch (e) {
-          _setAuthError('setupError', 'Verbindung zum Server fehlgeschlagen.');
+          _setAuthError('setupError', tr('common.connectionFailed'));
         }
+      }
+
+      // Setup-screen language picker: switch the UI live (not logged in yet,
+      // so no server persistence — the chosen language is sent with setup
+      // and seeds the default categories).
+      function setLocaleFromSetup(locale) {
+        if (window.I18N) I18N.setLocale(locale);
       }
 
       async function submitForcePassword() {
@@ -4165,7 +4215,7 @@
         const next = document.getElementById('forcePwNew').value;
         const confirm = document.getElementById('forcePwConfirm').value;
         if (next !== confirm) {
-          _setAuthError('forcePwError', 'Die neuen Passwörter stimmen nicht überein.');
+          _setAuthError('forcePwError', tr('pwd.newMismatch'));
           return;
         }
         const pwErr = validateNewPassword(next);
@@ -4198,12 +4248,12 @@
             return;
           }
           if (!res.ok) {
-            _setAuthError('forcePwError', 'Passwortwechsel fehlgeschlagen.');
+            _setAuthError('forcePwError', tr('pwd.changeFailed'));
             return;
           }
           location.reload();
         } catch (e) {
-          _setAuthError('forcePwError', 'Verbindung zum Server fehlgeschlagen.');
+          _setAuthError('forcePwError', tr('common.connectionFailed'));
         }
       }
 
@@ -4211,7 +4261,7 @@
         _currentMe = me;
         document.body.classList.toggle('is-admin', !!me.is_admin);
         const usernameLabel = document.getElementById('accountUsername');
-        if (usernameLabel) usernameLabel.textContent = `Angemeldet als ${me.username}`;
+        if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
         if (me.force_change_password) {
           // Im Force-Change-Zustand ist das alte Passwort administrativ
           // (Admin-Reset oder CLI) — die Backend-Verifikation ist
@@ -4231,10 +4281,33 @@
         reconcileSettingsFromServer();
       }
 
+      // React to a language/currency switch: rebuild locale-derived month
+      // names and re-render whatever is on screen so dynamic strings and
+      // number/date formatting pick up the change. Static markup is already
+      // re-translated by i18n.js (applyStatic) before this fires.
+      function onI18nChanged() {
+        rebuildMonthNames();
+        syncDisplaySelects();
+        const me = _currentMe;
+        if (me) {
+          const usernameLabel = document.getElementById('accountUsername');
+          if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
+        }
+        renderAll();
+        if (_activePanel === 'charts') renderReport();
+      }
+
       // ── INIT ──────────────────────────────────────────────────────────────────────
       async function init() {
+        // Wait for the i18n bundle so the first render is already in the
+        // active language (i18n.js kicked the load off synchronously).
+        if (window.I18N && I18N.ready) {
+          try { await I18N.ready; } catch (e) {}
+        }
+        rebuildMonthNames();
+        document.addEventListener('i18n:changed', onI18nChanged);
         applyTheme(loadTheme());
-        syncThemeRadios();
+        syncDisplaySelects();
         applyRange({ skipRender: true });
         if ('serviceWorker' in navigator) {
           try {
@@ -4247,6 +4320,7 @@
         // 1) Setup-Status: braucht die DB einen ersten Admin?
         let needsSetup = false;
         let suggested = null;
+        let defaultLocale = null;
         try {
           const res = await fetch(API + '/auth/setup-status', {
             credentials: 'same-origin',
@@ -4255,6 +4329,7 @@
             const data = await res.json();
             needsSetup = !!data.needs_setup;
             suggested = data.suggested_username || null;
+            defaultLocale = data.default_locale || null;
           }
         } catch (e) {
           // Backend nicht erreichbar — Login-View zeigen, der User
@@ -4268,9 +4343,18 @@
               u.readOnly = true;
             }
             const intro = document.getElementById('setupIntro');
-            if (intro) intro.textContent =
-              `Vergib ein Passwort für das vorhandene Admin-Konto „${suggested}".`;
+            if (intro) {
+              intro.textContent = tr('auth.setupIntroExisting', { name: suggested });
+              intro.removeAttribute('data-i18n'); // dynamic now; don't let applyStatic overwrite
+            }
           }
+          // On a fresh instance, prefer the operator's ENV default locale
+          // over the browser guess (unless the user already chose one).
+          if (defaultLocale && window.I18N && !localStorage.getItem('pocketlog.locale')) {
+            I18N.setLocale(defaultLocale);
+          }
+          const sl = document.getElementById('setupLocale');
+          if (sl && window.I18N) sl.value = I18N.getLocale();
           _showAuthView('setup');
           setTimeout(() => {
             const focusEl = document.getElementById(

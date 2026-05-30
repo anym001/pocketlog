@@ -36,6 +36,11 @@ Tracking, keine Telemetrie.
 - **Offline-Fähigkeit** – App funktioniert ohne Verbindung; Änderungen werden
   beim nächsten Online-Sein automatisch synchronisiert
 - **Themes** – Hell, Dunkel, System (wird aus den Einstellungen gespeichert)
+- **Sprache & Währung** – Deutsch/Englisch mit Regionsvarianten (de-DE, de-AT,
+  de-CH, en-GB, en-US) steuern Übersetzung *und* Datums-/Zahlenformat; Anzeige­-
+  währung (EUR, USD, GBP, CHF, JPY) frei wählbar. Pro Benutzer einstellbar,
+  Instanz-Default über `DEFAULT_LOCALE` / `DEFAULT_CURRENCY` (siehe
+  [Konfiguration](#konfiguration))
 - **Multi-User** – jede Identität hat eigene Daten; Admin legt weitere Benutzer an
 - **Eigener Login** – Username/Passwort mit Admin-Rolle, Setup-Flow und
   Brute-Force-Schutz
@@ -87,6 +92,8 @@ unter _Einstellungen → Benutzerverwaltung_ an.
 | `DB_USER` | – | Datenbankbenutzer |
 | `DB_PASSWORD` | – | Datenbankpasswort |
 | `TZ` | `UTC` | Zeitzone des Containers |
+| `DEFAULT_LOCALE` | `de-DE` | Start-Locale neuer Konten (BCP-47: `de-DE`, `de-AT`, `de-CH`, `en-GB`, `en-US`). Jeder Nutzer kann es selbst überschreiben. |
+| `DEFAULT_CURRENCY` | `EUR` | Start-Währung neuer Konten (ISO 4217: `EUR`, `USD`, `GBP`, `CHF`, `JPY`). Reine Anzeige, pro Nutzer überschreibbar. |
 | `SESSION_COOKIE_SECURE` | `1` | Auf `0` setzen, wenn PocketLog ohne HTTPS betrieben wird |
 | `SESSION_LIFETIME_HOURS` | `24` | Session-Dauer ohne „Eingeloggt bleiben" |
 | `SESSION_REMEMBER_DAYS` | `30` | Session-Dauer mit „Eingeloggt bleiben" |

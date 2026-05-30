@@ -25,8 +25,16 @@ const SHELL = [
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/i18n.js',
   '/manifest.webmanifest',
   '/db.js',
+  // Both language bundles are precached so switching language works
+  // offline, not just the one that happened to be active first.
+  '/i18n/de.json',
+  '/i18n/en.json',
+  // Per-language CSV import samples.
+  '/example-import-de.csv',
+  '/example-import-en.csv',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',
@@ -50,6 +58,7 @@ function isNetworkFirstShell(url) {
     url.pathname === '/index.html' ||
     url.pathname === '/styles.css' ||
     url.pathname === '/app.js' ||
+    url.pathname === '/i18n.js' ||
     url.pathname === '/db.js' ||
     url.pathname === '/manifest.webmanifest'
   );

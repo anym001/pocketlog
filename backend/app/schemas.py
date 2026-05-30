@@ -183,9 +183,63 @@ class TransactionOut(BaseModel):
 # storage eviction. Single row per user. PUT accepts a partial body — only
 # the provided fields are updated, the rest stays untouched.
 
+# BCP-47 locales the UI offers. The translation bundle is the primary
+# subtag (must have a frontend/i18n/<subtag>.json); the full tag drives
+# Intl number/date formatting, so en-GB and en-US share one en.json but
+# format dates differently. Curated list — extend together with the
+# corresponding picker entry (and a JSON bundle for a new primary subtag).
+SUPPORTED_LOCALES = ("de-DE", "de-AT", "de-CH", "en-GB", "en-US")
+# Translation bundles that actually ship under frontend/i18n/.
+SUPPORTED_BUNDLES = ("de", "en")
+
+
+def bundle_for_locale(locale: str) -> str:
+    """Primary subtag (de-AT -> de). Falls back to the first bundle for an
+    unknown/empty value so a render never breaks on a stray tag."""
+    sub = (locale or "").split("-", 1)[0].lower()
+    return sub if sub in SUPPORTED_BUNDLES else SUPPORTED_BUNDLES[0]
+
+
+def _normalise_locale(value: str) -> str:
+    parts = (value or "").strip().replace("_", "-").split("-")
+    if parts and parts[0]:
+        parts[0] = parts[0].lower()
+    if len(parts) > 1 and parts[1]:
+        parts[1] = parts[1].upper()
+    code = "-".join(p for p in parts if p)
+    if code not in SUPPORTED_LOCALES:
+        raise ValueError(
+            "locale must be one of: " + ", ".join(SUPPORTED_LOCALES)
+        )
+    return code
+
+
+Locale = Annotated[str, AfterValidator(_normalise_locale)]
+
+# Currencies offered in the picker. Display-only (ISO 4217) — amounts are
+# never converted. Curated list, easy to extend; the symbol/position is
+# resolved client-side via Intl.NumberFormat, so adding one here is the
+# only change needed.
+SUPPORTED_CURRENCIES = ("EUR", "USD", "GBP", "CHF", "JPY")
+
+
+def _normalise_currency(value: str) -> str:
+    code = (value or "").strip().upper()
+    if code not in SUPPORTED_CURRENCIES:
+        raise ValueError(
+            "currency must be one of: " + ", ".join(SUPPORTED_CURRENCIES)
+        )
+    return code
+
+
+Currency = Annotated[str, AfterValidator(_normalise_currency)]
+
+
 class SettingsOut(BaseModel):
     theme: Literal["system", "light", "dark"]
     default_view: Literal["transactions", "categories"]
+    locale: str
+    currency: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -193,6 +247,8 @@ class SettingsOut(BaseModel):
 class SettingsUpdate(BaseModel):
     theme: Literal["system", "light", "dark"] | None = None
     default_view: Literal["transactions", "categories"] | None = None
+    locale: Locale | None = None
+    currency: Currency | None = None
 
 
 # -------- Import --------
@@ -282,6 +338,10 @@ class SetupRequest(BaseModel):
     durchrutscht."""
     username: str = Field(min_length=1, max_length=150)
     password: NewPassword
+    # Locale picked on the setup screen. Seeds the default categories in the
+    # matching language and becomes the admin's stored preference. Optional
+    # so an older client that doesn't send it falls back to the default.
+    locale: Locale = "de-DE"
 
     @field_validator("username", mode="after")
     @classmethod
@@ -292,6 +352,9 @@ class SetupRequest(BaseModel):
 class SetupStatus(BaseModel):
     needs_setup: bool
     suggested_username: str | None = None
+    # Deployment default (ENV-configurable) so the setup screen can preselect
+    # the operator's locale instead of always guessing from the browser.
+    default_locale: str = "de-DE"
 
 
 class LoginRequest(BaseModel):

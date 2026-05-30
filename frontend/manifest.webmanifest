@@ -1,5 +1,5 @@
 {
-  "name": "PocketLog – Haushaltsbuch",
+  "name": "PocketLog",
   "short_name": "PocketLog",
   "description": "Privates Haushaltsbuch als PWA – Daten auf dem eigenen Server.",
   "start_url": "/",
