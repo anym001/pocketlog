@@ -1,15 +1,15 @@
 {
-  "app": { "name": "PocketLog", "tagline": "Haushaltsbuch", "documentTitle": "PocketLog – Haushaltsbuch" },
+  "app": {
+    "documentTitle": "PocketLog – Haushaltsbuch"
+  },
   "common": {
     "save": "Speichern",
     "cancel": "Abbrechen",
     "delete": "Löschen",
     "confirm": "Bestätigen",
     "apply": "Übernehmen",
-    "create": "Anlegen",
     "back": "Zurück",
     "close": "Schließen",
-    "placeholder": "–",
     "connectionFailed": "Verbindung zum Server fehlgeschlagen.",
     "actionFailed": "Aktion fehlgeschlagen.",
     "downloadFailed": "Download fehlgeschlagen",
@@ -33,9 +33,18 @@
     "toggleSidebar": "Seitenleiste umschalten",
     "sync": "Synchronisieren"
   },
-  "summary": { "expenses": "Ausgaben", "income": "Einnahmen" },
-  "search": { "placeholder": "Buchungen durchsuchen", "label": "Buchungen durchsuchen" },
-  "fab": { "newTransaction": "Neue Buchung", "exitSearch": "Suche beenden" },
+  "summary": {
+    "expenses": "Ausgaben",
+    "income": "Einnahmen"
+  },
+  "search": {
+    "placeholder": "Buchungen durchsuchen",
+    "label": "Buchungen durchsuchen"
+  },
+  "fab": {
+    "newTransaction": "Neue Buchung",
+    "exitSearch": "Suche beenden"
+  },
   "auth": {
     "loginTitle": "Anmelden",
     "username": "Benutzername",
@@ -84,7 +93,6 @@
   },
   "display": {
     "title": "Darstellung",
-    "appearance": "Erscheinungsbild",
     "theme": "Erscheinungsbild",
     "themeSystem": "System",
     "themeLight": "Hell",
@@ -95,7 +103,6 @@
     "language": "Sprache & Region",
     "currency": "Währung"
   },
-  "lang": { "de": "Deutsch", "en": "English" },
   "catIcons": {
     "home": "Haus & Haushalt",
     "clothing": "Kleidung & Pflege",
@@ -156,7 +163,6 @@
     "expense": "Ausgabe",
     "income": "Einnahme",
     "amount": "Betrag ({symbol})",
-    "amountPlaceholder": "0,00",
     "date": "Datum",
     "category": "Kategorie",
     "notes": "Notizen",
@@ -170,7 +176,6 @@
     "amountDateRequired": "Gib Betrag und Datum ein.",
     "saveFailed": "Fehler beim Speichern: ",
     "deleteFailed": "Fehler beim Löschen: ",
-    "loadError": "Fehler beim Laden:",
     "emptyMonth": "Keine Buchungen in diesem Monat.",
     "emptyMonthHint": "Tippe auf <strong>+</strong>, um eine hinzuzufügen.",
     "emptySearch": "Keine Buchungen passen zu „{query}“.",
@@ -230,7 +235,6 @@
   },
   "forecast": {
     "notEnough": "Noch nicht genug Daten für eine Prognose. Mindestens vier Wochen Buchungen werden benötigt.",
-    "aboveAvg": "über Ø",
     "projMonth": "Voraussichtliche Monats-Ausgaben",
     "projQuarter": "Voraussichtliche Quartals-Ausgaben",
     "projYear": "Voraussichtliche Jahres-Ausgaben",
@@ -261,7 +265,6 @@
     "imported": "{n} Buchungen importiert",
     "skipped": "{n} übersprungen",
     "errorRows": "{n} Zeilen übersprungen",
-    "errorTitle": "CSV-Import: Fehlerhafte Zeilen",
     "importFailed": "Import fehlgeschlagen – Verbindung prüfen"
   },
   "admin": {
@@ -341,11 +344,12 @@
     "offlineSaving": "Offline – Änderungen werden gespeichert",
     "failed": "Synchronisation fehlgeschlagen – Verbindung prüfen",
     "oneFailed": "1 Buchung konnte nicht gespeichert werden.",
-    "manyFailed": "{n} Buchungen konnten nicht gespeichert werden.",
-    "pendingOne": "{n} noch nicht synchronisierte Änderung",
-    "pendingOther": "{n} noch nicht synchronisierte Änderungen"
+    "manyFailed": "{n} Buchungen konnten nicht gespeichert werden."
   },
-  "date": { "today": "Heute", "yesterday": "Gestern" },
+  "date": {
+    "today": "Heute",
+    "yesterday": "Gestern"
+  },
   "info": {
     "versions": "Versionen",
     "backend": "App (Backend)",

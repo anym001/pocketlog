@@ -36,6 +36,11 @@ Tracking, keine Telemetrie.
 - **Offline-Fähigkeit** – App funktioniert ohne Verbindung; Änderungen werden
   beim nächsten Online-Sein automatisch synchronisiert
 - **Themes** – Hell, Dunkel, System (wird aus den Einstellungen gespeichert)
+- **Sprache & Währung** – Deutsch/Englisch mit Regionsvarianten (de-DE, de-AT,
+  de-CH, en-GB, en-US) steuern Übersetzung *und* Datums-/Zahlenformat; Anzeige­-
+  währung (EUR, USD, GBP, CHF, JPY) frei wählbar. Pro Benutzer einstellbar,
+  Instanz-Default über `DEFAULT_LOCALE` / `DEFAULT_CURRENCY` (siehe
+  [Konfiguration](#konfiguration))
 - **Multi-User** – jede Identität hat eigene Daten; Admin legt weitere Benutzer an
 - **Eigener Login** – Username/Passwort mit Admin-Rolle, Setup-Flow und
   Brute-Force-Schutz
