@@ -244,6 +244,28 @@
         return null;
       }
 
+      // Map a backend 422 (Pydantic) password error to a translated message.
+      // The frontend pre-validates, so this only fires if a weak password
+      // somehow reaches the API — keeps the coded backend response (no German)
+      // translatable end-to-end. Returns null if no password error is present.
+      function _passwordErrorMessage(data) {
+        const det = data && data.detail;
+        if (!Array.isArray(det)) return null;
+        const e = det.find(
+          (d) => Array.isArray(d.loc) && d.loc.some((x) => /password/i.test(String(x)))
+        );
+        if (!e) return null;
+        const ctx = e.ctx || {};
+        if (e.type === 'string_too_short') return tr('pwd.tooShort', { n: ctx.min_length != null ? ctx.min_length : 12 });
+        if (e.type === 'string_too_long') return tr('pwd.tooLong', { n: ctx.max_length != null ? ctx.max_length : 128 });
+        if (e.type === 'password_complexity') {
+          const miss = String(ctx.missing || '').split(/[,\s]+/).filter(Boolean);
+          const map = { upper: 'pwd.needUpper', lower: 'pwd.needLower', digit: 'pwd.needDigit', special: 'pwd.needSpecial' };
+          if (miss[0] && map[miss[0]]) return tr(map[miss[0]]);
+        }
+        return null;
+      }
+
       // ── FORMATTING ────────────────────────────────────────────────────────────────
       // Locale + currency come from i18n.js (the active language drives the
       // number/date locale; currency is a separate ISO code, display-only).
@@ -3471,14 +3493,37 @@
             throw new Error('HTTP ' + res.status + ' – ' + txt.slice(0, 200));
           }
           const r = await res.json();
+          const errs = r.errors || [];
           const parts = [tr('importExport.imported', { n: r.imported })];
           if (r.skipped) parts.push(tr('importExport.skipped', { n: r.skipped }));
-          if (r.errors && r.errors.length) {
-            parts.push(tr('importExport.errorRows', { n: r.errors.length }));
-            console.warn('CSV import: rows with errors', r.errors);
-          }
-          status.textContent = parts.join(' · ');
+          if (errs.length) parts.push(tr('importExport.errorRows', { n: errs.length }));
+
           status.className = 'status-msg ' + (r.imported > 0 ? 'ok' : 'err');
+          status.innerHTML = '';
+          const summary = document.createElement('div');
+          summary.textContent = parts.join(' · ');
+          status.appendChild(summary);
+
+          // Per-row errors, translated from the backend codes. Capped so a
+          // mostly-broken file can't render thousands of rows. textContent
+          // throughout — error params may echo raw CSV cell content.
+          if (errs.length) {
+            const CAP = 10;
+            const list = document.createElement('ul');
+            list.className = 'import-error-list';
+            errs.slice(0, CAP).forEach((e) => {
+              const li = document.createElement('li');
+              const msg = tr('importExport.error.' + e.code, e.params || {});
+              li.textContent = tr('importExport.rowLabel', { row: e.row, msg });
+              list.appendChild(li);
+            });
+            if (errs.length > CAP) {
+              const li = document.createElement('li');
+              li.textContent = tr('importExport.moreErrors', { n: errs.length - CAP });
+              list.appendChild(li);
+            }
+            status.appendChild(list);
+          }
           await loadCategories();
           await loadTags();
           await loadAndRender();
@@ -3861,7 +3906,8 @@
             return;
           }
           if (!res.ok) {
-            _setAuthError('pwModalError', tr('pwd.changeFailed'));
+            const pe = _passwordErrorMessage(await res.json().catch(() => ({})));
+            _setAuthError('pwModalError', pe || tr('pwd.changeFailed'));
             return;
           }
           closePwModal();
@@ -3992,7 +4038,8 @@
             return;
           }
           if (!res.ok) {
-            _setAuthError('adminCreateError', tr('users.createFailed'));
+            const pe = _passwordErrorMessage(await res.json().catch(() => ({})));
+            _setAuthError('adminCreateError', pe || tr('users.createFailed'));
             return;
           }
           closeAdminCreateUserModal();
@@ -4042,7 +4089,8 @@
             { new_password: pw }
           );
           if (!res.ok) {
-            _setAuthError('adminResetPwError', tr('users.resetFailed'));
+            const pe = _passwordErrorMessage(await res.json().catch(() => ({})));
+            _setAuthError('adminResetPwError', pe || tr('users.resetFailed'));
             return;
           }
           closeAdminResetPwModal();
@@ -4189,8 +4237,10 @@
             { csrf: false, reloadOn401: false });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            const detail = data.detail || '';
-            if (detail === 'setup_already_done') {
+            const pe = _passwordErrorMessage(data);
+            if (pe) {
+              _setAuthError('setupError', pe);
+            } else if (data.detail === 'setup_already_done') {
               _setAuthError('setupError', tr('auth.setupAlreadyDone'));
             } else {
               _setAuthError('setupError', tr('auth.setupFailed'));
@@ -4248,7 +4298,8 @@
             return;
           }
           if (!res.ok) {
-            _setAuthError('forcePwError', tr('pwd.changeFailed'));
+            const pe = _passwordErrorMessage(await res.json().catch(() => ({})));
+            _setAuthError('forcePwError', pe || tr('pwd.changeFailed'));
             return;
           }
           location.reload();

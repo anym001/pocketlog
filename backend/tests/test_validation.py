@@ -246,7 +246,7 @@ def test_csv_import_rejects_beyond_row_cap(client, monkeypatch):
     data = r.json()
     assert data["imported"] == 5
     # Truncation surfaces as an error entry, not a silent drop.
-    assert any("Limit" in e["reason"] for e in data["errors"])
+    assert any(e["code"] == "row_limit" for e in data["errors"])
 
 
 def test_csv_import_caps_tags_per_row(client):

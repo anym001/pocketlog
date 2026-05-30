@@ -80,10 +80,11 @@ def _cmd_reset_admin_password(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-        try:
-            schemas.validate_password_complexity(password)
-        except ValueError as exc:
-            print(str(exc), file=sys.stderr)
+        # validate_password_complexity raises a PydanticCustomError (stable
+        # code for the API). The CLI is operator-facing, so print the plain
+        # German policy hint instead of the machine code.
+        if schemas.password_missing_classes(password):
+            print(schemas.PASSWORD_POLICY_HINT, file=sys.stderr)
             return 1
 
         user.password_hash = auth.hash_password(password)

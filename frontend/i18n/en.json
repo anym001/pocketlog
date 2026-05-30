@@ -70,6 +70,7 @@
   },
   "pwd": {
     "tooShort": "The password must be at least {n} characters long.",
+    "tooLong": "The password must be at most {n} characters long.",
     "needUpper": "The password needs at least one uppercase letter.",
     "needLower": "The password needs at least one lowercase letter.",
     "needDigit": "The password needs at least one number.",
@@ -265,7 +266,21 @@
     "imported": "{n} transactions imported",
     "skipped": "{n} skipped",
     "errorRows": "{n} rows skipped",
-    "importFailed": "Import failed – check your connection"
+    "importFailed": "Import failed – check your connection",
+    "rowLabel": "Row {row}: {msg}",
+    "moreErrors": "+{n} more",
+    "error": {
+      "date_unrecognised": "Date not recognised: {value}",
+      "amount_unrecognised": "Amount not recognised: {value}",
+      "amount_missing": "Column “amount” is missing or empty",
+      "date_missing": "Column “date” is missing or empty",
+      "type_unknown_zero": "Unknown type and amount = 0",
+      "amount_zero": "Amount must not be 0",
+      "header_missing": "Header row missing",
+      "row_limit": "Row limit ({max}) exceeded – rest skipped",
+      "db_conflict": "Database conflict while saving. Please try again.",
+      "row_invalid": "Row could not be processed"
+    }
   },
   "admin": {
     "cacheClear": "Clear cache",

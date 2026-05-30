@@ -70,6 +70,7 @@
   },
   "pwd": {
     "tooShort": "Das Passwort muss mindestens {n} Zeichen lang sein.",
+    "tooLong": "Das Passwort darf höchstens {n} Zeichen lang sein.",
     "needUpper": "Das Passwort braucht mindestens einen Großbuchstaben.",
     "needLower": "Das Passwort braucht mindestens einen Kleinbuchstaben.",
     "needDigit": "Das Passwort braucht mindestens eine Zahl.",
@@ -265,7 +266,21 @@
     "imported": "{n} Buchungen importiert",
     "skipped": "{n} übersprungen",
     "errorRows": "{n} Zeilen übersprungen",
-    "importFailed": "Import fehlgeschlagen – Verbindung prüfen"
+    "importFailed": "Import fehlgeschlagen – Verbindung prüfen",
+    "rowLabel": "Zeile {row}: {msg}",
+    "moreErrors": "+{n} weitere",
+    "error": {
+      "date_unrecognised": "Datum nicht erkannt: {value}",
+      "amount_unrecognised": "Betrag nicht erkannt: {value}",
+      "amount_missing": "Spalte „amount“ fehlt oder ist leer",
+      "date_missing": "Spalte „date“ fehlt oder ist leer",
+      "type_unknown_zero": "Typ unbekannt und Betrag = 0",
+      "amount_zero": "Betrag darf nicht 0 sein",
+      "header_missing": "Kopfzeile fehlt",
+      "row_limit": "Zeilenlimit ({max}) überschritten – Rest übersprungen",
+      "db_conflict": "Datenbankkonflikt beim Speichern. Bitte erneut versuchen.",
+      "row_invalid": "Zeile konnte nicht verarbeitet werden"
+    }
   },
   "admin": {
     "cacheClear": "Cache leeren",
