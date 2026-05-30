@@ -331,6 +331,12 @@ def setup_admin(
         crud.set_user_password(
             db, user, payload.password, force_change=False
         )
+        # Sprache aus dem Setup-Screen auch für den migrierten Admin
+        # übernehmen — seine Kategorien sind ggf. schon (deutsch) geseedet,
+        # aber die UI-Sprache soll der Wahl folgen.
+        crud.update_settings(
+            db, user.id, schemas.SettingsUpdate(language=payload.language)
+        )
     else:
         # Fresh install: neuer Admin-User mit dem gewählten Username.
         try:
@@ -340,6 +346,7 @@ def setup_admin(
                 password=payload.password,
                 is_admin=True,
                 force_change_password=False,
+                language=payload.language,
             )
         except IntegrityError:
             # Race mit einem parallelen Setup-Versuch — Username
@@ -507,6 +514,11 @@ def admin_list_users(db: DB, _admin: AdminUser):
 def admin_create_user(
     payload: schemas.AdminUserCreate, db: DB, _admin: AdminUser
 ):
+    # New users inherit the creating admin's language + currency so their
+    # default categories are seeded in the admin's language and the app
+    # opens in the same locale (the admin can't know the user's own
+    # preference yet; the user can change it later in Settings).
+    admin_settings = crud.get_or_create_settings(db, _admin.id)
     try:
         user = crud.create_user(
             db,
@@ -514,6 +526,8 @@ def admin_create_user(
             password=payload.password,
             is_admin=False,
             force_change_password=True,
+            language=admin_settings.language,
+            currency=admin_settings.currency,
         )
     except IntegrityError:
         raise HTTPException(status_code=409, detail="username_taken")

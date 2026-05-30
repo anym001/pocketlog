@@ -183,9 +183,36 @@ class TransactionOut(BaseModel):
 # storage eviction. Single row per user. PUT accepts a partial body — only
 # the provided fields are updated, the rest stays untouched.
 
+# Languages the UI ships translations for. Extend together with a new
+# frontend/i18n/<lang>.json catalogue — the Literal keeps the API in
+# lock-step with the available bundles so a typo can't persist a dead tag.
+SUPPORTED_LANGUAGES = ("de", "en")
+Language = Literal["de", "en"]
+
+# Currencies offered in the picker. Display-only (ISO 4217) — amounts are
+# never converted. Curated list, easy to extend; the symbol/position is
+# resolved client-side via Intl.NumberFormat, so adding one here is the
+# only change needed.
+SUPPORTED_CURRENCIES = ("EUR", "USD", "GBP", "CHF", "JPY")
+
+
+def _normalise_currency(value: str) -> str:
+    code = (value or "").strip().upper()
+    if code not in SUPPORTED_CURRENCIES:
+        raise ValueError(
+            "currency must be one of: " + ", ".join(SUPPORTED_CURRENCIES)
+        )
+    return code
+
+
+Currency = Annotated[str, AfterValidator(_normalise_currency)]
+
+
 class SettingsOut(BaseModel):
     theme: Literal["system", "light", "dark"]
     default_view: Literal["transactions", "categories"]
+    language: Language
+    currency: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -193,6 +220,8 @@ class SettingsOut(BaseModel):
 class SettingsUpdate(BaseModel):
     theme: Literal["system", "light", "dark"] | None = None
     default_view: Literal["transactions", "categories"] | None = None
+    language: Language | None = None
+    currency: Currency | None = None
 
 
 # -------- Import --------
@@ -282,6 +311,10 @@ class SetupRequest(BaseModel):
     durchrutscht."""
     username: str = Field(min_length=1, max_length=150)
     password: NewPassword
+    # Language picked on the setup screen. Seeds the default categories in
+    # this language and becomes the admin's stored preference. Optional so
+    # an older client that doesn't send it still falls back to German.
+    language: Language = "de"
 
     @field_validator("username", mode="after")
     @classmethod

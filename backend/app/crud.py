@@ -12,15 +12,44 @@ from . import auth, models, schemas
 
 logger = logging.getLogger("uvicorn.error")
 
+# Default categories seeded once per user. Each entry carries a stable
+# ``key`` plus its icon/color; the human-readable name is looked up per
+# language in DEFAULT_CATEGORY_NAMES so a new user gets them in the
+# language chosen at creation. Once seeded they are plain user data —
+# renaming or deleting never re-translates them.
 DEFAULT_CATEGORIES: list[dict] = [
-    {"name": "Lebensmittel", "icon": "shopping-cart", "color": "#c8623a"},
-    {"name": "Wohnen", "icon": "house", "color": "#8a6a4a"},
-    {"name": "Mobilität", "icon": "car", "color": "#6a8a8a"},
-    {"name": "Freizeit", "icon": "film-strip", "color": "#a45ab0"},
-    {"name": "Gesundheit", "icon": "pill", "color": "#3a7d5c"},
-    {"name": "Sonstiges", "icon": "package", "color": "#9e9b96"},
-    {"name": "Gehalt", "icon": "wallet", "color": "#3a7d5c"},
+    {"key": "groceries", "icon": "shopping-cart", "color": "#c8623a"},
+    {"key": "housing", "icon": "house", "color": "#8a6a4a"},
+    {"key": "mobility", "icon": "car", "color": "#6a8a8a"},
+    {"key": "leisure", "icon": "film-strip", "color": "#a45ab0"},
+    {"key": "health", "icon": "pill", "color": "#3a7d5c"},
+    {"key": "other", "icon": "package", "color": "#9e9b96"},
+    {"key": "salary", "icon": "wallet", "color": "#3a7d5c"},
 ]
+
+DEFAULT_CATEGORY_NAMES: dict[str, dict[str, str]] = {
+    "de": {
+        "groceries": "Lebensmittel",
+        "housing": "Wohnen",
+        "mobility": "Mobilität",
+        "leisure": "Freizeit",
+        "health": "Gesundheit",
+        "other": "Sonstiges",
+        "salary": "Gehalt",
+    },
+    "en": {
+        "groceries": "Groceries",
+        "housing": "Housing",
+        "mobility": "Transport",
+        "leisure": "Leisure",
+        "health": "Health",
+        "other": "Other",
+        "salary": "Salary",
+    },
+}
+
+DEFAULT_LANGUAGE = "de"
+DEFAULT_CURRENCY = "EUR"
 
 
 # ---------- Users ----------
@@ -84,9 +113,14 @@ def create_user(
     password: str,
     is_admin: bool = False,
     force_change_password: bool = True,
+    language: str = DEFAULT_LANGUAGE,
+    currency: str = DEFAULT_CURRENCY,
 ) -> models.User:
-    """Legt einen neuen User samt Standard-Kategorien an. Wirft
-    ``IntegrityError`` bei Username-Kollision."""
+    """Legt einen neuen User samt Standard-Kategorien an. ``language``
+    bestimmt, in welcher Sprache die Default-Kategorien geseedet werden
+    und wird zusammen mit ``currency`` als initiale Settings-Zeile
+    abgelegt (Admin-angelegte User erben so die Präferenzen des Admins).
+    Wirft ``IntegrityError`` bei Username-Kollision."""
     user = models.User(
         username=username,
         password_hash=auth.hash_password(password),
@@ -101,7 +135,13 @@ def create_user(
         db.rollback()
         raise
     db.refresh(user)
-    _seed_default_categories(db, user.id)
+    _seed_default_categories(db, user.id, language)
+    db.add(
+        models.UserSettings(
+            user_id=user.id, language=language, currency=currency
+        )
+    )
+    db.commit()
     return user
 
 
@@ -142,9 +182,19 @@ def delete_user(db: Session, user: models.User) -> None:
 
 # ---------- Categories ----------
 
-def _seed_default_categories(db: Session, user_id: int) -> None:
+def _seed_default_categories(
+    db: Session, user_id: int, language: str = DEFAULT_LANGUAGE
+) -> None:
+    names = DEFAULT_CATEGORY_NAMES.get(language, DEFAULT_CATEGORY_NAMES[DEFAULT_LANGUAGE])
     for c in DEFAULT_CATEGORIES:
-        db.add(models.Category(user_id=user_id, **c))
+        db.add(
+            models.Category(
+                user_id=user_id,
+                name=names[c["key"]],
+                icon=c["icon"],
+                color=c["color"],
+            )
+        )
     db.commit()
 
 
