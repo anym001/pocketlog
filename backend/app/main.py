@@ -837,14 +837,22 @@ def remove_tag(name: str, user: CurrentUser, db: DB):
 # in the IndexedDB outbox — renaming would orphan those.
 
 @app.delete("/api/admin/transactions", status_code=204)
-def reset_transactions(user: CurrentUser, db: DB):
-    crud.delete_all_transactions(db, user.id)
+def reset_transactions(request: Request, user: CurrentUser, db: DB):
+    count = crud.delete_all_transactions(db, user.id)
+    audit.info(
+        "data.reset_transactions id=%s ip=%s deleted_count=%s",
+        user.id, client_ip(request), count,
+    )
     return Response(status_code=204)
 
 
 @app.delete("/api/admin/all-data", status_code=204)
-def reset_all_data(user: CurrentUser, db: DB):
+def reset_all_data(request: Request, user: CurrentUser, db: DB):
     crud.delete_all_user_data(db, user.id)
+    audit.info(
+        "data.reset_all_data id=%s ip=%s",
+        user.id, client_ip(request),
+    )
     return Response(status_code=204)
 
 
