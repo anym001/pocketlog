@@ -207,6 +207,32 @@ def test_audit_log_never_contains_secrets(app, regular_user, caplog):
     assert not leaks, f"secrets leaked into audit log: {leaks!r}"
 
 
+def test_reset_transactions_logs_audit(app, regular_user, caplog):
+    """Self-service bulk delete of own transactions is destructive — audited."""
+    client = _login(app, regular_user)
+    caplog.clear()
+    res = client.delete("/api/admin/transactions")
+    assert res.status_code == 204, res.text
+    recs = [r for r in caplog.records if r.name == AUDIT]
+    assert len(recs) == 1
+    msg = recs[0].getMessage()
+    assert msg.startswith("data.reset_transactions")
+    assert f"id={regular_user.id}" in msg
+    assert "deleted_count=" in msg
+
+
+def test_reset_all_data_logs_audit(app, regular_user, caplog):
+    """Irreversible wipe of transactions + categories + tags — audited."""
+    client = _login(app, regular_user)
+    caplog.clear()
+    res = client.delete("/api/admin/all-data")
+    assert res.status_code == 204, res.text
+    recs = [r for r in caplog.records if r.name == AUDIT]
+    assert len(recs) == 1
+    assert recs[0].getMessage().startswith("data.reset_all_data")
+    assert f"id={regular_user.id}" in recs[0].getMessage()
+
+
 def test_crlf_in_username_cannot_forge_log_line(app, caplog):
     """A crafted username with CRLF must not split into a second log record
     or inject a fake event — safe() strips control chars."""
