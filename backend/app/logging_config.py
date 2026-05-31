@@ -138,6 +138,27 @@ def configure_logging() -> None:
                 # Own handler only — don't also bubble to uvicorn/root.
                 "propagate": False,
             },
+            # Reformat uvicorn's own loggers to our format so docker logs are
+            # consistent (uvicorn defaults to "INFO:     msg" without timestamp;
+            # the access logger renders the request line via record args, which
+            # our %(message)s picks up). Our dictConfig runs at app import, i.e.
+            # after uvicorn set up its defaults, so ours wins. propagate=False
+            # keeps each line single-emitted.
+            "uvicorn": {
+                "handlers": ["pocketlog_stderr"],
+                "level": level,
+                "propagate": False,
+            },
+            "uvicorn.error": {
+                "handlers": ["pocketlog_stderr"],
+                "level": level,
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["pocketlog_stderr"],
+                "level": level,
+                "propagate": False,
+            },
         },
     })
     _attach_file_handler(level)
