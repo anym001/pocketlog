@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from . import auth, models, schemas
 
-logger = logging.getLogger("uvicorn.error")
+logger = logging.getLogger("pocketlog.crud")
 
 # Default categories seeded once per user. Each entry carries a stable
 # ``key`` plus its icon/color; the human-readable name is looked up per

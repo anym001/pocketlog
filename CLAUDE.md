@@ -121,6 +121,11 @@ Dependencies: `CurrentUser` = `require_active_password` (blockt bei `force_chang
 
 Brute-Force: ab 5. Fehlversuch exponentieller Lockout (1s → 60s Cap). Unbekannte User laufen durch `verify_password_dummy()` (Timing-Schutz).
 
+## Logging & Audit
+Zentrale Config in `app/logging_config.py` (`configure_logging()`, beim Import von `main.py` aufgerufen). Logger-Namespace `pocketlog` mit eigenem stderr-Handler + `propagate=False`; Module nutzen `pocketlog.api`/`pocketlog.crud`, **Security-Events** `pocketlog.audit`. ENV `LOG_LEVEL` (Default INFO) und `LOG_FORMAT` (Default `text`; `json` reserviert, fällt bis zur Implementierung auf `text` zurück — Aktivierung wäre ein reiner dictConfig-Switch ohne Call-Site-Änderung).
+
+Audit-Events werden **im Endpoint-Layer** (`main.py`) geloggt (dort sind Request-IP via `client_ip()` + DB-Fakten verfügbar); `auth.py`/`crud.py` bleiben audit-frei. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`. **Nie loggen:** Passwörter, Hashes, Session-/CSRF-Tokens, Cookies — nur IDs, Username, IP, Counts. `tests/test_audit_logging.py` pinnt Level/Felder **und** den Secret-Leak-Schutz. Logs Englisch.
+
 ## Offline / PWA
 `sw.js`: network-first für HTML-Shell + GET /api/\*, cache-first für Vendor/Fonts/Icons. Offline-Outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache-Keys aus `__APP_VERSION__` (Dockerfile substituiert beim Build). Beide i18n-Bundles (`i18n/de.json`, `i18n/en.json`) liegen im SHELL-Precache, damit der Sprachwechsel offline funktioniert.
 
