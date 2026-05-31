@@ -3436,7 +3436,9 @@
           const blob = await res.blob();
           const file = new File([blob], 'pocketlog.csv', { type: 'text/csv' });
           if (navigator.canShare?.({ files: [file] })) {
-            await navigator.share({ files: [file], title: tr('importExport.exportName') });
+            // No title/text: some share targets (e.g. iOS "Save to Files")
+            // materialise those fields as an extra Text.txt next to the CSV.
+            await navigator.share({ files: [file] });
           } else {
             _triggerDownload(blob, 'pocketlog.csv');
           }
@@ -3458,7 +3460,8 @@
           const blob = await res.blob();
           const file = new File([blob], filename, { type: 'text/csv' });
           if (navigator.canShare?.({ files: [file] })) {
-            await navigator.share({ files: [file], title: tr('importExport.exampleName') });
+            // No title/text — see exportCSV: avoids an extra Text.txt.
+            await navigator.share({ files: [file] });
           } else {
             _triggerDownload(blob, filename);
           }
