@@ -258,8 +258,6 @@
     "export": "Export as CSV",
     "import": "Import from CSV…",
     "example": "Download example file",
-    "exportName": "PocketLog Export",
-    "exampleName": "PocketLog example file",
     "exampleFilename": "pocketlog-example.csv",
     "exportFailed": "Export failed",
     "importing": "Importing",
