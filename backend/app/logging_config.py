@@ -96,6 +96,20 @@ def configure_logging() -> None:
     _configured = True
 
 
+def safe(value, *, max_len: int = 256) -> str:
+    """Sanitise a client-controlled string for plain-text logging.
+
+    Strips CR/LF (and other control chars) so a crafted username or
+    User-Agent can't forge extra log lines, and truncates to bound length.
+    Audit fields like username/user-agent run through this before logging.
+    """
+    s = "" if value is None else str(value)
+    s = "".join(" " if (c == "\n" or c == "\r" or ord(c) < 32) else c for c in s)
+    if len(s) > max_len:
+        s = s[:max_len] + "…"
+    return s
+
+
 def client_ip(request) -> str:
     """Best-effort client IP for audit context.
 

@@ -15,7 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import auth, crud, models, schemas
 from .database import get_db
-from .logging_config import client_ip, configure_logging
+from .logging_config import client_ip, configure_logging, safe
 
 # Configure the pocketlog logger namespace at import time, so it applies under
 # uvicorn (which imports app.main:app) as well as under pytest and the CLI.
@@ -396,7 +396,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         # it does not enable username enumeration.
         audit.warning(
             "auth.login.failure username=%s ip=%s reason=unknown_user",
-            username, ip,
+            safe(username), ip,
         )
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
@@ -419,7 +419,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
             return _lockout_response(response, lockout)
         audit.warning(
             "auth.login.failure username=%s ip=%s reason=bad_password",
-            username, ip,
+            safe(username), ip,
         )
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
@@ -432,7 +432,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
     )
     audit.info(
         "auth.login.success user=%s id=%s ip=%s ua=%s",
-        user.username, user.id, ip, user_agent or "unknown",
+        user.username, user.id, ip, safe(user_agent or "unknown"),
     )
     return {
         "user": schemas.UserMe(
