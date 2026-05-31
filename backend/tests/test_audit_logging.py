@@ -252,6 +252,57 @@ def test_crlf_in_username_cannot_forge_log_line(app, caplog):
     assert msg.startswith("auth.login.failure")
 
 
+def test_log_file_writes_and_rotates(tmp_path, monkeypatch):
+    """LOG_FILE writes audit records to disk (in addition to stderr) and the
+    rotating handler caps file count."""
+    import logging.handlers as handlers_mod
+    from app import logging_config
+
+    log_path = tmp_path / "logs" / "audit.log"
+    monkeypatch.setenv("LOG_FILE", str(log_path))
+    monkeypatch.setenv("LOG_FILE_MAX_BYTES", "200")
+    monkeypatch.setenv("LOG_FILE_BACKUPS", "2")
+
+    plog = logging.getLogger("pocketlog")
+    added = [h for h in plog.handlers]
+    try:
+        logging_config._attach_file_handler(logging.INFO)
+        file_handlers = [
+            h for h in plog.handlers
+            if isinstance(h, handlers_mod.RotatingFileHandler)
+        ]
+        assert file_handlers, "expected a RotatingFileHandler on pocketlog"
+        fh = file_handlers[-1]
+        assert fh.backupCount == 2
+        assert fh.maxBytes == 200
+
+        # Parent directory was created and a record lands in the file.
+        logging.getLogger("pocketlog.audit").info("test.event id=1 ip=x")
+        fh.flush()
+        assert log_path.exists()
+        assert "test.event" in log_path.read_text(encoding="utf-8")
+    finally:
+        # Remove only the handler(s) we added, restore prior state.
+        for h in [h for h in plog.handlers if h not in added]:
+            plog.removeHandler(h)
+            h.close()
+
+
+def test_log_file_bad_path_does_not_crash(monkeypatch, caplog):
+    """A non-writable LOG_FILE must warn, not raise — the app keeps running on
+    stderr. Point LOG_FILE at a path whose parent can't be created."""
+    from app import logging_config
+
+    # /proc is read-only; makedirs there raises OSError, which must be swallowed.
+    monkeypatch.setenv("LOG_FILE", "/proc/cannot/create/here/audit.log")
+    plog = logging.getLogger("pocketlog")
+    before = list(plog.handlers)
+    # Must not raise.
+    logging_config._attach_file_handler(logging.INFO)
+    # No file handler was added.
+    assert list(plog.handlers) == before
+
+
 def test_safe_strips_control_chars_and_truncates():
     from app.logging_config import safe
 

@@ -18,6 +18,7 @@ Tracking, keine Telemetrie.
 - [Konfiguration](#konfiguration)
 - [Reverse Proxy](#reverse-proxy)
 - [Login & Sicherheit](#login--sicherheit)
+- [Logging & Audit-Trail](#logging--audit-trail)
 - [Notfall-Recovery](#notfall-recovery)
 - [Image](#image)
 - [Lizenz](#lizenz)
@@ -94,6 +95,9 @@ unter _Einstellungen → Benutzerverwaltung_ an.
 | `TZ` | `UTC` | Zeitzone des Containers |
 | `LOG_LEVEL` | `INFO` | Log-Level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit-Events (Logins, Lockouts, Admin-Aktionen) liegen auf `INFO`/`WARNING`. |
 | `LOG_FORMAT` | `text` | Log-Format. Aktuell nur `text` (menschenlesbar, für `docker logs`); `json` ist reserviert und fällt bis zur Implementierung auf `text` zurück. |
+| `LOG_FILE` | – | Schreibt Logs **zusätzlich** zu `docker logs` in diese Datei (rotierend). Verzeichnis als Volume mounten, um Logs über Container-Updates hinweg zu behalten (siehe [Logging & Audit-Trail](#logging--audit-trail)). |
+| `LOG_FILE_MAX_BYTES` | `10485760` | Rotationsgröße der Logdatei in Bytes (Default 10 MB). |
+| `LOG_FILE_BACKUPS` | `5` | Anzahl rotierter Logdateien, die behalten werden. |
 | `DEFAULT_LOCALE` | `de-DE` | Start-Locale neuer Konten (BCP-47: `de-DE`, `de-AT`, `de-CH`, `en-GB`, `en-US`). Jeder Nutzer kann es selbst überschreiben. |
 | `DEFAULT_CURRENCY` | `EUR` | Start-Währung neuer Konten (ISO 4217: `EUR`, `USD`, `GBP`, `CHF`, `JPY`). Reine Anzeige, pro Nutzer überschreibbar. |
 | `SESSION_COOKIE_SECURE` | `1` | Auf `0` setzen, wenn PocketLog ohne HTTPS betrieben wird |
@@ -130,6 +134,53 @@ server {
   Sperrzeit; Admins können diese über _Passwort zurücksetzen_ aufheben
 - **Session**: bleibt standardmäßig 24 Stunden aktiv, mit „Eingeloggt bleiben"
   30 Tage; nach absolut 7 bzw. 90 Tagen wird eine neue Anmeldung erzwungen
+
+## Logging & Audit-Trail
+
+PocketLog protokolliert sicherheitsrelevante Ereignisse (Logins inkl.
+Fehlversuche, Lockouts, Passwortänderungen, Admin-Benutzeraktionen, das Löschen
+aller eigenen Daten). Es werden **nie** Passwörter, Hashes, Session- oder
+CSRF-Tokens geloggt.
+
+Standardmäßig geht die Ausgabe nach `stdout`/`stderr`, also in `docker logs`.
+Das überlebt Container-Neustarts, aber **nicht** ein Update mit `docker rm`.
+Für einen dauerhaften Audit-Trail gibt es zwei Wege:
+
+**Variante A – Logdatei auf einem Volume (in-App, einfach):**
+
+```bash
+docker run -d \
+  --name pocketlog \
+  -p 8000:8000 \
+  -e DB_HOST=mariadb -e DB_NAME=pocketlog \
+  -e DB_USER=pocketlog -e DB_PASSWORD=dein-passwort \
+  -e LOG_FILE=/var/log/pocketlog/audit.log \
+  -v pocketlog-logs:/var/log/pocketlog \
+  ghcr.io/anym001/pocketlog:latest
+```
+
+Schreibt **zusätzlich** zu `docker logs` in die Datei (rotierend, Größe/Anzahl
+über `LOG_FILE_MAX_BYTES` / `LOG_FILE_BACKUPS`). Ist die Datei nicht beschreibbar,
+läuft die App weiter und loggt nur nach `stderr` (mit Warnung). Das gemountete
+Volume bleibt über Container-Updates erhalten.
+
+**Variante B – Docker-Log-Driver (plattformseitig, „12-Factor"):**
+
+App unverändert nach `stderr` loggen lassen und die Persistenz dem Host
+überlassen, z.B. via journald:
+
+```bash
+docker run -d --name pocketlog \
+  --log-driver=journald \
+  … (übrige Optionen) …
+```
+
+Logs landen dann im systemd-Journal (`journalctl CONTAINER_NAME=pocketlog`) und
+überleben Container-Updates, ohne dass die App Dateien verwalten muss.
+
+> Variante A ist am bequemsten für Einzelinstanzen; Variante B ist sauberer,
+> wenn ohnehin eine zentrale Log-Infrastruktur (journald, syslog, Loki …)
+> vorhanden ist. Beides lässt sich kombinieren.
 
 ## Notfall-Recovery
 
