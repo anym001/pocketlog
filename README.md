@@ -95,7 +95,7 @@ unter _Einstellungen → Benutzerverwaltung_ an.
 | `TZ` | `UTC` | Zeitzone des Containers |
 | `LOG_LEVEL` | `INFO` | Log-Level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit-Events (Logins, Lockouts, Admin-Aktionen) liegen auf `INFO`/`WARNING`. |
 | `LOG_FORMAT` | `text` | Log-Format. Aktuell nur `text` (menschenlesbar, für `docker logs`); `json` ist reserviert und fällt bis zur Implementierung auf `text` zurück. |
-| `LOG_FILE` | – | Schreibt Logs **zusätzlich** zu `docker logs` in diese Datei (rotierend). Verzeichnis als Volume mounten, um Logs über Container-Updates hinweg zu behalten (siehe [Logging & Audit-Trail](#logging--audit-trail)). |
+| `LOG_FILE` | – | Schreibt Logs **zusätzlich** zu `docker logs` in diese Datei (rotierend). Empfehlung: `/config/logs/audit.log` mit gemountetem `/config`-Verzeichnis, um Logs über Container-Updates hinweg zu behalten (siehe [Logging & Audit-Trail](#logging--audit-trail)). |
 | `LOG_FILE_MAX_BYTES` | `10485760` | Rotationsgröße der Logdatei in Bytes (Default 10 MB). |
 | `LOG_FILE_BACKUPS` | `5` | Anzahl rotierter Logdateien, die behalten werden. |
 | `DEFAULT_LOCALE` | `de-DE` | Start-Locale neuer Konten (BCP-47: `de-DE`, `de-AT`, `de-CH`, `en-GB`, `en-US`). Jeder Nutzer kann es selbst überschreiben. |
@@ -146,7 +146,12 @@ Standardmäßig geht die Ausgabe nach `stdout`/`stderr`, also in `docker logs`.
 Das überlebt Container-Neustarts, aber **nicht** ein Update mit `docker rm`.
 Für einen dauerhaften Audit-Trail gibt es zwei Wege:
 
-**Variante A – Logdatei auf einem Volume (in-App, einfach):**
+**Variante A – Logdatei im App-Verzeichnis (in-App, einfach):**
+
+PocketLog folgt der gängigen Self-Hosting-Konvention: ein einziges
+App-Verzeichnis unter `/config` im Container, das du auf den Host mountest.
+Aktuell liegt dort nur der Audit-Trail (`/config/logs/`); spätere persistente
+Daten würden im selben Mount landen.
 
 ```bash
 docker run -d \
@@ -154,15 +159,20 @@ docker run -d \
   -p 8000:8000 \
   -e DB_HOST=mariadb -e DB_NAME=pocketlog \
   -e DB_USER=pocketlog -e DB_PASSWORD=dein-passwort \
-  -e LOG_FILE=/var/log/pocketlog/audit.log \
-  -v pocketlog-logs:/var/log/pocketlog \
+  -e LOG_FILE=/config/logs/audit.log \
+  -v /mnt/user/appdata/pocketlog:/config \
   ghcr.io/anym001/pocketlog:latest
 ```
 
 Schreibt **zusätzlich** zu `docker logs` in die Datei (rotierend, Größe/Anzahl
-über `LOG_FILE_MAX_BYTES` / `LOG_FILE_BACKUPS`). Ist die Datei nicht beschreibbar,
-läuft die App weiter und loggt nur nach `stderr` (mit Warnung). Das gemountete
-Volume bleibt über Container-Updates erhalten.
+über `LOG_FILE_MAX_BYTES` / `LOG_FILE_BACKUPS`). Das fehlende Verzeichnis wird
+automatisch angelegt. Ist die Datei nicht beschreibbar, läuft die App weiter
+und loggt nur nach `stderr` (mit Warnung). Der gemountete `/config`-Ordner
+bleibt über Container-Updates erhalten.
+
+> **Unraid:** Im Template `/config` auf `/mnt/user/appdata/pocketlog` mappen
+> und `LOG_FILE=/config/logs/audit.log` setzen — der gesamte App-Zustand liegt
+> dann unter einem Pfad in deinem appdata-Share.
 
 **Variante B – Docker-Log-Driver (plattformseitig, „12-Factor"):**
 
