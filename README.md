@@ -92,6 +92,8 @@ unter _Einstellungen → Benutzerverwaltung_ an.
 | `DB_USER` | – | Datenbankbenutzer |
 | `DB_PASSWORD` | – | Datenbankpasswort |
 | `TZ` | `UTC` | Zeitzone des Containers |
+| `LOG_LEVEL` | `INFO` | Log-Level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit-Events (Logins, Lockouts, Admin-Aktionen) liegen auf `INFO`/`WARNING`. |
+| `LOG_FORMAT` | `text` | Log-Format. Aktuell nur `text` (menschenlesbar, für `docker logs`); `json` ist reserviert und fällt bis zur Implementierung auf `text` zurück. |
 | `DEFAULT_LOCALE` | `de-DE` | Start-Locale neuer Konten (BCP-47: `de-DE`, `de-AT`, `de-CH`, `en-GB`, `en-US`). Jeder Nutzer kann es selbst überschreiben. |
 | `DEFAULT_CURRENCY` | `EUR` | Start-Währung neuer Konten (ISO 4217: `EUR`, `USD`, `GBP`, `CHF`, `JPY`). Reine Anzeige, pro Nutzer überschreibbar. |
 | `SESSION_COOKIE_SECURE` | `1` | Auf `0` setzen, wenn PocketLog ohne HTTPS betrieben wird |
