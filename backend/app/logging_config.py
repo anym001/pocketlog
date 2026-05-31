@@ -14,14 +14,23 @@ Env:
     LOG_LEVEL   default INFO   (any logging level name; invalid → INFO)
     LOG_FORMAT  default text   (text = human-readable key=value; json is reserved
                                 for a future structured formatter — see below)
+    LOG_FILE              unset → file logging off. A path → ALSO write logs
+                          there (in addition to stderr), via a rotating handler.
+                          Mount a volume at its directory to persist logs across
+                          container updates (docker logs survives restarts but
+                          not `docker rm`).
+    LOG_FILE_MAX_BYTES    default 10485760 (10 MB) — rotate when the file hits this.
+    LOG_FILE_BACKUPS      default 5 — number of rotated files to keep.
 
-Output goes to stderr, ``propagate=False`` so records are not also emitted by
-uvicorn's root handler (no duplicate lines).
+Output always goes to stderr (12-factor; `docker logs` keeps working), plus the
+optional file. ``propagate=False`` so records are not also emitted by uvicorn's
+root handler (no duplicate lines).
 """
 from __future__ import annotations
 
 import logging
 import logging.config
+import logging.handlers
 import os
 
 # Bootstrap logger for problems found *while* configuring logging (before our
@@ -60,6 +69,44 @@ def _resolve_format() -> str:
     return "text"
 
 
+def _resolve_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw:
+        try:
+            value = int(raw)
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+        _bootstrap.warning("Invalid %s=%r — using %d", name, raw, default)
+    return default
+
+
+def _attach_file_handler(level: int) -> None:
+    """If LOG_FILE is set, ALSO write to a rotating file. Best-effort: a bad
+    path / permissions must never crash the app — we warn and keep stderr.
+    Done programmatically (not in dictConfig) so a file open error is catchable."""
+    path = (os.environ.get("LOG_FILE") or "").strip()
+    if not path:
+        return
+    try:
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(
+            path,
+            maxBytes=_resolve_int("LOG_FILE_MAX_BYTES", 10 * 1024 * 1024),
+            backupCount=_resolve_int("LOG_FILE_BACKUPS", 5),
+            encoding="utf-8",
+        )
+        handler.setFormatter(logging.Formatter(_TEXT_FORMAT))
+        logging.getLogger("pocketlog").addHandler(handler)
+        _bootstrap.info("File logging enabled at %s", path)
+    except OSError as exc:
+        # Permissions, missing mount, read-only fs … log to stderr and move on.
+        _bootstrap.warning("Could not open LOG_FILE=%r (%s) — file logging off", path, exc)
+
+
 def configure_logging() -> None:
     """Attach our handler/formatter to the ``pocketlog`` logger. Idempotent —
     safe to call repeatedly (the test suite imports the app many times)."""
@@ -93,6 +140,7 @@ def configure_logging() -> None:
             },
         },
     })
+    _attach_file_handler(level)
     _configured = True
 
 
