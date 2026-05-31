@@ -37,6 +37,25 @@ def _fresh(app):
     return TestClient(app)
 
 
+# ── unified log format ─────────────────────────────────────────────────────
+
+
+def test_uvicorn_loggers_use_unified_format(app):
+    """uvicorn's own loggers are reformatted to match the app/audit format so
+    docker logs are consistent (one timestamp+level+name+message scheme)."""
+    from app.logging_config import _TEXT_FORMAT
+
+    for name in ("pocketlog", "uvicorn", "uvicorn.error", "uvicorn.access"):
+        lg = logging.getLogger(name)
+        assert lg.propagate is False, f"{name} should not propagate"
+        formats = {
+            h.formatter._fmt for h in lg.handlers if h.formatter is not None
+        }
+        assert _TEXT_FORMAT in formats, (
+            f"{name} has no handler using the unified format; got {formats}"
+        )
+
+
 # ── login ────────────────────────────────────────────────────────────────
 
 
