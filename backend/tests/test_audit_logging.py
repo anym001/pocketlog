@@ -207,6 +207,36 @@ def test_audit_log_never_contains_secrets(app, regular_user, caplog):
     assert not leaks, f"secrets leaked into audit log: {leaks!r}"
 
 
+def test_crlf_in_username_cannot_forge_log_line(app, caplog):
+    """A crafted username with CRLF must not split into a second log record
+    or inject a fake event — safe() strips control chars."""
+    client = _fresh(app)
+    client.post(
+        "/api/auth/login",
+        json={
+            "username": "evil\r\nauth.login.success user=admin id=1",
+            "password": "whatever-1234",
+        },
+    )
+    recs = [r for r in caplog.records if r.name == AUDIT]
+    # Exactly one record, and the injected newline is gone from its message.
+    assert len(recs) == 1
+    msg = recs[0].getMessage()
+    assert "\n" not in msg and "\r" not in msg
+    assert msg.startswith("auth.login.failure")
+
+
+def test_safe_strips_control_chars_and_truncates():
+    from app.logging_config import safe
+
+    assert safe("a\r\nb") == "a  b"
+    assert safe("tab\tend") == "tab end"
+    assert safe(None) == ""
+    long = "x" * 500
+    out = safe(long, max_len=10)
+    assert out == "x" * 10 + "…"
+
+
 # ── helpers ──────────────────────────────────────────────────────────────
 
 
