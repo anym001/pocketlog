@@ -56,6 +56,11 @@ def test_uvicorn_loggers_use_unified_format(app):
         )
 
 
+def test_access_log_pinned_to_warning(app):
+    """Per-request access logs (INFO) are silenced so audit events stand out."""
+    assert logging.getLogger("uvicorn.access").level == logging.WARNING
+
+
 # ── login ────────────────────────────────────────────────────────────────
 
 

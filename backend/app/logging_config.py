@@ -41,7 +41,9 @@ _configured = False
 
 # Human-readable default. Reads as: "2026-05-31 12:00:00 WARNING pocketlog.audit
 # auth.login.failure username=… ip=…". Easier to scan in `docker logs` than JSON.
+# Second precision only — no milliseconds (kept out of alembic.ini too).
 _TEXT_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
+_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def _resolve_level() -> int:
@@ -99,7 +101,7 @@ def _attach_file_handler(level: int) -> None:
             backupCount=_resolve_int("LOG_FILE_BACKUPS", 5),
             encoding="utf-8",
         )
-        handler.setFormatter(logging.Formatter(_TEXT_FORMAT))
+        handler.setFormatter(logging.Formatter(_TEXT_FORMAT, datefmt=_DATE_FORMAT))
         logging.getLogger("pocketlog").addHandler(handler)
         _bootstrap.info("File logging enabled at %s", path)
     except OSError as exc:
@@ -122,7 +124,7 @@ def configure_logging() -> None:
         "disable_existing_loggers": False,
         "formatters": {
             # Future: add a "json" formatter here and select it via _resolve_format.
-            "text": {"format": _TEXT_FORMAT},
+            "text": {"format": _TEXT_FORMAT, "datefmt": _DATE_FORMAT},
         },
         "handlers": {
             "pocketlog_stderr": {
@@ -154,9 +156,13 @@ def configure_logging() -> None:
                 "level": level,
                 "propagate": False,
             },
+            # Access log pinned to WARNING: the per-request "GET /… 200" lines
+            # are noise that drowns out the audit events. Errors still surface
+            # via uvicorn.error and the app's own logs. (Independent of
+            # LOG_LEVEL on purpose — set this logger lower if you want them back.)
             "uvicorn.access": {
                 "handlers": ["pocketlog_stderr"],
-                "level": level,
+                "level": logging.WARNING,
                 "propagate": False,
             },
         },
