@@ -15,8 +15,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import auth, crud, models, schemas
 from .database import get_db
+from .logging_config import client_ip, configure_logging
 
-logger = logging.getLogger("uvicorn.error")
+# Configure the pocketlog logger namespace at import time, so it applies under
+# uvicorn (which imports app.main:app) as well as under pytest and the CLI.
+configure_logging()
+
+logger = logging.getLogger("pocketlog.api")
+audit = logging.getLogger("pocketlog.audit")
 
 # Swagger UI and the OpenAPI schema are off by default. Both leak the full
 # API surface and Swagger's "Try it out" issues real requests against this
@@ -341,6 +347,7 @@ def setup_admin(
         crud.update_settings(
             db, user.id, schemas.SettingsUpdate(locale=payload.locale)
         )
+        mode = "migrated"
     else:
         # Fresh install: neuer Admin-User mit dem gewählten Username.
         try:
@@ -357,6 +364,12 @@ def setup_admin(
             # existiert schon. Aus Sicht des zweiten Setup-Versuchs ist
             # die DB jetzt initialisiert.
             raise HTTPException(status_code=409, detail="setup_already_done")
+        mode = "fresh"
+
+    audit.info(
+        "setup.admin_created id=%s username=%s ip=%s mode=%s",
+        user.id, user.username, client_ip(request), mode,
+    )
 
     # Direkt einloggen, damit die App nicht in den Login-Flow zurückfällt.
     user_agent = request.headers.get("user-agent")
@@ -373,21 +386,41 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
     username = payload.username.strip()
     user = crud.get_user_by_username(db, username) if username else None
 
+    ip = client_ip(request)
+
     if user is None or not user.is_active or user.password_hash is None:
         # Konstante-Zeit-Verify gegen Dummy-Hash, damit
         # Username-Enumeration via Timing nicht funktioniert.
         auth.verify_password_dummy()
+        # reason is logged server-side only — never returned to the client, so
+        # it does not enable username enumeration.
+        audit.warning(
+            "auth.login.failure username=%s ip=%s reason=unknown_user",
+            username, ip,
+        )
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
     locked = auth.current_lockout_seconds(user)
     if locked is not None:
         # Während eines aktiven Lockouts wird gar nicht erst verifiziert.
+        audit.warning(
+            "auth.login.during_lockout user=%s id=%s ip=%s seconds=%s",
+            user.username, user.id, ip, locked,
+        )
         return _lockout_response(response, locked)
 
     if not auth.verify_password(payload.password, user.password_hash):
         lockout = auth.record_failed_login(db, user)
         if lockout is not None:
+            audit.warning(
+                "auth.login.lockout_triggered user=%s id=%s ip=%s seconds=%s",
+                user.username, user.id, ip, lockout,
+            )
             return _lockout_response(response, lockout)
+        audit.warning(
+            "auth.login.failure username=%s ip=%s reason=bad_password",
+            username, ip,
+        )
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
     auth.clear_failed_login(db, user)
@@ -396,6 +429,10 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
     )
     _set_session_cookies(
         response, plain, session.csrf_token, remember_me=payload.remember_me
+    )
+    audit.info(
+        "auth.login.success user=%s id=%s ip=%s ua=%s",
+        user.username, user.id, ip, user_agent or "unknown",
     )
     return {
         "user": schemas.UserMe(
@@ -433,7 +470,9 @@ def logout(request: Request, response: Response, db: DB):
             sent = request.headers.get(CSRF_HEADER_NAME, "")
             if not sent or not auth.constant_time_eq(sent, session.csrf_token):
                 raise HTTPException(status_code=403, detail="csrf_mismatch")
+            user_id = session.user_id
             auth.revoke_session(db, session)
+            audit.info("auth.logout id=%s ip=%s", user_id, client_ip(request))
     _clear_session_cookies(response)
     return Response(status_code=204)
 
@@ -481,8 +520,12 @@ def change_password(
     # Passwort-Änderung kann der Auslöser eine Kompromittierung
     # gewesen sein.
     current_session_id = getattr(request.state, "session_id", None)
-    auth.revoke_all_user_sessions(
+    revoked = auth.revoke_all_user_sessions(
         db, user.id, except_id=current_session_id
+    )
+    audit.info(
+        "auth.password.change_self id=%s ip=%s revoked_count=%s",
+        user.id, client_ip(request), revoked,
     )
     return Response(status_code=204)
 
@@ -516,7 +559,7 @@ def admin_list_users(db: DB, _admin: AdminUser):
     status_code=201,
 )
 def admin_create_user(
-    payload: schemas.AdminUserCreate, db: DB, _admin: AdminUser
+    payload: schemas.AdminUserCreate, request: Request, db: DB, _admin: AdminUser
 ):
     # New users inherit the creating admin's language + currency so their
     # default categories are seeded in the admin's language and the app
@@ -535,6 +578,10 @@ def admin_create_user(
         )
     except IntegrityError:
         raise HTTPException(status_code=409, detail="username_taken")
+    audit.info(
+        "admin.user.create actor_admin_id=%s new_user_id=%s username=%s ip=%s",
+        _admin.id, user.id, user.username, client_ip(request),
+    )
     return _user_to_admin_out(user)
 
 
@@ -552,6 +599,7 @@ def _resolve_admin_target(user_id: int, db: Session) -> models.User:
 def admin_reset_password(
     user_id: int,
     payload: schemas.AdminPasswordReset,
+    request: Request,
     db: DB,
     admin: AdminUser,
 ):
@@ -564,12 +612,16 @@ def admin_reset_password(
     crud.set_user_password(db, target, payload.new_password, force_change=True)
     # Sicherheit: alle Sessions des betroffenen Users wegwerfen, damit
     # ein bereits eingeloggter Tab nicht weiterläuft.
-    auth.revoke_all_user_sessions(db, target.id)
+    revoked = auth.revoke_all_user_sessions(db, target.id)
+    audit.info(
+        "auth.password.reset_admin actor_admin_id=%s target_id=%s ip=%s revoked_count=%s",
+        admin.id, target.id, client_ip(request), revoked,
+    )
     return Response(status_code=204)
 
 
 @app.post("/api/admin/users/{user_id}/deactivate", status_code=204)
-def admin_deactivate(user_id: int, db: DB, admin: AdminUser):
+def admin_deactivate(user_id: int, request: Request, db: DB, admin: AdminUser):
     target = _resolve_admin_target(user_id, db)
     if target.id == admin.id:
         raise HTTPException(status_code=403, detail="cannot_modify_self")
@@ -578,22 +630,30 @@ def admin_deactivate(user_id: int, db: DB, admin: AdminUser):
         # in einem Zustand mit null Admins.
         raise HTTPException(status_code=403, detail="cannot_modify_admin")
     crud.deactivate_user(db, target)
-    auth.revoke_all_user_sessions(db, target.id)
+    revoked = auth.revoke_all_user_sessions(db, target.id)
+    audit.info(
+        "admin.user.deactivate actor_admin_id=%s target_id=%s ip=%s revoked_count=%s",
+        admin.id, target.id, client_ip(request), revoked,
+    )
     return Response(status_code=204)
 
 
 @app.post("/api/admin/users/{user_id}/activate", status_code=204)
-def admin_activate(user_id: int, db: DB, admin: AdminUser):
+def admin_activate(user_id: int, request: Request, db: DB, admin: AdminUser):
     target = _resolve_admin_target(user_id, db)
     if target.id == admin.id:
         # Self ist immer aktiv (sonst wäre admin oben gar nicht hier).
         raise HTTPException(status_code=403, detail="cannot_modify_self")
     crud.activate_user(db, target)
+    audit.info(
+        "admin.user.activate actor_admin_id=%s target_id=%s ip=%s",
+        admin.id, target.id, client_ip(request),
+    )
     return Response(status_code=204)
 
 
 @app.delete("/api/admin/users/{user_id}", status_code=204)
-def admin_delete_user(user_id: int, db: DB, admin: AdminUser):
+def admin_delete_user(user_id: int, request: Request, db: DB, admin: AdminUser):
     target = _resolve_admin_target(user_id, db)
     if target.id == admin.id:
         raise HTTPException(status_code=403, detail="cannot_modify_self")
@@ -605,6 +665,10 @@ def admin_delete_user(user_id: int, db: DB, admin: AdminUser):
         # schon greift — aber die Regel macht das Modell konsistent.
         raise HTTPException(status_code=403, detail="cannot_modify_admin")
     crud.delete_user(db, target)
+    audit.info(
+        "admin.user.delete actor_admin_id=%s target_id=%s ip=%s",
+        admin.id, target.id, client_ip(request),
+    )
     return Response(status_code=204)
 
 
