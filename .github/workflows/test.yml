@@ -1,0 +1,94 @@
+name: tests
+
+# Runs on every PR for fast feedback, and is reusable (workflow_call) so the
+# build/publish workflow gates the image on green tests. Pushes to main are
+# covered via that workflow_call (not a push trigger here) to avoid running
+# the suite twice on the same commit.
+on:
+  pull_request:
+  workflow_call:
+
+jobs:
+  test-sqlite:
+    # Full pytest suite on the default SQLite backend (also runs all
+    # migrations against SQLite via the conftest session fixture).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements-dev.txt
+      - run: python -m pytest -q
+        working-directory: backend
+
+  migrations-mariadb:
+    # The MariaDB-only migration branches (UPDATE…JOIN, REGEXP, CHAR_LENGTH,
+    # ON UPDATE CURRENT_TIMESTAMP) never run on the SQLite path, so they'd
+    # only ever execute on a fresh MariaDB install by an end user. The test
+    # suite hard-pins SQLite (conftest), so exercise these here against a real
+    # MariaDB instead: full upgrade, downgrade to base, upgrade again.
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_DATABASE: pocketlog
+          MARIADB_USER: pocketlog
+          MARIADB_PASSWORD: pocketlog
+          MARIADB_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DATABASE_URL: mysql+pymysql://pocketlog:pocketlog@127.0.0.1:3306/pocketlog?charset=utf8mb4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements.txt
+      - name: Migrate up, down, up
+        working-directory: backend
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
+  smoke:
+    # Build the image and boot it with the SQLite default (no DB envs), as an
+    # Unraid user would (PUID/PGID 99:100). Proves the entrypoint chowns
+    # /config, drops privileges, and that alembic + uvicorn come up and create
+    # the DB file owned by the requested user.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f backend/Dockerfile -t pocketlog:ci .
+      - name: Run container (SQLite default, PUID/PGID 99:100)
+        run: |
+          mkdir -p cfg
+          docker run -d --name pl -p 8000:8000 \
+            -e PUID=99 -e PGID=100 \
+            -v "$PWD/cfg:/config" \
+            pocketlog:ci
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/api/health; then echo " -> healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "health check timed out"; docker logs pl; exit 1
+      - name: Assert SQLite DB created and owned by 99:100
+        run: |
+          test -f cfg/db/pocketlog.db || { echo "DB file missing"; docker logs pl; exit 1; }
+          owner=$(stat -c '%u:%g' cfg/db/pocketlog.db)
+          echo "DB owner: $owner"
+          [ "$owner" = "99:100" ] || { echo "expected 99:100"; exit 1; }
+      - name: Cleanup
+        if: always()
+        run: docker rm -f pl || true

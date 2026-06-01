@@ -12,8 +12,12 @@ PWA (Browser / Homescreen)
   │  App-Auth: pocketlog_session-Cookie + X-CSRF-Token-Header (Double-Submit).
   └──────────────────┬──────────────────┘
                      ↓
-            externe MariaDB  (DB: pocketlog  User: pocketlog)
+   SQLite-Datei /config/db/pocketlog.db (Default)
+   · ODER externe MariaDB (Opt-in via DB_*)
 ```
+Backend-Wahl ist implizit (`database.py:_build_url`): `DATABASE_URL` gewinnt;
+sonst MariaDB, sobald irgendeine `DB_*`-Variable gesetzt ist (`DB_PASSWORD`
+dann Pflicht); sonst SQLite unter `SQLITE_PATH` (Default `/config/db/pocketlog.db`).
 
 ## Projektstruktur
 ```
@@ -39,7 +43,7 @@ PocketLog/
 │       ├── schemas.py      ← Pydantic v2
 │       ├── crud.py         ← user_id-skopierte Queries
 │       ├── auth.py         ← Session, CSRF, Brute-Force
-│       └── database.py     ← MariaDB Engine (pymysql)
+│       └── database.py     ← Engine-Auswahl: SQLite (Default) | MariaDB (pymysql)
 ├── CLAUDE.md
 └── DESIGN_CONVENTIONS.md
 ```
@@ -84,7 +88,7 @@ POST   /api/admin/users/{id}/deactivate|activate
 DELETE /api/admin/users/{id}     ← Cascade; nicht auf self
 ```
 
-## Datenbankschema (MariaDB)
+## Datenbankschema (SQLite-Default / MariaDB-Option)
 ```
 users           id, username UNIQUE, password_hash NULL (argon2id),
                 is_admin, is_active, force_change_password,
@@ -124,7 +128,9 @@ Brute-Force: ab 5. Fehlversuch exponentieller Lockout (1s → 60s Cap). Unbekann
 ## Logging & Audit
 Zentrale Config in `app/logging_config.py` (`configure_logging()`, beim Import von `main.py` aufgerufen). Logger-Namespace `pocketlog` mit eigenem stderr-Handler + `propagate=False`; Module nutzen `pocketlog.api`/`pocketlog.crud`, **Security-Events** `pocketlog.audit`. **Einheitliches Format** `%(asctime)s %(levelname)s %(name)s %(message)s` mit `datefmt %Y-%m-%d %H:%M:%S` (Sekunden-Präzision, **keine** Millisekunden): der `dictConfig` biegt auch die `uvicorn`/`uvicorn.error`/`uvicorn.access`-Logger darauf um (läuft beim App-Import nach uvicorns Default, gewinnt also), und `alembic.ini` (separater Migrations-Prozess) spiegelt Format + datefmt. So sind die Docker-Logs durchgängig konsistent. `uvicorn.access` ist bewusst auf `WARNING` gepinnt (Pro-Request-Zeilen sind Rauschen; Fehler kommen weiter über `uvicorn.error` + App-Logs). **Kurze Logger-Namen:** ein Handler-Filter (`_ShortLoggerNameFilter`) kürzt Framework-Namen auf das Top-Level-Paket (`uvicorn.error`/`uvicorn.access`→`uvicorn`, `alembic.runtime.migration`→`alembic`) — die Severity steckt im Level, nicht im Namen; `pocketlog.*` bleibt intakt (audit/api/crud sind bedeutungstragend). Der Migrations-Prozess konfiguriert Logging separat über `alembic.ini`, daher hängt `migrations/env.py` denselben Filter via `install_short_logger_names()` an. ENV `LOG_LEVEL` (Default INFO) und `LOG_FORMAT` (Default `text`; `json` reserviert, fällt bis zur Implementierung auf `text` zurück — Aktivierung wäre ein reiner dictConfig-Switch ohne Call-Site-Änderung). Optional `LOG_FILE` (+ `LOG_FILE_MAX_BYTES`/`LOG_FILE_BACKUPS`): zusätzlicher `RotatingFileHandler`, programmatisch nach dem dictConfig angehängt und in try/except — eine nicht-öffenbare Datei warnt nur und lässt die App auf stderr weiterlaufen (nie Crash). Persistenz ist Betriebs-Sache (Volume-Mount oder Docker-Log-Driver), siehe README.
 
-**App-Verzeichnis-Konvention:** Persistenter Container-State liegt unter `/config` (LinuxServer/Unraid-Standard, gemountet auf z.B. `/mnt/user/appdata/pocketlog`). Heute einziger Bewohner: `/config/logs/` (empfohlener `LOG_FILE`-Pfad). Künftige persistente Daten (Uploads, Backups, ggf. SQLite) gehören in dasselbe `/config`, nicht in verstreute Pfade — damit ein einziger Mount den gesamten App-Zustand abdeckt. Die DB bleibt davon unberührt (externe MariaDB).
+**App-Verzeichnis-Konvention:** Persistenter Container-State liegt unter `/config` (LinuxServer/Unraid-Standard, gemountet auf z.B. `/mnt/user/appdata/pocketlog`). Bewohner: die SQLite-DB (`/config/db/pocketlog.db`, sofern keine externe MariaDB genutzt wird) und der Audit-Trail (`/config/logs/`, empfohlener `LOG_FILE`-Pfad). Künftige persistente Daten (Uploads, Backups) gehören in dasselbe `/config`, nicht in verstreute Pfade — ein einziger Mount deckt den gesamten App-Zustand ab.
+
+**Container-Rechte (PUID/PGID):** Das Image startet als root; der Entrypoint (`backend/docker-entrypoint.sh`) chownt `/config` auf `PUID:PGID` (Default `1000:1000`, Unraid `99:100`) und droppt via `gosu` die Rechte, bevor `alembic`+`uvicorn` laufen. So kann die SQLite-Datei auf dem Mount mit den richtigen Host-Rechten geschrieben werden. **SQLite-Pragmas** (`database.py`): `foreign_keys=ON` (Cascades), `journal_mode=WAL` (paralleles Lesen/Schreiben für PWA-Sync), `busy_timeout=5000`.
 
 Audit-Events werden **im Endpoint-Layer** (`main.py`) geloggt (dort sind Request-IP via `client_ip()` + DB-Fakten verfügbar); `auth.py`/`crud.py` bleiben audit-frei. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`. **Nie loggen:** Passwörter, Hashes, Session-/CSRF-Tokens, Cookies — nur IDs, Username, IP, Counts. `tests/test_audit_logging.py` pinnt Level/Felder **und** den Secret-Leak-Schutz. Logs Englisch.
 
@@ -169,6 +175,7 @@ Tokens: `var(--accent/--green/--red/--text/--bg-canvas …)` · `--fs-*` · `--s
 - `from_attributes=True` auf Out-Schemas; `populate_by_name=True` nur bei `Field(alias=…)`
 - Schemaänderungen: Alembic-Revision generieren, nie manuell ALTER TABLE
 - `StaticFiles`-Mount immer zuletzt registrieren
+- **Geld** (`DECIMAL(12,2)`) nie per SQL `SUM()`/`func.sum` über Beträge aggregieren — SQLite hat keinen nativen Decimal-Typ und würde über Float runden. Summen in Python über die ORM-`Decimal`-Werte bilden (Frontend rechnet Totals ohnehin selbst). Per-Zeile ist der Roundtrip exakt; `tests/test_money_precision.py` pinnt das.
 
 **Alembic-Migrationen:**
 - Revision-ID ≤ 24 Zeichen (pytest-Guard in `test_migrations.py`)
