@@ -46,6 +46,19 @@ _TEXT_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
+class _UvicornNameFilter(logging.Filter):
+    """uvicorn logs ALL lifecycle messages (startup, shutdown, "running on …")
+    through a logger literally named ``uvicorn.error`` — even at INFO level. The
+    name implies an error where there is none. Relabel it to ``uvicorn`` for
+    display; severity is already carried by the level (real errors read
+    ``ERROR uvicorn …``)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name == "uvicorn.error":
+            record.name = "uvicorn"
+        return True
+
+
 def _resolve_level() -> int:
     raw = os.environ.get("LOG_LEVEL")
     if raw:
@@ -126,11 +139,16 @@ def configure_logging() -> None:
             # Future: add a "json" formatter here and select it via _resolve_format.
             "text": {"format": _TEXT_FORMAT, "datefmt": _DATE_FORMAT},
         },
+        "filters": {
+            # Relabel uvicorn.error → uvicorn for non-error lifecycle lines.
+            "uvicorn_name": {"()": _UvicornNameFilter},
+        },
         "handlers": {
             "pocketlog_stderr": {
                 "class": "logging.StreamHandler",
                 "stream": "ext://sys.stderr",
                 "formatter": fmt,
+                "filters": ["uvicorn_name"],
             },
         },
         "loggers": {
