@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
+ && apt-get install -y --no-install-recommends curl gosu \
  && rm -rf /var/lib/apt/lists/*
 
 # Python dependencies
@@ -38,17 +38,22 @@ COPY frontend/vendor ./static/vendor
 # unparseably collide with them.
 RUN sed -i "s|'__APP_VERSION__'|'${APP_VERSION}'|" /app/static/sw.js
 
-# Drop privileges. The runtime needs read-only access to /app — the DB is
-# external, static files are served read-only, alembic only writes to the
-# database, and uvicorn logs to stdout. Port 8000 is above the privileged
-# range so no extra capability is required.
+# /app is owned by a build-time user and left world-readable. The container
+# starts as root so the entrypoint can chown the /config mount, then drops
+# to PUID:PGID (default 1000, override e.g. 99:100 on Unraid) via gosu. The
+# DB lives on /config (SQLite default) or is external (MariaDB option);
+# static files are served read-only; uvicorn logs to stdout. Port 8000 is
+# above the privileged range so no extra capability is required.
 RUN useradd --create-home --uid 1000 pocketlog \
  && chown -R pocketlog:pocketlog /app
-USER pocketlog
+
+COPY backend/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://127.0.0.1:8000/api/health || exit 1
 
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

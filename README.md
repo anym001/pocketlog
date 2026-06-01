@@ -4,11 +4,12 @@ Haushaltsbuch als Progressive Web App (PWA) – läuft im Browser auf allen
 gängigen Plattformen (iOS, Android, macOS, Windows, Linux) und lässt sich
 als App auf dem Homescreen installieren.
 
-Konzipiert für **privates Self-Hosting**: Daten liegen ausschließlich in
-deiner eigenen MariaDB, die App läuft in deinem eigenen Container. Alle
-Assets (Fonts, Icons, JS-Bibliotheken) werden vom eigenen Server
-ausgeliefert – keine CDN-Aufrufe, keine externen Verbindungen, kein
-Tracking, keine Telemetrie.
+Konzipiert für **privates Self-Hosting**: Daten liegen ausschließlich auf
+deinem eigenen Server – standardmäßig in einer eingebetteten SQLite-Datei
+(keine separate Datenbank nötig), optional in einer externen MariaDB. Die
+App läuft in deinem eigenen Container. Alle Assets (Fonts, Icons,
+JS-Bibliotheken) werden vom eigenen Server ausgeliefert – keine
+CDN-Aufrufe, keine externen Verbindungen, kein Tracking, keine Telemetrie.
 
 ## Inhalt
 
@@ -49,11 +50,42 @@ Tracking, keine Telemetrie.
 ## Voraussetzungen
 
 - Docker (oder Podman)
-- MariaDB 10.6+ (externe Instanz)
+- **Optional:** MariaDB 10.6+ (externe Instanz) — nur wenn du nicht die
+  eingebaute SQLite-Datenbank nutzen möchtest
 
 ## Schnellstart
 
-### 1. Datenbank anlegen
+Standardmäßig nutzt PocketLog eine eingebettete **SQLite-Datenbank** unter
+`/config/db/pocketlog.db` — keine separate Datenbank, keine DB-Variablen
+nötig. Mounte `/config` auf den Host, damit die Daten Container-Updates
+überleben.
+
+### 1. Container starten
+
+```bash
+docker run -d \
+  --name pocketlog \
+  -p 8000:8000 \
+  -e PUID=1000 -e PGID=1000 \
+  -e TZ=Europe/Berlin \
+  -v /mnt/user/appdata/pocketlog:/config \
+  ghcr.io/anym001/pocketlog:latest
+```
+
+`PUID`/`PGID` bestimmen, welchem Host-Benutzer die Dateien unter `/config`
+gehören (siehe [Konfiguration](#konfiguration)). Auf Unraid typischerweise
+`PUID=99` / `PGID=100`.
+
+### 2. Ersteinrichtung
+
+Beim ersten Aufruf (`http://<host>:8000`) erscheint die Setup-View. Lege den
+ersten Admin an (Username + Passwort, mindestens 12 Zeichen mit Groß-/Klein-
+buchstaben, Zahl und Sonderzeichen). Weitere Benutzer legt der Admin danach
+unter _Einstellungen → Benutzerverwaltung_ an.
+
+### Externe MariaDB (optional)
+
+Wer lieber eine externe MariaDB betreibt, legt dort eine Datenbank an …
 
 ```sql
 CREATE DATABASE pocketlog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -62,7 +94,9 @@ GRANT ALL ON pocketlog.* TO 'pocketlog'@'%';
 FLUSH PRIVILEGES;
 ```
 
-### 2. Container starten
+… und setzt die `DB_*`-Variablen beim Start. **Sobald eine `DB_*`-Variable
+gesetzt ist, schaltet PocketLog auf MariaDB um** (statt SQLite); `DB_PASSWORD`
+ist dann Pflicht:
 
 ```bash
 docker run -d \
@@ -76,22 +110,19 @@ docker run -d \
   ghcr.io/anym001/pocketlog:latest
 ```
 
-### 3. Ersteinrichtung
-
-Beim ersten Aufruf (`http://<host>:8000`) erscheint die Setup-View. Lege den
-ersten Admin an (Username + Passwort, mindestens 12 Zeichen mit Groß-/Klein-
-buchstaben, Zahl und Sonderzeichen). Weitere Benutzer legt der Admin danach
-unter _Einstellungen → Benutzerverwaltung_ an.
-
 ## Konfiguration
 
 | Variable | Default | Bedeutung |
 |---|---|---|
-| `DB_HOST` | `mariadb` | Hostname oder IP der MariaDB |
-| `DB_PORT` | `3306` | MariaDB-Port |
-| `DB_NAME` | – | Datenbankname |
-| `DB_USER` | – | Datenbankbenutzer |
-| `DB_PASSWORD` | – | Datenbankpasswort |
+| `PUID` | `1000` | Host-User-ID, der die Dateien unter `/config` gehören (Unraid: `99`) |
+| `PGID` | `1000` | Host-Group-ID für `/config` (Unraid: `100`) |
+| `SQLITE_PATH` | `/config/db/pocketlog.db` | Pfad der SQLite-Datei (nur ohne `DB_*`) |
+| `DB_HOST` | `mariadb` | **Nur MariaDB-Option:** Hostname oder IP. Eine gesetzte `DB_*`-Variable schaltet von SQLite auf MariaDB um. |
+| `DB_PORT` | `3306` | Nur MariaDB-Option: Port |
+| `DB_NAME` | `pocketlog` | Nur MariaDB-Option: Datenbankname |
+| `DB_USER` | `pocketlog` | Nur MariaDB-Option: Datenbankbenutzer |
+| `DB_PASSWORD` | – | Nur MariaDB-Option: Passwort (Pflicht, sobald MariaDB aktiv ist) |
+| `DATABASE_URL` | – | Erweitert: vollständige SQLAlchemy-URL; übersteuert `DB_*`/SQLite (z.B. für SSL, Socket, eigenen Treiber) |
 | `TZ` | `UTC` | Zeitzone des Containers |
 | `LOG_LEVEL` | `INFO` | Log-Level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit-Events (Logins, Lockouts, Admin-Aktionen) liegen auf `INFO`/`WARNING`. |
 | `LOG_FORMAT` | `text` | Log-Format. Aktuell nur `text` (menschenlesbar, für `docker logs`); `json` ist reserviert und fällt bis zur Implementierung auf `text` zurück. |
@@ -150,8 +181,9 @@ Für einen dauerhaften Audit-Trail gibt es zwei Wege:
 
 PocketLog folgt der gängigen Self-Hosting-Konvention: ein einziges
 App-Verzeichnis unter `/config` im Container, das du auf den Host mountest.
-Aktuell liegt dort nur der Audit-Trail (`/config/logs/`); spätere persistente
-Daten würden im selben Mount landen.
+Dort liegen die SQLite-Datenbank (`/config/db/`, sofern keine externe MariaDB
+genutzt wird) und der Audit-Trail (`/config/logs/`) — ein Mount deckt den
+gesamten persistenten App-Zustand ab.
 
 ```bash
 docker run -d \
