@@ -23,11 +23,13 @@ jobs:
         working-directory: backend
 
   migrations-mariadb:
-    # The MariaDB-only migration branches (UPDATE…JOIN, REGEXP, CHAR_LENGTH,
+    # The MariaDB-only upgrade branches (UPDATE…JOIN, REGEXP, CHAR_LENGTH,
     # ON UPDATE CURRENT_TIMESTAMP) never run on the SQLite path, so they'd
     # only ever execute on a fresh MariaDB install by an end user. The test
-    # suite hard-pins SQLite (conftest), so exercise these here against a real
-    # MariaDB instead: full upgrade, downgrade to base, upgrade again.
+    # suite hard-pins SQLite (conftest), so validate that exact path here:
+    # `alembic upgrade head` from an empty schema against a real MariaDB.
+    # (Reversibility/up-down-up is covered on SQLite; downgrades are never a
+    # deployment path — the container only ever runs `upgrade head`.)
     runs-on: ubuntu-latest
     services:
       mariadb:
@@ -52,12 +54,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r backend/requirements.txt
-      - name: Migrate up, down, up
+      - name: Upgrade fresh MariaDB schema to head
         working-directory: backend
-        run: |
-          alembic upgrade head
-          alembic downgrade base
-          alembic upgrade head
+        run: alembic upgrade head
 
   smoke:
     # Build the image and boot it with the SQLite default (no DB envs), as an
