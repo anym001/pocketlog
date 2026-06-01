@@ -14,7 +14,13 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Gate the publish on green tests. A red suite blocks the tag, image push
+  # and release, so a broken commit never reaches users on the App Store.
+  tests:
+    uses: ./.github/workflows/test.yml
+
   release:
+    needs: tests
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -30,8 +30,9 @@ def _dialect_is_sqlite() -> bool:
 
 def upgrade() -> None:
     # ``ON UPDATE CURRENT_TIMESTAMP`` is MariaDB/MySQL DDL and has no
-    # SQLite equivalent. The test suite runs migrations against SQLite,
-    # so skip the ALTER there — SQLite isn't a target deployment.
+    # SQLite equivalent. On the SQLite backend the column is instead kept
+    # fresh by the ORM ``onupdate=func.current_timestamp()`` (see
+    # models.UserSettings), so skip the ALTER here.
     if _dialect_is_sqlite():
         return
     op.alter_column(

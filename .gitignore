@@ -16,6 +16,8 @@ __pycache__/
 # SQLite dev/test databases (DATABASE_URL=sqlite:///…)
 backend/*.db
 backend/*.db-journal
+backend/*.db-wal
+backend/*.db-shm
 
 # Editor / OS
 .vscode/
