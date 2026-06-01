@@ -46,17 +46,27 @@ _TEXT_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-class _UvicornNameFilter(logging.Filter):
-    """uvicorn logs ALL lifecycle messages (startup, shutdown, "running on …")
-    through a logger literally named ``uvicorn.error`` — even at INFO level. The
-    name implies an error where there is none. Relabel it to ``uvicorn`` for
-    display; severity is already carried by the level (real errors read
-    ``ERROR uvicorn …``)."""
+class _ShortLoggerNameFilter(logging.Filter):
+    """Display third-party logger names by their top-level package only, so
+    docker logs read ``INFO uvicorn …`` / ``INFO alembic …`` instead of
+    ``uvicorn.error`` (uvicorn routes even INFO lifecycle logs through it — the
+    name implies an error where there is none) or ``alembic.runtime.migration``.
+    Severity stays in the level word. Our own ``pocketlog.*`` names are kept
+    intact — the sub-namespace (audit/api/crud) is meaningful."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if record.name == "uvicorn.error":
-            record.name = "uvicorn"
+        if not record.name.startswith("pocketlog"):
+            record.name = record.name.split(".", 1)[0]
         return True
+
+
+def install_short_logger_names(*handlers: logging.Handler) -> None:
+    """Attach the short-name filter to the given handlers. Used by the alembic
+    migration process, which configures logging separately via alembic.ini and
+    so never runs through configure_logging()'s dictConfig."""
+    name_filter = _ShortLoggerNameFilter()
+    for handler in handlers:
+        handler.addFilter(name_filter)
 
 
 def _resolve_level() -> int:
@@ -140,15 +150,15 @@ def configure_logging() -> None:
             "text": {"format": _TEXT_FORMAT, "datefmt": _DATE_FORMAT},
         },
         "filters": {
-            # Relabel uvicorn.error → uvicorn for non-error lifecycle lines.
-            "uvicorn_name": {"()": _UvicornNameFilter},
+            # Shorten framework logger names (uvicorn.error → uvicorn, …).
+            "short_names": {"()": _ShortLoggerNameFilter},
         },
         "handlers": {
             "pocketlog_stderr": {
                 "class": "logging.StreamHandler",
                 "stream": "ext://sys.stderr",
                 "formatter": fmt,
-                "filters": ["uvicorn_name"],
+                "filters": ["short_names"],
             },
         },
         "loggers": {

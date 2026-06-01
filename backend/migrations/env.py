@@ -1,9 +1,11 @@
+import logging
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.database import Base, DATABASE_URL
+from app.logging_config import install_short_logger_names
 from app import models  # noqa: F401  (Modelle für autogenerate registrieren)
 
 config = context.config
@@ -13,6 +15,10 @@ config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+    # Migrations run as a separate process (alembic upgrade head), configured by
+    # alembic.ini — not configure_logging(). Shorten names here too so the
+    # migration banner reads "INFO alembic …" like the rest of the docker logs.
+    install_short_logger_names(*logging.getLogger().handlers)
 
 target_metadata = Base.metadata
 

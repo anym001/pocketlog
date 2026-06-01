@@ -61,25 +61,26 @@ def test_access_log_pinned_to_warning(app):
     assert logging.getLogger("uvicorn.access").level == logging.WARNING
 
 
-def test_uvicorn_error_relabelled_to_uvicorn(app):
-    """uvicorn's lifecycle logs come through a logger named 'uvicorn.error'
-    even at INFO; the display filter relabels them to 'uvicorn' so the name
-    doesn't imply an error."""
-    from app.logging_config import _UvicornNameFilter
+def test_framework_logger_names_shortened(app):
+    """Framework logger names display as their top-level package (uvicorn,
+    alembic, …) so the name never implies an error and stays short. Our own
+    pocketlog.* names keep their meaningful sub-namespace."""
+    from app.logging_config import _ShortLoggerNameFilter
 
-    rec = logging.LogRecord(
-        "uvicorn.error", logging.INFO, __file__, 0,
-        "Started server process", None, None,
-    )
-    assert _UvicornNameFilter().filter(rec) is True
-    assert rec.name == "uvicorn"
+    f = _ShortLoggerNameFilter()
 
-    # A genuinely-named logger is left untouched.
-    other = logging.LogRecord(
-        "pocketlog.audit", logging.INFO, __file__, 0, "x", None, None,
-    )
-    _UvicornNameFilter().filter(other)
-    assert other.name == "pocketlog.audit"
+    def shown(name: str) -> str:
+        rec = logging.LogRecord(name, logging.INFO, __file__, 0, "m", None, None)
+        assert f.filter(rec) is True
+        return rec.name
+
+    assert shown("uvicorn.error") == "uvicorn"
+    assert shown("uvicorn.access") == "uvicorn"
+    assert shown("alembic.runtime.migration") == "alembic"
+    assert shown("sqlalchemy.engine.Engine") == "sqlalchemy"
+    # Our own namespaces are preserved (audit must stay greppable).
+    assert shown("pocketlog.audit") == "pocketlog.audit"
+    assert shown("pocketlog.api") == "pocketlog.api"
 
 
 # ── login ────────────────────────────────────────────────────────────────
