@@ -61,6 +61,27 @@ def test_access_log_pinned_to_warning(app):
     assert logging.getLogger("uvicorn.access").level == logging.WARNING
 
 
+def test_uvicorn_error_relabelled_to_uvicorn(app):
+    """uvicorn's lifecycle logs come through a logger named 'uvicorn.error'
+    even at INFO; the display filter relabels them to 'uvicorn' so the name
+    doesn't imply an error."""
+    from app.logging_config import _UvicornNameFilter
+
+    rec = logging.LogRecord(
+        "uvicorn.error", logging.INFO, __file__, 0,
+        "Started server process", None, None,
+    )
+    assert _UvicornNameFilter().filter(rec) is True
+    assert rec.name == "uvicorn"
+
+    # A genuinely-named logger is left untouched.
+    other = logging.LogRecord(
+        "pocketlog.audit", logging.INFO, __file__, 0, "x", None, None,
+    )
+    _UvicornNameFilter().filter(other)
+    assert other.name == "pocketlog.audit"
+
+
 # ── login ────────────────────────────────────────────────────────────────
 
 
