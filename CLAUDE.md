@@ -177,6 +177,14 @@ Tokens: `var(--accent/--green/--red/--text/--bg-canvas …)` · `--fs-*` · `--s
 
 ## Konventionen
 
+**Branching/PR-Workflow (verbindlich):** Entwicklung immer auf kurzlebigen
+`feature/*`-Branches, abgezweigt von `dev`. **PRs immer gegen `dev`** öffnen,
+**nie** direkt gegen `main`. `main` wird ausschließlich über einen PR
+`dev → main` aktualisiert (= Release; löst den versionierten Image-Build aus).
+`main` und `dev` sind per Ruleset geschützt (PR-Pflicht, grüne Checks, keine
+Direct-/Force-Pushes). Image-Kanäle: `:dev` = Maintainer-Staging, `:vX.Y.Z` =
+Produktion. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 **Sprache:** Code/Kommentare/YAML/Skripte → Englisch · Docs (CLAUDE.md, README.md) → Deutsch
 
 **Backend:**
