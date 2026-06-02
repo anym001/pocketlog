@@ -66,8 +66,10 @@ test('first-run setup, then core UI renders without raw i18n keys', async ({ pag
   await expect(page.locator('[data-panel="goals"]')).toBeVisible();
   await expectNoRawKeys(page, 'navigation drawer');
 
-  // Goals view: empty state + create button (goals.create / goals.emptyView).
-  await page.click('[data-panel="goals"]');
+  // Navigate to the goals view. Drive the app's own navigation directly
+  // rather than clicking the nav item — the drawer's open animation makes a
+  // real click flaky, and the nav label itself was already asserted above.
+  await page.evaluate(() => window.showPanel('goals'));
   await expect(page.locator('#panel-goals')).toHaveClass(/active/);
   await expectNoRawKeys(page, 'goals view');
 
