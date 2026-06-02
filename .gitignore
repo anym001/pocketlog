@@ -27,3 +27,9 @@ Thumbs.db
 preview.html
 preview.db
 preview_server.py
+
+# Playwright e2e (UI smoke)
+frontend/e2e/node_modules/
+frontend/e2e/package-lock.json
+frontend/e2e/playwright-report/
+frontend/e2e/test-results/
