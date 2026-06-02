@@ -2252,8 +2252,12 @@
       }
 
       /* ====== REPORTS ====== */
+      /* Reports and the Goals view are not month-scoped, so the month
+         switcher and the income/expense summary are hidden for both. */
       body.in-report .month-nav,
-      body.in-report .summary {
+      body.in-report .summary,
+      body.on-goals .month-nav,
+      body.on-goals .summary {
         max-height: 0;
         opacity: 0;
         padding-top: 0;

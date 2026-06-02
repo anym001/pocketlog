@@ -30,6 +30,10 @@ CDN-Aufrufe, keine externen Verbindungen, kein Tracking, keine Telemetrie.
 - **Kategorien** – frei definierbar (Name, Icon, Farbe); Standardset wird beim
   ersten Aufruf angelegt
 - **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen
+- **Ziele** – Sparziele und Schulden-Tracker in einem: ein Ziel wird 1:1 mit einer
+  Kategorie verknüpft, der Fortschritt ergibt sich aus deren Buchungen ab dem
+  Startdatum (Ansparen zählt Einnahmen hoch, Schuldenabbau zählt Ausgaben herunter).
+  Reine Anzeige – die Kassenbuch-Summen bleiben unberührt
 - **Berichte & Charts** – Monats-/Jahresübersicht, Kategorien- und Tag-Auswertung,
   Trendansicht und Prognose (Chart.js, lokal eingebettet)
 - **Suche** – Volltext, Kategorie- und Tag-Filter in der Transaktionsliste
