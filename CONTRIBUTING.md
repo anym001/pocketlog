@@ -52,22 +52,35 @@ Ein roter Lauf blockiert Merge **und** Image-Veröffentlichung.
 
 ## Branch Protection einrichten (einmalig)
 
-GitHub → **Settings → Branches → Add branch ruleset** (oder „Add rule"), je für
-`main` und `dev`:
+GitHub → **Settings → Branches → Add branch ruleset** (das neuere Rulesets-
+System, nicht „classic"). Ein einziges Ruleset deckt `main` **und** `dev` ab.
 
-- ✅ **Require a pull request before merging**
-  - für `main`: optional „Require approvals: 1" (als Solo-Maintainer kannst du
-    Reviews weglassen, aber den PR-Zwang behalten – er erzwingt CI + Auto-Merge).
-- ✅ **Require status checks to pass before merging**
-  - **Require branches to be up to date before merging**
-  - erforderliche Checks auswählen: `test-sqlite`, `migrations-mariadb`, `smoke`
-- ✅ **Do not allow bypassing the above settings** (gilt dann auch für Admins)
-- ✅ **Block force pushes**
-- (Restriktion „who can push" optional – PR-Zwang reicht.)
+1. **Ruleset Name:** `protected-branches`
+2. **Enforcement status:** `Active`
+3. **Bypass list:** leer lassen (sonst hebelt man den Schutz für sich selbst aus;
+   im Notfall das Ruleset kurz auf `Disabled` stellen).
+4. **Target branches → Add target:** `Include default branch` (= `main`) **und**
+   `Include by pattern` → `dev`. Es muss „Applies to 2 targets" stehen.
+5. **Branch rules** (Haken):
+   - ✅ **Restrict deletions**
+   - ✅ **Block force pushes**
+   - ✅ **Require a pull request before merging**
+     - **Required approvals: `0`** ⚠️ — als Solo-Maintainer kannst du deinen
+       eigenen PR nicht reviewen; bei ≥1 wärst du blockiert. PR-Zwang + Checks
+       greifen auch bei 0, und Auto-Merge funktioniert.
+   - ✅ **Require status checks to pass**
+     - ✅ **Require branches to be up to date before merging**
+     - Genau **diese drei** Checks hinzufügen: `test-sqlite`,
+       `migrations-mariadb`, `smoke`.
+       ⚠️ **Nicht** die `tests / …`-Varianten wählen: die entstehen nur bei
+       Push (`workflow_call` aus `dev.yml`/`build.yml`), erscheinen bei einem
+       **PR** nie und würden ihn dauerhaft „Expected" blockieren. Bei einem PR
+       läuft `test.yml` direkt und meldet die **bloßen** Namen.
+6. **Save changes.**
 
-Danach im Repo **Settings → General → Pull Requests → „Allow auto-merge"**
-aktivieren. Pro PR „Enable auto-merge" klicken; GitHub merged automatisch,
-sobald die Checks grün und der Branch aktuell sind.
+Danach **Settings → General → Pull Requests → „Allow auto-merge"** aktivieren.
+Pro PR „Enable auto-merge" klicken; GitHub merged automatisch, sobald die Checks
+grün und der Branch aktuell sind.
 
 > Warum das wichtig ist: Diese Kombination verhindert genau die zwei Fehler­
 > klassen, die schon aufgetreten sind – ein Merge über rote/unfertige Checks
