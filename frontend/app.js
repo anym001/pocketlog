@@ -428,6 +428,7 @@
         if (_searchQuery || _categoryFilterId != null || _tagFilterName != null) _resetSearch();
         _activePanel = id;
         document.body.classList.toggle('in-report', id === 'charts');
+        document.body.classList.toggle('on-goals', id === 'goals');
         if (id !== 'charts') _reportTxPool = null;
         document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
         document.getElementById('panel-' + id).classList.add('active');
