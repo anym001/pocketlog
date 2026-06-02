@@ -141,7 +141,6 @@
     "viewTxAria": "View transactions in “{name}”"
   },
   "goals": {
-    "title": "Goals",
     "create": "Create goal",
     "editTitle": "Edit goal",
     "newTitle": "New goal",
@@ -157,7 +156,6 @@
     "targetRemaining": "Remaining target",
     "startDate": "Start date",
     "color": "Colour",
-    "none": "No goals yet.",
     "emptyView": "No goals yet.",
     "emptyViewHint": "Create a savings goal or a debt tracker.",
     "needCategory": "Create a category first.",

@@ -141,7 +141,6 @@
     "viewTxAria": "Buchungen in „{name}“ ansehen"
   },
   "goals": {
-    "title": "Ziele",
     "create": "Ziel erstellen",
     "editTitle": "Ziel bearbeiten",
     "newTitle": "Neues Ziel",
@@ -157,7 +156,6 @@
     "targetRemaining": "Restziel",
     "startDate": "Startdatum",
     "color": "Farbe",
-    "none": "Noch keine Ziele vorhanden.",
     "emptyView": "Noch keine Ziele.",
     "emptyViewHint": "Lege ein Sparziel oder einen Schulden-Tracker an.",
     "needCategory": "Lege zuerst eine Kategorie an.",
@@ -167,7 +165,7 @@
     "progressSaved": "{pct} gespart",
     "progressPaid": "{pct} abbezahlt",
     "categoryTaken": "Diese Kategorie ist bereits einem Ziel zugeordnet.",
-    "invalidAmounts": "Bitte gültige Beträge und ein Startdatum eingeben.",
+    "invalidAmounts": "Gib gültige Beträge und ein Startdatum ein.",
     "saveTargetTooLow": "Der Zielbetrag muss größer als der Startbetrag sein.",
     "debtTargetInvalid": "Die Anfangsschuld muss größer als das Restziel sein.",
     "deleteConfirm": "Ziel wirklich löschen?",

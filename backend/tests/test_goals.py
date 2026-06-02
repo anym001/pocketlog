@@ -184,11 +184,19 @@ def test_goal_post_requires_csrf(app, regular_user):
         json={"username": regular_user.username, "password": TEST_PASSWORD},
     )
     assert res.status_code == 200
-    # Need a category first (with CSRF) then attempt the goal without it.
+    # Need a category + goal first (with CSRF) then attempt mutations without
+    # the header — POST, PUT and DELETE must all be rejected.
     csrf = res.json()["user"]["csrf_token"]
     cat = _new_category_with_csrf(client, csrf)
     no_csrf = client.post("/api/goals", json=_savings_payload(cat))
     assert no_csrf.status_code == 403
+    created = client.post(
+        "/api/goals", headers={"X-CSRF-Token": csrf}, json=_savings_payload(cat)
+    )
+    assert created.status_code == 201
+    gid = created.json()["id"]
+    assert client.put(f"/api/goals/{gid}", json=_savings_payload(cat)).status_code == 403
+    assert client.delete(f"/api/goals/{gid}").status_code == 403
 
 
 def _new_category_with_csrf(client, csrf: str) -> int:
@@ -214,3 +222,132 @@ def test_deleting_category_with_goal_is_blocked(client):
     # Once the goal is gone, the category can be deleted.
     assert client.delete(f"/api/goals/{goal_id}").status_code == 204
     assert client.delete(f"/api/categories/{cat}").status_code == 204
+
+
+def test_goals_require_authentication(app):
+    """Every goals endpoint rejects an unauthenticated client."""
+    anon = TestClient(app)
+    assert anon.get("/api/goals").status_code == 401
+    assert anon.post("/api/goals", json=_savings_payload(1)).status_code == 401
+    assert anon.put("/api/goals/1", json=_savings_payload(1)).status_code == 401
+    assert anon.delete("/api/goals/1").status_code == 401
+
+
+def test_update_unknown_goal_is_404(client):
+    cat = _new_category(client)
+    r = client.put("/api/goals/99999999", json=_savings_payload(cat))
+    assert r.status_code == 404
+
+
+def test_delete_unknown_goal_is_404(client):
+    assert client.delete("/api/goals/99999999").status_code == 404
+
+
+def test_update_foreign_goal_is_404(app, client, db_session):
+    """A user cannot update another user's goal (no cross-user write)."""
+    from app import crud
+
+    cat = _new_category(client)
+    mine = client.post("/api/goals", json=_savings_payload(cat))
+    gid = mine.json()["id"]
+
+    other = crud.create_user(
+        db_session,
+        username=f"other-{uuid.uuid4().hex[:10]}",
+        password=TEST_PASSWORD,
+        is_admin=False,
+        force_change_password=False,
+    )
+    other_client = TestClient(app)
+    res = other_client.post(
+        "/api/auth/login",
+        json={"username": other.username, "password": TEST_PASSWORD},
+    )
+    other_client.headers["X-CSRF-Token"] = res.json()["user"]["csrf_token"]
+    foreign_cat = _new_category(other_client)
+    assert (
+        other_client.put(f"/api/goals/{gid}", json=_savings_payload(foreign_cat)).status_code
+        == 404
+    )
+
+
+def test_update_to_foreign_category_rejected(app, client, db_session):
+    """PUT validates category ownership too, not just POST."""
+    from app import crud
+
+    cat = _new_category(client)
+    gid = client.post("/api/goals", json=_savings_payload(cat)).json()["id"]
+
+    other = crud.create_user(
+        db_session,
+        username=f"other-{uuid.uuid4().hex[:10]}",
+        password=TEST_PASSWORD,
+        is_admin=False,
+        force_change_password=False,
+    )
+    other_client = TestClient(app)
+    res = other_client.post(
+        "/api/auth/login",
+        json={"username": other.username, "password": TEST_PASSWORD},
+    )
+    other_client.headers["X-CSRF-Token"] = res.json()["user"]["csrf_token"]
+    foreign_cat = _new_category(other_client)
+
+    r = client.put(f"/api/goals/{gid}", json=_savings_payload(foreign_cat))
+    assert r.status_code == 422
+
+
+def test_update_moving_goal_onto_taken_category_409(client):
+    """Moving goal B onto a category that already backs goal A → 409."""
+    cat_a = _new_category(client)
+    cat_b = _new_category(client)
+    client.post("/api/goals", json=_savings_payload(cat_a))
+    gid_b = client.post("/api/goals", json=_savings_payload(cat_b)).json()["id"]
+    r = client.put(f"/api/goals/{gid_b}", json=_savings_payload(cat_a))
+    assert r.status_code == 409
+
+
+def test_update_flipping_direction_revalidates(client):
+    """Flipping save_up→pay_down re-runs the cross-field validator: a goal
+    with initial=0 is invalid as a debt and must 422."""
+    cat = _new_category(client)
+    gid = client.post(
+        "/api/goals",
+        json=_savings_payload(cat, initial_amount="0.00", target_amount="1000.00"),
+    ).json()["id"]
+    flipped = _debt_payload(cat, initial_amount="0.00", target_amount="0.00")
+    assert client.put(f"/api/goals/{gid}", json=flipped).status_code == 422
+
+
+def test_user_delete_cascades_goals(db_session):
+    """Deleting a user removes their goals (ORM + FK cascade)."""
+    from app import crud, models
+    from app.schemas import GoalCreate
+
+    user = crud.create_user(
+        db_session,
+        username=f"cascade-{uuid.uuid4().hex[:10]}",
+        password=TEST_PASSWORD,
+        is_admin=False,
+        force_change_password=False,
+    )
+    cat = crud.list_categories(db_session, user.id)[0]
+    crud.create_goal(
+        db_session,
+        user.id,
+        GoalCreate(
+            name="Notgroschen",
+            direction="save_up",
+            category_id=cat.id,
+            initial_amount="0.00",
+            target_amount="500.00",
+            start_date="2026-01-01",
+        ),
+    )
+    uid = user.id
+    assert crud.list_goals(db_session, uid)
+    crud.delete_user(db_session, user)
+    db_session.expire_all()
+    assert (
+        db_session.query(models.Goal).filter(models.Goal.user_id == uid).count() == 0
+    )

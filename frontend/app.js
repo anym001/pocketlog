@@ -3092,7 +3092,6 @@
         el.innerHTML = sorted
           .map((g) => {
             const p = _goalProgress(g, pool);
-            const cat = getCatById(g.category_id);
             const pctLabel = Math.round(p.rawPct) + '%';
             const stateClass = p.complete ? ' complete' : '';
             const dirClass = g.direction === 'pay_down' ? ' debt' : ' savings';
@@ -3116,7 +3115,7 @@
               onclick="openGoalModal(${g.id})"
               onkeydown="handleRowActivate(event, () => openGoalModal(${g.id}))">
               <div class="goal-card-head">
-                <span class="goal-card-icon" style="--cat-color:${cat.color}">${catIconSvg(g.icon)}</span>
+                <span class="goal-card-icon" style="--cat-color:${g.color}">${catIconSvg(g.icon)}</span>
                 <span class="goal-card-name">${_escText(g.name)}</span>
                 <span class="goal-card-pct">${_escText(pctLabel)}</span>
               </div>
