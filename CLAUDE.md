@@ -1,61 +1,61 @@
-# PocketLog – Haushaltsbuch PWA – Claude Code Projektkontext
+# PocketLog – Household Ledger PWA – Claude Code Project Context
 
-## Architektur-Übersicht
+## Architecture Overview
 ```
 PWA (Browser / Homescreen)
         ↓ HTTPS
-   Reverse Proxy          ← beliebig (nginx, Caddy, Traefik …)
+   Reverse Proxy          ← any (nginx, Caddy, Traefik …)
         ↓
   ┌─────────────────────────────────────┐
-  │  FastAPI-Container :8000            │  /        → statische PWA-Files
+  │  FastAPI Container :8000            │  /        → static PWA files
   │  (uvicorn, Python 3.12)             │  /api/*   → Python API
-  │  App-Auth: pocketlog_session-Cookie + X-CSRF-Token-Header (Double-Submit).
+  │  App auth: pocketlog_session cookie + X-CSRF-Token header (Double-Submit).
   └──────────────────┬──────────────────┘
                      ↓
-   SQLite-Datei /config/db/pocketlog.db (Default)
-   · ODER externe MariaDB (Opt-in via DB_*)
+   SQLite file /config/db/pocketlog.db (default)
+   · OR external MariaDB (opt-in via DB_*)
 ```
-Backend-Wahl ist implizit (`database.py:_build_url`): `DATABASE_URL` gewinnt;
-sonst MariaDB, sobald irgendeine `DB_*`-Variable gesetzt ist (`DB_PASSWORD`
-dann Pflicht); sonst SQLite unter `SQLITE_PATH` (Default `/config/db/pocketlog.db`).
+Backend selection is implicit (`database.py:_build_url`): `DATABASE_URL` wins;
+otherwise MariaDB as soon as any `DB_*` variable is set (`DB_PASSWORD`
+then required); otherwise SQLite at `SQLITE_PATH` (default `/config/db/pocketlog.db`).
 
-## Projektstruktur
+## Project Structure
 ```
 PocketLog/
 ├── frontend/
-│   ├── index.html          ← PWA-Shell (Markup + Inline-Theme-Bootstrap)
-│   ├── styles.css          ← komplettes CSS (Tokens, Layout, Komponenten)
-│   ├── app.js              ← komplette App-Logik
-│   ├── i18n.js             ← i18n-Runtime (window.I18N, tr(), Locale/Currency)
-│   ├── i18n/               ← Übersetzungs-Bundles (de.json, en.json)
-│   ├── sw.js               ← Service Worker (Cache + Outbox)
-│   ├── db.js               ← IndexedDB-Helper für Outbox
+│   ├── index.html          ← PWA shell (markup + inline theme bootstrap)
+│   ├── styles.css          ← complete CSS (tokens, layout, components)
+│   ├── app.js              ← complete app logic
+│   ├── i18n.js             ← i18n runtime (window.I18N, tr(), locale/currency)
+│   ├── i18n/               ← translation bundles (de.json, en.json)
+│   ├── sw.js               ← service worker (cache + outbox)
+│   ├── db.js               ← IndexedDB helper for outbox
 │   ├── manifest.webmanifest
-│   ├── icons/categories/sprite.svg  ← Kategorie-Glyphen (Phosphor Regular, MIT)
+│   ├── icons/categories/sprite.svg  ← category glyphs (Phosphor Regular, MIT)
 │   ├── fonts/              ← DM Sans + DM Serif Display woff2
-│   └── vendor/             ← Drittanbieter-Bundles (Chart.js)
+│   └── vendor/             ← third-party bundles (Chart.js)
 ├── backend/
 │   ├── Dockerfile
 │   ├── migrations/
 │   └── app/
-│       ├── main.py         ← FastAPI Endpoints + StaticFiles-Mount
+│       ├── main.py         ← FastAPI endpoints + StaticFiles mount
 │       ├── models.py       ← SQLAlchemy ORM
 │       ├── schemas.py      ← Pydantic v2
-│       ├── crud.py         ← user_id-skopierte Queries
-│       ├── auth.py         ← Session, CSRF, Brute-Force
-│       └── database.py     ← Engine-Auswahl: SQLite (Default) | MariaDB (pymysql)
+│       ├── crud.py         ← user_id-scoped queries
+│       ├── auth.py         ← session, CSRF, brute-force
+│       └── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
 ├── CLAUDE.md
 └── DESIGN_CONVENTIONS.md
 ```
 
-## Drittanbieter & Privacy
+## Third-Party Assets & Privacy
 
-Alle Assets vom eigenen Origin — keine CDNs, kein Tracking.
-**Vor jedem neuen Asset** lokal versionieren:
-- JS-Lib → `frontend/vendor/<name>.js` (Shasum, MIT/Apache/BSD, Banner erhalten)
+All assets from own origin — no CDNs, no tracking.
+**Before adding any new asset**, vendor it locally:
+- JS lib → `frontend/vendor/<name>.js` (shasum, MIT/Apache/BSD, keep banner)
 - Font → `frontend/fonts/<name>.woff2` (latin + latin-ext)
-- UI-Icon → `<symbol id="icon-…">` ins Inline-Sprite in `index.html`
-- Kategorie-Icon → `<symbol id="cat-…">` in `sprite.svg` + `CAT_ICON_GROUPS` in `app.js`; nur Phosphor Regular (MIT)
+- UI icon → `<symbol id="icon-…">` into the inline sprite in `index.html`
+- Category icon → `<symbol id="cat-…">` in `sprite.svg` + `CAT_ICON_GROUPS` in `app.js`; Phosphor Regular (MIT) only
 
 ## API Endpoints (FastAPI)
 ```
@@ -63,34 +63,34 @@ Alle Assets vom eigenen Origin — keine CDNs, kein Tracking.
 GET    /api/health
 GET    /api/version
 GET    /api/auth/setup-status
-POST   /api/auth/setup           ← nur solange kein Admin gesetzt ist
-POST   /api/auth/login           ← Cookie + CSRF; 429 + Retry-After bei Lockout
+POST   /api/auth/setup           ← only while no admin exists
+POST   /api/auth/login           ← cookie + CSRF; 429 + Retry-After on lockout
 POST   /api/auth/logout
 
-# User (Session-Cookie + X-CSRF-Token bei non-GET)
+# User (session cookie + X-CSRF-Token on non-GET)
 GET    /api/auth/me
-POST   /api/auth/change-password ← invalidiert alle anderen Sessions
+POST   /api/auth/change-password ← invalidates all other sessions
 GET    /api/transactions?year=&month=&from=&to=
 POST|PUT|DELETE /api/transactions/{id}
-GET|POST|PUT|DELETE /api/categories/{id}   ← DELETE nur ohne referenzierte TX **und** ohne verknüpftes Ziel
+GET|POST|PUT|DELETE /api/categories/{id}   ← DELETE only when no referenced transactions **and** no linked goal
 GET|POST /api/goals
-PUT|DELETE /api/goals/{id}       ← 1:1 zu Kategorie; 409 wenn Kategorie schon ein Ziel hat. Fortschritt wird im Frontend berechnet (kein Aggregat in der API)
+PUT|DELETE /api/goals/{id}       ← 1:1 to category; 409 if category already has a goal. Progress is calculated in the frontend (no aggregate in the API)
 GET|POST /api/tags
-PUT|DELETE /api/tags/{name}      ← PUT benennt in allen TX um
+PUT|DELETE /api/tags/{name}      ← PUT renames across all transactions
 GET|PUT  /api/settings
-POST   /api/import/csv           ← max. 5 MB, UTF-8 oder CP1252
+POST   /api/import/csv           ← max. 5 MB, UTF-8 or CP1252
 GET    /api/export/csv
-DELETE /api/admin/transactions   ← Self-Service: eigene Buchungen
-DELETE /api/admin/all-data       ← Self-Service: Buchungen + Kategorien + Tags
+DELETE /api/admin/transactions   ← self-service: own transactions
+DELETE /api/admin/all-data       ← self-service: transactions + categories + tags
 
-# Admin (+ admin-Rolle)
+# Admin (+ admin role)
 GET|POST /api/admin/users
-POST   /api/admin/users/{id}/reset-password  ← force_change=true, Sessions gekillt
+POST   /api/admin/users/{id}/reset-password  ← force_change=true, sessions killed
 POST   /api/admin/users/{id}/deactivate|activate
-DELETE /api/admin/users/{id}     ← Cascade; nicht auf self
+DELETE /api/admin/users/{id}     ← cascade; not on self
 ```
 
-## Datenbankschema (SQLite-Default / MariaDB-Option)
+## Database Schema (SQLite default / MariaDB option)
 ```
 users           id, username UNIQUE, password_hash NULL (argon2id),
                 is_admin, is_active, force_change_password,
@@ -114,106 +114,105 @@ transaction_tags  transaction_id FK CASCADE, tag_id FK CASCADE
                   PK(transaction_id, tag_id)
 
 user_settings   user_id PK FK CASCADE, theme, default_view,
-                locale (BCP-47, z.B. de-DE/de-AT/en-GB), currency (ISO 4217,
+                locale (BCP-47, e.g. de-DE/de-AT/en-GB), currency (ISO 4217,
                 display-only), updated_at
 
 goals           id, user_id FK CASCADE, name, direction ENUM('save_up','pay_down'),
                 category_id FK CASCADE, initial_amount DECIMAL(12,2),
                 target_amount DECIMAL(12,2), start_date, icon, color,
                 created_at, updated_at
-                UNIQUE(user_id, category_id)   ← 1:1 Kategorie↔Ziel
+                UNIQUE(user_id, category_id)   ← 1:1 category↔goal
 ```
-Tags sind Many-to-Many via `transaction_tags` (kein JSON-Array mehr, entfernt in Migration 0008). Default-Kategorien werden einmalig bei `crud.create_user` geseedet.
+Tags are many-to-many via `transaction_tags` (no JSON array any more, removed in migration 0008). Default categories are seeded once in `crud.create_user`.
 
-**Ziele (`goals`, Migration 0011):** vereinheitlichter Sparziel- + Schulden-Tracker. Eine Kategorie trägt höchstens ein Ziel (`uq_goals_user_category`). Der Fortschritt ist **abgeleitet, nie gespeichert**: das Frontend summiert die Buchungen der verknüpften Kategorie ab `start_date` (`in` für `save_up`, `out` für `pay_down`) — Geld-Regel beachtet (kein SQL-`SUM`). Ein Ziel beeinflusst **nie** die Kassenbuch-Totals. Kategorie-Delete ist blockiert (409), solange ein Ziel referenziert (`crud.delete_category`); CASCADE bleibt das DB-Sicherheitsnetz fürs User-Delete.
+**Goals (`goals`, migration 0011):** unified savings goal + debt tracker. A category carries at most one goal (`uq_goals_user_category`). Progress is **derived, never stored**: the frontend sums the transactions of the linked category from `start_date` (`in` for `save_up`, `out` for `pay_down`) — money rule observed (no SQL `SUM`). A goal **never** affects ledger totals. Category deletion is blocked (409) while a goal references it (`crud.delete_category`); CASCADE remains the DB safety net for user deletion.
 
-## Auth-Konzept
+## Auth Concept
 
-Sessions als HttpOnly-Cookie `pocketlog_session` (opakes Token, DB hält SHA256) + non-HttpOnly `pocketlog_csrf` für Double-Submit. `get_current_user()`: Cookie → SHA256-Lookup → `expires_at`/`absolute_expires_at` → `is_active` → CSRF-Check (non-GET, `hmac.compare_digest`) → Sliding-Refresh (5-min-Damper).
+Sessions as HttpOnly cookie `pocketlog_session` (opaque token, DB holds SHA256) + non-HttpOnly `pocketlog_csrf` for Double-Submit. `get_current_user()`: cookie → SHA256 lookup → `expires_at`/`absolute_expires_at` → `is_active` → CSRF check (non-GET, `hmac.compare_digest`) → sliding refresh (5-min damper).
 
-Dependencies: `CurrentUser` = `require_active_password` (blockt bei `force_change_password`; Ausnahmen: `/api/auth/me`, `/api/auth/logout`, `/api/auth/change-password`). `AdminUser` = `require_admin` → `require_active_password`.
+Dependencies: `CurrentUser` = `require_active_password` (blocks on `force_change_password`; exceptions: `/api/auth/me`, `/api/auth/logout`, `/api/auth/change-password`). `AdminUser` = `require_admin` → `require_active_password`.
 
-Brute-Force: ab 5. Fehlversuch exponentieller Lockout (1s → 60s Cap). Unbekannte User laufen durch `verify_password_dummy()` (Timing-Schutz).
+Brute-force protection: from the 5th failed attempt, exponential lockout (1 s → 60 s cap). Unknown users run through `verify_password_dummy()` (timing protection).
 
 ## Logging & Audit
-Zentrale Config in `app/logging_config.py` (`configure_logging()`, beim Import von `main.py` aufgerufen). Logger-Namespace `pocketlog` mit eigenem stderr-Handler + `propagate=False`; Module nutzen `pocketlog.api`/`pocketlog.crud`, **Security-Events** `pocketlog.audit`. **Einheitliches Format** `%(asctime)s %(levelname)s %(name)s %(message)s` mit `datefmt %Y-%m-%d %H:%M:%S` (Sekunden-Präzision, **keine** Millisekunden): der `dictConfig` biegt auch die `uvicorn`/`uvicorn.error`/`uvicorn.access`-Logger darauf um (läuft beim App-Import nach uvicorns Default, gewinnt also), und `alembic.ini` (separater Migrations-Prozess) spiegelt Format + datefmt. So sind die Docker-Logs durchgängig konsistent. `uvicorn.access` ist bewusst auf `WARNING` gepinnt (Pro-Request-Zeilen sind Rauschen; Fehler kommen weiter über `uvicorn.error` + App-Logs). **Kurze Logger-Namen:** ein Handler-Filter (`_ShortLoggerNameFilter`) kürzt Framework-Namen auf das Top-Level-Paket (`uvicorn.error`/`uvicorn.access`→`uvicorn`, `alembic.runtime.migration`→`alembic`) — die Severity steckt im Level, nicht im Namen; `pocketlog.*` bleibt intakt (audit/api/crud sind bedeutungstragend). Der Migrations-Prozess konfiguriert Logging separat über `alembic.ini`, daher hängt `migrations/env.py` denselben Filter via `install_short_logger_names()` an. ENV `LOG_LEVEL` (Default INFO) und `LOG_FORMAT` (Default `text`; `json` reserviert, fällt bis zur Implementierung auf `text` zurück — Aktivierung wäre ein reiner dictConfig-Switch ohne Call-Site-Änderung). Optional `LOG_FILE` (+ `LOG_FILE_MAX_BYTES`/`LOG_FILE_BACKUPS`): zusätzlicher `RotatingFileHandler`, programmatisch nach dem dictConfig angehängt und in try/except — eine nicht-öffenbare Datei warnt nur und lässt die App auf stderr weiterlaufen (nie Crash). Persistenz ist Betriebs-Sache (Volume-Mount oder Docker-Log-Driver), siehe README.
+Central config in `app/logging_config.py` (`configure_logging()`, called on import of `main.py`). Logger namespace `pocketlog` with its own stderr handler + `propagate=False`; modules use `pocketlog.api`/`pocketlog.crud`, **security events** use `pocketlog.audit`. **Uniform format** `%(asctime)s %(levelname)s %(name)s %(message)s` with `datefmt %Y-%m-%d %H:%M:%S` (second precision, **no** milliseconds): the `dictConfig` also redirects the `uvicorn`/`uvicorn.error`/`uvicorn.access` loggers to it (runs on app import after uvicorn's default, so it wins), and `alembic.ini` (separate migrations process) mirrors format + datefmt. This keeps Docker logs consistently formatted throughout. `uvicorn.access` is intentionally pinned to `WARNING` (per-request lines are noise; errors still come through `uvicorn.error` + app logs). **Short logger names:** a handler filter (`_ShortLoggerNameFilter`) trims framework names to the top-level package (`uvicorn.error`/`uvicorn.access`→`uvicorn`, `alembic.runtime.migration`→`alembic`) — severity is in the level, not the name; `pocketlog.*` remains intact (audit/api/crud are semantically significant). The migrations process configures logging separately via `alembic.ini`, so `migrations/env.py` attaches the same filter via `install_short_logger_names()`. ENV `LOG_LEVEL` (default INFO) and `LOG_FORMAT` (default `text`; `json` reserved, falls back to `text` until implemented — enabling it would be a pure dictConfig switch with no call-site changes). Optional `LOG_FILE` (+ `LOG_FILE_MAX_BYTES`/`LOG_FILE_BACKUPS`): an additional `RotatingFileHandler`, attached programmatically after the dictConfig and wrapped in try/except — an unwritable file only warns and lets the app continue on stderr (never crashes). Persistence is an operations concern (volume mount or Docker log driver), see README.
 
-**App-Verzeichnis-Konvention:** Persistenter Container-State liegt unter `/config` (LinuxServer/Unraid-Standard, gemountet auf z.B. `/mnt/user/appdata/pocketlog`). Bewohner: die SQLite-DB (`/config/db/pocketlog.db`, sofern keine externe MariaDB genutzt wird) und der Audit-Trail (`/config/logs/`, empfohlener `LOG_FILE`-Pfad). Künftige persistente Daten (Uploads, Backups) gehören in dasselbe `/config`, nicht in verstreute Pfade — ein einziger Mount deckt den gesamten App-Zustand ab.
+**App directory convention:** Persistent container state lives under `/config` (LinuxServer/Unraid standard, mounted to e.g. `/mnt/user/appdata/pocketlog`). Contents: the SQLite DB (`/config/db/pocketlog.db`, unless an external MariaDB is used) and the audit trail (`/config/logs/`, recommended `LOG_FILE` path). Future persistent data (uploads, backups) belong in the same `/config`, not in scattered paths — a single mount covers the entire app state.
 
-**Container-Rechte (PUID/PGID):** Das Image startet als root; der Entrypoint (`backend/docker-entrypoint.sh`) chownt `/config` auf `PUID:PGID` (Default `1000:1000`, Unraid `99:100`) und droppt via `gosu` die Rechte, bevor `alembic`+`uvicorn` laufen. So kann die SQLite-Datei auf dem Mount mit den richtigen Host-Rechten geschrieben werden. **SQLite-Pragmas** (`database.py`): `foreign_keys=ON` (Cascades), `journal_mode=WAL` (paralleles Lesen/Schreiben für PWA-Sync), `busy_timeout=5000`.
+**Container permissions (PUID/PGID):** The image starts as root; the entrypoint (`backend/docker-entrypoint.sh`) chowns `/config` to `PUID:PGID` (default `1000:1000`, Unraid `99:100`) and drops privileges via `gosu` before `alembic`+`uvicorn` run. This allows the SQLite file on the mount to be written with the correct host permissions. **SQLite pragmas** (`database.py`): `foreign_keys=ON` (cascades), `journal_mode=WAL` (concurrent reads/writes for PWA sync), `busy_timeout=5000`.
 
-Audit-Events werden **im Endpoint-Layer** (`main.py`) geloggt (dort sind Request-IP via `client_ip()` + DB-Fakten verfügbar); `auth.py`/`crud.py` bleiben audit-frei. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`. **Nie loggen:** Passwörter, Hashes, Session-/CSRF-Tokens, Cookies — nur IDs, Username, IP, Counts. `tests/test_audit_logging.py` pinnt Level/Felder **und** den Secret-Leak-Schutz. Logs Englisch.
+Audit events are logged **in the endpoint layer** (`main.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
 
 ## Offline / PWA
-`sw.js`: network-first für HTML-Shell + GET /api/\*, cache-first für Vendor/Fonts/Icons. Offline-Outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache-Keys aus `__APP_VERSION__` (Dockerfile substituiert beim Build). Beide i18n-Bundles (`i18n/de.json`, `i18n/en.json`) liegen im SHELL-Precache, damit der Sprachwechsel offline funktioniert.
+`sw.js`: network-first for HTML shell + GET /api/\*, cache-first for vendor/fonts/icons. Offline outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache keys from `__APP_VERSION__` (Dockerfile substitutes at build time). Both i18n bundles (`i18n/de.json`, `i18n/en.json`) are in the SHELL precache so that language switching works offline.
 
-## i18n (Locale & Währung)
-Zwei statische JSON-Bundles unter `frontend/i18n/<bundle>.json` (de/en heute), ausgeliefert mit dem Code — **keine** DB-Übersetzungstabelle. `i18n.js` stellt `window.I18N` + globales `tr(key, params)` bereit; `t` ist als TX-Loop-Variable belegt, deshalb heißt der Helper `tr`.
+## i18n (Locale & Currency)
+Two static JSON bundles at `frontend/i18n/<bundle>.json` (de/en today), shipped with the code — **no** DB translation table. `i18n.js` provides `window.I18N` + global `tr(key, params)`; `t` is reserved as a transaction loop variable, hence the helper is named `tr`.
 
-- **Gespeichert wird die volle Locale (BCP-47)**, z.B. `de-DE`, `de-AT`, `en-GB`, `en-US`. Das **Übersetzungs-Bundle** ist der **Primär-Subtag** (`de-AT`→`de`, `I18N.getBundle()`): ein `en.json` bedient jedes Englisch, nur die **Formatierung** (Datum/Zahl via `Intl`, `I18N.getLocale()`) unterscheidet en-GB vs en-US. Kuratierte Liste in `SUPPORTED_LOCALES` (i18n.js + schemas.py + Picker-`<option>`s synchron halten).
-- **Statisches Markup:** `data-i18n="key"` (textContent) bzw. `data-i18n-attr="attr:key;attr2:key2"`. `I18N.applyStatic()` übersetzt beim Locale-Wechsel neu.
-- **Dynamische Strings:** `tr('key', { n: 3 })` mit `{platzhalter}`-Interpolation.
-- **Währung ist ein separater ISO-Code** (`fmtCurrency`, `Intl`), reine Anzeige — keine Umrechnung. **Monatsnamen** aus `Intl` (`rebuildMonthNames()`).
-- **Deployment-Default → Nutzer-Override:** `DEFAULT_LOCALE` / `DEFAULT_CURRENCY` als ENV (validiert, Fallback `de-DE`/`EUR`) seeden neue User; `/api/auth/setup-status` liefert `default_locale` an den Setup-Screen. Per-User-Werte in `user_settings` (+ localStorage-Spiegel), beim Login per `reconcileSettingsFromServer` abgeglichen. `i18n:changed`-Event → Re-Render.
-- Beide JSON-Kataloge müssen **deckungsgleiche Keys** haben (Pytest/CI-tauglich: Key-Diff = leer).
-- **CSV-Import-Beispiel** liegt pro Bundle vor (`example-import-de.csv` / `-en.csv`), `downloadExampleCSV()` wählt nach `I18N.getBundle()`.
+- **The full locale (BCP-47) is stored**, e.g. `de-DE`, `de-AT`, `en-GB`, `en-US`. The **translation bundle** is the **primary subtag** (`de-AT`→`de`, `I18N.getBundle()`): one `en.json` serves all English variants; only **formatting** (date/number via `Intl`, `I18N.getLocale()`) differs between en-GB and en-US. Curated list in `SUPPORTED_LOCALES` (i18n.js + schemas.py + picker `<option>`s must stay in sync).
+- **Static markup:** `data-i18n="key"` (textContent) or `data-i18n-attr="attr:key;attr2:key2"`. `I18N.applyStatic()` re-translates on locale change.
+- **Dynamic strings:** `tr('key', { n: 3 })` with `{placeholder}` interpolation.
+- **Currency is a separate ISO code** (`fmtCurrency`, `Intl`), display only — no conversion. **Month names** from `Intl` (`rebuildMonthNames()`).
+- **Deployment default → user override:** `DEFAULT_LOCALE` / `DEFAULT_CURRENCY` as ENV (validated, fallback `de-DE`/`EUR`) seed new users; `/api/auth/setup-status` delivers `default_locale` to the setup screen. Per-user values in `user_settings` (+ localStorage mirror), reconciled on login via `reconcileSettingsFromServer`. `i18n:changed` event → re-render.
+- Both JSON catalogs must have **identical keys** (pytest/CI-verifiable: key diff = empty).
+- **CSV import example** exists per bundle (`example-import-de.csv` / `-en.csv`), `downloadExampleCSV()` selects by `I18N.getBundle()`.
 
-- **Backend-Fehler als Codes (Phase 3, erledigt):** Die API liefert für CSV-Import und Passwort-Policy **stabile Codes** statt deutscher Prosa; das Frontend übersetzt.
-  - CSV-Import: `ImportRowError = {row, code, params}`; Codes via `crud.CsvRowError` (z.B. `date_unrecognised {value}`, `row_limit {max}`, `db_conflict`). Frontend-Keys unter `importExport.error.*`, Anzeige als übersetzte Zeilenliste.
-  - Passwort: `validate_password_complexity` wirft `PydanticCustomError('password_complexity', …, {missing})`; 422-`type`/`ctx` werden im Frontend (`_passwordErrorMessage`) auf `pwd.*` gemappt. Länge nutzt die stabilen Pydantic-Codes `string_too_short`/`string_too_long`.
-  - Import-Fallback-Kategorie folgt der User-Locale (`bundle_for_locale`), kein hartes „Sonstiges" mehr.
-  - **CLI-Ausgaben sind bewusst Englisch-only** (Operator-Tooling-Konvention; kein User sieht sie). Logs ebenfalls Englisch.
-  - **Bewusst statisch deutsch:** `manifest.webmanifest` (`name`/`description`/`lang`) — eine einzelne ausgelieferte Datei; echte Lokalisierung bräuchte Server-Content-Negotiation nach `Accept-Language`.
+- **Backend errors as codes (phase 3, done):** The API returns **stable codes** instead of prose for CSV import and password policy; the frontend translates them.
+  - CSV import: `ImportRowError = {row, code, params}`; codes via `crud.CsvRowError` (e.g. `date_unrecognised {value}`, `row_limit {max}`, `db_conflict`). Frontend keys under `importExport.error.*`, displayed as a translated row list.
+  - Password: `validate_password_complexity` raises `PydanticCustomError('password_complexity', …, {missing})`; 422 `type`/`ctx` are mapped in the frontend (`_passwordErrorMessage`) to `pwd.*`. Length uses the stable Pydantic codes `string_too_short`/`string_too_long`.
+  - Import fallback category follows the user locale (`bundle_for_locale`), no hard-coded `Sonstiges` any more.
+  - **CLI output is intentionally English-only** (operator tooling convention; no end user sees it). Logs likewise English.
+  - **Intentionally static German:** `manifest.webmanifest` (`name`/`description`/`lang`) — a single served file; true localisation would require server-side content negotiation on `Accept-Language`.
 
 ## Deployment → [`README.md`](README.md)
 
 ## Design Conventions (Frontend)
 
-→ [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md) vor jeder Frontend-Änderung nachschlagen.
+→ Consult [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md) before every frontend change.
 
-Kurzregeln: Mobile-first 430 px · `env(safe-area-inset-*)` · nur **DM Serif Display** + **DM Sans** · `fmtCurrency(n)` / `fmtSignedCurrency(n)` · ISO 8601 · Touch ≥ 44×44 px · WCAG-AA · App-Name immer „PocketLog" · **keine deutschen Inline-Texte** — `data-i18n`/`tr()` verwenden (siehe i18n-Abschnitt).
+Quick rules: mobile-first 430 px · `env(safe-area-inset-*)` · **DM Serif Display** + **DM Sans** only · `fmtCurrency(n)` / `fmtSignedCurrency(n)` · ISO 8601 · touch ≥ 44×44 px · WCAG-AA · app name always "PocketLog" · **no hardcoded inline text** — use `data-i18n`/`tr()` (see i18n section).
 
-Tokens: `var(--accent/--green/--red/--text/--bg-canvas …)` · `--fs-*` · `--space-*` · `--r-*/--shadow-*/--z-*/--dur-*`. Keine Hex-/px-Literale — hardcodierte Werte sind fast immer ein Bug.
+Tokens: `var(--accent/--green/--red/--text/--bg-canvas …)` · `--fs-*` · `--space-*` · `--r-*/--shadow-*/--z-*/--dur-*`. No hex/px literals — hardcoded values are almost always a bug.
 
-## Konventionen
+## Conventions
 
-**Branching/PR-Workflow (verbindlich):** Entwicklung immer auf kurzlebigen
-`feature/*`-Branches, abgezweigt von `dev`. **PRs immer gegen `dev`** öffnen,
-**nie** direkt gegen `main`. `main` wird ausschließlich über einen PR
-`dev → main` aktualisiert (= Release; löst den versionierten Image-Build aus).
-`main` und `dev` sind per Ruleset geschützt (PR-Pflicht, grüne Checks, keine
-Direct-/Force-Pushes). Image-Kanäle: `:dev` = Maintainer-Staging, `:vX.Y.Z` =
-Produktion. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+**Branching/PR workflow (mandatory):** Development always on short-lived
+`feature/*` branches, branched from `dev`. **PRs always against `dev`**,
+**never** directly against `main`. `main` is updated exclusively via a PR
+`dev → main` (= release; triggers the versioned image build).
+`main` and `dev` are protected by ruleset (PR required, green checks, no
+direct/force pushes). Image channels: `:dev` = maintainer staging, `:vX.Y.Z` =
+production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-**Sprache:** Code/Kommentare/YAML/Skripte → Englisch · Docs (CLAUDE.md, README.md) → Deutsch
+**Language:** Everything is English — code, comments, YAML, scripts, all docs (README.md, CLAUDE.md, CONTRIBUTING.md, DESIGN_CONVENTIONS.md), commit messages, and PR titles/descriptions.
 
 **Backend:**
-- CRUD-Funktionen immer mit `user_id: int`; im Endpoint `user.id` aus `CurrentUser` übergeben
-- Neue Endpoints: `main.py` + `schemas.py` + `crud.py`
-- `from_attributes=True` auf Out-Schemas; `populate_by_name=True` nur bei `Field(alias=…)`
-- Schemaänderungen: Alembic-Revision generieren, nie manuell ALTER TABLE
-- `StaticFiles`-Mount immer zuletzt registrieren
-- **Geld** (`DECIMAL(12,2)`) nie per SQL `SUM()`/`func.sum` über Beträge aggregieren — SQLite hat keinen nativen Decimal-Typ und würde über Float runden. Summen in Python über die ORM-`Decimal`-Werte bilden (Frontend rechnet Totals ohnehin selbst). Per-Zeile ist der Roundtrip exakt; `tests/test_money_precision.py` pinnt das.
+- CRUD functions always with `user_id: int`; pass `user.id` from `CurrentUser` in the endpoint
+- New endpoints: `main.py` + `schemas.py` + `crud.py`
+- `from_attributes=True` on output schemas; `populate_by_name=True` only with `Field(alias=…)`
+- Schema changes: generate an Alembic revision, never manual `ALTER TABLE`
+- Always register the `StaticFiles` mount last
+- **Money** (`DECIMAL(12,2)`) must never be aggregated via SQL `SUM()`/`func.sum` — SQLite has no native decimal type and would round through float. Compute sums in Python over ORM `Decimal` values (the frontend calculates totals itself anyway). Per-row the round-trip is exact; `tests/test_money_precision.py` pins this.
 
-**Alembic-Migrationen:**
-- Revision-ID ≤ 24 Zeichen (pytest-Guard in `test_migrations.py`)
-- DDL idempotent: `op.create_*`/`op.drop_*` mit `sa.inspect()` absichern (Beispiel: `0007_tx_category_idx.py`)
-- MariaDB-only SQL (`UPDATE…JOIN`, `REGEXP`, `CHAR_LENGTH`) per `dialect.name` splitten
-- `drop_constraint`/`alter_column` immer in `batch_alter_table`-Block
+**Alembic migrations:**
+- Revision ID ≤ 24 characters (pytest guard in `test_migrations.py`)
+- DDL idempotent: guard `op.create_*`/`op.drop_*` with `sa.inspect()` (example: `0007_tx_category_idx.py`)
+- MariaDB-only SQL (`UPDATE…JOIN`, `REGEXP`, `CHAR_LENGTH`) split by `dialect.name`
+- `drop_constraint`/`alter_column` always inside a `batch_alter_table` block
 
 ## Subagents (`.claude/agents/`)
 
-| Agent | Zuständig für |
+| Agent | Responsible for |
 |---|---|
-| `review` | Code-Review (Konventionen, Korrektheit) |
-| `security-review` | Auth, Queries, Header-Validierung, Uploads |
-| `ui-review` | Design-Konventionen, Layout, Responsiveness |
-| `db-review` | Alembic-Migrationen, Schema-Änderungen |
-| `token-audit` | Hardcodierte CSS-Werte statt Design-Tokens |
-| `copy-review` | UI-Texte, Apple Style Guide (Deutsch) |
-| `pwa-review` | Service Worker, Cache-Strategie, Offline-Outbox |
-| `vendor-audit` | Vendored JS/Fonts/Icons — Lizenz, Quelle, Privacy |
-| `test-review` | pytest-Testqualität: Coverage-Lücken, CSRF, Datenisolation |
+| `review` | Code review (conventions, correctness) |
+| `security-review` | Auth, queries, header validation, uploads |
+| `ui-review` | Design conventions, layout, responsiveness |
+| `db-review` | Alembic migrations, schema changes |
+| `token-audit` | Hardcoded CSS values instead of design tokens |
+| `copy-review` | UI copy, Apple Style Guide |
+| `pwa-review` | Service worker, cache strategy, offline outbox |
+| `vendor-audit` | Vendored JS/fonts/icons — license, source, privacy |
+| `test-review` | pytest quality: coverage gaps, CSRF, data isolation |
 
-Bei Konventionsänderungen betroffene Agents mitpflegen.
-
+Update affected agents when conventions change.

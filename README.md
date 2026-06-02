@@ -1,70 +1,68 @@
 # PocketLog
 
-Haushaltsbuch als Progressive Web App (PWA) – läuft im Browser auf allen
-gängigen Plattformen (iOS, Android, macOS, Windows, Linux) und lässt sich
-als App auf dem Homescreen installieren.
+A household finance ledger as a Progressive Web App (PWA) — runs in the browser on all
+major platforms (iOS, Android, macOS, Windows, Linux) and can be installed as an app
+on the home screen.
 
-Konzipiert für **privates Self-Hosting**: Daten liegen ausschließlich auf
-deinem eigenen Server – standardmäßig in einer eingebetteten SQLite-Datei
-(keine separate Datenbank nötig), optional in einer externen MariaDB. Die
-App läuft in deinem eigenen Container. Alle Assets (Fonts, Icons,
-JS-Bibliotheken) werden vom eigenen Server ausgeliefert – keine
-CDN-Aufrufe, keine externen Verbindungen, kein Tracking, keine Telemetrie.
+Designed for **private self-hosting**: data resides exclusively on your own server —
+by default in an embedded SQLite file (no separate database required), optionally in an
+external MariaDB. The app runs in your own container. All assets (fonts, icons,
+JS libraries) are served from your own server — no CDN calls, no external connections,
+no tracking, no telemetry.
 
-## Inhalt
+## Contents
 
-- [Funktionsumfang](#funktionsumfang)
-- [Voraussetzungen](#voraussetzungen)
-- [Schnellstart](#schnellstart)
-- [Konfiguration](#konfiguration)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
 - [Reverse Proxy](#reverse-proxy)
-- [Login & Sicherheit](#login--sicherheit)
-- [Logging & Audit-Trail](#logging--audit-trail)
-- [Notfall-Recovery](#notfall-recovery)
+- [Login & Security](#login--security)
+- [Logging & Audit Trail](#logging--audit-trail)
+- [Emergency Recovery](#emergency-recovery)
 - [Image](#image)
-- [Lizenz](#lizenz)
+- [License](#license)
 
-## Funktionsumfang
+## Features
 
-- **Transaktionen** – Einnahmen & Ausgaben mit Datum, Betrag, Kategorie und Tags
-- **Kategorien** – frei definierbar (Name, Icon, Farbe); Standardset wird beim
-  ersten Aufruf angelegt
-- **Tags** – freie Schlagwörter pro Transaktion; zentral umbenennen oder löschen
-- **Ziele** – Sparziele und Schulden-Tracker in einem: ein Ziel wird 1:1 mit einer
-  Kategorie verknüpft, der Fortschritt ergibt sich aus deren Buchungen ab dem
-  Startdatum (Ansparen zählt Einnahmen hoch, Schuldenabbau zählt Ausgaben herunter).
-  Reine Anzeige – die Kassenbuch-Summen bleiben unberührt
-- **Berichte & Charts** – Monats-/Jahresübersicht, Kategorien- und Tag-Auswertung,
-  Trendansicht und Prognose (Chart.js, lokal eingebettet)
-- **Suche** – Volltext, Kategorie- und Tag-Filter in der Transaktionsliste
-- **CSV-Import / -Export** – UTF-8 oder CP1252, max. 5 MB; Export aller
-  Transaktionen als Semikolon-CSV
-- **Offline-Fähigkeit** – App funktioniert ohne Verbindung; Änderungen werden
-  beim nächsten Online-Sein automatisch synchronisiert
-- **Themes** – Hell, Dunkel, System (wird aus den Einstellungen gespeichert)
-- **Sprache & Währung** – Deutsch/Englisch mit Regionsvarianten (de-DE, de-AT,
-  de-CH, en-GB, en-US) steuern Übersetzung *und* Datums-/Zahlenformat; Anzeige­-
-  währung (EUR, USD, GBP, CHF, JPY) frei wählbar. Pro Benutzer einstellbar,
-  Instanz-Default über `DEFAULT_LOCALE` / `DEFAULT_CURRENCY` (siehe
-  [Konfiguration](#konfiguration))
-- **Multi-User** – jede Identität hat eigene Daten; Admin legt weitere Benutzer an
-- **Eigener Login** – Username/Passwort mit Admin-Rolle, Setup-Flow und
-  Brute-Force-Schutz
+- **Transactions** — income & expenses with date, amount, category, and tags
+- **Categories** — freely definable (name, icon, color); a default set is created on
+  first use
+- **Tags** — free-form labels per transaction; rename or delete centrally
+- **Goals** — savings goals and debt tracker in one: a goal is linked 1:1 to a category,
+  and progress is derived from that category's transactions from the start date onwards
+  (savings goals count income up, debt paydown counts expenses down).
+  Display only — ledger totals are not affected
+- **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view
+  and forecast (Chart.js, embedded locally)
+- **Search** — full-text, category, and tag filtering in the transaction list
+- **CSV Import / Export** — UTF-8 or CP1252, max. 5 MB; export all transactions as
+  semicolon-delimited CSV
+- **Offline capability** — app works without a connection; changes sync automatically
+  when back online
+- **Themes** — Light, Dark, System (saved in settings)
+- **Language & Currency** — German/English with regional variants (de-DE, de-AT,
+  de-CH, en-GB, en-US) control both translation *and* date/number formatting;
+  display currency (EUR, USD, GBP, CHF, JPY) freely selectable. Configurable per
+  user; instance default via `DEFAULT_LOCALE` / `DEFAULT_CURRENCY` (see
+  [Configuration](#configuration))
+- **Multi-user** — each identity has its own data; admin creates additional users
+- **Built-in login** — username/password with admin role, setup flow, and
+  brute-force protection
 
-## Voraussetzungen
+## Requirements
 
-- Docker (oder Podman)
-- **Optional:** MariaDB 10.6+ (externe Instanz) — nur wenn du nicht die
-  eingebaute SQLite-Datenbank nutzen möchtest
+- Docker (or Podman)
+- **Optional:** MariaDB 10.6+ (external instance) — only if you do not want to use
+  the built-in SQLite database
 
-## Schnellstart
+## Quick Start
 
-Standardmäßig nutzt PocketLog eine eingebettete **SQLite-Datenbank** unter
-`/config/db/pocketlog.db` — keine separate Datenbank, keine DB-Variablen
-nötig. Mounte `/config` auf den Host, damit die Daten Container-Updates
-überleben.
+By default, PocketLog uses an embedded **SQLite database** at
+`/config/db/pocketlog.db` — no separate database, no DB variables required.
+Mount `/config` to the host so that data survives container updates.
 
-### 1. Container starten
+### 1. Start the container
 
 ```bash
 docker run -d \
@@ -76,31 +74,29 @@ docker run -d \
   ghcr.io/anym001/pocketlog:latest
 ```
 
-`PUID`/`PGID` bestimmen, welchem Host-Benutzer die Dateien unter `/config`
-gehören (siehe [Konfiguration](#konfiguration)). Auf Unraid typischerweise
-`PUID=99` / `PGID=100`.
+`PUID`/`PGID` determine which host user owns the files under `/config`
+(see [Configuration](#configuration)). On Unraid, typically `PUID=99` / `PGID=100`.
 
-### 2. Ersteinrichtung
+### 2. Initial setup
 
-Beim ersten Aufruf (`http://<host>:8000`) erscheint die Setup-View. Lege den
-ersten Admin an (Username + Passwort, mindestens 12 Zeichen mit Groß-/Klein-
-buchstaben, Zahl und Sonderzeichen). Weitere Benutzer legt der Admin danach
-unter _Einstellungen → Benutzerverwaltung_ an.
+On first access (`http://<host>:8000`) the setup view appears. Create the first admin
+account (username + password, minimum 12 characters with upper/lowercase letters, a
+number, and a special character). Additional users are created by the admin under
+_Settings → User Management_.
 
-### Externe MariaDB (optional)
+### External MariaDB (optional)
 
-Wer lieber eine externe MariaDB betreibt, legt dort eine Datenbank an …
+If you prefer to run an external MariaDB, create a database there …
 
 ```sql
 CREATE DATABASE pocketlog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'pocketlog'@'%' IDENTIFIED BY 'dein-passwort';
+CREATE USER 'pocketlog'@'%' IDENTIFIED BY 'your-password';
 GRANT ALL ON pocketlog.* TO 'pocketlog'@'%';
 FLUSH PRIVILEGES;
 ```
 
-… und setzt die `DB_*`-Variablen beim Start. **Sobald eine `DB_*`-Variable
-gesetzt ist, schaltet PocketLog auf MariaDB um** (statt SQLite); `DB_PASSWORD`
-ist dann Pflicht:
+… and set the `DB_*` variables at startup. **As soon as any `DB_*` variable is set,
+PocketLog switches to MariaDB** (instead of SQLite); `DB_PASSWORD` is then required:
 
 ```bash
 docker run -d \
@@ -109,43 +105,43 @@ docker run -d \
   -e DB_HOST=mariadb \
   -e DB_NAME=pocketlog \
   -e DB_USER=pocketlog \
-  -e DB_PASSWORD=dein-passwort \
+  -e DB_PASSWORD=your-password \
   -e TZ=Europe/Berlin \
   ghcr.io/anym001/pocketlog:latest
 ```
 
-## Konfiguration
+## Configuration
 
-| Variable | Default | Bedeutung |
+| Variable | Default | Description |
 |---|---|---|
-| `PUID` | `1000` | Host-User-ID, der die Dateien unter `/config` gehören (Unraid: `99`) |
-| `PGID` | `1000` | Host-Group-ID für `/config` (Unraid: `100`) |
-| `SQLITE_PATH` | `/config/db/pocketlog.db` | Pfad der SQLite-Datei (nur ohne `DB_*`) |
-| `DB_HOST` | `mariadb` | **Nur MariaDB-Option:** Hostname oder IP. Eine gesetzte `DB_*`-Variable schaltet von SQLite auf MariaDB um. |
-| `DB_PORT` | `3306` | Nur MariaDB-Option: Port |
-| `DB_NAME` | `pocketlog` | Nur MariaDB-Option: Datenbankname |
-| `DB_USER` | `pocketlog` | Nur MariaDB-Option: Datenbankbenutzer |
-| `DB_PASSWORD` | – | Nur MariaDB-Option: Passwort (Pflicht, sobald MariaDB aktiv ist) |
-| `DATABASE_URL` | – | Erweitert: vollständige SQLAlchemy-URL; übersteuert `DB_*`/SQLite (z.B. für SSL, Socket, eigenen Treiber) |
-| `TZ` | `UTC` | Zeitzone des Containers |
-| `LOG_LEVEL` | `INFO` | Log-Level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit-Events (Logins, Lockouts, Admin-Aktionen) liegen auf `INFO`/`WARNING`. |
-| `LOG_FORMAT` | `text` | Log-Format. Aktuell nur `text` (menschenlesbar, für `docker logs`); `json` ist reserviert und fällt bis zur Implementierung auf `text` zurück. |
-| `LOG_FILE` | – | Schreibt Logs **zusätzlich** zu `docker logs` in diese Datei (rotierend). Empfehlung: `/config/logs/audit.log` mit gemountetem `/config`-Verzeichnis, um Logs über Container-Updates hinweg zu behalten (siehe [Logging & Audit-Trail](#logging--audit-trail)). |
-| `LOG_FILE_MAX_BYTES` | `10485760` | Rotationsgröße der Logdatei in Bytes (Default 10 MB). |
-| `LOG_FILE_BACKUPS` | `5` | Anzahl rotierter Logdateien, die behalten werden. |
-| `DEFAULT_LOCALE` | `de-DE` | Start-Locale neuer Konten (BCP-47: `de-DE`, `de-AT`, `de-CH`, `en-GB`, `en-US`). Jeder Nutzer kann es selbst überschreiben. |
-| `DEFAULT_CURRENCY` | `EUR` | Start-Währung neuer Konten (ISO 4217: `EUR`, `USD`, `GBP`, `CHF`, `JPY`). Reine Anzeige, pro Nutzer überschreibbar. |
-| `SESSION_COOKIE_SECURE` | `1` | Auf `0` setzen, wenn PocketLog ohne HTTPS betrieben wird |
-| `SESSION_LIFETIME_HOURS` | `24` | Session-Dauer ohne „Eingeloggt bleiben" |
-| `SESSION_REMEMBER_DAYS` | `30` | Session-Dauer mit „Eingeloggt bleiben" |
-| `SESSION_ABSOLUTE_DAYS` | `7` | Maximale Session-Dauer (normal) |
-| `SESSION_REMEMBER_ABSOLUTE_DAYS` | `90` | Maximale Session-Dauer (Remember-Me) |
+| `PUID` | `1000` | Host user ID that owns files under `/config` (Unraid: `99`) |
+| `PGID` | `1000` | Host group ID for `/config` (Unraid: `100`) |
+| `SQLITE_PATH` | `/config/db/pocketlog.db` | Path to the SQLite file (only without `DB_*`) |
+| `DB_HOST` | `mariadb` | **MariaDB option only:** hostname or IP. Setting any `DB_*` variable switches from SQLite to MariaDB. |
+| `DB_PORT` | `3306` | MariaDB option only: port |
+| `DB_NAME` | `pocketlog` | MariaDB option only: database name |
+| `DB_USER` | `pocketlog` | MariaDB option only: database user |
+| `DB_PASSWORD` | – | MariaDB option only: password (required once MariaDB is active) |
+| `DATABASE_URL` | – | Advanced: full SQLAlchemy URL; overrides `DB_*`/SQLite (e.g. for SSL, socket, custom driver) |
+| `TZ` | `UTC` | Container timezone |
+| `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit events (logins, lockouts, admin actions) are at `INFO`/`WARNING`. |
+| `LOG_FORMAT` | `text` | Log format. Currently only `text` (human-readable, for `docker logs`); `json` is reserved and falls back to `text` until implemented. |
+| `LOG_FILE` | – | Writes logs **in addition** to `docker logs` into this file (rotating). Recommended: `/config/logs/audit.log` with a mounted `/config` directory, to retain logs across container updates (see [Logging & Audit Trail](#logging--audit-trail)). |
+| `LOG_FILE_MAX_BYTES` | `10485760` | Log file rotation size in bytes (default 10 MB). |
+| `LOG_FILE_BACKUPS` | `5` | Number of rotated log files to retain. |
+| `DEFAULT_LOCALE` | `de-DE` | Starting locale for new accounts (BCP-47: `de-DE`, `de-AT`, `de-CH`, `en-GB`, `en-US`). Each user can override it. |
+| `DEFAULT_CURRENCY` | `EUR` | Starting currency for new accounts (ISO 4217: `EUR`, `USD`, `GBP`, `CHF`, `JPY`). Display only, overridable per user. |
+| `SESSION_COOKIE_SECURE` | `1` | Set to `0` if PocketLog is operated without HTTPS |
+| `SESSION_LIFETIME_HOURS` | `24` | Session duration without "Stay logged in" |
+| `SESSION_REMEMBER_DAYS` | `30` | Session duration with "Stay logged in" |
+| `SESSION_ABSOLUTE_DAYS` | `7` | Maximum session duration (standard) |
+| `SESSION_REMEMBER_ABSOLUTE_DAYS` | `90` | Maximum session duration (remember-me) |
 
 ## Reverse Proxy
 
-PocketLog läuft auf Port 8000 und bringt seinen eigenen Login mit – kein
-vorgelagerter Identity-Provider nötig. Dahinter kann ein beliebiger Reverse
-Proxy sitzen (nginx, Caddy, Traefik …). Nginx-Beispiel:
+PocketLog runs on port 8000 and ships with its own login — no upstream identity
+provider required. Any reverse proxy can sit in front of it (nginx, Caddy, Traefik …).
+Nginx example:
 
 ```nginx
 server {
@@ -161,110 +157,107 @@ server {
 }
 ```
 
-## Login & Sicherheit
+## Login & Security
 
-- **Passwort-Policy**: mindestens 12 Zeichen mit Groß-/Kleinbuchstaben, Zahl
-  und Sonderzeichen
-- **Brute-Force-Schutz**: nach mehreren Fehlversuchen greift eine automatische
-  Sperrzeit; Admins können diese über _Passwort zurücksetzen_ aufheben
-- **Session**: bleibt standardmäßig 24 Stunden aktiv, mit „Eingeloggt bleiben"
-  30 Tage; nach absolut 7 bzw. 90 Tagen wird eine neue Anmeldung erzwungen
+- **Password policy**: minimum 12 characters with upper/lowercase letters, a number,
+  and a special character
+- **Brute-force protection**: after several failed attempts an automatic lockout period
+  kicks in; admins can lift it via _Reset Password_
+- **Session**: active for 24 hours by default, 30 days with "Stay logged in";
+  after an absolute maximum of 7 or 90 days a new login is forced
 
-## Logging & Audit-Trail
+## Logging & Audit Trail
 
-PocketLog protokolliert sicherheitsrelevante Ereignisse (Logins inkl.
-Fehlversuche, Lockouts, Passwortänderungen, Admin-Benutzeraktionen, das Löschen
-aller eigenen Daten). Es werden **nie** Passwörter, Hashes, Session- oder
-CSRF-Tokens geloggt.
+PocketLog logs security-relevant events (logins including failed attempts, lockouts,
+password changes, admin user actions, and deletion of all own data). **Passwords,
+hashes, session tokens, or CSRF tokens are never logged.**
 
-Standardmäßig geht die Ausgabe nach `stdout`/`stderr`, also in `docker logs`.
-Das überlebt Container-Neustarts, aber **nicht** ein Update mit `docker rm`.
-Für einen dauerhaften Audit-Trail gibt es zwei Wege:
+By default output goes to `stdout`/`stderr`, i.e. into `docker logs`.
+This survives container restarts, but **not** an update with `docker rm`.
+There are two approaches for a persistent audit trail:
 
-**Variante A – Logdatei im App-Verzeichnis (in-App, einfach):**
+**Option A — Log file in the app directory (in-app, simple):**
 
-PocketLog folgt der gängigen Self-Hosting-Konvention: ein einziges
-App-Verzeichnis unter `/config` im Container, das du auf den Host mountest.
-Dort liegen die SQLite-Datenbank (`/config/db/`, sofern keine externe MariaDB
-genutzt wird) und der Audit-Trail (`/config/logs/`) — ein Mount deckt den
-gesamten persistenten App-Zustand ab.
+PocketLog follows the common self-hosting convention: a single app directory at
+`/config` inside the container, mounted to the host. It holds the SQLite database
+(`/config/db/`, unless an external MariaDB is used) and the audit trail
+(`/config/logs/`) — one mount covers the entire persistent app state.
 
 ```bash
 docker run -d \
   --name pocketlog \
   -p 8000:8000 \
   -e DB_HOST=mariadb -e DB_NAME=pocketlog \
-  -e DB_USER=pocketlog -e DB_PASSWORD=dein-passwort \
+  -e DB_USER=pocketlog -e DB_PASSWORD=your-password \
   -e LOG_FILE=/config/logs/audit.log \
   -v /mnt/user/appdata/pocketlog:/config \
   ghcr.io/anym001/pocketlog:latest
 ```
 
-Schreibt **zusätzlich** zu `docker logs` in die Datei (rotierend, Größe/Anzahl
-über `LOG_FILE_MAX_BYTES` / `LOG_FILE_BACKUPS`). Das fehlende Verzeichnis wird
-automatisch angelegt. Ist die Datei nicht beschreibbar, läuft die App weiter
-und loggt nur nach `stderr` (mit Warnung). Der gemountete `/config`-Ordner
-bleibt über Container-Updates erhalten.
+Writes **in addition** to `docker logs` into the file (rotating; size/count via
+`LOG_FILE_MAX_BYTES` / `LOG_FILE_BACKUPS`). The missing directory is created
+automatically. If the file is not writable, the app continues and logs only to
+`stderr` (with a warning). The mounted `/config` folder persists across container
+updates.
 
-> **Unraid:** Im Template `/config` auf `/mnt/user/appdata/pocketlog` mappen
-> und `LOG_FILE=/config/logs/audit.log` setzen — der gesamte App-Zustand liegt
-> dann unter einem Pfad in deinem appdata-Share.
+> **Unraid:** Map `/config` to `/mnt/user/appdata/pocketlog` in the template
+> and set `LOG_FILE=/config/logs/audit.log` — the entire app state then lives
+> under a single path in your appdata share.
 
-**Variante B – Docker-Log-Driver (plattformseitig, „12-Factor"):**
+**Option B — Docker log driver (platform-side, "12-Factor"):**
 
-App unverändert nach `stderr` loggen lassen und die Persistenz dem Host
-überlassen, z.B. via journald:
+Let the app log to `stderr` unchanged and leave persistence to the host,
+e.g. via journald:
 
 ```bash
 docker run -d --name pocketlog \
   --log-driver=journald \
-  … (übrige Optionen) …
+  … (remaining options) …
 ```
 
-Logs landen dann im systemd-Journal (`journalctl CONTAINER_NAME=pocketlog`) und
-überleben Container-Updates, ohne dass die App Dateien verwalten muss.
+Logs then land in the systemd journal (`journalctl CONTAINER_NAME=pocketlog`) and
+survive container updates without the app needing to manage files.
 
-> Variante A ist am bequemsten für Einzelinstanzen; Variante B ist sauberer,
-> wenn ohnehin eine zentrale Log-Infrastruktur (journald, syslog, Loki …)
-> vorhanden ist. Beides lässt sich kombinieren.
+> Option A is most convenient for single instances; Option B is cleaner when a
+> centralised logging infrastructure (journald, syslog, Loki …) is already in place.
+> Both can be combined.
 
-## Notfall-Recovery
+## Emergency Recovery
 
-Admin-Passwort vergessen:
+Forgot the admin password:
 
 ```bash
 docker exec -it pocketlog python -m app.cli reset-admin-password
 ```
 
-Setzt Passwort und Sperrzeit zurück; beim nächsten Login muss ein neues
-Passwort vergeben werden. `--username U` adressiert einen bestimmten Account.
+Resets the password and any lockout; a new password must be set on the next login.
+`--username U` targets a specific account.
 
 ## Image
 
 Image: `ghcr.io/anym001/pocketlog`
 
-| Tag | Quelle | Wofür |
+| Tag | Source | Purpose |
 |---|---|---|
-| `:X.Y.Z` | Release-Tag auf `main` | **Produktion** – unveränderlich, gezielt hochziehen |
-| `:latest` | letzter `main`-Stand | gleitet mit jedem `main`-Merge |
-| `:dev` | letzter `dev`-Stand | **nur Maintainer** – Pre-Prod/Staging zum Vortesten |
+| `:X.Y.Z` | Release tag on `main` | **Production** — immutable, upgrade deliberately |
+| `:latest` | Latest `main` state | Tracks every `main` merge |
+| `:dev` | Latest `dev` state | **Maintainers only** — pre-production/staging for testing |
 
-**Empfehlung:** Produktion auf einen festen `:X.Y.Z`-Tag pinnen (nicht `:latest`),
-damit ein neuer `main`-Merge die Instanz nicht unkontrolliert mitzieht – und ein
-Rollback simpel ist (alten Tag zeigen). Eine **Staging**-Instanz kann auf `:dev`
-(oder `:latest`) zeigen, um Änderungen vor der Produktion zu prüfen. Der Branch-
-und Release-Ablauf steht in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+**Recommendation:** Pin production to a fixed `:X.Y.Z` tag (not `:latest`),
+so a new `main` merge does not silently update your instance — and rollback is
+trivial (point to the old tag). A **staging** instance can track `:dev`
+(or `:latest`) to review changes before production. The branching and release
+workflow is described in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## Lizenz
+## License
 
-PocketLog steht unter der **GNU Affero General Public License v3.0**
-(AGPL-3.0). Du darfst die Software nutzen, weitergeben und verändern – wenn du
-eine (geänderte) Version über ein Netzwerk als Dienst anbietest, musst du den
-vollständigen Quellcode anbieten (AGPL §13). Den vollständigen Lizenztext
-findest du in [`LICENSE`](LICENSE).
+PocketLog is released under the **GNU Affero General Public License v3.0**
+(AGPL-3.0). You may use, redistribute, and modify the software — if you offer a
+(modified) version as a networked service, you must make the complete source code
+available (AGPL §13). The full license text is in [`LICENSE`](LICENSE).
 
 Copyright (C) 2026 anym001
 
 ---
 
-Entwickelt mit [Claude Code](https://claude.ai/code)
+Built with [Claude Code](https://claude.ai/code)
