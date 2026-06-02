@@ -60,7 +60,14 @@ function isNetworkFirstShell(url) {
     url.pathname === '/app.js' ||
     url.pathname === '/i18n.js' ||
     url.pathname === '/db.js' ||
-    url.pathname === '/manifest.webmanifest'
+    url.pathname === '/manifest.webmanifest' ||
+    // Translation bundles are tightly coupled to app.js's key usage: a
+    // cache-first bundle would lag behind a fresh app.js between version
+    // bumps and render raw keys for any newly added string. Network-first
+    // keeps them in lockstep; they stay in the SHELL precache so offline
+    // language switching still works (network-first falls back to cache).
+    url.pathname === '/i18n/de.json' ||
+    url.pathname === '/i18n/en.json'
   );
 }
 
