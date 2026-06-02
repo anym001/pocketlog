@@ -714,7 +714,58 @@ def remove_category(category_id: int, user: CurrentUser, db: DB):
     except ValueError as e:
         if str(e) == "category_in_use":
             raise HTTPException(status_code=409, detail="category in use")
+        if str(e) == "category_has_goal":
+            raise HTTPException(status_code=409, detail="category has goal")
         raise
+    if not ok:
+        raise HTTPException(status_code=404, detail="not found")
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------
+# Goals
+# ---------------------------------------------------------------------
+
+@app.get("/api/goals", response_model=list[schemas.GoalOut])
+def get_goals(user: CurrentUser, db: DB):
+    return crud.list_goals(db, user.id)
+
+
+@app.post("/api/goals", response_model=schemas.GoalOut, status_code=201)
+def post_goal(payload: schemas.GoalCreate, user: CurrentUser, db: DB):
+    try:
+        return crud.create_goal(db, user.id, payload)
+    except ValueError as e:
+        if str(e) == "category_not_found":
+            raise HTTPException(status_code=422, detail="category not found")
+        raise
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="goal exists for category")
+
+
+@app.put("/api/goals/{goal_id}", response_model=schemas.GoalOut)
+def put_goal(
+    goal_id: int,
+    payload: schemas.GoalUpdate,
+    user: CurrentUser,
+    db: DB,
+):
+    try:
+        goal = crud.update_goal(db, user.id, goal_id, payload)
+    except ValueError as e:
+        if str(e) == "category_not_found":
+            raise HTTPException(status_code=422, detail="category not found")
+        raise
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="goal exists for category")
+    if goal is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return goal
+
+
+@app.delete("/api/goals/{goal_id}", status_code=204)
+def remove_goal(goal_id: int, user: CurrentUser, db: DB):
+    ok = crud.delete_goal(db, user.id, goal_id)
     if not ok:
         raise HTTPException(status_code=404, detail="not found")
     return Response(status_code=204)

@@ -312,7 +312,102 @@ def delete_category(db: Session, user_id: int, category_id: int) -> bool:
     )
     if in_use is not None:
         raise ValueError("category_in_use")
+    # A goal references exactly one category; deleting it out from under a
+    # goal would orphan the tracker (CASCADE would silently drop the goal).
+    # Block instead — symmetric with the transaction guard above; the user
+    # must delete the goal first.
+    has_goal = db.scalar(
+        select(models.Goal.id).where(
+            models.Goal.category_id == category_id
+        ).limit(1)
+    )
+    if has_goal is not None:
+        raise ValueError("category_has_goal")
     db.delete(cat)
+    db.commit()
+    return True
+
+
+# ---------- Goals ----------
+
+def list_goals(db: Session, user_id: int) -> list[models.Goal]:
+    return list(
+        db.scalars(
+            select(models.Goal)
+            .where(models.Goal.user_id == user_id)
+            .order_by(models.Goal.id)
+        )
+    )
+
+
+def _owned_category_exists(db: Session, user_id: int, category_id: int) -> bool:
+    return db.scalar(
+        select(models.Category.id).where(
+            and_(
+                models.Category.id == category_id,
+                models.Category.user_id == user_id,
+            )
+        ).limit(1)
+    ) is not None
+
+
+def create_goal(
+    db: Session, user_id: int, payload: schemas.GoalCreate
+) -> models.Goal:
+    if not _owned_category_exists(db, user_id, payload.category_id):
+        raise ValueError("category_not_found")
+    goal = models.Goal(user_id=user_id, **payload.model_dump())
+    db.add(goal)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(goal)
+    return goal
+
+
+def update_goal(
+    db: Session,
+    user_id: int,
+    goal_id: int,
+    payload: schemas.GoalUpdate,
+) -> models.Goal | None:
+    goal = db.scalar(
+        select(models.Goal).where(
+            and_(
+                models.Goal.id == goal_id,
+                models.Goal.user_id == user_id,
+            )
+        )
+    )
+    if goal is None:
+        return None
+    if not _owned_category_exists(db, user_id, payload.category_id):
+        raise ValueError("category_not_found")
+    for k, v in payload.model_dump().items():
+        setattr(goal, k, v)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(goal)
+    return goal
+
+
+def delete_goal(db: Session, user_id: int, goal_id: int) -> bool:
+    goal = db.scalar(
+        select(models.Goal).where(
+            and_(
+                models.Goal.id == goal_id,
+                models.Goal.user_id == user_id,
+            )
+        )
+    )
+    if goal is None:
+        return False
+    db.delete(goal)
     db.commit()
     return True
 
