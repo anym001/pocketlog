@@ -17,6 +17,10 @@ module.exports = defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Mobile viewport: PocketLog is mobile-first and switches to a
+    // persistent sidebar at >=768px (the hamburger is hidden there). Pixel 5
+    // is chromium-based (~393px wide), so the drawer/hamburger flow the smoke
+    // drives matches the app's primary form factor.
+    { name: 'mobile-chromium', use: { ...devices['Pixel 5'] } },
   ],
 });
