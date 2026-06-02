@@ -1,0 +1,11 @@
+{
+  "name": "pocketlog-e2e",
+  "private": true,
+  "description": "Playwright UI smoke tests for the built PocketLog image.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}

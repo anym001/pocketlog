@@ -1,0 +1,62 @@
+name: Build dev image
+
+# Maintainer pre-prod channel. Every push to `dev` (i.e. a merged feature
+# branch) runs the full test suite and, only if green, builds and publishes
+# the mutable `:dev` image to GHCR. Point a staging container at `:dev` to
+# validate a change in a real deployment BEFORE promoting it to main/prod.
+#
+# `:dev` is for the maintainer only — production pins an immutable `:vX.Y.Z`
+# tag (see build.yml + README). A unique APP_VERSION per commit busts the
+# service-worker cache so the staging PWA always serves the fresh build.
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  # Same gate as the release workflow: a red suite blocks the :dev image.
+  tests:
+    uses: ./.github/workflows/test.yml
+
+  publish-dev:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push :dev
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          platforms: linux/amd64
+          # Mutable :dev (staging always pulls newest) + an immutable
+          # :dev-<sha> for traceability / quick rollback on staging.
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/pocketlog:dev
+            ghcr.io/${{ github.repository_owner }}/pocketlog:dev-${{ steps.sha.outputs.short }}
+          build-args: |
+            APP_VERSION=dev-${{ steps.sha.outputs.short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
