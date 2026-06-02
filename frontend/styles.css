@@ -742,12 +742,6 @@
         font-weight: 600;
         color: var(--text);
       }
-      .goal-card-pct {
-        font-size: var(--fs-callout);
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: var(--text2);
-      }
       .goal-progress-track {
         height: var(--cat-bar-h);
         background: var(--hairline-soft);
@@ -767,9 +761,6 @@
       }
       .goal-card.complete .goal-progress-fill {
         background: var(--green);
-      }
-      .goal-card.complete .goal-card-pct {
-        color: var(--green);
       }
       .goal-card-meta {
         display: flex;
