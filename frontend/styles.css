@@ -788,10 +788,17 @@
         font-size: var(--fs-caption);
         color: var(--text3);
       }
-      .goals-empty-glyph {
-        width: var(--icon-list-md);
-        height: var(--icon-list-md);
+      /* Match the standard .empty-state .icon (size, centering, opacity);
+         the compound selector beats .cat-glyph's width:60% regardless of
+         source order, and fill keeps the sprite glyph visible. */
+      .empty-state .goals-empty-glyph {
+        display: block;
+        width: var(--fs-icon-xl);
+        height: var(--fs-icon-xl);
+        margin: 0 auto var(--space-14);
         color: var(--text3);
+        opacity: 0.75;
+        fill: currentColor;
       }
 
       /* ====== TRANSACTIONS ====== */
