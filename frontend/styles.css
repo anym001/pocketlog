@@ -332,7 +332,8 @@
          categories visually distinguishable. */
       html[data-dark='true'] .t-icon,
       html[data-dark='true'] .cat-view-icon,
-      html[data-dark='true'] .cat-icon {
+      html[data-dark='true'] .cat-icon,
+      html[data-dark='true'] .goal-card-icon {
         color: var(--text);
       }
 
@@ -687,6 +688,110 @@
       .cat-view-more:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
+      }
+
+      /* ====== GOALS VIEW (savings + debt trackers) ====== */
+      .goals-toolbar {
+        margin-bottom: var(--space-12);
+      }
+      .goal-card {
+        position: relative;
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        padding: var(--space-14);
+        margin-bottom: var(--space-12);
+        box-shadow: var(--shadow-soft);
+        cursor: pointer;
+      }
+      .goal-card.is-key-active {
+        opacity: 0.55;
+        transition: opacity var(--dur-fast) ease;
+      }
+      .goal-card:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .goal-card-head {
+        display: flex;
+        align-items: center;
+        gap: var(--space-12);
+      }
+      .goal-card-icon {
+        width: var(--icon-list-md);
+        height: var(--icon-list-md);
+        border-radius: var(--r-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
+        color: var(--cat-color, var(--text));
+        box-shadow:
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
+          inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
+        border: var(--border-hairline);
+      }
+      .goal-card-icon .cat-glyph {
+        width: 70%;
+        height: 70%;
+      }
+      .goal-card-name {
+        flex: 1;
+        font-size: var(--fs-callout);
+        font-weight: 600;
+        color: var(--text);
+      }
+      .goal-card-pct {
+        font-size: var(--fs-callout);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--text2);
+      }
+      .goal-progress-track {
+        height: var(--cat-bar-h);
+        background: var(--hairline-soft);
+        border-radius: var(--r-pill);
+        margin-top: var(--space-12);
+        overflow: hidden;
+      }
+      .goal-progress-fill {
+        height: var(--cat-bar-h);
+        border-radius: var(--r-pill);
+        transition: width var(--dur-progress) var(--ease-spring);
+        /* Debt repayment reads in the expense accent; savings in green. */
+        background: var(--accent);
+      }
+      .goal-card.savings .goal-progress-fill {
+        background: var(--green);
+      }
+      .goal-card.complete .goal-progress-fill {
+        background: var(--green);
+      }
+      .goal-card.complete .goal-card-pct {
+        color: var(--green);
+      }
+      .goal-card-meta {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--space-12);
+        margin-top: var(--space-8);
+      }
+      .goal-card-primary {
+        font-size: var(--fs-footnote);
+        font-weight: 600;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+      .goal-card-sub {
+        font-size: var(--fs-caption);
+        color: var(--text3);
+      }
+      .goals-empty-glyph {
+        width: var(--icon-list-md);
+        height: var(--icon-list-md);
+        color: var(--text3);
       }
 
       /* ====== TRANSACTIONS ====== */
