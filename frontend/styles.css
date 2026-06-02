@@ -1014,6 +1014,14 @@
         gap: var(--space-10);
         z-index: var(--z-floating);
       }
+      /* Search + FAB only make sense in the transactions/categories ledger
+         views. Reports (charts) and the Goals view have neither searchable
+         rows nor a "new transaction" affordance, so hide the whole bar there.
+         Body classes are toggled in showPanel(). */
+      body.in-report .bottom-bar,
+      body.on-goals .bottom-bar {
+        display: none;
+      }
       .search-wrap {
         flex: 1;
         display: flex;
