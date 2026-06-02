@@ -243,8 +243,17 @@ Passwort vergeben werden. `--username U` adressiert einen bestimmten Account.
 
 Image: `ghcr.io/anym001/pocketlog`
 
-- `:latest` – letzter Stand von `main`
-- `:X.Y.Z` – versionierter Release (z.B. `v0.3.2`)
+| Tag | Quelle | Wofür |
+|---|---|---|
+| `:X.Y.Z` | Release-Tag auf `main` | **Produktion** – unveränderlich, gezielt hochziehen |
+| `:latest` | letzter `main`-Stand | gleitet mit jedem `main`-Merge |
+| `:dev` | letzter `dev`-Stand | **nur Maintainer** – Pre-Prod/Staging zum Vortesten |
+
+**Empfehlung:** Produktion auf einen festen `:X.Y.Z`-Tag pinnen (nicht `:latest`),
+damit ein neuer `main`-Merge die Instanz nicht unkontrolliert mitzieht – und ein
+Rollback simpel ist (alten Tag zeigen). Eine **Staging**-Instanz kann auf `:dev`
+(oder `:latest`) zeigen, um Änderungen vor der Produktion zu prüfen. Der Branch-
+und Release-Ablauf steht in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Lizenz
 
