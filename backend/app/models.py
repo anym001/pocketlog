@@ -332,10 +332,10 @@ class Goal(Base):
     start_date: Mapped[date_type] = mapped_column(Date, nullable=False)
     icon: Mapped[str] = mapped_column(String(64), nullable=False, default="piggy-bank")
     color: Mapped[str] = mapped_column(CHAR(7), nullable=False, default="#9e9b96")
-    # Python-side defaults mirror User.created_at — the SQLite test path's
-    # ORM inserts need them since the migration adds no usable server
-    # default for CURRENT_TIMESTAMP on ALTER. On MariaDB the server_default
-    # still applies for non-ORM inserts.
+    # Python-side defaults so ORM inserts always carry a value regardless of
+    # backend; the CREATE TABLE server_default (CURRENT_TIMESTAMP) covers
+    # non-ORM inserts. updated_at additionally gets ON UPDATE on MariaDB via
+    # the migration's dialect-split server_default.
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(),
         nullable=False,

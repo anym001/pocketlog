@@ -48,6 +48,15 @@ def _index_exists(bind, table_name: str, index_name: str) -> bool:
 
 def upgrade() -> None:
     bind = op.get_bind()
+    # ``ON UPDATE CURRENT_TIMESTAMP`` is MariaDB/MySQL DDL with no SQLite
+    # equivalent (mirrors 0006). On SQLite the ORM onupdate keeps the column
+    # fresh; on MariaDB the combined expression must live in server_default
+    # for the DDL to actually carry the ON UPDATE clause.
+    updated_default = (
+        sa.text("CURRENT_TIMESTAMP")
+        if bind.dialect.name == "sqlite"
+        else sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+    )
     if not _table_exists(bind, TABLE_NAME):
         op.create_table(
             TABLE_NAME,
@@ -98,7 +107,7 @@ def upgrade() -> None:
                 "updated_at",
                 sa.TIMESTAMP(),
                 nullable=False,
-                server_default=sa.func.current_timestamp(),
+                server_default=updated_default,
             ),
             sa.UniqueConstraint(
                 "user_id", "category_id", name="uq_goals_user_category"
