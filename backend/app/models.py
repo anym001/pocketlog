@@ -119,6 +119,9 @@ class User(Base):
     sessions: Mapped[list["Session"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    goals: Mapped[list["Goal"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Session(Base):
@@ -284,3 +287,68 @@ class Transaction(Base):
         lazy="selectin",
         order_by="Tag.name",
     )
+
+
+class Goal(Base):
+    """A savings goal or debt payoff tracker.
+
+    A unified concept: ``direction='save_up'`` counts contributions up
+    toward ``target_amount``; ``direction='pay_down'`` counts repayments
+    down from ``initial_amount`` (the starting debt) toward
+    ``target_amount`` (usually 0). The progress is *derived* — never
+    stored — from the transactions in the linked category dated on/after
+    ``start_date`` (in-type for save_up, out-type for pay_down). A goal
+    never affects ledger income/expense totals.
+
+    Exactly one category backs a goal (1:1 per user via
+    ``uq_goals_user_category``).
+    """
+    __tablename__ = "goals"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category_id", name="uq_goals_user_category"),
+        Index("ix_goals_user_id", "user_id"),
+        # FK on category_id triggers an InnoDB FK-check on every category
+        # DELETE; without this index that check is a full table scan on
+        # goals (mirrors ix_transactions_category_id).
+        Index("ix_goals_category_id", "category_id"),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    direction: Mapped[str] = mapped_column(
+        Enum("save_up", "pay_down", name="goal_direction"), nullable=False
+    )
+    category_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False
+    )
+    initial_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(12, 2), nullable=False, server_default="0", default=Decimal("0")
+    )
+    target_amount: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)
+    start_date: Mapped[date_type] = mapped_column(Date, nullable=False)
+    icon: Mapped[str] = mapped_column(String(64), nullable=False, default="piggy-bank")
+    color: Mapped[str] = mapped_column(CHAR(7), nullable=False, default="#9e9b96")
+    # Python-side defaults mirror User.created_at — the SQLite test path's
+    # ORM inserts need them since the migration adds no usable server
+    # default for CURRENT_TIMESTAMP on ALTER. On MariaDB the server_default
+    # still applies for non-ORM inserts.
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        default=lambda: datetime.utcnow(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+        default=lambda: datetime.utcnow(),
+    )
+
+    user: Mapped[User] = relationship(back_populates="goals")
+    category: Mapped[Category] = relationship()

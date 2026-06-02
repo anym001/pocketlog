@@ -72,7 +72,9 @@ GET    /api/auth/me
 POST   /api/auth/change-password ← invalidiert alle anderen Sessions
 GET    /api/transactions?year=&month=&from=&to=
 POST|PUT|DELETE /api/transactions/{id}
-GET|POST|PUT|DELETE /api/categories/{id}   ← DELETE nur ohne referenzierte TX
+GET|POST|PUT|DELETE /api/categories/{id}   ← DELETE nur ohne referenzierte TX **und** ohne verknüpftes Ziel
+GET|POST /api/goals
+PUT|DELETE /api/goals/{id}       ← 1:1 zu Kategorie; 409 wenn Kategorie schon ein Ziel hat. Fortschritt wird im Frontend berechnet (kein Aggregat in der API)
 GET|POST /api/tags
 PUT|DELETE /api/tags/{name}      ← PUT benennt in allen TX um
 GET|PUT  /api/settings
@@ -114,8 +116,16 @@ transaction_tags  transaction_id FK CASCADE, tag_id FK CASCADE
 user_settings   user_id PK FK CASCADE, theme, default_view,
                 locale (BCP-47, z.B. de-DE/de-AT/en-GB), currency (ISO 4217,
                 display-only), updated_at
+
+goals           id, user_id FK CASCADE, name, direction ENUM('save_up','pay_down'),
+                category_id FK CASCADE, initial_amount DECIMAL(12,2),
+                target_amount DECIMAL(12,2), start_date, icon, color,
+                created_at, updated_at
+                UNIQUE(user_id, category_id)   ← 1:1 Kategorie↔Ziel
 ```
 Tags sind Many-to-Many via `transaction_tags` (kein JSON-Array mehr, entfernt in Migration 0008). Default-Kategorien werden einmalig bei `crud.create_user` geseedet.
+
+**Ziele (`goals`, Migration 0011):** vereinheitlichter Sparziel- + Schulden-Tracker. Eine Kategorie trägt höchstens ein Ziel (`uq_goals_user_category`). Der Fortschritt ist **abgeleitet, nie gespeichert**: das Frontend summiert die Buchungen der verknüpften Kategorie ab `start_date` (`in` für `save_up`, `out` für `pay_down`) — Geld-Regel beachtet (kein SQL-`SUM`). Ein Ziel beeinflusst **nie** die Kassenbuch-Totals. Kategorie-Delete ist blockiert (409), solange ein Ziel referenziert (`crud.delete_category`); CASCADE bleibt das DB-Sicherheitsnetz fürs User-Delete.
 
 ## Auth-Konzept
 

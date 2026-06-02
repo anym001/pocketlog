@@ -365,6 +365,10 @@
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-receipt" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.transactions">Buchungsübersicht</span>
             </button>
+            <button class="drawer-nav-item" data-panel="goals" onclick="showPanel('goals')" style="--nav-icon-bg: var(--green)">
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="cat-glyph"><use href="#cat-piggy-bank" /></svg></span>
+              <span class="drawer-nav-label" data-i18n="nav.goals">Ziele</span>
+            </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpReports')" style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.reports">Auswertungen</span>
@@ -894,6 +898,14 @@
       <div id="categoryViewList"></div>
     </div>
 
+    <!-- GOALS VIEW (savings + debt trackers) -->
+    <div class="panel" id="panel-goals">
+      <div class="goals-toolbar">
+        <button class="save-btn" onclick="openGoalModal()" data-i18n="goals.create">Ziel erstellen</button>
+      </div>
+      <div id="goalsViewList"></div>
+    </div>
+
     <!-- BOTTOM BAR -->
     <div class="bottom-bar">
       <form class="search-form" role="search" onsubmit="event.preventDefault()">
@@ -1135,6 +1147,62 @@
             class="submit-btn btn-destructive"
             id="catDeleteBtn"
             onclick="deleteCategoryEdit()"
+            data-i18n="common.delete"
+          >
+            Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GOAL MODAL (create / edit savings or debt goal) -->
+    <div class="modal-overlay" id="goalModalOverlay" onclick="closeGoalModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="goalModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeGoalModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="goalModalTitle" data-i18n="goals.editTitle">Ziel bearbeiten</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label data-i18n="goals.name">Name</label>
+            <input type="text" id="goalEditName" maxlength="100" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="goals.direction">Art</label>
+            <select id="goalEditDirection" onchange="onGoalDirectionChange()">
+              <option value="save_up" data-i18n="goals.directionSaveUp">Sparen</option>
+              <option value="pay_down" data-i18n="goals.directionPayDown">Schulden abbauen</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="goals.category">Kategorie</label>
+            <select id="goalEditCategory"></select>
+          </div>
+          <div class="form-group">
+            <label id="goalInitialLabel" data-i18n="goals.initialAmount">Startbetrag</label>
+            <input type="text" class="amount-input" id="goalEditInitial" placeholder="0,00" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]{0,2}" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label id="goalTargetLabel" data-i18n="goals.targetAmount">Zielbetrag</label>
+            <input type="text" class="amount-input" id="goalEditTarget" placeholder="0,00" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]{0,2}" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="goals.startDate">Startdatum</label>
+            <input type="date" id="goalEditStartDate" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="goals.color">Farbe</label>
+            <div class="color-swatches" id="goalEditColors"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="saveGoalEdit()" data-i18n="common.save">Speichern</button>
+          <button
+            class="submit-btn btn-destructive"
+            id="goalDeleteBtn"
+            onclick="deleteGoalEdit()"
             data-i18n="common.delete"
           >
             Löschen
