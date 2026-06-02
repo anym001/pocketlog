@@ -159,12 +159,27 @@ def test_admin_all_data_clears_user(client):
     assert client.get("/api/transactions?year=2026&month=5").json()
     assert client.get("/api/tags").json()
 
+    # A goal on the same category must be cleared too — not orphaned.
+    client.post(
+        "/api/goals",
+        json={
+            "name": "Notgroschen",
+            "direction": "save_up",
+            "category_id": cat_id,
+            "initial_amount": "0.00",
+            "target_amount": "500.00",
+            "start_date": "2026-01-01",
+        },
+    )
+    assert client.get("/api/goals").json()
+
     r = client.delete("/api/admin/all-data")
     assert r.status_code == 204
 
     assert client.get("/api/transactions?year=2026&month=5").json() == []
     assert client.get("/api/tags").json() == []
     assert client.get("/api/categories").json() == []
+    assert client.get("/api/goals").json() == []
 
 
 def test_settings_default_and_update(client):

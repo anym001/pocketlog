@@ -3,7 +3,14 @@ from datetime import date as date_type, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic_core import PydanticCustomError
 
 # Bounds for the tags array on a single transaction. The list cap keeps a
@@ -60,6 +67,68 @@ class CategoryUpdate(CategoryBase):
 
 
 class CategoryOut(CategoryBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+# -------- Goals --------
+
+class GoalBase(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    # 'save_up' counts contributions up to target_amount; 'pay_down'
+    # counts repayments down from initial_amount toward target_amount.
+    direction: Literal["save_up", "pay_down"]
+    # The single category whose transactions feed this goal (1:1 per user).
+    category_id: int
+    # Baseline anchor: for pay_down the starting debt; for save_up the
+    # amount already saved at start_date (usually 0).
+    initial_amount: Decimal = Field(
+        ge=0, max_digits=12, decimal_places=2, default=Decimal("0")
+    )
+    target_amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    # Only transactions dated on/after this anchor count toward progress.
+    start_date: date_type
+    # Icon ID from the bundled Phosphor sprite — same lax slug pattern as
+    # CategoryBase. Default 'piggy-bank' exists in the sprite; unknown IDs
+    # fall back to the default glyph client-side.
+    icon: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$", default="piggy-bank")
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", default="#9e9b96")
+
+    @field_validator("name", mode="after")
+    @classmethod
+    def _normalise_name(cls, value: str) -> str:
+        return _strip_control_required(value)
+
+    @model_validator(mode="after")
+    def _check_amounts(self) -> "GoalBase":
+        if self.direction == "save_up":
+            # There must be room to save into.
+            if self.target_amount <= self.initial_amount:
+                raise ValueError(
+                    "target_amount must be greater than initial_amount for a savings goal"
+                )
+        else:  # pay_down
+            # There must be a debt, and the target must be below it.
+            if self.initial_amount <= 0:
+                raise ValueError(
+                    "initial_amount must be greater than 0 for a debt goal"
+                )
+            if self.target_amount >= self.initial_amount:
+                raise ValueError(
+                    "target_amount must be less than initial_amount for a debt goal"
+                )
+        return self
+
+
+class GoalCreate(GoalBase):
+    pass
+
+
+class GoalUpdate(GoalBase):
+    pass
+
+
+class GoalOut(GoalBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
