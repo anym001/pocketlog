@@ -774,10 +774,22 @@
         font-weight: 600;
         color: var(--text);
         font-variant-numeric: tabular-nums;
+        min-width: 0; /* allow the primary text to wrap within the flex row */
+      }
+      /* Each segment stays on one line; the breakable space between them is
+         the only wrap point, so "· Ziel € X" moves to a second line as a
+         whole when the row is too narrow (e.g. iPhone portrait). */
+      .goal-primary-seg {
+        white-space: nowrap;
+      }
+      .goal-primary-target::before {
+        content: "·\00a0";
       }
       .goal-card-sub {
         font-size: var(--fs-caption);
         color: var(--text3);
+        white-space: nowrap; /* keep "X% paid off" on a single line */
+        flex-shrink: 0;
       }
       /* Match the standard .empty-state .icon (size, centering, opacity);
          the compound selector beats .cat-glyph's width:60% regardless of

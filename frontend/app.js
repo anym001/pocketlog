@@ -3101,26 +3101,28 @@
             const pctLabel = Math.round(p.rawPct) + '%';
             const stateClass = p.complete ? ' complete' : '';
             const dirClass = g.direction === 'pay_down' ? ' debt' : ' savings';
-            let primaryLine;
+            let primaryHtml;
             if (g.direction === 'pay_down') {
               if (p.complete) {
-                primaryLine = tr('goals.completed');
+                primaryHtml = _escText(tr('goals.completed'));
               } else if (p.targetCents > 0) {
                 // Restziel set → show remaining debt AND the target floor.
-                primaryLine = tr('goals.remainingWithTarget', {
-                  amount: fmtCurrency(p.primaryCents / 100),
-                  target: fmtCurrency(p.targetCents / 100),
-                });
+                // Split into two non-breaking segments so "· Ziel € X" wraps
+                // as a whole onto a second line when the row is too narrow
+                // (iPhone portrait), instead of breaking mid-amount.
+                const main = _escText(tr('goals.remaining', { amount: fmtCurrency(p.primaryCents / 100) }));
+                const target = _escText(tr('goals.targetSuffix', { target: fmtCurrency(p.targetCents / 100) }));
+                primaryHtml = `<span class="goal-primary-seg">${main}</span> <span class="goal-primary-seg goal-primary-target">${target}</span>`;
               } else {
-                primaryLine = tr('goals.remaining', { amount: fmtCurrency(p.primaryCents / 100) });
+                primaryHtml = _escText(tr('goals.remaining', { amount: fmtCurrency(p.primaryCents / 100) }));
               }
             } else {
-              primaryLine = p.complete
-                ? tr('goals.completed')
-                : tr('goals.savedOf', {
+              primaryHtml = p.complete
+                ? _escText(tr('goals.completed'))
+                : _escText(tr('goals.savedOf', {
                     current: fmtCurrency(p.primaryCents / 100),
                     target: fmtCurrency(p.targetCents / 100),
-                  });
+                  }));
             }
             const progressWord =
               g.direction === 'pay_down' ? tr('goals.progressPaid', { pct: pctLabel }) : tr('goals.progressSaved', { pct: pctLabel });
@@ -3134,7 +3136,7 @@
               </div>
               <div class="goal-progress-track"><div class="goal-progress-fill" style="width:${p.pct}%"></div></div>
               <div class="goal-card-meta">
-                <span class="goal-card-primary">${_escText(primaryLine)}</span>
+                <span class="goal-card-primary">${primaryHtml}</span>
                 <span class="goal-card-sub">${_escText(progressWord)}</span>
               </div>
             </div>`;
