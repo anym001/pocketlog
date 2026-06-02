@@ -160,6 +160,7 @@
     "emptyViewHint": "Create a savings goal or a debt tracker.",
     "needCategory": "Create a category first.",
     "remaining": "{amount} remaining",
+    "remainingWithTarget": "{amount} left · goal {target}",
     "savedOf": "{current} of {target}",
     "completed": "Done!",
     "progressSaved": "{pct} saved",

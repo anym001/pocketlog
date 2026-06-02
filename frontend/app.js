@@ -3042,6 +3042,8 @@
         const initialCents = Math.round(Number(goal.initial_amount) * 100);
         const targetCents = Math.round(Number(goal.target_amount) * 100);
         if (goal.direction === 'pay_down') {
+          // % = how much of the intended pay-off (initial → target) is done.
+          // "Done" means reaching the target (Restziel), not necessarily 0.
           const spanCents = initialCents - targetCents; // amount to repay
           const remainingCents = initialCents - matchedCents;
           const pct = spanCents > 0 ? (matchedCents / spanCents) * 100 : 100;
@@ -3049,13 +3051,16 @@
             pct: Math.max(0, Math.min(100, pct)),
             rawPct: Math.max(0, pct),
             primaryCents: Math.max(0, remainingCents),
+            targetCents,
             paidCents: matchedCents,
-            complete: remainingCents <= 0,
+            complete: remainingCents <= targetCents,
           };
         }
-        const spanCents = targetCents - initialCents; // amount to save
+        // Savings: "Bereits gespart" (initial) counts as progress, so the
+        // percentage is the absolute current/target — matching the
+        // "{current} von {target}" primary line.
         const currentCents = initialCents + matchedCents;
-        const pct = spanCents > 0 ? (matchedCents / spanCents) * 100 : 100;
+        const pct = targetCents > 0 ? (currentCents / targetCents) * 100 : 100;
         return {
           pct: Math.max(0, Math.min(100, pct)),
           rawPct: Math.max(0, pct),
@@ -3098,9 +3103,17 @@
             const dirClass = g.direction === 'pay_down' ? ' debt' : ' savings';
             let primaryLine;
             if (g.direction === 'pay_down') {
-              primaryLine = p.complete
-                ? tr('goals.completed')
-                : tr('goals.remaining', { amount: fmtCurrency(p.primaryCents / 100) });
+              if (p.complete) {
+                primaryLine = tr('goals.completed');
+              } else if (p.targetCents > 0) {
+                // Restziel set → show remaining debt AND the target floor.
+                primaryLine = tr('goals.remainingWithTarget', {
+                  amount: fmtCurrency(p.primaryCents / 100),
+                  target: fmtCurrency(p.targetCents / 100),
+                });
+              } else {
+                primaryLine = tr('goals.remaining', { amount: fmtCurrency(p.primaryCents / 100) });
+              }
             } else {
               primaryLine = p.complete
                 ? tr('goals.completed')
@@ -3118,7 +3131,6 @@
               <div class="goal-card-head">
                 <span class="goal-card-icon" style="--cat-color:${g.color}">${catIconSvg(g.icon)}</span>
                 <span class="goal-card-name">${_escText(g.name)}</span>
-                <span class="goal-card-pct">${_escText(pctLabel)}</span>
               </div>
               <div class="goal-progress-track"><div class="goal-progress-fill" style="width:${p.pct}%"></div></div>
               <div class="goal-card-meta">
