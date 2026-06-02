@@ -33,13 +33,20 @@ test('first-run setup, then core UI renders without raw i18n keys', async ({ pag
 
   await page.goto('/');
 
+  // Both auth views live in the DOM permanently (toggled via the [hidden]
+  // attribute), so match on the *visible* one only — `.or()` over both would
+  // resolve to 2 elements and trip Playwright's strict mode. The app reveals
+  // one asynchronously after fetching /api/auth/setup-status.
+  const setup = page.locator('#setupView:not([hidden])');
+  const login = page.locator('#loginView:not([hidden])');
+  await page
+    .locator('#setupView:not([hidden]), #loginView:not([hidden])')
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+
   // Fresh image → first-run setup screen. (Fallback: if an admin already
   // exists from a reused volume, log in instead.)
-  const setup = page.locator('#setupView');
-  const login = page.locator('#loginView');
-  await expect(setup.or(login)).toBeVisible();
-
-  if (await setup.isVisible()) {
+  if (await setup.count()) {
     await page.fill('#setupUsername', ADMIN_USER);
     await page.fill('#setupPassword', ADMIN_PASS);
     await page.fill('#setupPasswordConfirm', ADMIN_PASS);
