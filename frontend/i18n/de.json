@@ -160,6 +160,7 @@
     "emptyViewHint": "Lege ein Sparziel oder einen Schulden-Tracker an.",
     "needCategory": "Lege zuerst eine Kategorie an.",
     "remaining": "Noch {amount} offen",
+    "targetSuffix": "Ziel {target}",
     "savedOf": "{current} von {target}",
     "completed": "Geschafft!",
     "progressSaved": "{pct} gespart",

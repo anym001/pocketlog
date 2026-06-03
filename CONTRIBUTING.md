@@ -1,87 +1,87 @@
-# Mitarbeit & Branching
+# Contributing & Branching
 
-PocketLog wird über kurzlebige Feature-Branches und Pull Requests entwickelt.
-`main` ist immer release-fähig; `dev` ist der Integrations-/Staging-Kanal zum
-Vortesten, bevor etwas die Produktion erreicht.
+PocketLog is developed through short-lived feature branches and pull requests.
+`main` is always release-ready; `dev` is the integration/staging channel for
+testing changes before they reach production.
 
-## Branch-Modell
+## Branch Model
 
-| Branch | Zweck | Geschützt |
+| Branch | Purpose | Protected |
 |---|---|---|
-| `main` | produktionsstabil; jeder Merge erzeugt einen Release (`:latest` + `:X.Y.Z`) | ja |
-| `dev` | Integration/Staging; jeder Push baut das `:dev`-Image | ja |
-| `feature/*` | kurzlebige Arbeit an einem Thema; wird nach Merge gelöscht | – |
+| `main` | production-stable; every merge creates a release (`:latest` + `:X.Y.Z`) | yes |
+| `dev` | integration/staging; every push builds the `:dev` image | yes |
+| `feature/*` | short-lived work on a single topic; deleted after merge | – |
 
-„Automatically delete head branches" im Repo bleibt **aktiviert** – es räumt
-gemergte `feature/*`-Branches auf. Geschützte Branches (`dev`, `main`) werden
-davon nie gelöscht.
+"Automatically delete head branches" in the repo stays **enabled** — it cleans up
+merged `feature/*` branches. Protected branches (`dev`, `main`) are never deleted
+by this setting.
 
-## Ablauf
+## Workflow
 
 ```
-feature/xyz ──PR──▶ dev ──(:dev-Image)──▶ auf Staging testen ──PR──▶ main ──▶ Release
+feature/xyz ──PR──▶ dev ──(:dev-image)──▶ test on staging ──PR──▶ main ──▶ Release
 ```
 
-1. **Branch** von `dev`: `git switch dev && git pull && git switch -c feature/xyz`
-2. **PR auf `dev`** öffnen. CI (`tests`) muss grün sein; „Auto-merge" einschalten,
-   dann merged GitHub den **finalen, grünen** Stand selbst (kein manuelles Mergen
-   eines unfertigen/roten Heads).
-3. Der Push auf `dev` baut und veröffentlicht **`:dev`** in GHCR. Die Staging-
-   Instanz (auf `:dev` gepinnt) damit prüfen.
-4. Wenn `dev` passt: **PR `dev → main`**. Der Merge löst `build.yml` aus →
-   Patch-Version automatisch hochgezählt, Git-Tag, `:latest` + `:X.Y.Z` gebaut,
-   GitHub-Release erstellt.
-5. **Produktion** zieht den neuen `:X.Y.Z`-Tag (bewusst), nicht `:latest`.
+1. **Branch** from `dev`: `git switch dev && git pull && git switch -c feature/xyz`
+2. **Open a PR against `dev`**. CI (`tests`) must be green; enable "Auto-merge" so
+   GitHub merges the **final, green** state automatically (no manual merge of an
+   unfinished/red head).
+3. The push to `dev` builds and publishes **`:dev`** on GHCR. Verify with the staging
+   instance (pinned to `:dev`).
+4. When `dev` is good: **PR `dev → main`**. The merge triggers `build.yml` →
+   patch version bumped automatically, Git tag created, `:latest` + `:X.Y.Z` built,
+   GitHub release created.
+5. **Production** pulls the new `:X.Y.Z` tag deliberately, not `:latest`.
 
-**Minor/Major-Release:** statt Auto-Patch einen Tag pushen –
-`git tag v0.4.0 && git push origin v0.4.0` (baut genau diese Version).
+**Minor/Major release:** instead of auto-patch, push a tag manually —
+`git tag v0.4.0 && git push origin v0.4.0` (builds exactly that version).
 
 ## CI
 
-`.github/workflows/test.yml` läuft auf jedem PR (und als Gate vor jedem
-Image-Build):
+`.github/workflows/test.yml` runs on every PR (and as a gate before every
+image build):
 
-- **test-sqlite** – komplette pytest-Suite inkl. Migrationen (SQLite).
-- **migrations-mariadb** – `alembic upgrade head` gegen echtes MariaDB
-  (dialektspezifische Pfade).
-- **smoke** – Image bauen, als Unraid-User (PUID/PGID 99:100) booten,
-  Health-Check + DB-Ownership, dann **Playwright-UI-Smoke**: Setup/Login,
-  Kernansichten rendern, **keine sichtbaren Roh-i18n-Keys** (`namespace.key`).
+- **test-sqlite** — full pytest suite including migrations (SQLite).
+- **migrations-mariadb** — `alembic upgrade head` against a real MariaDB
+  (dialect-specific code paths).
+- **smoke** — build the image, boot it as an Unraid user (PUID/PGID 99:100),
+  health check + DB ownership, then **Playwright UI smoke**: setup/login,
+  core views render, **no visible raw i18n keys** (`namespace.key`).
 
-Ein roter Lauf blockiert Merge **und** Image-Veröffentlichung.
+A red run blocks both merge **and** image publication.
 
-## Branch Protection einrichten (einmalig)
+## Setting Up Branch Protection (one-time)
 
-GitHub → **Settings → Branches → Add branch ruleset** (das neuere Rulesets-
-System, nicht „classic"). Ein einziges Ruleset deckt `main` **und** `dev` ab.
+GitHub → **Settings → Branches → Add branch ruleset** (the newer Rulesets
+system, not "classic"). A single ruleset covers both `main` **and** `dev`.
 
 1. **Ruleset Name:** `protected-branches`
 2. **Enforcement status:** `Active`
-3. **Bypass list:** leer lassen (sonst hebelt man den Schutz für sich selbst aus;
-   im Notfall das Ruleset kurz auf `Disabled` stellen).
-4. **Target branches → Add target:** `Include default branch` (= `main`) **und**
-   `Include by pattern` → `dev`. Es muss „Applies to 2 targets" stehen.
-5. **Branch rules** (Haken):
+3. **Bypass list:** leave empty (otherwise you undermine the protection for yourself;
+   in an emergency, temporarily set the ruleset to `Disabled`).
+4. **Target branches → Add target:** `Include default branch` (= `main`) **and**
+   `Include by pattern` → `dev`. It should say "Applies to 2 targets".
+5. **Branch rules** (check boxes):
    - ✅ **Restrict deletions**
    - ✅ **Block force pushes**
    - ✅ **Require a pull request before merging**
-     - **Required approvals: `0`** ⚠️ — als Solo-Maintainer kannst du deinen
-       eigenen PR nicht reviewen; bei ≥1 wärst du blockiert. PR-Zwang + Checks
-       greifen auch bei 0, und Auto-Merge funktioniert.
+     - **Required approvals: `0`** ⚠️ — as a solo maintainer you cannot review
+       your own PR; setting ≥1 would block you. PR requirement + checks still apply
+       at 0, and auto-merge works.
    - ✅ **Require status checks to pass**
      - ✅ **Require branches to be up to date before merging**
-     - Genau **diese drei** Checks hinzufügen: `test-sqlite`,
+     - Add exactly **these three** checks: `test-sqlite`,
        `migrations-mariadb`, `smoke`.
-       ⚠️ **Nicht** die `tests / …`-Varianten wählen: die entstehen nur bei
-       Push (`workflow_call` aus `dev.yml`/`build.yml`), erscheinen bei einem
-       **PR** nie und würden ihn dauerhaft „Expected" blockieren. Bei einem PR
-       läuft `test.yml` direkt und meldet die **bloßen** Namen.
+       ⚠️ Do **not** select the `tests / …` variants: those only appear on push
+       (`workflow_call` from `dev.yml`/`build.yml`), never on a **PR**, and would
+       permanently block it as "Expected". On a PR, `test.yml` runs directly and
+       reports the **bare** names.
 6. **Save changes.**
 
-Danach **Settings → General → Pull Requests → „Allow auto-merge"** aktivieren.
-Pro PR „Enable auto-merge" klicken; GitHub merged automatisch, sobald die Checks
-grün und der Branch aktuell sind.
+Then enable **Settings → General → Pull Requests → "Allow auto-merge"**.
+Click "Enable auto-merge" per PR; GitHub merges automatically once checks are green
+and the branch is up to date.
 
-> Warum das wichtig ist: Diese Kombination verhindert genau die zwei Fehler­
-> klassen, die schon aufgetreten sind – ein Merge über rote/unfertige Checks
-> hinweg, und ein versehentlicher direkter Push auf `main`.
+> Why this matters: this combination prevents exactly the two failure modes that have
+> already occurred — a merge over red/unfinished checks, and an accidental direct
+> push to `main`.

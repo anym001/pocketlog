@@ -3042,6 +3042,8 @@
         const initialCents = Math.round(Number(goal.initial_amount) * 100);
         const targetCents = Math.round(Number(goal.target_amount) * 100);
         if (goal.direction === 'pay_down') {
+          // % = how much of the intended pay-off (initial → target) is done.
+          // "Done" means reaching the target (Restziel), not necessarily 0.
           const spanCents = initialCents - targetCents; // amount to repay
           const remainingCents = initialCents - matchedCents;
           const pct = spanCents > 0 ? (matchedCents / spanCents) * 100 : 100;
@@ -3049,13 +3051,16 @@
             pct: Math.max(0, Math.min(100, pct)),
             rawPct: Math.max(0, pct),
             primaryCents: Math.max(0, remainingCents),
+            targetCents,
             paidCents: matchedCents,
-            complete: remainingCents <= 0,
+            complete: remainingCents <= targetCents,
           };
         }
-        const spanCents = targetCents - initialCents; // amount to save
+        // Savings: "Bereits gespart" (initial) counts as progress, so the
+        // percentage is the absolute current/target — matching the
+        // "{current} von {target}" primary line.
         const currentCents = initialCents + matchedCents;
-        const pct = spanCents > 0 ? (matchedCents / spanCents) * 100 : 100;
+        const pct = targetCents > 0 ? (currentCents / targetCents) * 100 : 100;
         return {
           pct: Math.max(0, Math.min(100, pct)),
           rawPct: Math.max(0, pct),
@@ -3096,18 +3101,28 @@
             const pctLabel = Math.round(p.rawPct) + '%';
             const stateClass = p.complete ? ' complete' : '';
             const dirClass = g.direction === 'pay_down' ? ' debt' : ' savings';
-            let primaryLine;
+            let primaryHtml;
             if (g.direction === 'pay_down') {
-              primaryLine = p.complete
-                ? tr('goals.completed')
-                : tr('goals.remaining', { amount: fmtCurrency(p.primaryCents / 100) });
+              if (p.complete) {
+                primaryHtml = _escText(tr('goals.completed'));
+              } else if (p.targetCents > 0) {
+                // Restziel set → show remaining debt AND the target floor.
+                // Split into two non-breaking segments so "· Ziel € X" wraps
+                // as a whole onto a second line when the row is too narrow
+                // (iPhone portrait), instead of breaking mid-amount.
+                const main = _escText(tr('goals.remaining', { amount: fmtCurrency(p.primaryCents / 100) }));
+                const target = _escText(tr('goals.targetSuffix', { target: fmtCurrency(p.targetCents / 100) }));
+                primaryHtml = `<span class="goal-primary-seg">${main}</span> <span class="goal-primary-seg goal-primary-target">${target}</span>`;
+              } else {
+                primaryHtml = _escText(tr('goals.remaining', { amount: fmtCurrency(p.primaryCents / 100) }));
+              }
             } else {
-              primaryLine = p.complete
-                ? tr('goals.completed')
-                : tr('goals.savedOf', {
+              primaryHtml = p.complete
+                ? _escText(tr('goals.completed'))
+                : _escText(tr('goals.savedOf', {
                     current: fmtCurrency(p.primaryCents / 100),
                     target: fmtCurrency(p.targetCents / 100),
-                  });
+                  }));
             }
             const progressWord =
               g.direction === 'pay_down' ? tr('goals.progressPaid', { pct: pctLabel }) : tr('goals.progressSaved', { pct: pctLabel });
@@ -3118,16 +3133,36 @@
               <div class="goal-card-head">
                 <span class="goal-card-icon" style="--cat-color:${g.color}">${catIconSvg(g.icon)}</span>
                 <span class="goal-card-name">${_escText(g.name)}</span>
-                <span class="goal-card-pct">${_escText(pctLabel)}</span>
               </div>
               <div class="goal-progress-track"><div class="goal-progress-fill" style="width:${p.pct}%"></div></div>
               <div class="goal-card-meta">
-                <span class="goal-card-primary">${_escText(primaryLine)}</span>
+                <span class="goal-card-primary">${primaryHtml}</span>
                 <span class="goal-card-sub">${_escText(progressWord)}</span>
               </div>
             </div>`;
           })
           .join('');
+        // The debt "· Ziel € X" suffix is a non-breaking unit that drops to a
+        // second line when the row is too narrow. Flag that wrapped state so the
+        // CSS can hide the leading "·" (see _relayoutGoalTargets). Run after
+        // layout, and again once web fonts settle (they change text width).
+        requestAnimationFrame(_relayoutGoalTargets);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(_relayoutGoalTargets);
+      }
+
+      // Toggle `.is-wrapped` on each goal card's primary line depending on
+      // whether its "· Ziel € X" suffix sits on a second line. Hiding the
+      // separator only ever shortens that second line, so this can't feed back
+      // into the wrap decision (no oscillation).
+      let _goalRelayoutTimer = null;
+      function _relayoutGoalTargets() {
+        document.querySelectorAll('.goal-card-primary').forEach((primary) => {
+          const target = primary.querySelector('.goal-primary-target');
+          if (!target) return;
+          const main = primary.querySelector('.goal-primary-seg:not(.goal-primary-target)');
+          if (!main) return;
+          primary.classList.toggle('is-wrapped', target.offsetTop > main.offsetTop);
+        });
       }
 
       function _goalAmountValue(id) {
@@ -3140,10 +3175,16 @@
         const sorted = [...categories].sort((a, b) =>
           a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' })
         );
+        // Fall back to the alphabetically first option when no valid category
+        // is requested (e.g. creating a new goal), so the preselection matches
+        // the top of the list rather than the unsorted seed order.
+        const effectiveId = sorted.some((c) => c.id === selectedId)
+          ? selectedId
+          : sorted[0] && sorted[0].id;
         sel.innerHTML = sorted
           .map(
             (c) =>
-              `<option value="${c.id}"${c.id === selectedId ? ' selected' : ''}>${_escText(c.name)}</option>`
+              `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`
           )
           .join('');
       }
@@ -3208,7 +3249,7 @@
           editingGoalColor = CAT_CREATE_COLORS[goals.length % CAT_CREATE_COLORS.length];
           document.getElementById('goalEditName').value = '';
           document.getElementById('goalEditDirection').value = 'save_up';
-          populateGoalCategorySelect(categories[0] && categories[0].id);
+          populateGoalCategorySelect(null); // defaults to the first sorted option
           document.getElementById('goalEditInitial').value = '';
           document.getElementById('goalEditTarget').value = '';
           const now = new Date();
@@ -4665,6 +4706,12 @@
         }
         rebuildMonthNames();
         document.addEventListener('i18n:changed', onI18nChanged);
+        // Re-evaluate goal-card suffix wrapping on viewport/orientation change.
+        window.addEventListener('resize', () => {
+          if (_activePanel !== 'goals') return;
+          clearTimeout(_goalRelayoutTimer);
+          _goalRelayoutTimer = setTimeout(_relayoutGoalTargets, 150);
+        });
         applyTheme(loadTheme());
         syncDisplaySelects();
         applyRange({ skipRender: true });
