@@ -3142,6 +3142,27 @@
             </div>`;
           })
           .join('');
+        // The debt "· Ziel € X" suffix is a non-breaking unit that drops to a
+        // second line when the row is too narrow. Flag that wrapped state so the
+        // CSS can hide the leading "·" (see _relayoutGoalTargets). Run after
+        // layout, and again once web fonts settle (they change text width).
+        requestAnimationFrame(_relayoutGoalTargets);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(_relayoutGoalTargets);
+      }
+
+      // Toggle `.is-wrapped` on each goal card's primary line depending on
+      // whether its "· Ziel € X" suffix sits on a second line. Hiding the
+      // separator only ever shortens that second line, so this can't feed back
+      // into the wrap decision (no oscillation).
+      let _goalRelayoutTimer = null;
+      function _relayoutGoalTargets() {
+        document.querySelectorAll('.goal-card-primary').forEach((primary) => {
+          const target = primary.querySelector('.goal-primary-target');
+          if (!target) return;
+          const main = primary.querySelector('.goal-primary-seg:not(.goal-primary-target)');
+          if (!main) return;
+          primary.classList.toggle('is-wrapped', target.offsetTop > main.offsetTop);
+        });
       }
 
       function _goalAmountValue(id) {
@@ -4679,6 +4700,12 @@
         }
         rebuildMonthNames();
         document.addEventListener('i18n:changed', onI18nChanged);
+        // Re-evaluate goal-card suffix wrapping on viewport/orientation change.
+        window.addEventListener('resize', () => {
+          if (_activePanel !== 'goals') return;
+          clearTimeout(_goalRelayoutTimer);
+          _goalRelayoutTimer = setTimeout(_relayoutGoalTargets, 150);
+        });
         applyTheme(loadTheme());
         syncDisplaySelects();
         applyRange({ skipRender: true });
