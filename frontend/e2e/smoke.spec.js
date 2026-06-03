@@ -57,6 +57,13 @@ test('first-run setup, then core UI renders without raw i18n keys', async ({ pag
     await page.click('#loginSubmit');
   }
 
+  // Setup/login dismisses the auth overlay (toggled via [hidden]). Wait for
+  // that explicitly: the FAB behind the overlay already reports visible
+  // (toBeVisible ignores occlusion), so without this the still-present
+  // #setupView intercepts the hamburger click below on a slow runner.
+  await expect(page.locator('#setupView')).toBeHidden();
+  await expect(page.locator('#loginView')).toBeHidden();
+
   // Main app is up once the FAB (new-transaction button) is mounted.
   await expect(page.locator('.fab')).toBeVisible();
   await expectNoRawKeys(page, 'main view');
