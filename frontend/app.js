@@ -181,7 +181,22 @@
           }
           throw new Error('session expired');
         }
-        if (!res.ok) throw new Error(`API ${method} ${path} → ${res.status}`);
+        if (!res.ok) {
+          // Try to surface the backend's `detail` string on the error
+          // object so callers can disambiguate 409s (e.g. "category in
+          // use" vs "category has recurring rule"). The existing
+          // ``e.message.includes('409')`` pattern keeps working
+          // because the formatted message is unchanged.
+          let detail = '';
+          try {
+            const body = await res.clone().json();
+            if (body && typeof body.detail === 'string') detail = body.detail;
+          } catch (_) {}
+          const err = new Error(`API ${method} ${path} → ${res.status}`);
+          err.status = res.status;
+          err.detail = detail;
+          throw err;
+        }
         if (method !== 'GET') invalidateReportCache();
         if (res.status === 204) return null;
         return res.json();
@@ -816,8 +831,12 @@
                     .map((tg) => `<span class="t-tag">${_escText(tg)}</span>`)
                     .join('');
                   const note = (t.desc || '').trim();
+                  // Badge sits as a sibling of .t-note inside .t-info,
+                  // not inside .t-note itself — .t-note ellipsizes,
+                  // which would clip the badge precisely on the rows
+                  // that need the "from rule" signal most.
                   const recurringBadge = t.source_rule_id
-                    ? `<span class="tx-recurring-badge" title="${_escAttr(tr('recurring.fromRule'))}" aria-label="${_escAttr(tr('recurring.fromRule'))}"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrows-clockwise"/></svg></span>`
+                    ? `<span class="tx-recurring-badge" role="img" aria-label="${_escAttr(tr('recurring.fromRule'))}" title="${_escAttr(tr('recurring.fromRule'))}"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrows-clockwise"/></svg></span>`
                     : '';
                   return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="${_escAttr(tr('tx.deleteAria'))}">${tr('common.delete')}</button>
@@ -825,7 +844,9 @@
           <div class="t-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <span class="visually-hidden">${_escText(cat.name)}</span>
           <div class="t-info">
-            <div class="t-note">${_escText(note)}${recurringBadge}</div>
+            <div class="t-note-row">
+              <span class="t-note">${_escText(note)}</span>${recurringBadge}
+            </div>
             <div class="t-tags">${tagsHtml}</div>
           </div>
           <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type === 'out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
@@ -3007,8 +3028,17 @@
           renderCategories();
           await loadAndRender();
         } catch (e) {
-          if (e.message && e.message.includes('409')) {
-            toast(tr('categories.deleteInUse'), 'error');
+          if (e && e.status === 409) {
+            // Three distinct reasons land here; pick the right copy
+            // so a user with a recurring rule isn't sent looking for
+            // phantom transactions.
+            if (e.detail && e.detail.includes('recurring')) {
+              toast(tr('categories.deleteHasRecurring'), 'error');
+            } else if (e.detail && e.detail.includes('goal')) {
+              toast(tr('goals.categoryTaken'), 'error');
+            } else {
+              toast(tr('categories.deleteInUse'), 'error');
+            }
           } else {
             toast(tr('tx.deleteFailed') + e.message, 'error');
           }
@@ -3386,8 +3416,14 @@
       ];
 
       function _recurringSummary(rule) {
-        const key = 'recurring.summary.' + rule.frequency;
-        const params = { n: rule.interval || 1 };
+        // For interval=1 use a separate key per frequency
+        // (recurring.summary.monthlyOne = "Monatlich am Tag 15") so
+        // the German rendering doesn't say „Alle 1 Monate" and the
+        // English doesn't say "Every 1 month(s)".
+        const n = rule.interval || 1;
+        const suffix = n === 1 ? 'One' : '';
+        const key = 'recurring.summary.' + rule.frequency + suffix;
+        const params = { n };
         if (rule.frequency === 'weekly') {
           const wd = rule.weekday == null ? 0 : Number(rule.weekday);
           params.weekday = tr(_RECURRING_WEEKDAY_KEYS[wd] || _RECURRING_WEEKDAY_KEYS[0]);
@@ -3478,11 +3514,12 @@
         if (!list) return;
         const skips = (rule && rule.skips) || [];
         if (!skips.length) {
-          list.innerHTML = '';
-          list.setAttribute('data-empty', tr('recurring.skipsEmpty'));
+          // Real <li> instead of a ::after pseudo so screen readers
+          // hear the empty-state text. The .is-empty class lets the
+          // CSS de-style the row (no separator background, muted).
+          list.innerHTML = `<li class="is-empty">${_escText(tr('recurring.skipsEmpty'))}</li>`;
           return;
         }
-        list.removeAttribute('data-empty');
         list.innerHTML = skips
           .slice()
           .sort()
@@ -3492,11 +3529,14 @@
             // is already non-attacker-controlled. _escAttr is
             // defence-in-depth: if the schema ever weakens, this stops
             // an inline JS injection sink in the onclick attribute.
+            // counter-clockwise icon (restore) — not trash —
+            // because the action is constructive: the skipped
+            // occurrence comes back.
             (iso) =>
               `<li>
                 <span>${_escText(_recurringFormatDate(iso))}</span>
                 <button type="button" aria-label="${_escAttr(tr('recurring.unskip'))}" onclick="unskipRecurringOccurrence('${_escAttr(iso)}')">
-                  <svg class="ui-icon" aria-hidden="true"><use href="#icon-trash"/></svg>
+                  <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-counter-clockwise"/></svg>
                 </button>
               </li>`
           )
@@ -3747,6 +3787,12 @@
         // assignments are no-ops if the variable doesn't exist.
         try { transactions = []; } catch (_) {}
         try { _allTransactions = null; } catch (_) {}
+        // Also clear the per-year report aggregate cache. api() does
+        // this automatically on every non-GET, but the outbox replay
+        // path skips api() — without this the reports view would
+        // render stale aggregates after a rule materialized rows
+        // during a background sync.
+        try { invalidateReportCache(); } catch (_) {}
       }
 
       function showRecurringMaterializedBanner(count) {
@@ -3762,6 +3808,10 @@
         const banner = document.createElement('div');
         banner.className = 'info-banner';
         banner.dataset.source = 'recurring';
+        // role=status pairs with the aria-live host so the message is
+        // announced reliably across screen readers, and the banner is
+        // discoverable by AT users browsing landmarks.
+        banner.setAttribute('role', 'status');
         banner.innerHTML = `
           <span class="info-banner-text">${_escText(msg)}</span>
           <button class="info-banner-dismiss" type="button" aria-label="${_escAttr(tr('recurring.bannerDismiss'))}">
@@ -3962,7 +4012,13 @@
             : tr('sync.manyFailed', { n: failed });
           toast(msg, 'error');
         }
-        if (flushed > 0 || failed > 0) await loadTags();
+        if (flushed > 0 || failed > 0) {
+          await loadTags();
+          // Replayed POST/PUT/DELETE on /api/recurring would otherwise
+          // leave the in-memory rules list stale until the user opens
+          // the panel; refresh so the next render is correct.
+          await loadRecurringRules();
+        }
         await loadAndRender();
       }
 

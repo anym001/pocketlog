@@ -929,6 +929,23 @@
         min-width: 0;
         max-width: 100%;
       }
+      /* Row that holds the description text + the optional recurring
+         badge as a sibling. The badge sits outside .t-note so the
+         description's ellipsis can never clip it on long rows. */
+      .t-note-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        min-width: 0;
+      }
+      .t-note-row .t-note {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .t-note-row .tx-recurring-badge {
+        flex: 0 0 auto;
+        margin-inline-start: 0;
+      }
       .t-tags {
         display: flex;
         gap: var(--space-4);
@@ -3113,11 +3130,6 @@
         flex-direction: column;
         gap: var(--space-4);
       }
-      .recurring-skip-list:empty::after {
-        content: attr(data-empty);
-        color: var(--text3);
-        font-size: var(--fs-footnote);
-      }
       .recurring-skip-list li {
         display: flex;
         align-items: center;
@@ -3126,6 +3138,12 @@
         background: var(--surface-tint);
         border-radius: var(--r-sm);
         font-size: var(--fs-footnote);
+      }
+      .recurring-skip-list li.is-empty {
+        background: transparent;
+        padding: var(--space-4) 0;
+        color: var(--text3);
+        justify-content: flex-start;
       }
       .recurring-skip-list button {
         background: transparent;
