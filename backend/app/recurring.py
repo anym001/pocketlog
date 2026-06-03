@@ -348,11 +348,13 @@ def materialize_due(
 
     if inserted:
         db.commit()
-    else:
-        # No rows changed but the savepoints / loads may have left
-        # SQLAlchemy with an open transaction. Roll back so the caller
-        # sees a clean session.
-        db.rollback()
+    # Else: no row changed → nothing to commit. Don't rollback either:
+    # the only state changes inside this function happen inside
+    # ``db.begin_nested()`` savepoints, which clean themselves up.
+    # A blind rollback here would also discard any pending change the
+    # caller staged before us (e.g. ``create_recurring_rule`` flushes
+    # the new rule, then asks us to backdate — a rollback on a
+    # 0-insert race would lose the rule).
     return inserted
 
 

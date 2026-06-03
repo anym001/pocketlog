@@ -434,6 +434,19 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         "auth.login.success user=%s id=%s ip=%s ua=%s",
         user.username, user.id, ip, safe(user_agent or "unknown"),
     )
+    # Symmetric with /api/auth/me: run the recurring catch-up so the
+    # "N transactions added automatically" banner also fires on the
+    # first request after a long-paused user comes back. Skipped when
+    # the user lands in the force-change-password view, mirroring the
+    # /me path.
+    materialized = 0
+    if not user.force_change_password:
+        materialized = recurring.catch_up_safely(db, user)
+        if materialized:
+            audit.info(
+                "recurring.catchup id=%s count=%s trigger=login",
+                user.id, materialized,
+            )
     return {
         "user": schemas.UserMe(
             id=user.id,
@@ -441,6 +454,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
             is_admin=user.is_admin,
             force_change_password=user.force_change_password,
             csrf_token=session.csrf_token,
+            recurring_materialized_count=materialized,
         )
     }
 
