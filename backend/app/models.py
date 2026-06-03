@@ -122,9 +122,14 @@ class User(Base):
     goals: Mapped[list["Goal"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    # Listed so ORM-driven user deletion removes rules BEFORE the
-    # categories collection — recurring_rules.category_id is
-    # ON DELETE RESTRICT, which would otherwise trip on the cascade.
+    # Cascade so ``db.delete(user)`` issues the rule deletes through
+    # the ORM. The order in which SQLAlchemy emits DELETEs across
+    # this user's collections is driven by FK topology, not by the
+    # declaration order here — the RESTRICT FK from
+    # ``recurring_rules.category_id`` is what forces rules before
+    # categories. ``crud.delete_all_user_data`` also issues the
+    # explicit DELETE on recurring_rules first, so the bulk-reset
+    # path doesn't rely on UoW ordering at all.
     recurring_rules: Mapped[list["RecurringRule"]] = relationship(
         back_populates="user", cascade="all, delete-orphan",
     )
@@ -441,11 +446,14 @@ class RecurringRule(Base):
         UniqueConstraint(
             "user_id", "name", name="uq_recurring_rules_user_name"
         ),
-        Index("ix_recurring_rules_user_id", "user_id"),
         Index("ix_recurring_rules_category_id", "category_id"),
-        # Catch-up scan is `active AND next_occurrence_date <= today`.
+        # Catch-up scan is `user_id == ? AND active = 1 AND
+        # next_occurrence_date <= ?`. Leading the composite with
+        # user_id localises the scan per request and makes a separate
+        # ix_recurring_rules_user_id redundant.
         Index(
-            "ix_recurring_rules_due", "active", "next_occurrence_date"
+            "ix_recurring_rules_due",
+            "user_id", "active", "next_occurrence_date",
         ),
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
     )

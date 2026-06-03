@@ -233,7 +233,12 @@ def _due_rules(db: Session, user_id: int, today: date_type) -> list[models.Recur
     """Pull all rules whose cursor falls on/before today.
 
     Eager-loads tags + skips so the loop below does no extra queries
-    per rule. The ORDER BY makes catch-up fair across rules.
+    per rule. The ORDER BY makes catch-up fair across rules. The
+    LIMIT bounds the read at the same per-request cap that bounds
+    inserts — without it a user with thousands of rules could pin
+    the catch-up's *read* cost above the per-request write cap, and
+    inflate every authed request for their own session (self-DoS,
+    but trivially abusable).
     """
     stmt = (
         select(models.RecurringRule)
@@ -245,6 +250,7 @@ def _due_rules(db: Session, user_id: int, today: date_type) -> list[models.Recur
             models.RecurringRule.next_occurrence_date,
             models.RecurringRule.id,
         )
+        .limit(DEFAULT_CATCHUP_LIMIT)
         .options(
             selectinload(models.RecurringRule.tags),
             selectinload(models.RecurringRule.skips),

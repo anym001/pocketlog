@@ -201,3 +201,42 @@ def test_occurrences_until_returns_empty_when_paused():
 def test_occurrences_until_returns_empty_when_cursor_none():
     r = _rule(next_occurrence_date=None)
     assert recurring.occurrences_until(r, date(2026, 3, 1), limit=10, skips=set()) == []
+
+
+# ---- year-rollover (the _add_months idx // 12 path) ----
+
+def test_monthly_advance_crosses_year_boundary():
+    r = _rule(frequency="monthly", day_of_month=15, interval=1)
+    assert recurring.next_occurrence(r, date(2026, 12, 15)) == date(2027, 1, 15)
+
+
+def test_quarterly_advance_crosses_year_boundary():
+    r = _rule(frequency="quarterly", day_of_month=15, interval=1)
+    # Nov 15 + 3 months → Feb 15 of the next year.
+    assert recurring.next_occurrence(r, date(2026, 11, 15)) == date(2027, 2, 15)
+
+
+def test_monthly_interval_12_lands_one_year_later():
+    r = _rule(frequency="monthly", day_of_month=10, interval=12)
+    assert recurring.next_occurrence(r, date(2026, 6, 10)) == date(2027, 6, 10)
+
+
+# ---- crud._subtract_months (backdate-cap helper) ----
+
+def test_subtract_months_feb29_clamps_off_leap():
+    from app.crud import _subtract_months
+    # 2028-02-29 minus 12 months → 2027-02-28 (non-leap)
+    assert _subtract_months(date(2028, 2, 29), 12) == date(2027, 2, 28)
+
+
+def test_subtract_months_preserves_day_when_target_month_has_it():
+    from app.crud import _subtract_months
+    assert _subtract_months(date(2026, 6, 15), 6) == date(2025, 12, 15)
+
+
+def test_subtract_months_jan_to_prev_year_dec():
+    """Edge case: anchor Jan 15 minus 1 month → Dec 15 of prev year.
+    Pins the (total_months // 12, % 12) wraparound on the negative
+    side of zero."""
+    from app.crud import _subtract_months
+    assert _subtract_months(date(2026, 1, 15), 1) == date(2025, 12, 15)

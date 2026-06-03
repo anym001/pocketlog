@@ -3487,10 +3487,15 @@
           .slice()
           .sort()
           .map(
+            // ``iso`` comes from RecurringRuleOut.skips (typed
+            // ``list[date]``, server-serialized as YYYY-MM-DD), so it
+            // is already non-attacker-controlled. _escAttr is
+            // defence-in-depth: if the schema ever weakens, this stops
+            // an inline JS injection sink in the onclick attribute.
             (iso) =>
               `<li>
                 <span>${_escText(_recurringFormatDate(iso))}</span>
-                <button type="button" aria-label="${_escAttr(tr('recurring.unskip'))}" onclick="unskipRecurringOccurrence('${iso}')">
+                <button type="button" aria-label="${_escAttr(tr('recurring.unskip'))}" onclick="unskipRecurringOccurrence('${_escAttr(iso)}')">
                   <svg class="ui-icon" aria-hidden="true"><use href="#icon-trash"/></svg>
                 </button>
               </li>`

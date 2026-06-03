@@ -307,15 +307,31 @@ class RecurringRuleBase(BaseModel):
 
     @model_validator(mode="after")
     def _check_cross_fields(self) -> "RecurringRuleBase":
+        # Stable machine codes for the frontend to translate, mirroring
+        # ``validate_password_complexity``. Bare ValueError would
+        # surface as ``type=value_error`` with the message embedded
+        # in prose, which the frontend can't reliably map to i18n.
         if self.frequency == "weekly" and self.weekday is None:
-            raise ValueError("weekday_required")
+            raise PydanticCustomError(
+                "recurring_cross_field",
+                "weekday is required for weekly frequency",
+                {"missing": "weekday"},
+            )
         if (
             self.frequency in ("monthly", "quarterly", "yearly")
             and self.day_of_month is None
         ):
-            raise ValueError("day_of_month_required")
+            raise PydanticCustomError(
+                "recurring_cross_field",
+                "day_of_month is required for monthly/quarterly/yearly",
+                {"missing": "day_of_month"},
+            )
         if self.end_date is not None and self.end_date < self.start_date:
-            raise ValueError("end_before_start")
+            raise PydanticCustomError(
+                "recurring_cross_field",
+                "end_date must not precede start_date",
+                {"missing": "end_after_start"},
+            )
         return self
 
 

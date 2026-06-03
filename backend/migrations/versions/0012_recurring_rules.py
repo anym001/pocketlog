@@ -177,17 +177,19 @@ def upgrade() -> None:
             mysql_charset="utf8mb4",
         )
 
-    if not _index_exists(bind, RULES, "ix_recurring_rules_user_id"):
-        op.create_index("ix_recurring_rules_user_id", RULES, ["user_id"])
     if not _index_exists(bind, RULES, "ix_recurring_rules_category_id"):
         op.create_index(
             "ix_recurring_rules_category_id", RULES, ["category_id"]
         )
+    # The catch-up scan filters `user_id == ? AND active = 1 AND
+    # next_occurrence_date <= ?`. Leading the composite with user_id
+    # localises the scan per request in a multi-user deployment and
+    # makes a separate ix_recurring_rules_user_id redundant.
     if not _index_exists(bind, RULES, "ix_recurring_rules_due"):
         op.create_index(
             "ix_recurring_rules_due",
             RULES,
-            ["active", "next_occurrence_date"],
+            ["user_id", "active", "next_occurrence_date"],
         )
 
     if not _table_exists(bind, SKIPS):
@@ -329,7 +331,5 @@ def downgrade() -> None:
         op.drop_index(
             "ix_recurring_rules_category_id", table_name=RULES
         )
-    if _index_exists(bind, RULES, "ix_recurring_rules_user_id"):
-        op.drop_index("ix_recurring_rules_user_id", table_name=RULES)
     if _table_exists(bind, RULES):
         op.drop_table(RULES)

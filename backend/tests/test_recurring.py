@@ -528,6 +528,111 @@ def test_user_delete_cascades_recurring(db_session):
 
 # ---- concurrency idempotency (sequential proxy) ----
 
+def test_update_rule_moves_cursor_to_new_future_start(client):
+    """A rule whose start_date is bumped from today+10 to today+30 must
+    advance its cursor to the new future anchor, not keep the old one."""
+    cat = _new_category(client)
+    near = date.today() + timedelta(days=10)
+    create = client.post(
+        "/api/recurring",
+        json=_rule_payload(cat, day_of_month=near.day, start_date=near.isoformat()),
+    )
+    rid = create.json()["rule"]["id"]
+    rule = [r for r in client.get("/api/recurring").json() if r["id"] == rid][0]
+    assert rule["next_occurrence_date"] == near.isoformat()
+
+    far = date.today() + timedelta(days=30)
+    upd = client.put(
+        f"/api/recurring/{rid}",
+        json=_rule_payload(cat, day_of_month=far.day, start_date=far.isoformat()),
+    )
+    assert upd.status_code == 200, upd.text
+    rule = [r for r in client.get("/api/recurring").json() if r["id"] == rid][0]
+    assert rule["next_occurrence_date"] == far.isoformat()
+
+
+def test_update_rule_with_past_start_anchors_on_today_without_rematerialization(client):
+    """Edit semantics: bumping start_date into the past must NOT
+    trigger backfill of the gap. The cursor anchors on today (or
+    later), existing transactions are untouched, no new ones
+    materialize for the past gap."""
+    cat = _new_category(client)
+    future_start = date.today() + timedelta(days=10)
+    create = client.post(
+        "/api/recurring",
+        json=_rule_payload(
+            cat, day_of_month=future_start.day,
+            start_date=future_start.isoformat(),
+        ),
+    )
+    rid = create.json()["rule"]["id"]
+    txs_before = [
+        t for t in client.get("/api/transactions").json()
+        if t.get("source_rule_id") == rid
+    ]
+    assert txs_before == []
+
+    past = date.today() - timedelta(days=60)
+    upd = client.put(
+        f"/api/recurring/{rid}",
+        json=_rule_payload(
+            cat, day_of_month=past.day, start_date=past.isoformat()
+        ),
+    )
+    assert upd.status_code == 200, upd.text
+    # No backfill: still zero booked rows.
+    txs_after = [
+        t for t in client.get("/api/transactions").json()
+        if t.get("source_rule_id") == rid
+    ]
+    assert txs_after == []
+    # Cursor sits on/after today, not on the new past start.
+    rule = [r for r in client.get("/api/recurring").json() if r["id"] == rid][0]
+    assert date.fromisoformat(rule["next_occurrence_date"]) >= date.today()
+
+
+def test_skip_next_twice_skips_two_distinct_occurrences(client):
+    """Calling /skip-next twice in a row skips TWO distinct dates
+    (the current cursor first, then the advanced one). Mirrors the
+    real UX of a user clicking the button twice — both clicks must
+    have an effect, and neither must double-record the same skip."""
+    cat = _new_category(client)
+    start = date.today() + timedelta(days=10)
+    create = client.post(
+        "/api/recurring",
+        json=_rule_payload(cat, day_of_month=start.day, start_date=start.isoformat()),
+    )
+    rid = create.json()["rule"]["id"]
+
+    first = client.post(f"/api/recurring/{rid}/skip-next").json()
+    second = client.post(f"/api/recurring/{rid}/skip-next").json()
+    assert first["skipped_date"] != second["skipped_date"]
+    assert first["next_occurrence_date"] == second["skipped_date"]
+
+    rule = [r for r in client.get("/api/recurring").json() if r["id"] == rid][0]
+    assert first["skipped_date"] in rule["skips"]
+    assert second["skipped_date"] in rule["skips"]
+
+
+def test_other_user_cannot_skip_or_remove_skip(app, client, db_session):
+    """A second user must get 404 on both /skip-next and
+    /skip/{iso} against another user's rule, even when they know the
+    rule_id."""
+    cat = _new_category(client)
+    start = date.today() + timedelta(days=10)
+    create = client.post(
+        "/api/recurring",
+        json=_rule_payload(cat, day_of_month=start.day, start_date=start.isoformat()),
+    )
+    rid = create.json()["rule"]["id"]
+    sk = client.post(f"/api/recurring/{rid}/skip-next").json()
+    skipped_iso = sk["skipped_date"]
+
+    other = _other_client(app, db_session)
+    assert other.post(f"/api/recurring/{rid}/skip-next").status_code == 404
+    assert other.delete(f"/api/recurring/{rid}/skip/{skipped_iso}").status_code == 404
+
+
 def test_double_catchup_is_idempotent(client):
     """Two consecutive /api/transactions calls must NOT double-book.
 
