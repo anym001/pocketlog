@@ -3175,10 +3175,16 @@
         const sorted = [...categories].sort((a, b) =>
           a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' })
         );
+        // Fall back to the alphabetically first option when no valid category
+        // is requested (e.g. creating a new goal), so the preselection matches
+        // the top of the list rather than the unsorted seed order.
+        const effectiveId = sorted.some((c) => c.id === selectedId)
+          ? selectedId
+          : sorted[0] && sorted[0].id;
         sel.innerHTML = sorted
           .map(
             (c) =>
-              `<option value="${c.id}"${c.id === selectedId ? ' selected' : ''}>${_escText(c.name)}</option>`
+              `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`
           )
           .join('');
       }
@@ -3243,7 +3249,7 @@
           editingGoalColor = CAT_CREATE_COLORS[goals.length % CAT_CREATE_COLORS.length];
           document.getElementById('goalEditName').value = '';
           document.getElementById('goalEditDirection').value = 'save_up';
-          populateGoalCategorySelect(categories[0] && categories[0].id);
+          populateGoalCategorySelect(null); // defaults to the first sorted option
           document.getElementById('goalEditInitial').value = '';
           document.getElementById('goalEditTarget').value = '';
           const now = new Date();
