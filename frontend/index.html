@@ -199,8 +199,23 @@
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </symbol>
+        <symbol id="icon-arrows-clockwise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-3.5-7.1"/>
+          <polyline points="21 4 21 9 16 9"/>
+        </symbol>
+        <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+        </symbol>
       </defs>
     </svg>
+
+    <!-- INFO BANNER HOST (recurring catch-up + future inline notices).
+         Sticky region above the toast host; banners persist until the
+         user dismisses them (toast is too short for an actionable note). -->
+    <div class="info-banner-host" id="infoBannerHost" aria-live="polite"></div>
 
     <!-- TOAST HOST -->
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
@@ -373,6 +388,10 @@
             <button class="drawer-nav-item" data-panel="goals" onclick="showPanel('goals')" style="--nav-icon-bg: var(--blue)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-target" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.goals">Ziele</span>
+            </button>
+            <button class="drawer-nav-item" data-panel="recurring" onclick="showPanel('recurring')" style="--nav-icon-bg: var(--green)">
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-arrows-clockwise" /></svg></span>
+              <span class="drawer-nav-label" data-i18n="nav.recurring">Wiederkehrend</span>
             </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpReports')" style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
@@ -911,6 +930,14 @@
       <div id="goalsViewList"></div>
     </div>
 
+    <!-- RECURRING TRANSACTIONS VIEW -->
+    <div class="panel" id="panel-recurring">
+      <div class="goals-toolbar">
+        <button class="save-btn" onclick="openRecurringModal()" data-i18n="recurring.create">Regel erstellen</button>
+      </div>
+      <div id="recurringViewList"></div>
+    </div>
+
     <!-- BOTTOM BAR -->
     <div class="bottom-bar">
       <form class="search-form" role="search" onsubmit="event.preventDefault()">
@@ -1216,6 +1243,110 @@
       </div>
     </div>
 
+    <!-- RECURRING RULE MODAL (create / edit) -->
+    <div class="modal-overlay" id="recurringModalOverlay" onclick="closeRecurringModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recurringModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeRecurringModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="recurringModalTitle" data-i18n="recurring.newTitle">Neue Regel</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label data-i18n="recurring.name">Bezeichnung</label>
+            <input type="text" id="recEditName" maxlength="100" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.type">Typ</label>
+            <select id="recEditType">
+              <option value="out" data-i18n="recurring.typeExpense">Ausgabe</option>
+              <option value="in" data-i18n="recurring.typeIncome">Einnahme</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.amount">Betrag</label>
+            <input type="text" class="amount-input" id="recEditAmount" placeholder="0,00" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]{0,2}" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.category">Kategorie</label>
+            <select id="recEditCategory"></select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.description">Beschreibung</label>
+            <input type="text" id="recEditDescription" maxlength="255" placeholder="z. B. Miete Wohnung" data-i18n-attr="placeholder:recurring.descriptionPlaceholder" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.frequency">Häufigkeit</label>
+            <select id="recEditFrequency" onchange="onRecurringFrequencyChange()">
+              <option value="daily" data-i18n="recurring.freq.daily">Täglich</option>
+              <option value="weekly" data-i18n="recurring.freq.weekly">Wöchentlich</option>
+              <option value="monthly" selected data-i18n="recurring.freq.monthly">Monatlich</option>
+              <option value="quarterly" data-i18n="recurring.freq.quarterly">Quartalsweise</option>
+              <option value="yearly" data-i18n="recurring.freq.yearly">Jährlich</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.interval">Intervall</label>
+            <input type="number" id="recEditInterval" min="1" max="365" value="1" />
+          </div>
+          <div class="form-group" id="recEditWeekdayGroup" hidden>
+            <label data-i18n="recurring.weekday">Wochentag</label>
+            <select id="recEditWeekday">
+              <option value="0" data-i18n="recurring.weekdays.mon">Mo</option>
+              <option value="1" data-i18n="recurring.weekdays.tue">Di</option>
+              <option value="2" data-i18n="recurring.weekdays.wed">Mi</option>
+              <option value="3" data-i18n="recurring.weekdays.thu">Do</option>
+              <option value="4" data-i18n="recurring.weekdays.fri">Fr</option>
+              <option value="5" data-i18n="recurring.weekdays.sat">Sa</option>
+              <option value="6" data-i18n="recurring.weekdays.sun">So</option>
+            </select>
+          </div>
+          <div class="form-group" id="recEditDayOfMonthGroup">
+            <label data-i18n="recurring.dayOfMonth">Tag im Monat</label>
+            <input type="number" id="recEditDayOfMonth" min="1" max="31" value="1" />
+            <p class="form-hint" data-i18n="recurring.dayOfMonthHint">31 = jeweils letzter Tag des Monats</p>
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.startDate">Startdatum</label>
+            <input type="date" id="recEditStartDate" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.endDate">Enddatum (optional)</label>
+            <input type="date" id="recEditEndDate" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="recurring.maxOccurrences">Maximale Anzahl (optional)</label>
+            <input type="number" id="recEditMaxOccurrences" min="1" max="10000" />
+          </div>
+          <div class="form-group form-row">
+            <label for="recEditActive" data-i18n="recurring.active">Aktiv</label>
+            <input type="checkbox" id="recEditActive" checked />
+          </div>
+          <!-- Skips block, only visible on edit. Texts are set
+               imperatively by openRecurringModal() because the
+               nextRun line interpolates a localized date. -->
+          <div class="form-group" id="recEditSkipsGroup" hidden>
+            <p class="form-hint" id="recEditNextRunLine"></p>
+            <button type="button" class="submit-btn" id="recSkipNextBtn" onclick="skipNextRecurringOccurrence()" data-i18n="recurring.skipNext">Nächste Buchung überspringen</button>
+            <label class="recurring-skips-heading" data-i18n="recurring.skipsHeading">Übersprungene Termine</label>
+            <ul class="recurring-skip-list" id="recEditSkipsList"></ul>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="saveRecurringEdit()" data-i18n="common.save">Speichern</button>
+          <button
+            class="submit-btn btn-destructive"
+            id="recDeleteBtn"
+            onclick="deleteRecurringEdit()"
+            data-i18n="common.delete"
+          >
+            Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- CATEGORY ICON PICKER -->
     <div class="modal-overlay" id="iconPickerOverlay" onclick="closeIconPickerOutside(event)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="iconPickerTitle">
@@ -1265,6 +1396,9 @@
           <p class="confirm-msg" data-i18n="admin.resetBody">
             Diese Aktion entfernt Daten dauerhaft vom Server und lässt sich nicht rückgängig
             machen.
+          </p>
+          <p class="confirm-msg" data-i18n="admin.resetAllIncludes">
+            Buchungen, Kategorien, Tags, Ziele und wiederkehrende Buchungen werden gelöscht.
           </p>
         </div>
         <div class="modal-footer">

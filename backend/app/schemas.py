@@ -162,6 +162,36 @@ class TagOut(BaseModel):
 # The frontend uses the JSON field "desc"; the DB column is "description"
 # (avoids reserved-word conflicts). The Pydantic alias accepts both.
 
+def _normalise_tag_list(value: list[str] | None) -> list[str] | None:
+    """Shared between TransactionIn and RecurringRuleBase.
+
+    Strips control chars, deduplicates case-insensitively (casefold,
+    not lower — see ``crud._find_tag_by_name``) and enforces the
+    per-record cap. Returns ``None`` when the caller didn't provide
+    the field, ``[]`` when explicitly empty.
+    """
+    if value is None:
+        return None
+    if len(value) > MAX_TAGS_PER_TX:
+        raise ValueError(f"too many tags (max {MAX_TAGS_PER_TX})")
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in value:
+        if not isinstance(raw, str):
+            raise ValueError("tags must be strings")
+        tag = _TAG_CONTROL_CHARS.sub("", raw).strip()
+        if not tag:
+            raise ValueError("tag must not be empty")
+        if len(tag) > MAX_TAG_LENGTH:
+            raise ValueError(f"tag too long (max {MAX_TAG_LENGTH})")
+        key = tag.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(tag)
+    return cleaned
+
+
 class TransactionIn(BaseModel):
     amount: Decimal = Field(gt=0, decimal_places=2, max_digits=12)
     description: str = Field(default="", max_length=255, alias="desc")
@@ -182,29 +212,7 @@ class TransactionIn(BaseModel):
     @field_validator("tags")
     @classmethod
     def _normalise_tags(cls, value: list[str] | None) -> list[str] | None:
-        if value is None:
-            return None
-        if len(value) > MAX_TAGS_PER_TX:
-            raise ValueError(f"too many tags (max {MAX_TAGS_PER_TX})")
-        cleaned: list[str] = []
-        seen: set[str] = set()
-        for raw in value:
-            if not isinstance(raw, str):
-                raise ValueError("tags must be strings")
-            tag = _TAG_CONTROL_CHARS.sub("", raw).strip()
-            if not tag:
-                raise ValueError("tag must not be empty")
-            if len(tag) > MAX_TAG_LENGTH:
-                raise ValueError(f"tag too long (max {MAX_TAG_LENGTH})")
-            # casefold (not lower) so the dedupe matches list_tags in
-            # crud.py — otherwise `Straße` and `STRASSE` would be one
-            # entry in the tag list but two distinct tags on a tx.
-            key = tag.casefold()
-            if key in seen:
-                continue
-            seen.add(key)
-            cleaned.append(tag)
-        return cleaned
+        return _normalise_tag_list(value)
 
 
 class TransactionCreate(TransactionIn):
@@ -231,6 +239,10 @@ class TransactionOut(BaseModel):
     # treats `null` and `[]` the same (`t.tags || []`), so this is
     # backwards compatible at the consumer side.
     tags: list[str] = Field(default_factory=list)
+    # Set on transactions materialized from a recurring rule; null on
+    # manually entered ones and on rows whose rule was deleted later.
+    # Drives the small recurring badge in the tx list.
+    source_rule_id: int | None = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -246,6 +258,117 @@ class TransactionOut(BaseModel):
         if isinstance(value, list):
             return [t.name if hasattr(t, "name") else t for t in value]
         return value
+
+
+# -------- Recurring Rules --------
+# A rule is a template for auto-booked transactions. The materialization
+# engine (app.recurring) reads these and inserts rows into transactions
+# when due. Cross-field validation (weekday/day_of_month required by
+# frequency, end_date >= start_date) lives in the model_validator so the
+# frontend can map each failure to a stable i18n key.
+
+class RecurringRuleBase(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    type: Literal["in", "out"]
+    category_id: int
+    description: str = Field(default="", max_length=255, alias="desc")
+    tags: list[str] | None = None
+    frequency: Literal["daily", "weekly", "monthly", "quarterly", "yearly"]
+    interval: int = Field(default=1, ge=1, le=365)
+    # 0=Mon, 6=Sun. Required iff weekly. Ignored otherwise (but stored
+    # if the client sends it — round-trip is fine for the form's hidden
+    # state).
+    weekday: int | None = Field(default=None, ge=0, le=6)
+    # 1..31. Required iff month-based. 31 clamps to the actual last
+    # day of shorter months (Outlook semantics).
+    day_of_month: int | None = Field(default=None, ge=1, le=31)
+    start_date: date_type
+    end_date: date_type | None = None
+    max_occurrences: int | None = Field(default=None, ge=1, le=10_000)
+    active: bool = True
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("name", mode="after")
+    @classmethod
+    def _normalise_name(cls, value: str) -> str:
+        return _strip_control_required(value)
+
+    @field_validator("description", mode="after")
+    @classmethod
+    def _normalise_description(cls, value: str) -> str:
+        return _strip_control(value)
+
+    @field_validator("tags")
+    @classmethod
+    def _normalise_tags(cls, value: list[str] | None) -> list[str] | None:
+        return _normalise_tag_list(value)
+
+    @model_validator(mode="after")
+    def _check_cross_fields(self) -> "RecurringRuleBase":
+        if self.frequency == "weekly" and self.weekday is None:
+            raise ValueError("weekday_required")
+        if (
+            self.frequency in ("monthly", "quarterly", "yearly")
+            and self.day_of_month is None
+        ):
+            raise ValueError("day_of_month_required")
+        if self.end_date is not None and self.end_date < self.start_date:
+            raise ValueError("end_before_start")
+        return self
+
+
+class RecurringRuleCreate(RecurringRuleBase):
+    pass
+
+
+class RecurringRuleUpdate(RecurringRuleBase):
+    pass
+
+
+class RecurringRuleOut(RecurringRuleBase):
+    id: int
+    # Cached cursor; null when the rule has terminated (end_date passed
+    # or max_occurrences hit). The frontend uses this to label the
+    # "Nächste Buchung" row and to disable the skip-next button.
+    next_occurrence_date: date_type | None = None
+    occurrences_count: int = 0
+    skips: list[date_type] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    @field_validator("skips", mode="before")
+    @classmethod
+    def _extract_skip_dates(cls, value):
+        if value is None:
+            return []
+        return [
+            s.skip_date if hasattr(s, "skip_date") else s for s in value
+        ]
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _extract_tag_names(cls, value):
+        # Same shape contract as TransactionOut: ORM relation rows
+        # carry a .name; dict / fixture payloads are already strings.
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [t.name if hasattr(t, "name") else t for t in value]
+        return value
+
+
+class RecurringRuleCreateResponse(BaseModel):
+    """Wraps RecurringRuleOut with the count of transactions that were
+    auto-materialized in the same request (backdated rules)."""
+    rule: RecurringRuleOut
+    materialized_count: int = 0
+
+
+class RecurringSkipOut(BaseModel):
+    skipped_date: date_type | None
+    next_occurrence_date: date_type | None
 
 
 # -------- User Settings --------
@@ -448,6 +571,11 @@ class UserMe(BaseModel):
     is_admin: bool
     force_change_password: bool
     csrf_token: str
+    # Count of transactions just materialized by the recurring catch-up
+    # on this request; the frontend shows a dismissible info banner
+    # when > 0. Defaults to 0 so callers that don't pass it (login
+    # response) don't trip the schema.
+    recurring_materialized_count: int = 0
 
 
 class ChangePasswordRequest(BaseModel):

@@ -122,6 +122,12 @@ class User(Base):
     goals: Mapped[list["Goal"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    # Listed so ORM-driven user deletion removes rules BEFORE the
+    # categories collection — recurring_rules.category_id is
+    # ON DELETE RESTRICT, which would otherwise trip on the cascade.
+    recurring_rules: Mapped[list["RecurringRule"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan",
+    )
 
 
 class Session(Base):
@@ -258,6 +264,15 @@ class Transaction(Base):
         # DELETE; without this index that check is a full table scan on
         # transactions.
         Index("ix_transactions_category_id", "category_id"),
+        # Idempotency guard for the recurring-rules catch-up. NULLs are
+        # treated as distinct by every backend we support, so manual
+        # transactions (source_rule_id IS NULL) are not affected.
+        UniqueConstraint(
+            "source_rule_id", "date", name="uq_transactions_rule_date"
+        ),
+        # FK on source_rule_id triggers a SET NULL on rule delete; without
+        # this index that check is a full scan on transactions.
+        Index("ix_transactions_source_rule_id", "source_rule_id"),
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
     )
 
@@ -272,6 +287,20 @@ class Transaction(Base):
     )
     date: Mapped[date_type] = mapped_column(Date, nullable=False)
     type: Mapped[str] = mapped_column(Enum("in", "out", name="tx_type"), nullable=False)
+
+    # Auto-booked transactions carry the recurring rule they came from so
+    # the UI can render a small recurring badge and the catch-up routine
+    # can rely on uq_transactions_rule_date for idempotency. SET NULL keeps
+    # history readable after the rule itself is deleted.
+    source_rule_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey(
+            "recurring_rules.id",
+            ondelete="SET NULL",
+            name="fk_transactions_source_rule",
+        ),
+        nullable=True,
+    )
 
     user: Mapped[User] = relationship(back_populates="transactions")
     category: Mapped[Category] = relationship(back_populates="transactions")
@@ -352,3 +381,190 @@ class Goal(Base):
 
     user: Mapped[User] = relationship(back_populates="goals")
     category: Mapped[Category] = relationship()
+
+
+# Link table between recurring rules and tags. Mirrors transaction_tags
+# so the existing tag-rename/merge code in crud.rename_tag walks rule
+# tags transparently — the alternative (a JSON list of names on the
+# rule) would be a second source of truth.
+recurring_rule_tags = Table(
+    "recurring_rule_tags",
+    Base.metadata,
+    Column(
+        "rule_id",
+        Integer,
+        ForeignKey(
+            "recurring_rules.id",
+            ondelete="CASCADE",
+            name="fk_recurring_rule_tags_rule",
+        ),
+        nullable=False,
+    ),
+    Column(
+        "tag_id",
+        Integer,
+        ForeignKey(
+            "tags.id",
+            ondelete="CASCADE",
+            name="fk_recurring_rule_tags_tag",
+        ),
+        nullable=False,
+    ),
+    PrimaryKeyConstraint(
+        "rule_id", "tag_id", name="pk_recurring_rule_tags"
+    ),
+    Index("ix_recurring_rule_tags_tag_id", "tag_id"),
+    mysql_engine="InnoDB",
+    mysql_charset="utf8mb4",
+)
+
+
+class RecurringRule(Base):
+    """A recurring booking template.
+
+    The rule stores the *intent* (frequency, amount, category, tags,
+    end conditions) plus a single ``next_occurrence_date`` cursor. The
+    catch-up routine (``app.recurring.materialize_due``) walks rules
+    whose cursor lies on/before today, inserts one ``Transaction`` row
+    per occurrence, advances the cursor, and stops at the per-request
+    cap. Skips are captured in ``recurring_rule_skips`` and consulted
+    on every materialization step.
+
+    Edits to a rule affect only future occurrences; transactions that
+    have already been materialized are immutable facts. Deleting a
+    rule leaves its history intact (``Transaction.source_rule_id``
+    becomes NULL via ON DELETE SET NULL).
+    """
+
+    __tablename__ = "recurring_rules"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "name", name="uq_recurring_rules_user_name"
+        ),
+        Index("ix_recurring_rules_user_id", "user_id"),
+        Index("ix_recurring_rules_category_id", "category_id"),
+        # Catch-up scan is `active AND next_occurrence_date <= today`.
+        Index(
+            "ix_recurring_rules_due", "active", "next_occurrence_date"
+        ),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE", name="fk_recurring_rules_user"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)
+    # Reuses the same Enum name as Transaction.type so MariaDB shares
+    # one ENUM definition and SQLite shares one CHECK constraint.
+    type: Mapped[str] = mapped_column(
+        Enum("in", "out", name="tx_type"), nullable=False
+    )
+    category_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "categories.id",
+            ondelete="RESTRICT",
+            name="fk_recurring_rules_category",
+        ),
+        nullable=False,
+    )
+    description: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
+    )
+    frequency: Mapped[str] = mapped_column(
+        Enum(
+            "daily", "weekly", "monthly", "quarterly", "yearly",
+            name="recurring_freq",
+        ),
+        nullable=False,
+    )
+    interval: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
+    # Required iff frequency=weekly; 0=Mon (ISO weekday). NULL otherwise.
+    weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Required iff monthly/quarterly/yearly; 31 means "last day of
+    # shorter months" (Outlook semantics, see app.recurring._clamp_day).
+    day_of_month: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    start_date: Mapped[date_type] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date_type | None] = mapped_column(Date, nullable=True)
+    max_occurrences: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    # Cached cursor advanced by the catch-up. Set at create time to the
+    # first occurrence on/after start_date. NULL is reserved for
+    # terminated rules (max_occurrences hit, end_date passed); the
+    # catch-up never materializes when this is NULL.
+    next_occurrence_date: Mapped[date_type | None] = mapped_column(
+        Date, nullable=True
+    )
+    occurrences_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        default=lambda: datetime.utcnow(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+        default=lambda: datetime.utcnow(),
+    )
+
+    user: Mapped[User] = relationship(back_populates="recurring_rules")
+    category: Mapped[Category] = relationship()
+    skips: Mapped[list["RecurringRuleSkip"]] = relationship(
+        back_populates="rule",
+        cascade="all, delete-orphan",
+        order_by="RecurringRuleSkip.skip_date",
+    )
+    tags: Mapped[list["Tag"]] = relationship(
+        secondary=recurring_rule_tags,
+        lazy="selectin",
+        order_by="Tag.name",
+    )
+
+
+class RecurringRuleSkip(Base):
+    """A single occurrence the user opted to skip.
+
+    The composite PK (rule_id, skip_date) makes the "skip next" action
+    idempotent: a double-click can't insert the same row twice. CASCADE
+    on rule delete keeps cleanup automatic.
+    """
+
+    __tablename__ = "recurring_rule_skips"
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "rule_id", "skip_date", name="pk_recurring_rule_skips"
+        ),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    rule_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "recurring_rules.id",
+            ondelete="CASCADE",
+            name="fk_recurring_rule_skips_rule",
+        ),
+        nullable=False,
+    )
+    skip_date: Mapped[date_type] = mapped_column(Date, nullable=False)
+
+    rule: Mapped[RecurringRule] = relationship(back_populates="skips")

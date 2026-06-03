@@ -2968,6 +2968,169 @@
         transform: none;
       }
 
+      /* ====== INFO BANNERS ======
+         Persistent inline notice, dismissed by the user — distinct
+         from toast (auto-fades after 3s, not suitable for an
+         actionable message). Currently fed by the recurring catch-up
+         on app start. */
+      .info-banner-host {
+        position: relative;
+        z-index: var(--z-toast);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-8);
+        padding: 0 var(--space-16);
+      }
+      .info-banner-host:empty {
+        display: none;
+      }
+      .info-banner {
+        display: flex;
+        align-items: center;
+        gap: var(--space-12);
+        background: var(--glass-chrome);
+        border: var(--border-hairline-strong);
+        border-left: 3px solid var(--green);
+        border-radius: var(--r-md);
+        padding: var(--space-12) var(--space-16);
+        font-size: var(--fs-footnote);
+        line-height: 1.4;
+        color: var(--text);
+        box-shadow: var(--shadow-soft);
+        margin-top: var(--space-8);
+      }
+      .info-banner-text {
+        flex: 1;
+      }
+      .info-banner-dismiss {
+        flex: 0 0 auto;
+        background: transparent;
+        border: 0;
+        padding: var(--space-8);
+        cursor: pointer;
+        color: var(--text3);
+        border-radius: var(--r-sm);
+      }
+      .info-banner-dismiss:hover {
+        background: var(--bg-subtle);
+        color: var(--text);
+      }
+
+      /* ====== RECURRING — list + badge + skip rows ====== */
+      .recurring-card {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: var(--space-12);
+        padding: var(--space-12) var(--space-16);
+        background: var(--bg-card);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        margin-bottom: var(--space-8);
+        cursor: pointer;
+      }
+      .recurring-card.is-inactive {
+        opacity: 0.55;
+      }
+      .recurring-card-icon {
+        display: inline-flex;
+        width: 36px;
+        height: 36px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--bg-subtle);
+        color: var(--green);
+      }
+      .recurring-card-icon .ui-icon {
+        width: 18px;
+        height: 18px;
+      }
+      .recurring-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .recurring-card-name {
+        font-weight: 600;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .recurring-card-sub {
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+      }
+      .recurring-card-amount {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .tx-recurring-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-inline-start: var(--space-8);
+        color: var(--text3);
+      }
+      .tx-recurring-badge .ui-icon {
+        width: 12px;
+        height: 12px;
+      }
+      .recurring-skips-heading {
+        display: block;
+        margin-top: var(--space-12);
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+      }
+      .recurring-skip-list {
+        list-style: none;
+        padding: 0;
+        margin: var(--space-8) 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+      }
+      .recurring-skip-list:empty::after {
+        content: attr(data-empty);
+        color: var(--text3);
+        font-size: var(--fs-footnote);
+      }
+      .recurring-skip-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-8) var(--space-12);
+        background: var(--bg-subtle);
+        border-radius: var(--r-sm);
+        font-size: var(--fs-footnote);
+      }
+      .recurring-skip-list button {
+        background: transparent;
+        border: 0;
+        padding: var(--space-4);
+        color: var(--text3);
+        cursor: pointer;
+      }
+      .recurring-skip-list button:hover {
+        color: var(--accent);
+      }
+      .form-hint {
+        margin: var(--space-4) 0 0;
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+      }
+      .form-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-12);
+      }
+      .form-row > label {
+        flex: 1;
+      }
+
       /* ====== TOASTS ====== */
       .toast-host {
         position: fixed;
