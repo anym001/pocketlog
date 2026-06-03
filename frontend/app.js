@@ -2166,7 +2166,6 @@
           data: { labels: bucketLabels, datasets },
           options: {
             responsive: true,
-            maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: {
               legend: { display: false },
