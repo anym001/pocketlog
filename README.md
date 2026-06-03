@@ -33,6 +33,13 @@ no tracking, no telemetry.
   and progress is derived from that category's transactions from the start date onwards
   (savings goals count income up, debt paydown counts expenses down).
   Display only — ledger totals are not affected
+- **Recurring transactions** — define rules for transactions that repeat (rent,
+  subscriptions, salaries) and PocketLog books them automatically at the next due
+  date. Frequencies daily / weekly / monthly / quarterly / yearly with a configurable
+  interval, anchored to a weekday or day-of-month (31 = last day of each month).
+  Optional end date or maximum number of occurrences; individual upcoming
+  occurrences can be skipped. A small badge marks auto-booked transactions in the
+  list, a dismissible banner reports how many were added since the last visit
 - **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view
   and forecast (Chart.js, embedded locally)
 - **Search** — full-text, category, and tag filtering in the transaction list
@@ -169,8 +176,10 @@ server {
 ## Logging & Audit Trail
 
 PocketLog logs security-relevant events (logins including failed attempts, lockouts,
-password changes, admin user actions, and deletion of all own data). **Passwords,
-hashes, session tokens, or CSRF tokens are never logged.**
+password changes, admin user actions, deletion of all own data, and create / update /
+delete / catch-up events for recurring rules). **Passwords, hashes, session tokens,
+CSRF tokens, or user-supplied free-text (rule names, descriptions, amounts) are never
+logged.**
 
 By default output goes to `stdout`/`stderr`, i.e. into `docker logs`.
 This survives container restarts, but **not** an update with `docker rm`.
