@@ -742,12 +742,6 @@
         font-weight: 600;
         color: var(--text);
       }
-      .goal-card-pct {
-        font-size: var(--fs-callout);
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: var(--text2);
-      }
       .goal-progress-track {
         height: var(--cat-bar-h);
         background: var(--hairline-soft);
@@ -768,9 +762,6 @@
       .goal-card.complete .goal-progress-fill {
         background: var(--green);
       }
-      .goal-card.complete .goal-card-pct {
-        color: var(--green);
-      }
       .goal-card-meta {
         display: flex;
         align-items: baseline;
@@ -783,15 +774,40 @@
         font-weight: 600;
         color: var(--text);
         font-variant-numeric: tabular-nums;
+        min-width: 0; /* allow the primary text to wrap within the flex row */
+      }
+      /* Each segment stays on one line; the breakable space between them is
+         the only wrap point, so "· Ziel € X" moves to a second line as a
+         whole when the row is too narrow (e.g. iPhone portrait). */
+      .goal-primary-seg {
+        white-space: nowrap;
+      }
+      .goal-primary-target::before {
+        content: "·\00a0";
+      }
+      /* When the suffix has wrapped onto its own line (toggled in JS by
+         _relayoutGoalTargets), drop the leading "·" so line two reads
+         "Ziel € X" cleanly instead of "· Ziel € X". */
+      .goal-card-primary.is-wrapped .goal-primary-target::before {
+        content: none;
       }
       .goal-card-sub {
         font-size: var(--fs-caption);
         color: var(--text3);
+        white-space: nowrap; /* keep "X% paid off" on a single line */
+        flex-shrink: 0;
       }
-      .goals-empty-glyph {
-        width: var(--icon-list-md);
-        height: var(--icon-list-md);
+      /* Match the standard .empty-state .icon (size, centering, opacity);
+         the compound selector beats .cat-glyph's width:60% regardless of
+         source order, and fill keeps the sprite glyph visible. */
+      .empty-state .goals-empty-glyph {
+        display: block;
+        width: var(--fs-icon-xl);
+        height: var(--fs-icon-xl);
+        margin: 0 auto var(--space-14);
         color: var(--text3);
+        opacity: 0.75;
+        fill: currentColor;
       }
 
       /* ====== TRANSACTIONS ====== */
@@ -1006,6 +1022,14 @@
         align-items: center;
         gap: var(--space-10);
         z-index: var(--z-floating);
+      }
+      /* Search + FAB only make sense in the transactions/categories ledger
+         views. Reports (charts) and the Goals view have neither searchable
+         rows nor a "new transaction" affordance, so hide the whole bar there.
+         Body classes are toggled in showPanel(). */
+      body.in-report .bottom-bar,
+      body.on-goals .bottom-bar {
+        display: none;
       }
       .search-wrap {
         flex: 1;
