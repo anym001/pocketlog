@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -r backend/requirements-dev.txt
@@ -50,7 +50,7 @@ jobs:
       DATABASE_URL: mysql+pymysql://pocketlog:pocketlog@127.0.0.1:3306/pocketlog?charset=utf8mb4
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -r backend/requirements.txt
