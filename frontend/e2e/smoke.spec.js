@@ -57,6 +57,13 @@ test('first-run setup, then core UI renders without raw i18n keys', async ({ pag
     await page.click('#loginSubmit');
   }
 
+  // Setup/login dismisses the auth overlay (toggled via [hidden]). Wait for
+  // that explicitly: the FAB behind the overlay already reports visible
+  // (toBeVisible ignores occlusion), so without this the still-present
+  // #setupView intercepts the hamburger click below on a slow runner.
+  await expect(page.locator('#setupView')).toBeHidden();
+  await expect(page.locator('#loginView')).toBeHidden();
+
   // Main app is up once the FAB (new-transaction button) is mounted.
   await expect(page.locator('.fab')).toBeVisible();
   await expectNoRawKeys(page, 'main view');
@@ -69,8 +76,13 @@ test('first-run setup, then core UI renders without raw i18n keys', async ({ pag
   // Navigate to the goals view. Drive the app's own navigation directly
   // rather than clicking the nav item — the drawer's open animation makes a
   // real click flaky, and the nav label itself was already asserted above.
-  await page.evaluate(() => window.showPanel('goals'));
-  await expect(page.locator('#panel-goals')).toHaveClass(/active/);
+  // Retry: the post-login init runs showPanel(loadDefaultView()) after the
+  // category/tag/goal loads, which can land *after* our navigation on a slow
+  // runner and steal the active panel. toPass re-navigates until it sticks.
+  await expect(async () => {
+    await page.evaluate(() => window.showPanel('goals'));
+    await expect(page.locator('#panel-goals')).toHaveClass(/active/, { timeout: 1000 });
+  }).toPass({ timeout: 15000, intervals: [200, 500, 1000] });
   await expectNoRawKeys(page, 'goals view');
 
   expect(pageErrors, `Uncaught page errors: ${pageErrors.join(' | ')}`).toEqual([]);

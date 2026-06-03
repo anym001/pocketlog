@@ -785,6 +785,12 @@
       .goal-primary-target::before {
         content: "·\00a0";
       }
+      /* When the suffix has wrapped onto its own line (toggled in JS by
+         _relayoutGoalTargets), drop the leading "·" so line two reads
+         "Ziel € X" cleanly instead of "· Ziel € X". */
+      .goal-card-primary.is-wrapped .goal-primary-target::before {
+        content: none;
+      }
       .goal-card-sub {
         font-size: var(--fs-caption);
         color: var(--text3);
