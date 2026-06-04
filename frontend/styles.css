@@ -1690,6 +1690,16 @@
         outline: none;
         transition: all var(--dur-base) var(--ease-spring);
         -webkit-appearance: none;
+        /* Pin a deterministic height (line-height + vertical padding) so an
+           empty <input type="date"> renders identically to a filled one —
+           iOS Safari otherwise collapses the empty date control. */
+        line-height: 1.2;
+        min-height: calc(2 * var(--space-14) + 1.2 * var(--fs-body));
+      }
+      /* The generic input height above is meant for text/date/number/select;
+         don't stretch a checkbox (e.g. the recurring "Aktiv" control) with it. */
+      .form-group input[type='checkbox'] {
+        min-height: 0;
       }
       .form-group input:focus,
       .form-group select:focus {
