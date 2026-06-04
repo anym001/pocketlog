@@ -3146,21 +3146,13 @@
         justify-content: center;
         flex-shrink: 0;
         border-radius: var(--r-sm);
-        background: color-mix(in oklab, var(--green) 13%, transparent);
-        color: var(--green);
+        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
+        color: var(--cat-color, var(--text));
         border: var(--border-hairline);
       }
-      /* Tint the icon by direction — green income, red expense — matching
-         the amount colour. (Default above already covers income.) */
-      .recurring-card-icon.out {
-        background: color-mix(in oklab, var(--red) 13%, transparent);
-        color: var(--red);
-      }
-      .recurring-card-icon .ui-icon {
-        /* Relative scale matches .goal-card-icon .cat-glyph (70%) so a
-           future change to --icon-list-md cascades automatically. */
-        width: 60%;
-        height: 60%;
+      .recurring-card-icon .cat-glyph {
+        width: 70%;
+        height: 70%;
       }
       .recurring-card-body {
         display: flex;

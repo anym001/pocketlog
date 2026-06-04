@@ -3633,12 +3633,14 @@
             // the direction, matching the ledger summary cards.
             const amount = fmtCurrency(Math.abs(r.amount));
             const inactiveCls = r.active ? '' : ' is-inactive';
+            const cat = categories.find((c) => c.id === r.category_id);
+            const catColor = cat?.color || 'var(--accent)';
             return `<div class="recurring-card${inactiveCls}">
               <button type="button" class="recurring-card-main"
                 aria-label="${_escAttr(r.name)}"
                 onclick="openRecurringModal(${r.id})">
-                <span class="recurring-card-icon ${r.type}" aria-hidden="true">
-                  <svg class="ui-icon"><use href="${r.type === 'in' ? '#icon-trend-up' : '#icon-trend-down'}"/></svg>
+                <span class="recurring-card-icon" style="--cat-color:${_escAttr(catColor)}" aria-hidden="true">
+                  ${catIconSvg(cat?.icon)}
                 </span>
                 <span class="recurring-card-body">
                   <span class="recurring-card-name">${_escText(r.name)}</span>
