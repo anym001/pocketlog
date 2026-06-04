@@ -169,6 +169,7 @@
         --z-drawer-backdrop: 400; /* Drawer-Overlay (Dimmer) */
         --z-drawer: 401; /* Drawer-Panel über seinem Backdrop */
         --z-modal: 500; /* Modal-Overlay + Inhalt */
+        --z-picker: 600; /* Tag-Picker (über anderen Modals) */
         --z-toast: 800; /* Toasts / System-Meldungen */
 
         /* Motion durations — common timings only. Odd values (0.22, 0.28,
@@ -1511,6 +1512,8 @@
         align-items: flex-end;
         justify-content: center;
       }
+      /* Tag picker must sit above any parent modal (booking or recurring). */
+      #tagPickerOverlay { z-index: var(--z-picker); }
       .modal-overlay.open {
         display: flex;
         animation: overlay-in var(--dur-slow) var(--ease-soft);
