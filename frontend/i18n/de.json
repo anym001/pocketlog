@@ -224,6 +224,7 @@
       "sun": "So"
     },
     "nextRun": "Nächste Buchung: {date}",
+    "nextRunCard": "Nächste: {date}",
     "nextRunNone": "Keine weiteren Buchungen",
     "inactive": "Pausiert",
     "fromRule": "Wiederkehrend",

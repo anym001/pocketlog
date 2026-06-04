@@ -3627,7 +3627,7 @@
               endDate: r.end_date, maxOccurrences: r.max_occurrences, active: true,
             }) : null);
             const statusLine = r.active && _nextDate
-              ? tr('recurring.nextRun', { date: _recurringFormatDate(_nextDate) })
+              ? tr('recurring.nextRunCard', { date: _recurringFormatDate(_nextDate) })
               : tr('recurring.inactive');
             // No +/− sign — the colour (green income / red expense) carries
             // the direction, matching the ledger summary cards.
@@ -3638,7 +3638,7 @@
                 aria-label="${_escAttr(r.name)}"
                 onclick="openRecurringModal(${r.id})">
                 <span class="recurring-card-icon ${r.type}" aria-hidden="true">
-                  <svg class="ui-icon"><use href="${r.type === 'in' ? '#icon-arrows-in' : '#icon-arrows-out'}"/></svg>
+                  <svg class="ui-icon"><use href="${r.type === 'in' ? '#icon-trend-up' : '#icon-trend-down'}"/></svg>
                 </span>
                 <span class="recurring-card-body">
                   <span class="recurring-card-name">${_escText(r.name)}</span>
