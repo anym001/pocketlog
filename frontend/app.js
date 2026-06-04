@@ -181,7 +181,22 @@
           }
           throw new Error('session expired');
         }
-        if (!res.ok) throw new Error(`API ${method} ${path} → ${res.status}`);
+        if (!res.ok) {
+          // Try to surface the backend's `detail` string on the error
+          // object so callers can disambiguate 409s (e.g. "category in
+          // use" vs "category has recurring rule"). The existing
+          // ``e.message.includes('409')`` pattern keeps working
+          // because the formatted message is unchanged.
+          let detail = '';
+          try {
+            const body = await res.clone().json();
+            if (body && typeof body.detail === 'string') detail = body.detail;
+          } catch (_) {}
+          const err = new Error(`API ${method} ${path} → ${res.status}`);
+          err.status = res.status;
+          err.detail = detail;
+          throw err;
+        }
         if (method !== 'GET') invalidateReportCache();
         if (res.status === 204) return null;
         return res.json();
@@ -429,6 +444,7 @@
         _activePanel = id;
         document.body.classList.toggle('in-report', id === 'charts');
         document.body.classList.toggle('on-goals', id === 'goals');
+        document.body.classList.toggle('on-recurring', id === 'recurring');
         if (id !== 'charts') _reportTxPool = null;
         document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
         document.getElementById('panel-' + id).classList.add('active');
@@ -438,6 +454,7 @@
         if (id === 'charts') renderReport();
         if (id === 'categories') renderCategoryView();
         if (id === 'goals') renderGoalsView();
+        if (id === 'recurring') renderRecurringView();
         closeDrawer();
       }
 
@@ -814,13 +831,22 @@
                     .map((tg) => `<span class="t-tag">${_escText(tg)}</span>`)
                     .join('');
                   const note = (t.desc || '').trim();
+                  // Badge sits as a sibling of .t-note inside .t-info,
+                  // not inside .t-note itself — .t-note ellipsizes,
+                  // which would clip the badge precisely on the rows
+                  // that need the "from rule" signal most.
+                  const recurringBadge = t.source_rule_id
+                    ? `<span class="tx-recurring-badge" role="img" aria-label="${_escAttr(tr('recurring.fromRule'))}" title="${_escAttr(tr('recurring.fromRule'))}"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrows-clockwise"/></svg></span>`
+                    : '';
                   return `<div class="tx-row" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="${_escAttr(tr('tx.deleteAria'))}">${tr('common.delete')}</button>
         <div class="transaction">
           <div class="t-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <span class="visually-hidden">${_escText(cat.name)}</span>
           <div class="t-info">
-            <div class="t-note">${_escText(note)}</div>
+            <div class="t-note-row">
+              <span class="t-note">${_escText(note)}</span>${recurringBadge}
+            </div>
             <div class="t-tags">${tagsHtml}</div>
           </div>
           <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type === 'out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
@@ -3001,8 +3027,17 @@
           renderCategories();
           await loadAndRender();
         } catch (e) {
-          if (e.message && e.message.includes('409')) {
-            toast(tr('categories.deleteInUse'), 'error');
+          if (e && e.status === 409) {
+            // Three distinct reasons land here; pick the right copy
+            // so a user with a recurring rule isn't sent looking for
+            // phantom transactions.
+            if (e.detail && e.detail.includes('recurring')) {
+              toast(tr('categories.deleteHasRecurring'), 'error');
+            } else if (e.detail && e.detail.includes('goal')) {
+              toast(tr('goals.categoryTaken'), 'error');
+            } else {
+              toast(tr('categories.deleteInUse'), 'error');
+            }
           } else {
             toast(tr('tx.deleteFailed') + e.message, 'error');
           }
@@ -3351,6 +3386,440 @@
         }
       }
 
+      // ── RECURRING (Wiederkehrende Buchungen) ──────────────────────────────────────
+      // Rules are templates; the backend auto-materializes due
+      // occurrences into the transactions table on every /auth/me
+      // and /transactions read. The view here only manages the
+      // template + skip list. New rows pop into the regular
+      // transactions list with a small clockwise badge.
+
+      let recurringRules = [];
+      let editingRecurringId = null;
+
+      async function loadRecurringRules() {
+        try {
+          recurringRules = await api('GET', '/recurring');
+        } catch (e) {
+          recurringRules = [];
+        }
+      }
+
+      const _RECURRING_WEEKDAY_KEYS = [
+        'recurring.weekdays.mon',
+        'recurring.weekdays.tue',
+        'recurring.weekdays.wed',
+        'recurring.weekdays.thu',
+        'recurring.weekdays.fri',
+        'recurring.weekdays.sat',
+        'recurring.weekdays.sun',
+      ];
+
+      function _recurringSummary(rule) {
+        // For interval=1 use a separate key per frequency
+        // (recurring.summary.monthlyOne = "Monatlich am Tag 15") so
+        // the German rendering doesn't say „Alle 1 Monate" and the
+        // English doesn't say "Every 1 month(s)".
+        const n = rule.interval || 1;
+        const suffix = n === 1 ? 'One' : '';
+        const key = 'recurring.summary.' + rule.frequency + suffix;
+        const params = { n };
+        if (rule.frequency === 'weekly') {
+          const wd = rule.weekday == null ? 0 : Number(rule.weekday);
+          params.weekday = tr(_RECURRING_WEEKDAY_KEYS[wd] || _RECURRING_WEEKDAY_KEYS[0]);
+        } else if (rule.frequency !== 'daily') {
+          params.day = rule.day_of_month || 1;
+        }
+        return tr(key, params);
+      }
+
+      function _recurringFormatDate(iso) {
+        if (!iso) return '';
+        try {
+          const [y, m, d] = iso.split('-').map(Number);
+          return new Date(y, m - 1, d).toLocaleDateString(_locale(), {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          });
+        } catch (e) {
+          return iso;
+        }
+      }
+
+      async function renderRecurringView() {
+        const el = document.getElementById('recurringViewList');
+        if (!el) return;
+        if (!recurringRules.length) {
+          el.innerHTML = `<div class="empty-state"><svg class="cat-glyph goals-empty-glyph" aria-hidden="true"><use href="#icon-arrows-clockwise"/></svg><p>${tr('recurring.emptyView')}<br>${tr('recurring.emptyViewHint')}</p></div>`;
+          return;
+        }
+        const sorted = [...recurringRules].sort((a, b) => {
+          if (a.active !== b.active) return a.active ? -1 : 1;
+          return a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' });
+        });
+        el.innerHTML = sorted
+          .map((r) => {
+            const summary = _recurringSummary(r);
+            const nextLine = r.active && r.next_occurrence_date
+              ? tr('recurring.nextRun', { date: _recurringFormatDate(r.next_occurrence_date) })
+              : tr('recurring.inactive');
+            const amount = fmtSignedCurrency(r.type === 'out' ? -Math.abs(r.amount) : Math.abs(r.amount));
+            const inactiveCls = r.active ? '' : ' is-inactive';
+            return `<div class="recurring-card${inactiveCls}" role="button" tabindex="0"
+              aria-label="${_escAttr(r.name)}"
+              onclick="openRecurringModal(${r.id})"
+              onkeydown="handleRowActivate(event, () => openRecurringModal(${r.id}))">
+              <div class="recurring-card-icon" aria-hidden="true">
+                <svg class="ui-icon"><use href="#icon-arrows-clockwise"/></svg>
+              </div>
+              <div class="recurring-card-body">
+                <span class="recurring-card-name">${_escText(r.name)}</span>
+                <span class="recurring-card-sub">${_escText(summary)} · ${_escText(nextLine)}</span>
+              </div>
+              <span class="recurring-card-amount ${r.type}">${amount}</span>
+            </div>`;
+          })
+          .join('');
+      }
+
+      function populateRecurringCategorySelect(selectedId) {
+        const sel = document.getElementById('recEditCategory');
+        if (!sel) return;
+        const sorted = [...categories].sort((a, b) =>
+          a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' })
+        );
+        const effectiveId = sorted.some((c) => c.id === selectedId)
+          ? selectedId
+          : sorted[0] && sorted[0].id;
+        sel.innerHTML = sorted
+          .map(
+            (c) =>
+              `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`
+          )
+          .join('');
+      }
+
+      function onRecurringFrequencyChange() {
+        const freq = document.getElementById('recEditFrequency').value;
+        document.getElementById('recEditWeekdayGroup').hidden = freq !== 'weekly';
+        // Day-of-month is required for monthly/quarterly/yearly; for
+        // daily and weekly it's irrelevant (server stores null).
+        document.getElementById('recEditDayOfMonthGroup').hidden =
+          freq === 'daily' || freq === 'weekly';
+      }
+
+      function _renderRecurringSkipsList(rule) {
+        const list = document.getElementById('recEditSkipsList');
+        if (!list) return;
+        const skips = (rule && rule.skips) || [];
+        if (!skips.length) {
+          // Real <li> instead of a ::after pseudo so screen readers
+          // hear the empty-state text. The .is-empty class lets the
+          // CSS de-style the row (no separator background, muted).
+          list.innerHTML = `<li class="is-empty">${_escText(tr('recurring.skipsEmpty'))}</li>`;
+          return;
+        }
+        list.innerHTML = skips
+          .slice()
+          .sort()
+          .map(
+            // ``iso`` comes from RecurringRuleOut.skips (typed
+            // ``list[date]``, server-serialized as YYYY-MM-DD), so it
+            // is already non-attacker-controlled. _escAttr is
+            // defence-in-depth: if the schema ever weakens, this stops
+            // an inline JS injection sink in the onclick attribute.
+            // counter-clockwise icon (restore) — not trash —
+            // because the action is constructive: the skipped
+            // occurrence comes back.
+            (iso) =>
+              `<li>
+                <span>${_escText(_recurringFormatDate(iso))}</span>
+                <button type="button" aria-label="${_escAttr(tr('recurring.unskip'))}" onclick="unskipRecurringOccurrence('${_escAttr(iso)}')">
+                  <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-counter-clockwise"/></svg>
+                </button>
+              </li>`
+          )
+          .join('');
+      }
+
+      function _updateRecurringNextRunLine(rule) {
+        const line = document.getElementById('recEditNextRunLine');
+        const btn = document.getElementById('recSkipNextBtn');
+        if (!line || !btn) return;
+        if (rule && rule.next_occurrence_date) {
+          line.textContent = tr('recurring.nextRun', {
+            date: _recurringFormatDate(rule.next_occurrence_date),
+          });
+          btn.disabled = false;
+        } else {
+          line.textContent = tr('recurring.nextRunNone');
+          btn.disabled = true;
+        }
+      }
+
+      function openRecurringModal(id) {
+        if (!categories.length) {
+          toast(tr('recurring.needCategory'), 'error');
+          return;
+        }
+        rememberModalFocus('recurring');
+        const deleteBtn = document.getElementById('recDeleteBtn');
+        const title = document.getElementById('recurringModalTitle');
+        const skipsGroup = document.getElementById('recEditSkipsGroup');
+        const today = new Date();
+        if (id) {
+          const r = recurringRules.find((x) => x.id === id);
+          if (!r) return;
+          editingRecurringId = r.id;
+          document.getElementById('recEditName').value = r.name || '';
+          document.getElementById('recEditType').value = r.type || 'out';
+          document.getElementById('recEditAmount').value = _formatAmountInput(Number(r.amount));
+          populateRecurringCategorySelect(r.category_id);
+          document.getElementById('recEditDescription').value = r.desc || '';
+          document.getElementById('recEditFrequency').value = r.frequency;
+          document.getElementById('recEditInterval').value = r.interval || 1;
+          document.getElementById('recEditWeekday').value = r.weekday == null ? 0 : r.weekday;
+          document.getElementById('recEditDayOfMonth').value = r.day_of_month || 1;
+          document.getElementById('recEditStartDate').value = r.start_date;
+          document.getElementById('recEditEndDate').value = r.end_date || '';
+          document.getElementById('recEditMaxOccurrences').value = r.max_occurrences || '';
+          document.getElementById('recEditActive').checked = r.active !== false;
+          title.textContent = tr('recurring.editTitle');
+          deleteBtn.style.display = '';
+          skipsGroup.hidden = false;
+          _updateRecurringNextRunLine(r);
+          _renderRecurringSkipsList(r);
+        } else {
+          editingRecurringId = null;
+          document.getElementById('recEditName').value = '';
+          document.getElementById('recEditType').value = 'out';
+          document.getElementById('recEditAmount').value = '';
+          populateRecurringCategorySelect(null);
+          document.getElementById('recEditDescription').value = '';
+          document.getElementById('recEditFrequency').value = 'monthly';
+          document.getElementById('recEditInterval').value = 1;
+          document.getElementById('recEditWeekday').value = 0;
+          document.getElementById('recEditDayOfMonth').value = today.getDate();
+          document.getElementById('recEditStartDate').value = _iso(today.getFullYear(), today.getMonth(), today.getDate());
+          document.getElementById('recEditEndDate').value = '';
+          document.getElementById('recEditMaxOccurrences').value = '';
+          document.getElementById('recEditActive').checked = true;
+          title.textContent = tr('recurring.newTitle');
+          deleteBtn.style.display = 'none';
+          skipsGroup.hidden = true;
+        }
+        onRecurringFrequencyChange();
+        document.getElementById('recurringModalOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById('recEditName').focus(), 200);
+        trapFocusIn(document.querySelector('#recurringModalOverlay .modal'), 'recurring');
+      }
+
+      function closeRecurringModal() {
+        document.getElementById('recurringModalOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+        editingRecurringId = null;
+        releaseFocusTrap('recurring');
+        restoreModalFocus('recurring');
+      }
+
+      function closeRecurringModalOutside(e) {
+        if (e.target === document.getElementById('recurringModalOverlay')) closeRecurringModal();
+      }
+
+      function _recurringPayloadFromForm() {
+        const name = document.getElementById('recEditName').value.trim();
+        const type = document.getElementById('recEditType').value;
+        const amount = parseAmount(document.getElementById('recEditAmount').value);
+        const categoryId = parseInt(document.getElementById('recEditCategory').value, 10);
+        const description = document.getElementById('recEditDescription').value.trim();
+        const frequency = document.getElementById('recEditFrequency').value;
+        const interval = Math.max(1, parseInt(document.getElementById('recEditInterval').value, 10) || 1);
+        const weekday = parseInt(document.getElementById('recEditWeekday').value, 10);
+        const dayOfMonth = parseInt(document.getElementById('recEditDayOfMonth').value, 10);
+        const startDate = document.getElementById('recEditStartDate').value;
+        const endDate = document.getElementById('recEditEndDate').value || null;
+        const maxRaw = document.getElementById('recEditMaxOccurrences').value;
+        const maxOccurrences = maxRaw ? parseInt(maxRaw, 10) : null;
+        const active = document.getElementById('recEditActive').checked;
+        return {
+          name,
+          type,
+          amount,
+          categoryId,
+          description,
+          frequency,
+          interval,
+          weekday,
+          dayOfMonth,
+          startDate,
+          endDate,
+          maxOccurrences,
+          active,
+        };
+      }
+
+      async function saveRecurringEdit() {
+        const f = _recurringPayloadFromForm();
+        if (!f.name) {
+          toast(tr('common.nameRequired'), 'error');
+          return;
+        }
+        if (Number.isNaN(f.amount) || f.amount <= 0) {
+          toast(tr('recurring.amountRequired'), 'error');
+          return;
+        }
+        if (!Number.isInteger(f.categoryId)) {
+          toast(tr('recurring.categoryRequired'), 'error');
+          return;
+        }
+        if (!f.startDate) {
+          toast(tr('tx.amountDateRequired'), 'error');
+          return;
+        }
+        if (f.endDate && f.endDate < f.startDate) {
+          toast(tr('recurring.endBeforeStart'), 'error');
+          return;
+        }
+        const payload = {
+          name: f.name,
+          type: f.type,
+          amount: f.amount.toFixed(2),
+          category_id: f.categoryId,
+          desc: f.description,
+          tags: [],
+          frequency: f.frequency,
+          interval: f.interval,
+          weekday: f.frequency === 'weekly' ? f.weekday : null,
+          day_of_month:
+            f.frequency === 'daily' || f.frequency === 'weekly'
+              ? null
+              : f.dayOfMonth,
+          start_date: f.startDate,
+          end_date: f.endDate,
+          max_occurrences: f.maxOccurrences,
+          active: f.active,
+        };
+        try {
+          if (editingRecurringId) {
+            await api('PUT', `/recurring/${editingRecurringId}`, payload);
+            toast(tr('recurring.updatedToast'));
+          } else {
+            const created = await api('POST', '/recurring', payload);
+            const count = created && created.materialized_count;
+            if (count > 0) {
+              toast(tr('recurring.alreadyBooked', { count }));
+            } else {
+              toast(tr('recurring.createdToast'));
+            }
+          }
+          closeRecurringModal();
+          await loadRecurringRules();
+          if (_activePanel === 'recurring') await renderRecurringView();
+          // Force the ledger to re-fetch so newly materialized rows
+          // show up immediately on next switch to the tx panel.
+          _invalidateLocalTxCache();
+        } catch (e) {
+          const msg = e && e.message ? e.message : '';
+          if (msg.includes('409')) {
+            toast(tr('recurring.duplicateName'), 'error');
+          } else if (msg.includes('422')) {
+            toast(tr('recurring.saveFailed'), 'error');
+          } else {
+            toast(tr('recurring.saveFailed') + ' ' + msg, 'error');
+          }
+        }
+      }
+
+      async function deleteRecurringEdit() {
+        if (!editingRecurringId) return;
+        const ok = await confirmAction({
+          title: tr('recurring.deleteConfirm'),
+          message: tr('recurring.deleteBody'),
+          confirmLabel: tr('common.delete'),
+        });
+        if (!ok) return;
+        try {
+          await api('DELETE', `/recurring/${editingRecurringId}`);
+          closeRecurringModal();
+          await loadRecurringRules();
+          if (_activePanel === 'recurring') await renderRecurringView();
+          _invalidateLocalTxCache();
+          toast(tr('recurring.deletedToast'));
+        } catch (e) {
+          toast(tr('tx.deleteFailed') + e.message, 'error');
+        }
+      }
+
+      async function skipNextRecurringOccurrence() {
+        if (!editingRecurringId) return;
+        try {
+          const res = await api('POST', `/recurring/${editingRecurringId}/skip-next`);
+          if (res && res.skipped_date) {
+            toast(tr('recurring.skipNextDone', { date: _recurringFormatDate(res.skipped_date) }));
+          }
+          await loadRecurringRules();
+          const refreshed = recurringRules.find((x) => x.id === editingRecurringId);
+          _updateRecurringNextRunLine(refreshed);
+          _renderRecurringSkipsList(refreshed);
+          if (_activePanel === 'recurring') await renderRecurringView();
+        } catch (e) {
+          toast(tr('recurring.skipNextFailed'), 'error');
+        }
+      }
+
+      async function unskipRecurringOccurrence(iso) {
+        if (!editingRecurringId || !iso) return;
+        try {
+          await api('DELETE', `/recurring/${editingRecurringId}/skip/${iso}`);
+          await loadRecurringRules();
+          const refreshed = recurringRules.find((x) => x.id === editingRecurringId);
+          _renderRecurringSkipsList(refreshed);
+        } catch (e) {
+          toast(tr('recurring.unskipFailed'), 'error');
+        }
+      }
+
+      function _invalidateLocalTxCache() {
+        // Tells the next switch to the transactions panel to refetch.
+        // The codebase uses different names in different builds; both
+        // assignments are no-ops if the variable doesn't exist.
+        try { transactions = []; } catch (_) {}
+        try { _allTransactions = null; } catch (_) {}
+        // Also clear the per-year report aggregate cache. api() does
+        // this automatically on every non-GET, but the outbox replay
+        // path skips api() — without this the reports view would
+        // render stale aggregates after a rule materialized rows
+        // during a background sync.
+        try { invalidateReportCache(); } catch (_) {}
+      }
+
+      function showRecurringMaterializedBanner(count) {
+        if (!count || count <= 0) return;
+        const host = document.getElementById('infoBannerHost');
+        if (!host) return;
+        // Guard against duplicate banners (multiple /auth/me on one
+        // session — only the first run reports >0, but be defensive).
+        if (host.querySelector('.info-banner[data-source="recurring"]')) return;
+        const msg = count === 1
+          ? tr('recurring.materializedBannerOne')
+          : tr('recurring.materializedBanner', { count });
+        const banner = document.createElement('div');
+        banner.className = 'info-banner';
+        banner.dataset.source = 'recurring';
+        // role=status pairs with the aria-live host so the message is
+        // announced reliably across screen readers, and the banner is
+        // discoverable by AT users browsing landmarks.
+        banner.setAttribute('role', 'status');
+        banner.innerHTML = `
+          <span class="info-banner-text">${_escText(msg)}</span>
+          <button class="info-banner-dismiss" type="button" aria-label="${_escAttr(tr('recurring.bannerDismiss'))}">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close"/></svg>
+          </button>`;
+        banner.querySelector('.info-banner-dismiss').addEventListener('click', () => banner.remove());
+        host.appendChild(banner);
+      }
+
       // ── TAGS (Einstellungen) ──────────────────────────────────────────────────────
       let editingTagName = null;
 
@@ -3542,7 +4011,13 @@
             : tr('sync.manyFailed', { n: failed });
           toast(msg, 'error');
         }
-        if (flushed > 0 || failed > 0) await loadTags();
+        if (flushed > 0 || failed > 0) {
+          await loadTags();
+          // Replayed POST/PUT/DELETE on /api/recurring would otherwise
+          // leave the in-memory rules list stale until the user opens
+          // the panel; refresh so the next render is correct.
+          await loadRecurringRules();
+        }
         await loadAndRender();
       }
 
@@ -4673,10 +5148,18 @@
         await loadCategories();
         await loadTags();
         await loadGoals();
+        await loadRecurringRules();
         await loadAndRender();
         showPanel(loadDefaultView());
         updateSyncBadge();
         reconcileSettingsFromServer();
+        // Show the "N transactions auto-added" banner once per
+        // session if the backend just materialized anything. The
+        // count rides on /api/auth/me's response — see backend
+        // schemas.UserMe.recurring_materialized_count.
+        if (me && me.recurring_materialized_count) {
+          showRecurringMaterializedBanner(me.recurring_materialized_count);
+        }
       }
 
       // React to a language/currency switch: rebuild locale-derived month
@@ -4694,6 +5177,7 @@
         renderAll();
         if (_activePanel === 'charts') renderReport();
         if (_activePanel === 'goals') renderGoalsView();
+        if (_activePanel === 'recurring') renderRecurringView();
       }
 
       // ── INIT ──────────────────────────────────────────────────────────────────────

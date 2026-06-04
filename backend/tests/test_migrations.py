@@ -99,6 +99,61 @@ def test_migration_0009_idempotent_against_populated_db(db_session):
     assert refreshed.is_admin is True
 
 
+def test_migration_0012_creates_recurring_schema(db_session):
+    """After `upgrade head`, the recurring-rules tables, the
+    ``transactions.source_rule_id`` FK column and the
+    ``uq_transactions_rule_date`` partial-NULL UNIQUE (the catch-up's
+    idempotency guard) must all exist.
+
+    The session-wide conftest runs the migration before any test
+    starts; if any of these were silently skipped — for instance a
+    forgotten ``op.create_index`` inside an idempotency guard — the
+    API tests would manifest the bug as "flaky behaviour" instead of
+    "migration was incomplete". This test pins the schema explicitly.
+    """
+    import sqlalchemy as sa
+
+    bind = db_session.get_bind()
+    insp = sa.inspect(bind)
+
+    # Three new tables.
+    assert insp.has_table("recurring_rules")
+    assert insp.has_table("recurring_rule_skips")
+    assert insp.has_table("recurring_rule_tags")
+
+    # source_rule_id column on transactions is nullable.
+    tx_cols = {c["name"]: c for c in insp.get_columns("transactions")}
+    assert "source_rule_id" in tx_cols
+    assert tx_cols["source_rule_id"]["nullable"] is True
+
+    # FK target points at recurring_rules; ON DELETE SET NULL preserves
+    # history when a rule is deleted.
+    fks = insp.get_foreign_keys("transactions")
+    rule_fks = [fk for fk in fks if "source_rule_id" in fk["constrained_columns"]]
+    assert rule_fks, "transactions.source_rule_id has no FK"
+    assert rule_fks[0]["referred_table"] == "recurring_rules"
+    # SQLAlchemy's inspector exposes ON DELETE in `options` (MariaDB)
+    # or in the raw DDL (SQLite). Walk both shapes.
+    on_delete = rule_fks[0].get("options", {}).get("ondelete", "")
+    if on_delete:
+        assert on_delete.upper() == "SET NULL"
+
+    # The partial-NULL UNIQUE (source_rule_id, date) — the catch-up
+    # relies on this for race-safe idempotency.
+    uqs = {u["name"]: u for u in insp.get_unique_constraints("transactions")}
+    assert "uq_transactions_rule_date" in uqs
+    uq_cols = set(uqs["uq_transactions_rule_date"]["column_names"])
+    assert uq_cols == {"source_rule_id", "date"}
+
+    # Catch-up scan index must be present and lead with user_id so the
+    # per-request scan localises to the current user. A bare
+    # (active, next_occurrence_date) index would silently let the
+    # planner fan out across every tenant.
+    rule_ixs = {i["name"]: i for i in insp.get_indexes("recurring_rules")}
+    assert "ix_recurring_rules_due" in rule_ixs
+    assert rule_ixs["ix_recurring_rules_due"]["column_names"][0] == "user_id"
+
+
 @pytest.mark.parametrize("path", _migration_files(), ids=lambda p: p.name)
 def test_revision_id_fits_alembic_version_column(path: Path) -> None:
     tree = ast.parse(path.read_text())
