@@ -3074,55 +3074,6 @@
          from toast (auto-fades after 3s, not suitable for an
          actionable message). Currently fed by the recurring catch-up
          on app start. */
-      .info-banner-host {
-        position: relative;
-        z-index: var(--z-toast);
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-8);
-        padding: 0 var(--space-16);
-      }
-      .info-banner-host:empty {
-        display: none;
-      }
-      .info-banner {
-        display: flex;
-        align-items: center;
-        gap: var(--space-12);
-        background: var(--glass-card);
-        border: var(--border-hairline-strong);
-        /* Inset shadow as accent rail — avoids the bare 3px border-left
-           literal and keeps the radius clean on the rounded corner. */
-        box-shadow: inset 3px 0 0 0 var(--green), var(--shadow-soft);
-        border-radius: var(--r-md);
-        padding: var(--space-12) var(--space-16);
-        font-size: var(--fs-footnote);
-        line-height: 1.4;
-        color: var(--text);
-        margin-top: var(--space-8);
-      }
-      .info-banner-text {
-        flex: 1;
-      }
-      .info-banner-dismiss {
-        flex: 0 0 auto;
-        background: transparent;
-        border: 0;
-        /* ≥ 44 × 44 tap target per design conventions. */
-        width: var(--btn-chrome-size);
-        height: var(--btn-chrome-size);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        color: var(--text3);
-        border-radius: var(--r-sm);
-      }
-      .info-banner-dismiss:hover {
-        background: var(--surface-tint);
-        color: var(--text);
-      }
-
       /* ====== RECURRING — list + badge + skip rows ======
          Mirrors the .goal-card / .t-icon patterns so light/dark themes
          and spacing stay consistent. */
