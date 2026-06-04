@@ -1309,6 +1309,21 @@
             <label data-i18n="recurring.maxOccurrences">Maximale Anzahl</label>
             <input type="number" id="recEditMaxOccurrences" min="1" max="10000" />
           </div>
+          <div class="form-group">
+            <label data-i18n="tx.tags">Tags</label>
+            <div class="tags-input-wrap" id="recTagsWrap">
+              <button
+                type="button"
+                class="tag-add-btn"
+                id="recTagPickerBtn"
+                aria-label="Tag hinzufügen"
+                data-i18n-attr="aria-label:tags.addAria"
+                onclick="openTagPickerFor('recurring')"
+              >
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
+              </button>
+            </div>
+          </div>
           <!-- Skips block, only visible on edit. The skip button is
                described by the status hint above (#recEditStatusHint),
                which carries the localized next-run / paused line. -->
