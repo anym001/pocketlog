@@ -224,6 +224,7 @@
       "sun": "Sun"
     },
     "nextRun": "Next transaction: {date}",
+    "nextRunCard": "Next: {date}",
     "nextRunNone": "No further transactions",
     "inactive": "Paused",
     "fromRule": "Recurring",
