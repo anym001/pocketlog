@@ -3579,11 +3579,13 @@
       // Paused (editing an inactive rule) takes precedence over the date.
       function _refreshRecurringPreview() {
         const line = document.getElementById('recEditStatusHint');
+        const btn = document.getElementById('recSkipNextBtn');
         if (!line) return;
         const f = _recurringPayloadFromForm();
         if (!f.active) {
           line.textContent = tr('recurring.pausedHint');
           line.hidden = false;
+          if (btn) btn.disabled = true;
           return;
         }
         if (!f.startDate) {
@@ -3595,6 +3597,11 @@
           ? tr('recurring.nextRun', { date: _recurringFormatDate(nextIso) })
           : tr('recurring.nextRunNone');
         line.hidden = false;
+        // Restore skip button to server-cursor state when toggling back to active.
+        if (btn && editingRecurringId) {
+          const cur = recurringRules.find((x) => x.id === editingRecurringId);
+          btn.disabled = !cur?.next_occurrence_date;
+        }
       }
 
       async function renderRecurringView() {
@@ -3626,7 +3633,6 @@
             // the direction, matching the ledger summary cards.
             const amount = fmtCurrency(Math.abs(r.amount));
             const inactiveCls = r.active ? '' : ' is-inactive';
-            const toggleLabel = tr(r.active ? 'recurring.pause' : 'recurring.resume');
             return `<div class="recurring-card${inactiveCls}">
               <button type="button" class="recurring-card-main"
                 aria-label="${_escAttr(r.name)}"
@@ -3641,51 +3647,11 @@
                 </span>
                 <span class="recurring-card-amount ${r.type}">${amount}</span>
               </button>
-              <input type="checkbox" class="switch recurring-card-toggle"${r.active ? ' checked' : ''}
-                aria-label="${_escAttr(toggleLabel)}" title="${_escAttr(toggleLabel)}"
-                onchange="toggleRecurringActive(${r.id}, this)" />
             </div>`;
           })
           .join('');
       }
 
-      // Pause/resume a rule straight from the list card. Reuses the
-      // normal PUT so the backend re-anchors the cursor to the next
-      // future occurrence on resume (no gap backfill) and the catch-up
-      // skips it while paused. The checkbox state is optimistic; on
-      // failure it snaps back to the rule's last known value.
-      async function toggleRecurringActive(id, inputEl) {
-        const r = recurringRules.find((x) => x.id === id);
-        if (!r) return;
-        const nextActive = inputEl ? inputEl.checked : !r.active;
-        const payload = {
-          name: r.name,
-          type: r.type,
-          amount: Number(r.amount).toFixed(2),
-          category_id: r.category_id,
-          desc: r.desc || '',
-          tags: r.tags || [],
-          frequency: r.frequency,
-          interval: r.interval || 1,
-          weekday: r.weekday,
-          day_of_month: r.day_of_month,
-          start_date: r.start_date,
-          end_date: r.end_date || null,
-          max_occurrences: r.max_occurrences || null,
-          active: nextActive,
-        };
-        try {
-          await api('PUT', `/recurring/${id}`, payload);
-          await loadRecurringRules();
-          if (_activePanel === 'recurring') await renderRecurringView();
-          // A resumed rule may materialize immediately on the ledger read.
-          _invalidateLocalTxCache();
-          await loadAndRender();
-        } catch (e) {
-          if (inputEl) inputEl.checked = r.active;
-          toast(tr('recurring.toggleFailed'), 'error');
-        }
-      }
 
       function populateRecurringCategorySelect(selectedId) {
         const sel = document.getElementById('recEditCategory');
@@ -3818,6 +3784,7 @@
           setRecurringValidity(
             r.max_occurrences != null ? 'count' : r.end_date ? 'date' : 'unlimited'
           );
+          document.getElementById('recEditActive').checked = r.active !== false;
           currentRecurringTags = r.tags ? [...r.tags] : [];
           renderRecurringTagPills();
           title.textContent = tr('recurring.editTitle');
@@ -3838,6 +3805,7 @@
           document.getElementById('recEditEndDate').value = '';
           document.getElementById('recEditMaxOccurrences').value = '';
           setRecurringValidity('unlimited');
+          document.getElementById('recEditActive').checked = true;
           currentRecurringTags = [];
           renderRecurringTagPills();
           _refreshRecurringPreview();
@@ -3877,13 +3845,7 @@
           validity === 'date' ? document.getElementById('recEditEndDate').value || null : null;
         const maxRaw = document.getElementById('recEditMaxOccurrences').value;
         const maxOccurrences = validity === 'count' && maxRaw ? parseInt(maxRaw, 10) : null;
-        // Active state is owned by the card toggle, not the modal — preserve
-        // the existing rule's value on edit; new rules start active.
-        let active = true;
-        if (editingRecurringId) {
-          const cur = recurringRules.find((x) => x.id === editingRecurringId);
-          active = !cur || cur.active !== false;
-        }
+        const active = document.getElementById('recEditActive')?.checked !== false;
         // Derive the booking anchor from the start date: weekday for weekly
         // (JS Sun=0..Sat=6 → backend Mon=0..Sun=6), day-of-month for the
         // month-based frequencies (31 is clamped server-side).
