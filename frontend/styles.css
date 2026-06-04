@@ -1701,6 +1701,16 @@
       .form-group input[type='checkbox'] {
         min-height: 0;
       }
+      /* Pin text/number/date inputs to one identical height so swapping the
+         recurring "Enddatum" (date) and "Maximale Anzahl" (number) fields
+         doesn't change the row height. A native date control can render a
+         touch taller than a number field on iOS; a fixed height clamps both
+         to the same box (box-sizing is border-box globally). */
+      .form-group input[type='text'],
+      .form-group input[type='number'],
+      .form-group input[type='date'] {
+        height: calc(2 * var(--space-14) + 1.2 * var(--fs-body));
+      }
 
       /* iOS-style toggle switch — a styled <input type="checkbox">. Used
          for the recurring rule's "Aktiv" field and the pause/resume
@@ -3170,6 +3180,12 @@
         color: var(--green);
         border: var(--border-hairline);
       }
+      /* Tint the icon by direction — green income, red expense — matching
+         the amount colour. (Default above already covers income.) */
+      .recurring-card-icon.out {
+        background: color-mix(in oklab, var(--red) 13%, transparent);
+        color: var(--red);
+      }
       .recurring-card-icon .ui-icon {
         /* Relative scale matches .goal-card-icon .cat-glyph (70%) so a
            future change to --icon-list-md cascades automatically. */
@@ -3189,13 +3205,29 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      /* Two fixed single-line sub-rows (summary + status). Ellipsizing
+         instead of wrapping keeps every card the same height — active and
+         paused alike — and stops a long amount from squeezing the text into
+         three ragged lines. */
       .recurring-card-sub {
         font-size: var(--fs-footnote);
         color: var(--text3);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
       }
       .recurring-card-amount {
         font-variant-numeric: tabular-nums;
         font-weight: 600;
+        white-space: nowrap;
+      }
+      /* Colour the amount by direction — no +/− sign needed. */
+      .recurring-card-amount.in {
+        color: var(--green);
+      }
+      .recurring-card-amount.out {
+        color: var(--red);
       }
       .tx-recurring-badge {
         display: inline-flex;
