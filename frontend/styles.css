@@ -1701,6 +1701,52 @@
       .form-group input[type='checkbox'] {
         min-height: 0;
       }
+
+      /* iOS-style toggle switch — a styled <input type="checkbox">. Used
+         for the recurring rule's "Aktiv" field and the pause/resume
+         control on each recurring card. Self-contained so it overrides
+         the generic .form-group input chrome above. */
+      input.switch {
+        -webkit-appearance: none;
+        appearance: none;
+        position: relative;
+        flex-shrink: 0;
+        width: calc(2 * var(--space-24));
+        height: calc(var(--space-20) + var(--space-8));
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        border: var(--border-hairline);
+        border-radius: var(--r-pill);
+        background: var(--surface-tint);
+        box-shadow: none;
+        cursor: pointer;
+        transition: background var(--dur-base) var(--ease-soft);
+      }
+      input.switch::after {
+        content: '';
+        position: absolute;
+        top: var(--space-2);
+        left: var(--space-2);
+        width: var(--space-24);
+        height: var(--space-24);
+        border-radius: var(--r-pill);
+        background: var(--on-accent);
+        box-shadow: var(--shadow-soft);
+        transition: transform var(--dur-base) var(--ease-spring);
+      }
+      input.switch:checked {
+        background: var(--green);
+        border-color: transparent;
+      }
+      input.switch:checked::after {
+        transform: translateX(var(--space-20));
+      }
+      input.switch:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
       .form-group input:focus,
       .form-group select:focus {
         border-color: var(--accent);
@@ -3058,8 +3104,7 @@
          and spacing stay consistent. */
       .recurring-card {
         position: relative;
-        display: grid;
-        grid-template-columns: auto 1fr auto;
+        display: flex;
         align-items: center;
         gap: var(--space-12);
         padding: var(--space-14);
@@ -3068,14 +3113,36 @@
         border-radius: var(--r-md);
         margin-bottom: var(--space-12);
         box-shadow: var(--shadow-soft);
+      }
+      /* The clickable body (everything but the pause/resume switch) opens
+         the edit modal; the switch lives outside it so a tap there never
+         opens the modal. */
+      .recurring-card-main {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: var(--space-12);
+        background: none;
+        border: 0;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: inherit;
+        text-align: start;
         cursor: pointer;
       }
       .recurring-card.is-inactive {
         opacity: 0.55;
       }
-      .recurring-card:focus-visible {
+      .recurring-card-main:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
+        border-radius: var(--r-sm);
+      }
+      .recurring-card-toggle {
+        flex-shrink: 0;
       }
       .recurring-card-icon {
         width: var(--icon-list-md);

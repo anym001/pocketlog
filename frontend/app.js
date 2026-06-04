@@ -3465,21 +3465,64 @@
               : tr('recurring.inactive');
             const amount = fmtSignedCurrency(r.type === 'out' ? -Math.abs(r.amount) : Math.abs(r.amount));
             const inactiveCls = r.active ? '' : ' is-inactive';
-            return `<div class="recurring-card${inactiveCls}" role="button" tabindex="0"
-              aria-label="${_escAttr(r.name)}"
-              onclick="openRecurringModal(${r.id})"
-              onkeydown="handleRowActivate(event, () => openRecurringModal(${r.id}))">
-              <div class="recurring-card-icon" aria-hidden="true">
-                <svg class="ui-icon"><use href="#icon-arrows-clockwise"/></svg>
-              </div>
-              <div class="recurring-card-body">
-                <span class="recurring-card-name">${_escText(r.name)}</span>
-                <span class="recurring-card-sub">${_escText(summary)} · ${_escText(nextLine)}</span>
-              </div>
-              <span class="recurring-card-amount ${r.type}">${amount}</span>
+            const toggleLabel = tr(r.active ? 'recurring.pause' : 'recurring.resume');
+            return `<div class="recurring-card${inactiveCls}">
+              <button type="button" class="recurring-card-main"
+                aria-label="${_escAttr(r.name)}"
+                onclick="openRecurringModal(${r.id})">
+                <span class="recurring-card-icon" aria-hidden="true">
+                  <svg class="ui-icon"><use href="#icon-arrows-clockwise"/></svg>
+                </span>
+                <span class="recurring-card-body">
+                  <span class="recurring-card-name">${_escText(r.name)}</span>
+                  <span class="recurring-card-sub">${_escText(summary)} · ${_escText(nextLine)}</span>
+                </span>
+                <span class="recurring-card-amount ${r.type}">${amount}</span>
+              </button>
+              <input type="checkbox" class="switch recurring-card-toggle"${r.active ? ' checked' : ''}
+                aria-label="${_escAttr(toggleLabel)}" title="${_escAttr(toggleLabel)}"
+                onchange="toggleRecurringActive(${r.id}, this)" />
             </div>`;
           })
           .join('');
+      }
+
+      // Pause/resume a rule straight from the list card. Reuses the
+      // normal PUT so the backend re-anchors the cursor to the next
+      // future occurrence on resume (no gap backfill) and the catch-up
+      // skips it while paused. The checkbox state is optimistic; on
+      // failure it snaps back to the rule's last known value.
+      async function toggleRecurringActive(id, inputEl) {
+        const r = recurringRules.find((x) => x.id === id);
+        if (!r) return;
+        const nextActive = inputEl ? inputEl.checked : !r.active;
+        const payload = {
+          name: r.name,
+          type: r.type,
+          amount: Number(r.amount).toFixed(2),
+          category_id: r.category_id,
+          desc: r.desc || '',
+          tags: r.tags || [],
+          frequency: r.frequency,
+          interval: r.interval || 1,
+          weekday: r.weekday,
+          day_of_month: r.day_of_month,
+          start_date: r.start_date,
+          end_date: r.end_date || null,
+          max_occurrences: r.max_occurrences || null,
+          active: nextActive,
+        };
+        try {
+          await api('PUT', `/recurring/${id}`, payload);
+          toast(tr(nextActive ? 'recurring.resumedToast' : 'recurring.pausedToast'));
+          await loadRecurringRules();
+          if (_activePanel === 'recurring') await renderRecurringView();
+          // A resumed rule may materialize on the next ledger read.
+          _invalidateLocalTxCache();
+        } catch (e) {
+          if (inputEl) inputEl.checked = r.active;
+          toast(tr('recurring.toggleFailed'), 'error');
+        }
       }
 
       function populateRecurringCategorySelect(selectedId) {

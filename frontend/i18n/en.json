@@ -255,7 +255,12 @@
     "createdToast": "Rule created.",
     "updatedToast": "Rule updated.",
     "deletedToast": "Rule deleted.",
-    "alreadyBooked": "{count} already booked."
+    "alreadyBooked": "{count} already booked.",
+    "pause": "Pause",
+    "resume": "Resume",
+    "pausedToast": "Rule paused.",
+    "resumedToast": "Rule resumed.",
+    "toggleFailed": "Couldn’t change the status."
   },
   "tags": {
     "title": "Tags",

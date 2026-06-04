@@ -255,7 +255,12 @@
     "createdToast": "Regel erstellt.",
     "updatedToast": "Regel aktualisiert.",
     "deletedToast": "Regel gelöscht.",
-    "alreadyBooked": "{count} bereits angelegt."
+    "alreadyBooked": "{count} bereits angelegt.",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "pausedToast": "Regel pausiert.",
+    "resumedToast": "Regel fortgesetzt.",
+    "toggleFailed": "Status konnte nicht geändert werden."
   },
   "tags": {
     "title": "Tags",
