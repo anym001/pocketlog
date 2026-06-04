@@ -255,6 +255,7 @@
     "deletedToast": "Rule deleted.",
     "pause": "Pause",
     "resume": "Resume",
+    "activeLabel": "Active",
     "pausedToast": "Rule paused.",
     "resumedToast": "Rule resumed.",
     "toggleFailed": "Couldn’t change the status.",
