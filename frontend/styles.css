@@ -3445,6 +3445,12 @@
         .report-canvas-wrap canvas {
           max-height: 420px;
         }
+        /* The square donut charts grow proportionally too (kept aspect-ratio
+           1, so width is the only knob) — mirrors the trend charts' desktop
+           enlargement instead of staying pinned at the mobile 240 px. */
+        .donut-wrap {
+          max-width: 320px;
+        }
       }
 
       /* ====== AUTH VIEWS (Login, Setup, Force-Change-Password) ====== */
