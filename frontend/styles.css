@@ -3116,8 +3116,24 @@
         box-shadow: var(--focus-ring);
         border-radius: var(--r-sm);
       }
-      .recurring-card-toggle {
-        flex-shrink: 0;
+      /* iOS Settings-style row: label on the left, switch on the right.
+         Used for the "Aktiv" toggle at the top of the recurring modal. */
+      .form-switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        padding: var(--space-14) var(--space-16);
+        margin-bottom: var(--space-16);
+        cursor: pointer;
+      }
+      .form-switch-row label {
+        font-size: var(--fs-body);
+        color: var(--text);
+        font-weight: 500;
+        cursor: pointer;
       }
       .recurring-card-icon {
         width: var(--icon-list-md);

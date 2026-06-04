@@ -1252,6 +1252,10 @@
           <h2 id="recurringModalTitle" data-i18n="recurring.newTitle">Neue Regel</h2>
         </div>
         <div class="modal-body">
+          <div class="form-switch-row">
+            <label for="recEditActive" data-i18n="recurring.activeLabel">Aktiv</label>
+            <input type="checkbox" class="switch" id="recEditActive" onchange="_refreshRecurringPreview()" />
+          </div>
           <div class="form-group">
             <label data-i18n="recurring.name">Bezeichnung</label>
             <input type="text" id="recEditName" maxlength="100" />
