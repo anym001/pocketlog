@@ -255,6 +255,7 @@
     "deletedToast": "Regel gelöscht.",
     "pause": "Pausieren",
     "resume": "Fortsetzen",
+    "activeLabel": "Aktiv",
     "pausedToast": "Regel pausiert.",
     "resumedToast": "Regel fortgesetzt.",
     "toggleFailed": "Status konnte nicht geändert werden.",
