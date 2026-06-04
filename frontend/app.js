@@ -3941,8 +3941,6 @@
                   ? tr('recurring.materializedBannerOne')
                   : tr('recurring.materializedBanner', { count })
               );
-            } else {
-              toast(tr('recurring.createdToast'));
             }
           }
           closeRecurringModal();
@@ -3980,7 +3978,6 @@
           await loadRecurringRules();
           if (_activePanel === 'recurring') await renderRecurringView();
           _invalidateLocalTxCache();
-          toast(tr('recurring.deletedToast'));
         } catch (e) {
           toast(tr('tx.deleteFailed') + e.message, 'error');
         }
