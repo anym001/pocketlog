@@ -290,12 +290,6 @@
       const _currencyCode = () => (window.I18N ? I18N.getCurrency() : 'EUR');
       const fmtCurrency = (n) =>
         new Intl.NumberFormat(_locale(), { style: 'currency', currency: _currencyCode() }).format(n);
-      const fmtSignedCurrency = (n) =>
-        new Intl.NumberFormat(_locale(), {
-          style: 'currency',
-          currency: _currencyCode(),
-          signDisplay: 'always',
-        }).format(n);
       // Month names are derived from the active locale via Intl rather than
       // hardcoded, so they follow the language setting. Rebuilt on startup
       // and on every i18n:changed (see registerI18nListener).
@@ -1331,7 +1325,6 @@
 
       function _txRowMarkup(t) {
         const cat = getCatById(t.category_id);
-        const sign = t.type === 'out' ? -t.amount : t.amount;
         const dateLbl = (() => {
           const [y, m, d] = t.date.split('-');
           return `${d}.${m}.${y}`;
@@ -1346,7 +1339,7 @@
             <div class="t-tags">${tagsHtml}</div>
             <div class="report-tx-meta">${dateLbl}</div>
           </div>
-          <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtSignedCurrency(sign)}</div>
+          <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtCurrency(Math.abs(t.amount))}</div>
         </div>`;
       }
 
@@ -1372,7 +1365,7 @@
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(balance)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(balance))}</div></div>
           </div>
 
           <div class="report-section">
@@ -1418,7 +1411,7 @@
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(totals.in - totals.out))}</div></div>
           </div>
         `;
 
@@ -1469,7 +1462,7 @@
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(totals.in - totals.out))}</div></div>
           </div>
         `;
 
