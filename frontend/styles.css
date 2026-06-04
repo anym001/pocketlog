@@ -1041,11 +1041,12 @@
         z-index: var(--z-floating);
       }
       /* Search + FAB only make sense in the transactions/categories ledger
-         views. Reports (charts) and the Goals view have neither searchable
-         rows nor a "new transaction" affordance, so hide the whole bar there.
-         Body classes are toggled in showPanel(). */
+         views. Reports (charts), the Goals view and the Recurring view have
+         neither searchable rows nor a "new transaction" affordance, so hide
+         the whole bar there. Body classes are toggled in showPanel(). */
       body.in-report .bottom-bar,
-      body.on-goals .bottom-bar {
+      body.on-goals .bottom-bar,
+      body.on-recurring .bottom-bar {
         display: none;
       }
       .search-wrap {
@@ -2293,12 +2294,15 @@
       }
 
       /* ====== REPORTS ====== */
-      /* Reports and the Goals view are not month-scoped, so the month
-         switcher and the income/expense summary are hidden for both. */
+      /* Reports, the Goals view and the Recurring view are not month-scoped,
+         so the month switcher and the income/expense summary are hidden for
+         all of them. */
       body.in-report .month-nav,
       body.in-report .summary,
       body.on-goals .month-nav,
-      body.on-goals .summary {
+      body.on-goals .summary,
+      body.on-recurring .month-nav,
+      body.on-recurring .summary {
         max-height: 0;
         opacity: 0;
         padding-top: 0;
