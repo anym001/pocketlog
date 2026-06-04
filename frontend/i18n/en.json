@@ -253,7 +253,6 @@
     "materializedBannerOne": "PocketLog added one transaction.",
     "createdToast": "Rule created.",
     "updatedToast": "Rule updated.",
-    "deletedToast": "Rule deleted.",
     "pause": "Pause",
     "resume": "Resume",
     "activeLabel": "Active",

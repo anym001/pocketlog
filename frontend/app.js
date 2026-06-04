@@ -3980,7 +3980,6 @@
           await loadRecurringRules();
           if (_activePanel === 'recurring') await renderRecurringView();
           _invalidateLocalTxCache();
-          toast(tr('recurring.deletedToast'));
         } catch (e) {
           toast(tr('tx.deleteFailed') + e.message, 'error');
         }

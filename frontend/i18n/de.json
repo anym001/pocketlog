@@ -253,7 +253,6 @@
     "materializedBannerOne": "PocketLog hat eine Buchung ergänzt.",
     "createdToast": "Regel erstellt.",
     "updatedToast": "Regel aktualisiert.",
-    "deletedToast": "Regel gelöscht.",
     "pause": "Pausieren",
     "resume": "Fortsetzen",
     "activeLabel": "Aktiv",
