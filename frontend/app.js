@@ -290,12 +290,6 @@
       const _currencyCode = () => (window.I18N ? I18N.getCurrency() : 'EUR');
       const fmtCurrency = (n) =>
         new Intl.NumberFormat(_locale(), { style: 'currency', currency: _currencyCode() }).format(n);
-      const fmtSignedCurrency = (n) =>
-        new Intl.NumberFormat(_locale(), {
-          style: 'currency',
-          currency: _currencyCode(),
-          signDisplay: 'always',
-        }).format(n);
       // Month names are derived from the active locale via Intl rather than
       // hardcoded, so they follow the language setting. Rebuilt on startup
       // and on every i18n:changed (see registerI18nListener).
@@ -412,6 +406,9 @@
 
       // ── NAVIGATION ────────────────────────────────────────────────────────────────
       let _activePanel = 'transactions';
+      // Timestamp of the last booking-modal open; guards closeModalOutside
+      // against the ghost click that trails a tap which opened it.
+      let _bookingModalOpenedAt = 0;
       let _searchQuery = '';
       let _allTransactions = null;
       // Exact category filter set when the user taps the "more" icon on a
@@ -849,7 +846,7 @@
             </div>
             <div class="t-tags">${tagsHtml}</div>
           </div>
-          <div class="t-amount ${t.type}">${fmtSignedCurrency(t.type === 'out' ? -Math.abs(t.amount) : Math.abs(t.amount))}</div>
+          <div class="t-amount ${t.type}">${fmtCurrency(Math.abs(t.amount))}</div>
         </div>
       </div>`;
                 })
@@ -891,7 +888,7 @@
       onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
       <span class="cat-view-icon" style="--cat-color:${r.color}">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${_escText(r.name)}</span>
-      <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(r.net)}</span>
+      <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(Math.abs(r.net))}</span>
       <button
         type="button"
         class="cat-view-more"
@@ -1328,7 +1325,6 @@
 
       function _txRowMarkup(t) {
         const cat = getCatById(t.category_id);
-        const sign = t.type === 'out' ? -t.amount : t.amount;
         const dateLbl = (() => {
           const [y, m, d] = t.date.split('-');
           return `${d}.${m}.${y}`;
@@ -1343,7 +1339,7 @@
             <div class="t-tags">${tagsHtml}</div>
             <div class="report-tx-meta">${dateLbl}</div>
           </div>
-          <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtSignedCurrency(sign)}</div>
+          <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtCurrency(Math.abs(t.amount))}</div>
         </div>`;
       }
 
@@ -1369,7 +1365,7 @@
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(balance)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(balance))}</div></div>
           </div>
 
           <div class="report-section">
@@ -1415,7 +1411,7 @@
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(totals.in - totals.out))}</div></div>
           </div>
         `;
 
@@ -1466,7 +1462,7 @@
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(totals.in - totals.out))}</div></div>
           </div>
         `;
 
@@ -2390,6 +2386,7 @@
         document.getElementById('inputAmount').placeholder = _formatAmountInput(0);
         document.getElementById('deleteBtn').style.display = tx ? 'block' : 'none';
         document.getElementById('modalOverlay').classList.add('open');
+        _bookingModalOpenedAt = Date.now();
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('inputAmount').focus(), 300);
         document.getElementById('modalOverlay').dataset.editId = tx?.id || '';
@@ -2401,7 +2398,14 @@
         releaseFocusTrap('booking');
         restoreModalFocus('booking');
       }
+      // Ledger rows open this modal on `pointerup` (the swipe handler).
+      // The browser then synthesizes a trailing `click` at the same spot,
+      // which now lands on the freshly shown overlay backdrop and would
+      // close the modal immediately (the "flicker, nothing happens, second
+      // tap works" bug). Ignore backdrop clicks for a brief window after
+      // opening so only a deliberate later tap dismisses it.
       function closeModalOutside(e) {
+        if (Date.now() - _bookingModalOpenedAt < 400) return;
         if (e.target === document.getElementById('modalOverlay')) closeModal();
       }
       function editTransaction(id) {
@@ -3446,6 +3450,119 @@
         }
       }
 
+      // ---- Live "next booking" preview (mirrors backend recurring.py) ----
+      // Interval-independent, anchored at max(today, start_date) so it
+      // matches the cursor the backend recomputes on save.
+      function _recurringDaysInMonth(y, m) {
+        return new Date(y, m, 0).getDate(); // m is 1-based → day 0 of next month
+      }
+      function _recurringClampDay(y, m, dom) {
+        return Math.min(dom, _recurringDaysInMonth(y, m));
+      }
+      function _recurringAddMonths(y, m, months) {
+        const idx = (m - 1) + months;
+        return [y + Math.floor(idx / 12), (idx % 12) + 1];
+      }
+      function _recurringMon0Weekday(y, m, d) {
+        // JS getDay() Sun=0..Sat=6 → backend Mon=0..Sun=6.
+        return (new Date(y, m - 1, d).getDay() + 6) % 7;
+      }
+      function _recurringCmp(a, b) {
+        return (a.y * 10000 + a.m * 100 + a.d) - (b.y * 10000 + b.m * 100 + b.d);
+      }
+      function _recurringMonthStep(frequency) {
+        return frequency === 'yearly' ? 12 : frequency === 'quarterly' ? 3 : 1;
+      }
+      // First occurrence on/after the START anchor (interval-independent),
+      // mirroring recurring.first_occurrence_on_or_after.
+      function _recurringFirstOnOrAfter(frequency, anchor, weekday, dom) {
+        if (frequency === 'daily') return { y: anchor.y, m: anchor.m, d: anchor.d };
+        if (frequency === 'weekly') {
+          const cur = _recurringMon0Weekday(anchor.y, anchor.m, anchor.d);
+          const target = weekday == null ? cur : weekday;
+          const ahead = (((target - cur) % 7) + 7) % 7;
+          const dt = new Date(anchor.y, anchor.m - 1, anchor.d + ahead);
+          return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
+        }
+        const day = dom || anchor.d;
+        let cand = { y: anchor.y, m: anchor.m, d: _recurringClampDay(anchor.y, anchor.m, day) };
+        if (_recurringCmp(cand, anchor) < 0) {
+          const [ny, nm] = _recurringAddMonths(anchor.y, anchor.m, _recurringMonthStep(frequency));
+          cand = { y: ny, m: nm, d: _recurringClampDay(ny, nm, day) };
+        }
+        return cand;
+      }
+      // Occurrence strictly after `after`, honouring interval, mirroring
+      // recurring.next_occurrence.
+      function _recurringNextOccurrence(frequency, interval, after, weekday, dom) {
+        const iv = Math.max(1, interval || 1);
+        if (frequency === 'daily') {
+          const dt = new Date(after.y, after.m - 1, after.d + iv);
+          return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
+        }
+        if (frequency === 'weekly') {
+          const cur = _recurringMon0Weekday(after.y, after.m, after.d);
+          const target = weekday == null ? cur : weekday;
+          let ahead = (((target - cur) % 7) + 7) % 7;
+          if (ahead === 0) ahead = 7;
+          const dt = new Date(after.y, after.m - 1, after.d + ahead + (iv - 1) * 7);
+          return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
+        }
+        const [ny, nm] = _recurringAddMonths(after.y, after.m, _recurringMonthStep(frequency) * iv);
+        const day = dom || after.d;
+        return { y: ny, m: nm, d: _recurringClampDay(ny, nm, day) };
+      }
+      // The next booking that will actually happen: walk the schedule from
+      // the start date through its rhythm (interval-aware) until the first
+      // occurrence after today — exactly what create + catch-up produce —
+      // then apply the end-date / count limit. Returns an ISO date or null.
+      function _recurringComputeNextPreview(f) {
+        if (!f.startDate) return null;
+        const [sy, sm, sd] = f.startDate.split('-').map(Number);
+        const now = new Date();
+        const today = { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+        let cur = _recurringFirstOnOrAfter(f.frequency, { y: sy, m: sm, d: sd }, f.weekday, f.dayOfMonth);
+        let count = 0;
+        let guard = 0;
+        while (cur && _recurringCmp(cur, today) <= 0 && guard++ < 5000) {
+          count += 1;
+          if (f.maxOccurrences && count >= f.maxOccurrences) {
+            cur = null;
+            break;
+          }
+          cur = _recurringNextOccurrence(f.frequency, f.interval, cur, f.weekday, f.dayOfMonth);
+        }
+        if (cur && f.endDate) {
+          const [ey, em, ed] = f.endDate.split('-').map(Number);
+          if (_recurringCmp(cur, { y: ey, m: em, d: ed }) > 0) cur = null;
+        }
+        if (!cur) return null;
+        const mm = String(cur.m).padStart(2, '0');
+        const dd = String(cur.d).padStart(2, '0');
+        return `${cur.y}-${mm}-${dd}`;
+      }
+      // Recompute the status hint live from the current form inputs.
+      // Paused (editing an inactive rule) takes precedence over the date.
+      function _refreshRecurringPreview() {
+        const line = document.getElementById('recEditStatusHint');
+        if (!line) return;
+        const f = _recurringPayloadFromForm();
+        if (!f.active) {
+          line.textContent = tr('recurring.pausedHint');
+          line.hidden = false;
+          return;
+        }
+        if (!f.startDate) {
+          line.hidden = true;
+          return;
+        }
+        const nextIso = _recurringComputeNextPreview(f);
+        line.textContent = nextIso
+          ? tr('recurring.nextRun', { date: _recurringFormatDate(nextIso) })
+          : tr('recurring.nextRunNone');
+        line.hidden = false;
+      }
+
       async function renderRecurringView() {
         const el = document.getElementById('recurringViewList');
         if (!el) return;
@@ -3460,22 +3577,25 @@
         el.innerHTML = sorted
           .map((r) => {
             const summary = _recurringSummary(r);
-            const nextLine = r.active && r.next_occurrence_date
+            const statusLine = r.active && r.next_occurrence_date
               ? tr('recurring.nextRun', { date: _recurringFormatDate(r.next_occurrence_date) })
               : tr('recurring.inactive');
-            const amount = fmtSignedCurrency(r.type === 'out' ? -Math.abs(r.amount) : Math.abs(r.amount));
+            // No +/− sign — the colour (green income / red expense) carries
+            // the direction, matching the ledger summary cards.
+            const amount = fmtCurrency(Math.abs(r.amount));
             const inactiveCls = r.active ? '' : ' is-inactive';
             const toggleLabel = tr(r.active ? 'recurring.pause' : 'recurring.resume');
             return `<div class="recurring-card${inactiveCls}">
               <button type="button" class="recurring-card-main"
                 aria-label="${_escAttr(r.name)}"
                 onclick="openRecurringModal(${r.id})">
-                <span class="recurring-card-icon" aria-hidden="true">
+                <span class="recurring-card-icon ${r.type}" aria-hidden="true">
                   <svg class="ui-icon"><use href="#icon-arrows-clockwise"/></svg>
                 </span>
                 <span class="recurring-card-body">
                   <span class="recurring-card-name">${_escText(r.name)}</span>
-                  <span class="recurring-card-sub">${_escText(summary)} · ${_escText(nextLine)}</span>
+                  <span class="recurring-card-sub">${_escText(summary)}</span>
+                  <span class="recurring-card-sub">${_escText(statusLine)}</span>
                 </span>
                 <span class="recurring-card-amount ${r.type}">${amount}</span>
               </button>
@@ -3517,8 +3637,9 @@
           toast(tr(nextActive ? 'recurring.resumedToast' : 'recurring.pausedToast'));
           await loadRecurringRules();
           if (_activePanel === 'recurring') await renderRecurringView();
-          // A resumed rule may materialize on the next ledger read.
+          // A resumed rule may materialize immediately on the ledger read.
           _invalidateLocalTxCache();
+          await loadAndRender();
         } catch (e) {
           if (inputEl) inputEl.checked = r.active;
           toast(tr('recurring.toggleFailed'), 'error');
@@ -3557,6 +3678,7 @@
         });
         document.getElementById('recEditEndDateGroup').hidden = kind !== 'date';
         document.getElementById('recEditMaxGroup').hidden = kind !== 'count';
+        _refreshRecurringPreview();
       }
 
       function _renderRecurringSkipsList(rule) {
@@ -3667,7 +3789,7 @@
           document.getElementById('recEditEndDate').value = '';
           document.getElementById('recEditMaxOccurrences').value = '';
           setRecurringValidity('unlimited');
-          document.getElementById('recEditStatusHint').hidden = true;
+          _refreshRecurringPreview();
           title.textContent = tr('recurring.newTitle');
           deleteBtn.style.display = 'none';
           skipsGroup.hidden = true;
@@ -3806,9 +3928,12 @@
           closeRecurringModal();
           await loadRecurringRules();
           if (_activePanel === 'recurring') await renderRecurringView();
-          // Force the ledger to re-fetch so newly materialized rows
-          // show up immediately on next switch to the tx panel.
+          // Re-fetch the ledger right away: a backdated create materializes
+          // its past bookings server-side in the same request, and the GET
+          // also runs the catch-up, so the new rows are visible immediately
+          // instead of only on the next app open.
           _invalidateLocalTxCache();
+          await loadAndRender();
         } catch (e) {
           const msg = e && e.message ? e.message : '';
           if (msg.includes('409')) {

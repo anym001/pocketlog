@@ -1283,8 +1283,8 @@
           <div class="form-group">
             <label data-i18n="recurring.interval">Intervall</label>
             <div class="rec-interval-row">
-              <input type="number" id="recEditInterval" min="1" max="365" value="1" />
-              <select id="recEditFrequency">
+              <input type="number" id="recEditInterval" min="1" max="365" value="1" oninput="_refreshRecurringPreview()" />
+              <select id="recEditFrequency" onchange="_refreshRecurringPreview()">
                 <option value="daily" data-i18n="recurring.unit.day">Tag(e)</option>
                 <option value="weekly" data-i18n="recurring.unit.week">Woche(n)</option>
                 <option value="monthly" selected data-i18n="recurring.unit.month">Monat(e)</option>
@@ -1295,7 +1295,7 @@
           </div>
           <div class="form-group">
             <label data-i18n="recurring.startDate">Startdatum</label>
-            <input type="date" id="recEditStartDate" />
+            <input type="date" id="recEditStartDate" onchange="_refreshRecurringPreview()" />
             <p class="form-hint" id="recEditStatusHint" hidden></p>
           </div>
           <div class="form-group">
@@ -1308,7 +1308,7 @@
           </div>
           <div class="form-group" id="recEditEndDateGroup" hidden>
             <label data-i18n="recurring.endDate">Enddatum</label>
-            <input type="date" id="recEditEndDate" />
+            <input type="date" id="recEditEndDate" onchange="_refreshRecurringPreview()" />
           </div>
           <div class="form-group" id="recEditMaxGroup" hidden>
             <label data-i18n="recurring.maxOccurrences">Maximale Anzahl</label>
