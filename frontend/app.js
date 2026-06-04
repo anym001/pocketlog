@@ -3465,21 +3465,64 @@
               : tr('recurring.inactive');
             const amount = fmtSignedCurrency(r.type === 'out' ? -Math.abs(r.amount) : Math.abs(r.amount));
             const inactiveCls = r.active ? '' : ' is-inactive';
-            return `<div class="recurring-card${inactiveCls}" role="button" tabindex="0"
-              aria-label="${_escAttr(r.name)}"
-              onclick="openRecurringModal(${r.id})"
-              onkeydown="handleRowActivate(event, () => openRecurringModal(${r.id}))">
-              <div class="recurring-card-icon" aria-hidden="true">
-                <svg class="ui-icon"><use href="#icon-arrows-clockwise"/></svg>
-              </div>
-              <div class="recurring-card-body">
-                <span class="recurring-card-name">${_escText(r.name)}</span>
-                <span class="recurring-card-sub">${_escText(summary)} · ${_escText(nextLine)}</span>
-              </div>
-              <span class="recurring-card-amount ${r.type}">${amount}</span>
+            const toggleLabel = tr(r.active ? 'recurring.pause' : 'recurring.resume');
+            return `<div class="recurring-card${inactiveCls}">
+              <button type="button" class="recurring-card-main"
+                aria-label="${_escAttr(r.name)}"
+                onclick="openRecurringModal(${r.id})">
+                <span class="recurring-card-icon" aria-hidden="true">
+                  <svg class="ui-icon"><use href="#icon-arrows-clockwise"/></svg>
+                </span>
+                <span class="recurring-card-body">
+                  <span class="recurring-card-name">${_escText(r.name)}</span>
+                  <span class="recurring-card-sub">${_escText(summary)} · ${_escText(nextLine)}</span>
+                </span>
+                <span class="recurring-card-amount ${r.type}">${amount}</span>
+              </button>
+              <input type="checkbox" class="switch recurring-card-toggle"${r.active ? ' checked' : ''}
+                aria-label="${_escAttr(toggleLabel)}" title="${_escAttr(toggleLabel)}"
+                onchange="toggleRecurringActive(${r.id}, this)" />
             </div>`;
           })
           .join('');
+      }
+
+      // Pause/resume a rule straight from the list card. Reuses the
+      // normal PUT so the backend re-anchors the cursor to the next
+      // future occurrence on resume (no gap backfill) and the catch-up
+      // skips it while paused. The checkbox state is optimistic; on
+      // failure it snaps back to the rule's last known value.
+      async function toggleRecurringActive(id, inputEl) {
+        const r = recurringRules.find((x) => x.id === id);
+        if (!r) return;
+        const nextActive = inputEl ? inputEl.checked : !r.active;
+        const payload = {
+          name: r.name,
+          type: r.type,
+          amount: Number(r.amount).toFixed(2),
+          category_id: r.category_id,
+          desc: r.desc || '',
+          tags: r.tags || [],
+          frequency: r.frequency,
+          interval: r.interval || 1,
+          weekday: r.weekday,
+          day_of_month: r.day_of_month,
+          start_date: r.start_date,
+          end_date: r.end_date || null,
+          max_occurrences: r.max_occurrences || null,
+          active: nextActive,
+        };
+        try {
+          await api('PUT', `/recurring/${id}`, payload);
+          toast(tr(nextActive ? 'recurring.resumedToast' : 'recurring.pausedToast'));
+          await loadRecurringRules();
+          if (_activePanel === 'recurring') await renderRecurringView();
+          // A resumed rule may materialize on the next ledger read.
+          _invalidateLocalTxCache();
+        } catch (e) {
+          if (inputEl) inputEl.checked = r.active;
+          toast(tr('recurring.toggleFailed'), 'error');
+        }
       }
 
       function populateRecurringCategorySelect(selectedId) {
@@ -3499,13 +3542,21 @@
           .join('');
       }
 
-      function onRecurringFrequencyChange() {
-        const freq = document.getElementById('recEditFrequency').value;
-        document.getElementById('recEditWeekdayGroup').hidden = freq !== 'weekly';
-        // Day-of-month is required for monthly/quarterly/yearly; for
-        // daily and weekly it's irrelevant (server stores null).
-        document.getElementById('recEditDayOfMonthGroup').hidden =
-          freq === 'daily' || freq === 'weekly';
+      // Validity is a single choice (unlimited / date / count). Toggling
+      // it shows exactly one of the end-date / max-occurrences fields and
+      // keeps the .segmented tabs in sync. The save path maps the active
+      // kind to a payload where end_date and max_occurrences are mutually
+      // exclusive.
+      let _recurringValidity = 'unlimited';
+      function setRecurringValidity(kind) {
+        _recurringValidity = kind;
+        document.querySelectorAll('#recValidityTabs button').forEach((b) => {
+          const active = b.dataset.kind === kind;
+          b.setAttribute('aria-selected', String(active));
+          b.classList.toggle('is-active', active);
+        });
+        document.getElementById('recEditEndDateGroup').hidden = kind !== 'date';
+        document.getElementById('recEditMaxGroup').hidden = kind !== 'count';
       }
 
       function _renderRecurringSkipsList(rule) {
@@ -3542,18 +3593,27 @@
           .join('');
       }
 
-      function _updateRecurringNextRunLine(rule) {
-        const line = document.getElementById('recEditNextRunLine');
+      // Consolidated status line under the start date (edit only). A
+      // paused rule takes precedence over the next-run date; the skip
+      // button is only usable when there is a live next occurrence.
+      function _updateRecurringStatusHint(rule) {
+        const line = document.getElementById('recEditStatusHint');
         const btn = document.getElementById('recSkipNextBtn');
-        if (!line || !btn) return;
-        if (rule && rule.next_occurrence_date) {
+        if (!line) return;
+        if (rule && rule.active === false) {
+          line.textContent = tr('recurring.pausedHint');
+          line.hidden = false;
+          if (btn) btn.disabled = true;
+        } else if (rule && rule.next_occurrence_date) {
           line.textContent = tr('recurring.nextRun', {
             date: _recurringFormatDate(rule.next_occurrence_date),
           });
-          btn.disabled = false;
+          line.hidden = false;
+          if (btn) btn.disabled = false;
         } else {
           line.textContent = tr('recurring.nextRunNone');
-          btn.disabled = true;
+          line.hidden = false;
+          if (btn) btn.disabled = true;
         }
       }
 
@@ -3578,16 +3638,21 @@
           document.getElementById('recEditDescription').value = r.desc || '';
           document.getElementById('recEditFrequency').value = r.frequency;
           document.getElementById('recEditInterval').value = r.interval || 1;
-          document.getElementById('recEditWeekday').value = r.weekday == null ? 0 : r.weekday;
-          document.getElementById('recEditDayOfMonth').value = r.day_of_month || 1;
+          // The booking day/weekday derive from the start date on save, so
+          // no separate weekday / day-of-month inputs are populated here.
           document.getElementById('recEditStartDate').value = r.start_date;
           document.getElementById('recEditEndDate').value = r.end_date || '';
           document.getElementById('recEditMaxOccurrences').value = r.max_occurrences || '';
-          document.getElementById('recEditActive').checked = r.active !== false;
+          // Validity precedence: count > date > unlimited. A legacy rule
+          // carrying both collapses to "count" and the other field clears
+          // on the next save.
+          setRecurringValidity(
+            r.max_occurrences != null ? 'count' : r.end_date ? 'date' : 'unlimited'
+          );
           title.textContent = tr('recurring.editTitle');
           deleteBtn.style.display = '';
           skipsGroup.hidden = false;
-          _updateRecurringNextRunLine(r);
+          _updateRecurringStatusHint(r);
           _renderRecurringSkipsList(r);
         } else {
           editingRecurringId = null;
@@ -3598,17 +3663,15 @@
           document.getElementById('recEditDescription').value = '';
           document.getElementById('recEditFrequency').value = 'monthly';
           document.getElementById('recEditInterval').value = 1;
-          document.getElementById('recEditWeekday').value = 0;
-          document.getElementById('recEditDayOfMonth').value = today.getDate();
           document.getElementById('recEditStartDate').value = _iso(today.getFullYear(), today.getMonth(), today.getDate());
           document.getElementById('recEditEndDate').value = '';
           document.getElementById('recEditMaxOccurrences').value = '';
-          document.getElementById('recEditActive').checked = true;
+          setRecurringValidity('unlimited');
+          document.getElementById('recEditStatusHint').hidden = true;
           title.textContent = tr('recurring.newTitle');
           deleteBtn.style.display = 'none';
           skipsGroup.hidden = true;
         }
-        onRecurringFrequencyChange();
         document.getElementById('recurringModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('recEditName').focus(), 200);
@@ -3635,13 +3698,32 @@
         const description = document.getElementById('recEditDescription').value.trim();
         const frequency = document.getElementById('recEditFrequency').value;
         const interval = Math.max(1, parseInt(document.getElementById('recEditInterval').value, 10) || 1);
-        const weekday = parseInt(document.getElementById('recEditWeekday').value, 10);
-        const dayOfMonth = parseInt(document.getElementById('recEditDayOfMonth').value, 10);
         const startDate = document.getElementById('recEditStartDate').value;
-        const endDate = document.getElementById('recEditEndDate').value || null;
+        const validity = _recurringValidity;
+        const endDate =
+          validity === 'date' ? document.getElementById('recEditEndDate').value || null : null;
         const maxRaw = document.getElementById('recEditMaxOccurrences').value;
-        const maxOccurrences = maxRaw ? parseInt(maxRaw, 10) : null;
-        const active = document.getElementById('recEditActive').checked;
+        const maxOccurrences = validity === 'count' && maxRaw ? parseInt(maxRaw, 10) : null;
+        // Active state is owned by the card toggle, not the modal — preserve
+        // the existing rule's value on edit; new rules start active.
+        let active = true;
+        if (editingRecurringId) {
+          const cur = recurringRules.find((x) => x.id === editingRecurringId);
+          active = !cur || cur.active !== false;
+        }
+        // Derive the booking anchor from the start date: weekday for weekly
+        // (JS Sun=0..Sat=6 → backend Mon=0..Sun=6), day-of-month for the
+        // month-based frequencies (31 is clamped server-side).
+        let weekday = null;
+        let dayOfMonth = null;
+        if (startDate) {
+          const parts = startDate.split('-').map(Number);
+          if (frequency === 'weekly') {
+            weekday = (new Date(parts[0], parts[1] - 1, parts[2]).getDay() + 6) % 7;
+          } else if (frequency !== 'daily') {
+            dayOfMonth = parts[2];
+          }
+        }
         return {
           name,
           type,
@@ -3656,6 +3738,7 @@
           endDate,
           maxOccurrences,
           active,
+          validity,
         };
       }
 
@@ -3677,8 +3760,18 @@
           toast(tr('tx.amountDateRequired'), 'error');
           return;
         }
-        if (f.endDate && f.endDate < f.startDate) {
-          toast(tr('recurring.endBeforeStart'), 'error');
+        if (f.validity === 'date') {
+          if (!f.endDate) {
+            toast(tr('recurring.endDateRequired'), 'error');
+            return;
+          }
+          if (f.endDate < f.startDate) {
+            toast(tr('recurring.endBeforeStart'), 'error');
+            return;
+          }
+        }
+        if (f.validity === 'count' && (!f.maxOccurrences || f.maxOccurrences < 1)) {
+          toast(tr('recurring.countRequired'), 'error');
           return;
         }
         const payload = {
@@ -3690,11 +3783,8 @@
           tags: [],
           frequency: f.frequency,
           interval: f.interval,
-          weekday: f.frequency === 'weekly' ? f.weekday : null,
-          day_of_month:
-            f.frequency === 'daily' || f.frequency === 'weekly'
-              ? null
-              : f.dayOfMonth,
+          weekday: f.weekday,
+          day_of_month: f.dayOfMonth,
           start_date: f.startDate,
           end_date: f.endDate,
           max_occurrences: f.maxOccurrences,
@@ -3760,7 +3850,7 @@
           }
           await loadRecurringRules();
           const refreshed = recurringRules.find((x) => x.id === editingRecurringId);
-          _updateRecurringNextRunLine(refreshed);
+          _updateRecurringStatusHint(refreshed);
           _renderRecurringSkipsList(refreshed);
           if (_activePanel === 'recurring') await renderRecurringView();
         } catch (e) {

@@ -1281,58 +1281,44 @@
             <input type="text" id="recEditDescription" maxlength="255" placeholder="z. B. Wohnungsmiete" data-i18n-attr="placeholder:recurring.descriptionPlaceholder" />
           </div>
           <div class="form-group">
-            <label data-i18n="recurring.frequency">Häufigkeit</label>
-            <select id="recEditFrequency" onchange="onRecurringFrequencyChange()">
-              <option value="daily" data-i18n="recurring.freq.daily">Täglich</option>
-              <option value="weekly" data-i18n="recurring.freq.weekly">Wöchentlich</option>
-              <option value="monthly" selected data-i18n="recurring.freq.monthly">Monatlich</option>
-              <option value="quarterly" data-i18n="recurring.freq.quarterly">Quartalsweise</option>
-              <option value="yearly" data-i18n="recurring.freq.yearly">Jährlich</option>
-            </select>
-          </div>
-          <div class="form-group">
             <label data-i18n="recurring.interval">Intervall</label>
-            <input type="number" id="recEditInterval" min="1" max="365" value="1" />
-          </div>
-          <div class="form-group" id="recEditWeekdayGroup" hidden>
-            <label data-i18n="recurring.weekday">Wochentag</label>
-            <select id="recEditWeekday">
-              <option value="0" data-i18n="recurring.weekdays.mon">Mo</option>
-              <option value="1" data-i18n="recurring.weekdays.tue">Di</option>
-              <option value="2" data-i18n="recurring.weekdays.wed">Mi</option>
-              <option value="3" data-i18n="recurring.weekdays.thu">Do</option>
-              <option value="4" data-i18n="recurring.weekdays.fri">Fr</option>
-              <option value="5" data-i18n="recurring.weekdays.sat">Sa</option>
-              <option value="6" data-i18n="recurring.weekdays.sun">So</option>
-            </select>
-          </div>
-          <div class="form-group" id="recEditDayOfMonthGroup">
-            <label data-i18n="recurring.dayOfMonth">Tag im Monat</label>
-            <input type="number" id="recEditDayOfMonth" min="1" max="31" value="1" />
-            <p class="form-hint" data-i18n="recurring.dayOfMonthHint">31 = jeweils letzter Tag des Monats</p>
+            <div class="rec-interval-row">
+              <input type="number" id="recEditInterval" min="1" max="365" value="1" />
+              <select id="recEditFrequency">
+                <option value="daily" data-i18n="recurring.unit.day">Tag(e)</option>
+                <option value="weekly" data-i18n="recurring.unit.week">Woche(n)</option>
+                <option value="monthly" selected data-i18n="recurring.unit.month">Monat(e)</option>
+                <option value="quarterly" data-i18n="recurring.unit.quarter">Quartal(e)</option>
+                <option value="yearly" data-i18n="recurring.unit.year">Jahr(e)</option>
+              </select>
+            </div>
           </div>
           <div class="form-group">
             <label data-i18n="recurring.startDate">Startdatum</label>
             <input type="date" id="recEditStartDate" />
+            <p class="form-hint" id="recEditStatusHint" hidden></p>
           </div>
           <div class="form-group">
-            <label data-i18n="recurring.endDate">Enddatum (optional)</label>
+            <label data-i18n="recurring.validity">Gültigkeit</label>
+            <div class="segmented" role="tablist" aria-label="Gültigkeit" data-i18n-attr="aria-label:recurring.validity" id="recValidityTabs">
+              <button role="tab" type="button" aria-selected="true" data-kind="unlimited" onclick="setRecurringValidity('unlimited')" data-i18n="recurring.validityUnlimited">Unbegrenzt</button>
+              <button role="tab" type="button" aria-selected="false" data-kind="date" onclick="setRecurringValidity('date')" data-i18n="recurring.validityDate">Enddatum</button>
+              <button role="tab" type="button" aria-selected="false" data-kind="count" onclick="setRecurringValidity('count')" data-i18n="recurring.validityCount">Anzahl</button>
+            </div>
+          </div>
+          <div class="form-group" id="recEditEndDateGroup" hidden>
+            <label data-i18n="recurring.endDate">Enddatum</label>
             <input type="date" id="recEditEndDate" />
           </div>
-          <div class="form-group">
-            <label data-i18n="recurring.maxOccurrences">Maximale Anzahl (optional)</label>
+          <div class="form-group" id="recEditMaxGroup" hidden>
+            <label data-i18n="recurring.maxOccurrences">Maximale Anzahl</label>
             <input type="number" id="recEditMaxOccurrences" min="1" max="10000" />
           </div>
-          <div class="form-group form-row">
-            <label for="recEditActive" data-i18n="recurring.active">Aktiv</label>
-            <input type="checkbox" id="recEditActive" checked />
-          </div>
-          <!-- Skips block, only visible on edit. Texts are set
-               imperatively by openRecurringModal() because the
-               nextRun line interpolates a localized date. -->
+          <!-- Skips block, only visible on edit. The skip button is
+               described by the status hint above (#recEditStatusHint),
+               which carries the localized next-run / paused line. -->
           <div class="form-group" id="recEditSkipsGroup" hidden>
-            <p class="form-hint" id="recEditNextRunLine"></p>
-            <button type="button" class="submit-btn" id="recSkipNextBtn" aria-describedby="recEditNextRunLine" onclick="skipNextRecurringOccurrence()" data-i18n="recurring.skipNext">Nächste Buchung überspringen</button>
+            <button type="button" class="submit-btn" id="recSkipNextBtn" aria-describedby="recEditStatusHint" onclick="skipNextRecurringOccurrence()" data-i18n="recurring.skipNext">Nächste Buchung überspringen</button>
             <label class="recurring-skips-heading" data-i18n="recurring.skipsHeading">Übersprungene Buchungen</label>
             <ul class="recurring-skip-list" id="recEditSkipsList"></ul>
           </div>
