@@ -3941,8 +3941,6 @@
                   ? tr('recurring.materializedBannerOne')
                   : tr('recurring.materializedBanner', { count })
               );
-            } else {
-              toast(tr('recurring.createdToast'));
             }
           }
           closeRecurringModal();

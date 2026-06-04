@@ -251,7 +251,6 @@
     "unskipFailed": "Could not restore.",
     "materializedBanner": "PocketLog added {count} transactions.",
     "materializedBannerOne": "PocketLog added one transaction.",
-    "createdToast": "Rule created.",
     "updatedToast": "Rule updated.",
     "pause": "Pause",
     "resume": "Resume",

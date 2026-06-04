@@ -251,7 +251,6 @@
     "unskipFailed": "Konnte nicht zurückgesetzt werden.",
     "materializedBanner": "PocketLog hat {count} Buchungen ergänzt.",
     "materializedBannerOne": "PocketLog hat eine Buchung ergänzt.",
-    "createdToast": "Regel erstellt.",
     "updatedToast": "Regel aktualisiert.",
     "pause": "Pausieren",
     "resume": "Fortsetzen",
