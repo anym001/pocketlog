@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from . import auth, crud, models, schemas
+from . import auth, crud, models, recurring, schemas
 from .database import get_db
 from .logging_config import client_ip, configure_logging, safe
 
@@ -434,6 +434,19 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         "auth.login.success user=%s id=%s ip=%s ua=%s",
         user.username, user.id, ip, safe(user_agent or "unknown"),
     )
+    # Symmetric with /api/auth/me: run the recurring catch-up so the
+    # "N transactions added automatically" banner also fires on the
+    # first request after a long-paused user comes back. Skipped when
+    # the user lands in the force-change-password view, mirroring the
+    # /me path.
+    materialized = 0
+    if not user.force_change_password:
+        materialized = recurring.catch_up_safely(db, user)
+        if materialized:
+            audit.info(
+                "recurring.catchup id=%s count=%s trigger=login",
+                user.id, materialized,
+            )
     return {
         "user": schemas.UserMe(
             id=user.id,
@@ -441,6 +454,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
             is_admin=user.is_admin,
             force_change_password=user.force_change_password,
             csrf_token=session.csrf_token,
+            recurring_materialized_count=materialized,
         )
     }
 
@@ -484,12 +498,25 @@ def auth_me(request: Request, response: Response, db: DB, user: RawCurrentUser):
     session_id = getattr(request.state, "session_id", None)
     session = db.get(models.Session, session_id) if session_id else None
     csrf = session.csrf_token if session else ""
+    # Recurring catch-up runs here so the count can be carried in the
+    # response: the frontend uses it to show a one-time info banner
+    # ("N Buchungen automatisch ergänzt"). Wrapped in catch_up_safely
+    # so a broken rule can never block auth.
+    materialized = 0
+    if not user.force_change_password:
+        materialized = recurring.catch_up_safely(db, user)
+        if materialized:
+            audit.info(
+                "recurring.catchup id=%s count=%s trigger=auth_me",
+                user.id, materialized,
+            )
     return schemas.UserMe(
         id=user.id,
         username=user.username,
         is_admin=user.is_admin,
         force_change_password=user.force_change_password,
         csrf_token=csrf,
+        recurring_materialized_count=materialized,
     )
 
 
@@ -716,6 +743,10 @@ def remove_category(category_id: int, user: CurrentUser, db: DB):
             raise HTTPException(status_code=409, detail="category in use")
         if str(e) == "category_has_goal":
             raise HTTPException(status_code=409, detail="category has goal")
+        if str(e) == "category_has_recurring_rule":
+            raise HTTPException(
+                status_code=409, detail="category has recurring rule"
+            )
         raise
     if not ok:
         raise HTTPException(status_code=404, detail="not found")
@@ -772,6 +803,134 @@ def remove_goal(goal_id: int, user: CurrentUser, db: DB):
 
 
 # ---------------------------------------------------------------------
+# Recurring Rules
+# ---------------------------------------------------------------------
+# Templates for auto-booked transactions. The catch-up engine
+# (app.recurring) materializes due occurrences on each /auth/me and
+# /transactions read; this CRUD only manages the templates.
+
+@app.get(
+    "/api/recurring", response_model=list[schemas.RecurringRuleOut]
+)
+def get_recurring(user: CurrentUser, db: DB):
+    return crud.list_recurring_rules(db, user.id)
+
+
+@app.post(
+    "/api/recurring",
+    response_model=schemas.RecurringRuleCreateResponse,
+    status_code=201,
+)
+def post_recurring(
+    payload: schemas.RecurringRuleCreate,
+    request: Request,
+    user: CurrentUser,
+    db: DB,
+):
+    try:
+        rule, count = crud.create_recurring_rule(
+            db, user.id, payload, today=date_type.today()
+        )
+    except ValueError as e:
+        code = str(e)
+        if code == "category_not_found":
+            raise HTTPException(
+                status_code=422, detail="category not found"
+            )
+        if code == "backdate_too_far":
+            raise HTTPException(
+                status_code=422, detail="backdate too far"
+            )
+        raise
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="rule name exists")
+    audit.info(
+        "recurring.create id=%s rule_id=%s freq=%s interval=%s "
+        "materialized=%s ip=%s",
+        user.id, rule.id, rule.frequency, rule.interval, count,
+        client_ip(request),
+    )
+    return schemas.RecurringRuleCreateResponse(
+        rule=schemas.RecurringRuleOut.model_validate(rule),
+        materialized_count=count,
+    )
+
+
+@app.put(
+    "/api/recurring/{rule_id}",
+    response_model=schemas.RecurringRuleOut,
+)
+def put_recurring(
+    rule_id: int,
+    payload: schemas.RecurringRuleUpdate,
+    request: Request,
+    user: CurrentUser,
+    db: DB,
+):
+    try:
+        rule = crud.update_recurring_rule(db, user.id, rule_id, payload)
+    except ValueError as e:
+        if str(e) == "category_not_found":
+            raise HTTPException(
+                status_code=422, detail="category not found"
+            )
+        raise
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="rule name exists")
+    if rule is None:
+        raise HTTPException(status_code=404, detail="not found")
+    audit.info(
+        "recurring.update id=%s rule_id=%s ip=%s",
+        user.id, rule_id, client_ip(request),
+    )
+    return rule
+
+
+@app.delete("/api/recurring/{rule_id}", status_code=204)
+def remove_recurring(
+    rule_id: int, request: Request, user: CurrentUser, db: DB
+):
+    if not crud.delete_recurring_rule(db, user.id, rule_id):
+        raise HTTPException(status_code=404, detail="not found")
+    audit.info(
+        "recurring.delete id=%s rule_id=%s ip=%s",
+        user.id, rule_id, client_ip(request),
+    )
+    return Response(status_code=204)
+
+
+@app.post(
+    "/api/recurring/{rule_id}/skip-next",
+    response_model=schemas.RecurringSkipOut,
+)
+def post_recurring_skip_next(
+    rule_id: int, user: CurrentUser, db: DB
+):
+    result = crud.skip_next_occurrence(db, user.id, rule_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="not found")
+    skipped, nxt = result
+    return schemas.RecurringSkipOut(
+        skipped_date=skipped, next_occurrence_date=nxt
+    )
+
+
+@app.delete(
+    "/api/recurring/{rule_id}/skip/{skip_date}", status_code=204
+)
+def remove_recurring_skip(
+    rule_id: int, skip_date: str, user: CurrentUser, db: DB
+):
+    try:
+        d = date_type.fromisoformat(skip_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid date")
+    if not crud.remove_skip(db, user.id, rule_id, d):
+        raise HTTPException(status_code=404, detail="not found")
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------
 # Transactions
 # ---------------------------------------------------------------------
 
@@ -781,6 +940,7 @@ def remove_goal(goal_id: int, user: CurrentUser, db: DB):
     response_model_by_alias=True,
 )
 def get_transactions(
+    request: Request,
     user: CurrentUser,
     db: DB,
     year: int | None = Query(default=None, ge=1900, le=2999),
@@ -788,6 +948,16 @@ def get_transactions(
     date_from: str | None = Query(default=None, alias="from"),
     date_to: str | None = Query(default=None, alias="to"),
 ):
+    # Secondary catch-up trigger so the ledger view is always fresh
+    # even when the frontend skipped /auth/me (e.g. PWA wake on a
+    # cached shell). Count is discarded — the banner is fed by
+    # /auth/me. Failure is swallowed by catch_up_safely.
+    n = recurring.catch_up_safely(db, user)
+    if n:
+        audit.info(
+            "recurring.catchup id=%s count=%s trigger=transactions",
+            user.id, n,
+        )
     if date_from is not None or date_to is not None:
         try:
             df = date_type.fromisoformat(date_from) if date_from else None

@@ -929,6 +929,23 @@
         min-width: 0;
         max-width: 100%;
       }
+      /* Row that holds the description text + the optional recurring
+         badge as a sibling. The badge sits outside .t-note so the
+         description's ellipsis can never clip it on long rows. */
+      .t-note-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        min-width: 0;
+      }
+      .t-note-row .t-note {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .t-note-row .tx-recurring-badge {
+        flex: 0 0 auto;
+        margin-inline-start: 0;
+      }
       .t-tags {
         display: flex;
         gap: var(--space-4);
@@ -2966,6 +2983,197 @@
       #tagList .cat-pill-edit.is-key-active {
         background: var(--surface-tint) !important;
         transform: none;
+      }
+
+      /* ====== INFO BANNERS ======
+         Persistent inline notice, dismissed by the user — distinct
+         from toast (auto-fades after 3s, not suitable for an
+         actionable message). Currently fed by the recurring catch-up
+         on app start. */
+      .info-banner-host {
+        position: relative;
+        z-index: var(--z-toast);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-8);
+        padding: 0 var(--space-16);
+      }
+      .info-banner-host:empty {
+        display: none;
+      }
+      .info-banner {
+        display: flex;
+        align-items: center;
+        gap: var(--space-12);
+        background: var(--glass-card);
+        border: var(--border-hairline-strong);
+        /* Inset shadow as accent rail — avoids the bare 3px border-left
+           literal and keeps the radius clean on the rounded corner. */
+        box-shadow: inset 3px 0 0 0 var(--green), var(--shadow-soft);
+        border-radius: var(--r-md);
+        padding: var(--space-12) var(--space-16);
+        font-size: var(--fs-footnote);
+        line-height: 1.4;
+        color: var(--text);
+        margin-top: var(--space-8);
+      }
+      .info-banner-text {
+        flex: 1;
+      }
+      .info-banner-dismiss {
+        flex: 0 0 auto;
+        background: transparent;
+        border: 0;
+        /* ≥ 44 × 44 tap target per design conventions. */
+        width: var(--btn-chrome-size);
+        height: var(--btn-chrome-size);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--text3);
+        border-radius: var(--r-sm);
+      }
+      .info-banner-dismiss:hover {
+        background: var(--surface-tint);
+        color: var(--text);
+      }
+
+      /* ====== RECURRING — list + badge + skip rows ======
+         Mirrors the .goal-card / .t-icon patterns so light/dark themes
+         and spacing stay consistent. */
+      .recurring-card {
+        position: relative;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: var(--space-12);
+        padding: var(--space-14);
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        margin-bottom: var(--space-12);
+        box-shadow: var(--shadow-soft);
+        cursor: pointer;
+      }
+      .recurring-card.is-inactive {
+        opacity: 0.55;
+      }
+      .recurring-card:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .recurring-card-icon {
+        width: var(--icon-list-md);
+        height: var(--icon-list-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        border-radius: var(--r-sm);
+        background: color-mix(in oklab, var(--green) 13%, transparent);
+        color: var(--green);
+        border: var(--border-hairline);
+      }
+      .recurring-card-icon .ui-icon {
+        /* Relative scale matches .goal-card-icon .cat-glyph (70%) so a
+           future change to --icon-list-md cascades automatically. */
+        width: 60%;
+        height: 60%;
+      }
+      .recurring-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        min-width: 0;
+      }
+      .recurring-card-name {
+        font-weight: 600;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .recurring-card-sub {
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+      }
+      .recurring-card-amount {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .tx-recurring-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-inline-start: var(--space-8);
+        color: var(--text3);
+        /* em-scaled so the badge tracks the parent .t-note font-size
+           instead of a fixed pixel size. */
+        font-size: var(--fs-micro);
+      }
+      .tx-recurring-badge .ui-icon {
+        width: 1em;
+        height: 1em;
+      }
+      .recurring-skips-heading {
+        display: block;
+        margin-top: var(--space-12);
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+      }
+      .recurring-skip-list {
+        list-style: none;
+        padding: 0;
+        margin: var(--space-8) 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+      }
+      .recurring-skip-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-8) var(--space-12);
+        background: var(--surface-tint);
+        border-radius: var(--r-sm);
+        font-size: var(--fs-footnote);
+      }
+      .recurring-skip-list li.is-empty {
+        background: transparent;
+        padding: var(--space-4) 0;
+        color: var(--text3);
+        justify-content: flex-start;
+      }
+      .recurring-skip-list button {
+        background: transparent;
+        border: 0;
+        /* ≥ 44 × 44 tap target. */
+        width: var(--btn-chrome-size);
+        height: var(--btn-chrome-size);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text3);
+        cursor: pointer;
+        border-radius: var(--r-sm);
+      }
+      .recurring-skip-list button:hover {
+        color: var(--accent);
+      }
+      .form-hint {
+        margin: var(--space-4) 0 0;
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+      }
+      .form-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-12);
+      }
+      .form-row > label {
+        flex: 1;
       }
 
       /* ====== TOASTS ====== */
