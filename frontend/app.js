@@ -3920,7 +3920,13 @@
             const created = await api('POST', '/recurring', payload);
             const count = created && created.materialized_count;
             if (count > 0) {
-              toast(tr('recurring.alreadyBooked', { count }));
+              // Same wording as the startup catch-up toast: a backdated rule
+              // materializes its past bookings server-side on create.
+              toast(
+                count === 1
+                  ? tr('recurring.materializedBannerOne')
+                  : tr('recurring.materializedBanner', { count })
+              );
             } else {
               toast(tr('recurring.createdToast'));
             }
@@ -4007,32 +4013,6 @@
         // render stale aggregates after a rule materialized rows
         // during a background sync.
         try { invalidateReportCache(); } catch (_) {}
-      }
-
-      function showRecurringMaterializedBanner(count) {
-        if (!count || count <= 0) return;
-        const host = document.getElementById('infoBannerHost');
-        if (!host) return;
-        // Guard against duplicate banners (multiple /auth/me on one
-        // session — only the first run reports >0, but be defensive).
-        if (host.querySelector('.info-banner[data-source="recurring"]')) return;
-        const msg = count === 1
-          ? tr('recurring.materializedBannerOne')
-          : tr('recurring.materializedBanner', { count });
-        const banner = document.createElement('div');
-        banner.className = 'info-banner';
-        banner.dataset.source = 'recurring';
-        // role=status pairs with the aria-live host so the message is
-        // announced reliably across screen readers, and the banner is
-        // discoverable by AT users browsing landmarks.
-        banner.setAttribute('role', 'status');
-        banner.innerHTML = `
-          <span class="info-banner-text">${_escText(msg)}</span>
-          <button class="info-banner-dismiss" type="button" aria-label="${_escAttr(tr('recurring.bannerDismiss'))}">
-            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close"/></svg>
-          </button>`;
-        banner.querySelector('.info-banner-dismiss').addEventListener('click', () => banner.remove());
-        host.appendChild(banner);
       }
 
       // ── TAGS (Einstellungen) ──────────────────────────────────────────────────────
@@ -5368,12 +5348,17 @@
         showPanel(loadDefaultView());
         updateSyncBadge();
         reconcileSettingsFromServer();
-        // Show the "N transactions auto-added" banner once per
-        // session if the backend just materialized anything. The
+        // Toast the "N transactions auto-added" notice once per session if
+        // the backend just materialized due recurring occurrences. The
         // count rides on /api/auth/me's response — see backend
         // schemas.UserMe.recurring_materialized_count.
         if (me && me.recurring_materialized_count) {
-          showRecurringMaterializedBanner(me.recurring_materialized_count);
+          const n = me.recurring_materialized_count;
+          toast(
+            n === 1
+              ? tr('recurring.materializedBannerOne')
+              : tr('recurring.materializedBanner', { count: n })
+          );
         }
       }
 
