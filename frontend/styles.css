@@ -1763,6 +1763,20 @@
         font-variant-numeric: tabular-nums;
       }
 
+      /* Recurring "Interval" row: a small count input next to the unit
+         dropdown (Tag/Woche/Monat/Quartal/Jahr) on a single line. */
+      .rec-interval-row {
+        display: flex;
+        gap: var(--space-12);
+      }
+      .rec-interval-row input {
+        flex: 0 0 auto;
+        width: calc(var(--space-56) + var(--space-24));
+      }
+      .rec-interval-row select {
+        flex: 1;
+      }
+
       .tags-input-wrap {
         display: flex;
         flex-wrap: wrap;
