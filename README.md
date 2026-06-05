@@ -32,7 +32,7 @@ no tracking, no telemetry.
 - **Goals** — savings goals and debt tracker in one: a goal is linked 1:1 to a category,
   and progress is derived from that category's transactions from the start date onwards
   (savings goals count income up, debt paydown counts expenses down).
-  Display only — ledger totals are not affected
+  Goals are tracked separately and do not affect your balance
 - **Recurring transactions** — define rules for transactions that repeat (rent,
   subscriptions, salaries) and PocketLog books them automatically at the next due
   date. Frequencies daily / weekly / monthly / quarterly / yearly with a configurable
@@ -40,7 +40,7 @@ no tracking, no telemetry.
   Optional end date or maximum number of occurrences; individual upcoming
   occurrences can be skipped. Rules can be paused and resumed at any time, and
   tags can be assigned to a rule so every auto-booked transaction inherits them.
-  A small badge marks auto-booked transactions in the list; a toast reports how
+  A small icon marks auto-booked transactions in the list; a toast reports how
   many were added since the last visit
 - **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view
   and forecast (Chart.js, embedded locally)
@@ -88,7 +88,7 @@ docker run -d \
 
 ### 2. Initial setup
 
-On first access (`http://<host>:8000`) the setup view appears. Create the first admin
+On first access (`http://<host>:8000`) a setup screen appears. Create the first admin
 account (username + password, minimum 12 characters with upper/lowercase letters, a
 number, and a special character). Additional users are created by the admin under
 _Settings → User Management_.
@@ -173,7 +173,7 @@ server {
 - **Brute-force protection**: after several failed attempts an automatic lockout period
   kicks in; admins can lift it via _Reset Password_
 - **Session**: active for 24 hours by default, 30 days with "Stay logged in";
-  after an absolute maximum of 7 or 90 days a new login is forced
+  after an absolute maximum of 7 or 90 days a new login is required
 
 ## Logging & Audit Trail
 
