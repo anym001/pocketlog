@@ -1,6 +1,6 @@
 # PocketLog
 
-A household finance ledger as a Progressive Web App (PWA) — runs in the browser on all
+A household budget book as a Progressive Web App (PWA) — runs in the browser on all
 major platforms (iOS, Android, macOS, Windows, Linux) and can be installed as an app
 on the home screen.
 
@@ -29,19 +29,20 @@ no tracking, no telemetry.
 - **Categories** — freely definable (name, icon, color); a default set is created on
   first use
 - **Tags** — free-form labels per transaction; rename or delete centrally
-- **Goals** — savings goals and debt tracker in one: a goal is linked 1:1 to a category,
-  and progress is derived from that category's transactions from the start date onwards
-  (savings goals count income up, debt paydown counts expenses down).
-  Display only — ledger totals are not affected
+- **Goals** — savings targets and debt tracker in one: link a goal to a category and
+  PocketLog calculates your progress automatically from that category's transactions.
+  Goals are tracked separately and do not affect your balance
 - **Recurring transactions** — define rules for transactions that repeat (rent,
   subscriptions, salaries) and PocketLog books them automatically at the next due
   date. Frequencies daily / weekly / monthly / quarterly / yearly with a configurable
-  interval, anchored to a weekday or day-of-month (31 = last day of each month).
+  interval, anchored to a weekday or day of the month.
   Optional end date or maximum number of occurrences; individual upcoming
-  occurrences can be skipped. A small badge marks auto-booked transactions in the
-  list, a dismissible banner reports how many were added since the last visit
+  occurrences can be skipped. Rules can be paused and resumed at any time, and
+  tags can be assigned to a rule so every auto-booked transaction inherits them.
+  A small icon marks auto-booked transactions in the list; a notification reports
+  how many were added since the last visit
 - **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view
-  and forecast (Chart.js, embedded locally)
+  and forecast
 - **Search** — full-text, category, and tag filtering in the transaction list
 - **CSV Import / Export** — UTF-8 or CP1252, max. 5 MB; export all transactions as
   semicolon-delimited CSV
@@ -86,7 +87,7 @@ docker run -d \
 
 ### 2. Initial setup
 
-On first access (`http://<host>:8000`) the setup view appears. Create the first admin
+On first access (`http://<host>:8000`) a setup screen appears. Create the first admin
 account (username + password, minimum 12 characters with upper/lowercase letters, a
 number, and a special character). Additional users are created by the admin under
 _Settings → User Management_.
@@ -129,10 +130,10 @@ docker run -d \
 | `DB_NAME` | `pocketlog` | MariaDB option only: database name |
 | `DB_USER` | `pocketlog` | MariaDB option only: database user |
 | `DB_PASSWORD` | – | MariaDB option only: password (required once MariaDB is active) |
-| `DATABASE_URL` | – | Advanced: full SQLAlchemy URL; overrides `DB_*`/SQLite (e.g. for SSL, socket, custom driver) |
+| `DATABASE_URL` | – | Advanced: full database connection URL; overrides `DB_*`/SQLite (e.g. for SSL, socket, custom driver) |
 | `TZ` | `UTC` | Container timezone |
 | `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit events (logins, lockouts, admin actions) are at `INFO`/`WARNING`. |
-| `LOG_FORMAT` | `text` | Log format. Currently only `text` (human-readable, for `docker logs`); `json` is reserved and falls back to `text` until implemented. |
+| `LOG_FORMAT` | `text` | Log format (`text` for human-readable output). |
 | `LOG_FILE` | – | Writes logs **in addition** to `docker logs` into this file (rotating). Recommended: `/config/logs/audit.log` with a mounted `/config` directory, to retain logs across container updates (see [Logging & Audit Trail](#logging--audit-trail)). |
 | `LOG_FILE_MAX_BYTES` | `10485760` | Log file rotation size in bytes (default 10 MB). |
 | `LOG_FILE_BACKUPS` | `5` | Number of rotated log files to retain. |
@@ -171,15 +172,14 @@ server {
 - **Brute-force protection**: after several failed attempts an automatic lockout period
   kicks in; admins can lift it via _Reset Password_
 - **Session**: active for 24 hours by default, 30 days with "Stay logged in";
-  after an absolute maximum of 7 or 90 days a new login is forced
+  after an absolute maximum of 7 or 90 days a new login is required
 
 ## Logging & Audit Trail
 
 PocketLog logs security-relevant events (logins including failed attempts, lockouts,
 password changes, admin user actions, deletion of all own data, and create / update /
-delete / catch-up events for recurring rules). **Passwords, hashes, session tokens,
-CSRF tokens, or user-supplied free-text (rule names, descriptions, amounts) are never
-logged.**
+delete / catch-up events for recurring rules). **Passwords, hashes, security tokens,
+or user-supplied free-text (rule names, descriptions, amounts) are never logged.**
 
 By default output goes to `stdout`/`stderr`, i.e. into `docker logs`.
 This survives container restarts, but **not** an update with `docker rm`.
@@ -240,7 +240,7 @@ docker exec -it pocketlog python -m app.cli reset-admin-password
 ```
 
 Resets the password and any lockout; a new password must be set on the next login.
-`--username U` targets a specific account.
+`--username <name>` resets a specific account instead of the default admin.
 
 ## Image
 
@@ -248,7 +248,7 @@ Image: `ghcr.io/anym001/pocketlog`
 
 | Tag | Source | Purpose |
 |---|---|---|
-| `:X.Y.Z` | Release tag on `main` | **Production** — immutable, upgrade deliberately |
+| `:X.Y.Z` | Release tag on `main` | **Production** — fixed version, update when ready |
 | `:latest` | Latest `main` state | Tracks every `main` merge |
 | `:dev` | Latest `dev` state | **Maintainers only** — pre-production/staging for testing |
 
