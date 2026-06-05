@@ -43,7 +43,10 @@ PocketLog/
 │       ├── schemas.py      ← Pydantic v2
 │       ├── crud.py         ← user_id-scoped queries
 │       ├── auth.py         ← session, CSRF, brute-force
-│       └── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
+│       ├── recurring.py    ← catch-up / materialization engine
+│       ├── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
+│       ├── logging_config.py ← central logging setup (configure_logging())
+│       └── cli.py          ← operator CLI (reset-admin-password)
 ├── CLAUDE.md
 └── DESIGN_CONVENTIONS.md
 ```
@@ -80,6 +83,10 @@ PUT|DELETE /api/tags/{name}      ← PUT renames across all transactions
 GET|PUT  /api/settings
 POST   /api/import/csv           ← max. 5 MB, UTF-8 or CP1252
 GET    /api/export/csv
+GET|POST /api/recurring
+PUT|DELETE /api/recurring/{id}   ← DELETE leaves existing transactions intact (source_rule_id → NULL)
+POST   /api/recurring/{id}/skip-next   ← skips the next occurrence, returns new cursor
+DELETE /api/recurring/{id}/skip/{date} ← un-skips a previously skipped date
 DELETE /api/admin/transactions   ← self-service: own transactions
 DELETE /api/admin/all-data       ← self-service: transactions + categories + tags
 
@@ -105,7 +112,8 @@ categories      id, user_id FK CASCADE, name, icon, color
                 UNIQUE(user_id, name)
 
 transactions    id, user_id FK CASCADE, amount DECIMAL(12,2),
-                description, category_id FK RESTRICT, date, type ENUM('in','out')
+                description, category_id FK RESTRICT, date, type ENUM('in','out'),
+                source_rule_id FK SET NULL → recurring_rules.id
 
 tags            id, user_id FK CASCADE, name VARCHAR(64)
                 UNIQUE(user_id, name)
@@ -122,10 +130,30 @@ goals           id, user_id FK CASCADE, name, direction ENUM('save_up','pay_down
                 target_amount DECIMAL(12,2), start_date, icon, color,
                 created_at, updated_at
                 UNIQUE(user_id, category_id)   ← 1:1 category↔goal
+
+recurring_rules id, user_id FK CASCADE, name UNIQUE(user_id),
+                amount DECIMAL(12,2), type ENUM('in','out'),
+                category_id FK RESTRICT, description,
+                frequency ENUM('daily','weekly','monthly','quarterly','yearly'),
+                interval, weekday (nullable, weekly only),
+                day_of_month (nullable, monthly+; 31 = last day),
+                start_date, end_date (nullable), max_occurrences (nullable),
+                next_occurrence_date (nullable cursor; NULL = terminated),
+                occurrences_count, active BOOL,
+                created_at, updated_at
+                INDEX(user_id, active, next_occurrence_date)  ← catch-up scan
+
+recurring_rule_tags  rule_id FK CASCADE, tag_id FK CASCADE
+                     PK(rule_id, tag_id)   ← tags inherited by every materialized transaction
+
+recurring_rule_skips rule_id FK CASCADE, skip_date DATE
+                     PK(rule_id, skip_date)  ← idempotent; consulted during materialization
 ```
 Tags are many-to-many via `transaction_tags` (no JSON array any more, removed in migration 0008). Default categories are seeded once in `crud.create_user`.
 
 **Goals (`goals`, migration 0011):** unified savings goal + debt tracker. A category carries at most one goal (`uq_goals_user_category`). Progress is **derived, never stored**: the frontend sums the transactions of the linked category from `start_date` (`in` for `save_up`, `out` for `pay_down`) — money rule observed (no SQL `SUM`). A goal **never** affects ledger totals. Category deletion is blocked (409) while a goal references it (`crud.delete_category`); CASCADE remains the DB safety net for user deletion.
+
+**Recurring rules (`recurring_rules`, migrations 0012+):** booking templates materialized by `app.recurring.materialize_due` / `catch_up_safely`. Called on every `/api/auth/me` and `/api/transactions` GET — never on a separate schedule. The cursor (`next_occurrence_date`) is advanced per occurrence; NULL means terminated (end_date passed or max_occurrences reached). `active=False` rules are skipped entirely by the catch-up (`WHERE active = TRUE`). Skips (`recurring_rule_skips`) are consulted before each materialization step. Tags are linked via `recurring_rule_tags` and copied to each materialized transaction. Deleting a rule leaves its transactions intact (`source_rule_id → NULL`). Category deletion is blocked (409) while a rule references it.
 
 ## Auth Concept
 
