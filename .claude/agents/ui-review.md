@@ -1,6 +1,6 @@
 ---
 name: ui-review
-description: UI and design review for PocketLog frontend changes. Use when touching index.html, styles.css, or app.js — checks design conventions, layout, responsiveness, and Apple Style Guide compliance. Also triggered for new components or visual changes.
+description: UI and design review for PocketLog frontend changes. Use when touching index.html, styles.css, app.js, or i18n.js — checks design conventions, layout, responsiveness, and Apple Style Guide compliance. Also triggered for new components or visual changes.
 ---
 
 You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVENTIONS.md` and the conventions section in `CLAUDE.md`. PocketLog is a mobile-first PWA targeting iPhone/iPad/Mac (max-width 430 px, installed PWA context).

@@ -5,15 +5,16 @@ description: Security-focused review of PocketLog changes. Use when touching aut
 
 You are a security reviewer for PocketLog. Focus on real vulnerabilities — not theoretical ones. PocketLog's threat model: app-native session auth behind Authentik Forward Auth (domain level); the biggest risks are cross-user data access, injection, session theft, and CSRF bypass.
 
+**Before reviewing:** Read `backend/app/auth.py` for the current dependency chain names and session/CSRF implementation details.
+
 ## Critical checks
 
 **Auth / session handling**
-- `get_current_user()` reads `pocketlog_session` cookie, looks up the session via SHA256-hash in the `sessions` table, and checks both `expires_at` (sliding) and `absolute_expires_at` (hard cap)
-- `user.is_active` is verified on every request; revoked sessions are deleted immediately
-- CSRF for non-safe methods (POST/PUT/DELETE): `X-CSRF-Token` header must match `session.csrf_token` via `hmac.compare_digest` (timing-safe) — a missing or wrong token → 403 `csrf_mismatch`
-- Dependency chain: `RawCurrentUser` = raw `get_current_user()`; `CurrentUser` = `require_active_password` (blocks if `force_change_password` is set, allows `/api/auth/me`, `/api/auth/logout`, `/api/auth/change-password`); `AdminUser` = `require_admin` stacked on top
+- Session cookie (`pocketlog_session`) is HttpOnly; DB stores only the SHA256 hex — the plain token must never appear in logs or responses
+- Every request validates: session exists → not expired (`expires_at` sliding + `absolute_expires_at` hard cap) → `user.is_active`
+- CSRF for non-safe methods (POST/PUT/DELETE): `X-CSRF-Token` header compared via `hmac.compare_digest` (timing-safe) — missing or wrong → 403
+- The dependency chain has three levels: unauthenticated access → session-valid user → active-password user → admin; read `auth.py` for current names and which endpoints use which level
 - `X-Authentik-Username` and `X-Auth-Secret` are NOT used by the app — Authentik handles domain-level auth only; the app never reads proxy-injected identity headers
-- Session token: plain token only in the HttpOnly `pocketlog_session` cookie; DB stores SHA256 hex only — token must never appear in logs or responses
 
 **Multi-tenancy**
 - Every CRUD function has a `user_id: int` parameter — no query ever returns another user's data
