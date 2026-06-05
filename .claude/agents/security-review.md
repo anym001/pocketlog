@@ -18,12 +18,12 @@ You are a security reviewer for PocketLog. Focus on real vulnerabilities — not
 
 **Multi-tenancy**
 - Every CRUD function has a `user_id: int` parameter — no query ever returns another user's data
-- Admin endpoints (`/api/admin/*`) require `AdminUser` dep (stacks `require_admin` → `require_active_password` → `get_current_user`)
+- Admin endpoints (`/api/admin/*`) require the admin dependency — read `auth.py` for current dependency names and stacking order
 
 **Brute-force protection**
-- Login failures increment `failed_login_count`; from the 5th failure: exponential lockout (1s → 2s → … → 60s cap)
-- Unknown usernames run `verify_password_dummy()` (constant-time Argon2 against a fixed hash) to prevent timing-based username enumeration
-- `lockout_until` is inspected before `verify_password` is called — never verify during active lockout
+- Login failures trigger exponential lockout after a threshold — read `auth.py` for current values (threshold, cap, column names)
+- Unknown usernames run a constant-time dummy verify to prevent timing-based username enumeration
+- Lockout state is inspected before `verify_password` is called — never verify during active lockout
 
 **Injection**
 - All DB queries use SQLAlchemy ORM or parameterized statements — no string interpolation in SQL
