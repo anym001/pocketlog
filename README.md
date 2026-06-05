@@ -38,8 +38,10 @@ no tracking, no telemetry.
   date. Frequencies daily / weekly / monthly / quarterly / yearly with a configurable
   interval, anchored to a weekday or day-of-month (31 = last day of each month).
   Optional end date or maximum number of occurrences; individual upcoming
-  occurrences can be skipped. A small badge marks auto-booked transactions in the
-  list, a dismissible banner reports how many were added since the last visit
+  occurrences can be skipped. Rules can be paused and resumed at any time, and
+  tags can be assigned to a rule so every auto-booked transaction inherits them.
+  A small badge marks auto-booked transactions in the list; a toast reports how
+  many were added since the last visit
 - **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view
   and forecast (Chart.js, embedded locally)
 - **Search** — full-text, category, and tag filtering in the transaction list
