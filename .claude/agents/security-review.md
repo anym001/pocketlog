@@ -11,7 +11,7 @@ You are a security reviewer for PocketLog. Focus on real vulnerabilities — not
 
 **Auth / session handling**
 - Session cookie (`pocketlog_session`) is HttpOnly; DB stores only the SHA256 hex — the plain token must never appear in logs or responses
-- Every request validates: session exists → not expired (`expires_at` sliding + `absolute_expires_at` hard cap) → `user.is_active`
+- Every request validates: session exists → not expired (sliding window + absolute hard cap) → user is active — read `auth.py` for current field names
 - CSRF for non-safe methods (POST/PUT/DELETE): `X-CSRF-Token` header compared via `hmac.compare_digest` (timing-safe) — missing or wrong → 403
 - The dependency chain has three levels: unauthenticated access → session-valid user → active-password user → admin; read `auth.py` for current names and which endpoints use which level
 - `X-Authentik-Username` and `X-Auth-Secret` are NOT used by the app — Authentik handles domain-level auth only; the app never reads proxy-injected identity headers
@@ -27,7 +27,7 @@ You are a security reviewer for PocketLog. Focus on real vulnerabilities — not
 
 **Injection**
 - All DB queries use SQLAlchemy ORM or parameterized statements — no string interpolation in SQL
-- File upload (`/api/import/csv`): max 5 MB enforced, charset limited to UTF-8/CP1252, no path traversal
+- File upload (`/api/import/csv`): size limit and charset are enforced, no path traversal — read `main.py` for current limit values
 - No `eval()`, `exec()`, or `subprocess` with user-controlled input
 
 **Headers & secrets**

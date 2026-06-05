@@ -38,7 +38,7 @@ You are a PWA reviewer for PocketLog. The Service Worker is the most fragile par
 - POST/PUT/DELETE that fail offline are enqueued, not dropped silently
 - On reconnect / Background Sync, the Outbox is drained in order (FIFO)
 - Sync conflicts (server returns 4xx after replay) are surfaced to the user, not silently swallowed
-- `syncNow()` in `app.js` correctly triggers the Outbox flush
+- The manual sync trigger in `app.js` correctly invokes the Outbox flush — read `app.js` for the current function name
 
 **Manifest**
 - `start_url` points to `/`
