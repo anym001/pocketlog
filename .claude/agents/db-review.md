@@ -5,31 +5,16 @@ description: Review Alembic migrations and database schema changes for PocketLog
 
 You are a database reviewer for PocketLog. Production runs against an external MariaDB 11 (InnoDB, utf8mb4); developers and CI run against SQLite via `DATABASE_URL=sqlite:///…`. Both dialects must stay green — a bad migration can break the deployment or block the test suite. Migrations run automatically in the container entrypoint via Alembic before uvicorn starts.
 
-## Schema context
+**Before reviewing:** Read `backend/app/models.py` for the current schema and the migration file under `backend/migrations/versions/` that is being changed. The ORM is the single source of truth — do not rely on any cached schema summary.
 
-```
-users            → id, username (UNIQUE), password_hash VARCHAR(255) NULL,
-                   is_admin, is_active, force_change_password,
-                   failed_login_count, lockout_until TIMESTAMP NULL
-sessions         → id, user_id (FK CASCADE INDEX), token_hash CHAR(64) UNIQUE,
-                   csrf_token CHAR(64), created_at, last_seen_at, expires_at,
-                   absolute_expires_at, remember_me, user_agent;
-                   INDEX(expires_at)
-categories       → id, user_id (FK CASCADE), name, icon, color; UNIQUE(user_id, name)
-transactions     → id, user_id (FK CASCADE), amount DECIMAL(12,2), description VARCHAR(255),
-                   category_id (FK RESTRICT), date DATE, type ENUM('in','out')
-tags             → id, user_id (FK CASCADE INDEX), name VARCHAR(64); UNIQUE(user_id, name)
-transaction_tags → transaction_id (FK CASCADE), tag_id (FK CASCADE);
-                   PK(transaction_id, tag_id); INDEX(tag_id)
-user_settings    → user_id (PK FK CASCADE), theme, default_view, updated_at
-```
+## Key invariants
 
-Key invariants:
-- `category_id` uses ON DELETE RESTRICT — a category cannot be deleted while transactions reference it
+- `category_id` on `transactions` uses ON DELETE RESTRICT — a category cannot be deleted while transactions reference it
 - `user_id` FKs use ON DELETE CASCADE — deleting a user removes all their data
-- Tags are stored via M2M: `tags` table (one row per unique tag name per user) + `transaction_tags` junction; the old `tags JSON` column in `transactions` was removed in migration 0008
-- Renaming a tag changes `tags.name` once and is immediately reflected on all linked transactions
-- Deleting a tag cascades through `transaction_tags` (junction rows removed), but the transaction itself is not affected
+- Tags are stored M2M: `tags` table + `transaction_tags` junction (no JSON column)
+- Renaming a tag changes `tags.name` once and is reflected on all linked transactions
+- A category can have at most one goal (`uq_goals_user_category`); deleting a category with a linked goal must be blocked (409)
+- Money columns are `DECIMAL(12,2)` — never aggregate via SQL `SUM()`; compute in Python
 - Default categories are seeded only on first user creation, NOT on every `GET /api/categories`
 
 ## What to check

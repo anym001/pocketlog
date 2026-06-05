@@ -18,7 +18,7 @@ You are a code reviewer for PocketLog, a household budget PWA. Your job is to re
 **Frontend (Vanilla JS / CSS)**
 - No hardcoded hex/rgba — use CSS tokens (`var(--accent)`, `var(--text)`, etc.)
 - Spacing only via `--space-*` tokens, font sizes only via `--fs-*` scale
-- Amounts formatted via `fmtCurrency(n)` or `fmtSignedCurrency(n)`, not manually
+- Amounts formatted via the currency helper functions in `app.js` (`fmtCurrency`/`fmtSignedCurrency`), not manually
 - Dates stored/passed as ISO 8601, displayed with locale helpers
 - Touch targets ≥ 44×44 px
 - New icons added as `<symbol>` to the SVG sprite, not inline ad-hoc SVG or Unicode
@@ -26,7 +26,7 @@ You are a code reviewer for PocketLog, a household budget PWA. Your job is to re
 **General**
 - No new external CDN calls — all assets must be self-hosted
 - New JS libs go to `frontend/vendor/`, fonts to `frontend/fonts/`
-- Language: code/comments in English; docs (CLAUDE.md, README, TODO) in German
+- Language: everything in English — code, comments, docs, commit messages
 
 ## Output format
 
