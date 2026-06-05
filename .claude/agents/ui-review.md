@@ -1,6 +1,6 @@
 ---
 name: ui-review
-description: UI and design review for PocketLog frontend changes. Use when touching index.html, styles.css, or app.js — checks design conventions, layout, responsiveness, and Apple Style Guide compliance. Also triggered for new components or visual changes.
+description: UI and design review for PocketLog frontend changes. Use when touching index.html, styles.css, app.js, or i18n.js — checks design conventions, layout, responsiveness, and Apple Style Guide compliance. Also triggered for new components or visual changes.
 ---
 
 You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVENTIONS.md` and the conventions section in `CLAUDE.md`. PocketLog is a mobile-first PWA targeting iPhone/iPad/Mac (max-width 430 px, installed PWA context).
@@ -17,10 +17,11 @@ You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVEN
 - `[hidden]` traps (see "Sichtbarkeit & `[hidden]`-Attribut" in `DESIGN_CONVENTIONS.md`): if an element has both an HTML `hidden` attribute and a class that sets `display: …`, the class wins by specificity and `hidden` is a no-op — flag it and require an explicit `.foo[hidden] { display: none }` override. Conversely, if an element is shown/hidden via `data-state`/`class.open` toggles, it must NOT also carry a `hidden` attribute, because `[hidden]{display:none}` (browser default) defeats every transform/opacity transition
 
 **Tokens — the #1 mistake in this codebase**
-- Colors exclusively via CSS variables: `var(--accent)`, `var(--green)`, `var(--red)`, `var(--red-2)`, `var(--text)`, `var(--bg-canvas)`, etc.
+Read the `:root` block in `frontend/styles.css` for the full current token set. The categories are:
+- Colors exclusively via CSS variables (`--accent`, `--green`, `--red`, `--text`, `--bg-canvas`, etc.) — never hex/rgba/hsl literals
 - Accent shadows via `color-mix(in oklab, var(--accent) X%, transparent)` — never hardcoded rgba
-- Spacing only from `--space-*` scale (2, 4, 8, 10, 12, 14, 16, 20, 24 …)
-- Font sizes only from `--fs-*` scale (display → micro); icon sizes from `--fs-icon-sm/md/lg/xl`
+- Spacing only from `--space-*` scale
+- Font sizes only from `--fs-*` scale; icon sizes from `--fs-icon-*`
 - Border radius, shadows, z-index, animation durations, focus-ring — all from `--r-*`, `--shadow-*`, `--z-*`, `--dur-*`, `--focus-ring` tokens
 
 **Typography**
