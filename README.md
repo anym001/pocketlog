@@ -1,6 +1,6 @@
 # PocketLog
 
-A household finance ledger as a Progressive Web App (PWA) — runs in the browser on all
+A household budget book as a Progressive Web App (PWA) — runs in the browser on all
 major platforms (iOS, Android, macOS, Windows, Linux) and can be installed as an app
 on the home screen.
 
