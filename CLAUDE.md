@@ -47,7 +47,11 @@ PocketLog/
 │       ├── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
 │       ├── logging_config.py ← central logging setup (configure_logging())
 │       └── cli.py          ← operator CLI (reset-admin-password)
+├── backend/
+│   └── docker-entrypoint.sh  ← chown /config, drop to PUID/PGID via gosu
+├── tests/                    ← pytest suite (backend)
 ├── CLAUDE.md
+├── CONTRIBUTING.md
 └── DESIGN_CONVENTIONS.md
 ```
 
@@ -88,7 +92,7 @@ PUT|DELETE /api/recurring/{id}   ← DELETE leaves existing transactions intact 
 POST   /api/recurring/{id}/skip-next   ← skips the next occurrence, returns new cursor
 DELETE /api/recurring/{id}/skip/{date} ← un-skips a previously skipped date
 DELETE /api/admin/transactions   ← self-service: own transactions
-DELETE /api/admin/all-data       ← self-service: transactions + categories + tags
+DELETE /api/admin/all-data       ← self-service: transactions + recurring rules + goals + tags + categories
 
 # Admin (+ admin role)
 GET|POST /api/admin/users
@@ -170,7 +174,7 @@ Central config in `app/logging_config.py` (`configure_logging()`, called on impo
 
 **Container permissions (PUID/PGID):** The image starts as root; the entrypoint (`backend/docker-entrypoint.sh`) chowns `/config` to `PUID:PGID` (default `1000:1000`, Unraid `99:100`) and drops privileges via `gosu` before `alembic`+`uvicorn` run. This allows the SQLite file on the mount to be written with the correct host permissions. **SQLite pragmas** (`database.py`): `foreign_keys=ON` (cascades), `journal_mode=WAL` (concurrent reads/writes for PWA sync), `busy_timeout=5000`.
 
-Audit events are logged **in the endpoint layer** (`main.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
+Audit events are logged **in the endpoint layer** (`main.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`, `recurring.create/update/delete`, `data.reset_all_data`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
 
 ## Offline / PWA
 `sw.js`: network-first for HTML shell + GET /api/\*, cache-first for vendor/fonts/icons. Offline outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache keys from `__APP_VERSION__` (Dockerfile substitutes at build time). Both i18n bundles (`i18n/de.json`, `i18n/en.json`) are in the SHELL precache so that language switching works offline.
