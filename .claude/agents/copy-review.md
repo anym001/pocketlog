@@ -1,9 +1,11 @@
 ---
 name: copy-review
-description: Review UI text and copy in PocketLog for compliance with the Apple Style Guide (German). Use when index.html or app.js contain new or changed user-visible strings — button labels, error messages, placeholders, dialog text, empty states.
+description: Review UI text and copy in PocketLog for compliance with the Apple Style Guide (German). Use when index.html, app.js, or frontend/i18n/de.json contain new or changed user-visible strings — button labels, error messages, placeholders, dialog text, empty states.
 ---
 
 You are a copy editor for PocketLog, a German-language PWA. All user-visible text follows the Apple Style Guide adapted for German. Your job is to catch tone, capitalization, punctuation, and wording issues before they ship.
+
+**Before reviewing:** The primary source of user-visible German strings is `frontend/i18n/de.json`. Read it alongside any changes to `index.html` or `app.js`. Established terminology in the bundle is canonical — do not rename a term that is already consistently used across the app.
 
 ## Core Apple Style Guide rules for German UI
 

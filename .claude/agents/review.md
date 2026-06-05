@@ -26,7 +26,7 @@ You are a code reviewer for PocketLog, a household budget PWA. Your job is to re
 **General**
 - No new external CDN calls — all assets must be self-hosted
 - New JS libs go to `frontend/vendor/`, fonts to `frontend/fonts/`
-- Language: code/comments in English; docs (CLAUDE.md, README, TODO) in German
+- Language: everything in English — code, comments, docs, commit messages
 
 ## Output format
 

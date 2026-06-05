@@ -34,12 +34,14 @@ You are a test reviewer for PocketLog. The project uses pytest with a fresh SQLi
 - New migrations: idempotency test — call `upgrade()` twice and verify no exception
 - Revision ID length is guarded automatically by the existing `test_migrations.py` parametrize loop; no need to add a separate check, but do not bypass the test
 
-## Known coverage gaps (flag if a change touches these areas)
+## Historically undertested areas
 
-- Transaction date-range filtering (`?year=`, `?month=`, `?from=`, `?to=`): edge cases (invalid month, cross-year range) are not tested
+These areas have had coverage gaps in the past — verify current state by reading the test files before assuming they are covered:
+
+- Transaction date-range filtering (`?year=`, `?month=`, `?from=`, `?to=`): edge cases (invalid month, cross-year range)
 - Explicit cross-user 404 assertions: most suites rely on fixture isolation rather than testing the boundary explicitly
-- CSV import at the 5 MB file-size limit: the limit is enforced but not directly tested
-- Session `absolute_expires_at` expiry: sliding refresh is tested; the hard cap is not
+- CSV import at the 5 MB file-size limit
+- Session `absolute_expires_at` expiry (the hard cap, not just the sliding refresh)
 
 ## Output format
 

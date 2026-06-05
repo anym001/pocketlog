@@ -5,30 +5,7 @@ description: Scan frontend files for hardcoded CSS values that should use design
 
 You are a CSS token auditor for PocketLog. PocketLog uses a strict token system — hardcoded values are bugs because they break Light/Dark mode and theme consistency. This has happened multiple times in the project history; your job is to find every violation.
 
-## Token reference
-
-**Colors** — never use hex/rgba/hsl literals for these concepts:
-- Accent/brand → `var(--accent)`, `var(--accent-2)`
-- Text → `var(--text)`, `var(--text-2)`, `var(--text-3)`
-- Backgrounds → `var(--bg-canvas)`, `var(--bg-surface)`, `var(--bg-elevated)`, `var(--bg-input)`
-- Status colors → `var(--green)`, `var(--red)`, `var(--red-2)`, `var(--amber)`
-- Borders → `var(--border-hairline)`, `var(--border-hairline-2)`
-- Accent shadows → `color-mix(in oklab, var(--accent) X%, transparent)` — never `rgba(…)` for shadow tinting
-
-**Spacing** — never use free `px` values for margin/padding/gap:
-- Token scale: `--space-2`, `--space-4`, `--space-8`, `--space-10`, `--space-12`, `--space-14`, `--space-16`, `--space-20`, `--space-24`, `--space-32`, `--space-40`, `--space-48`
-
-**Typography** — never use `px`/`rem`/`em` font-size literals:
-- Body scale: `--fs-display`, `--fs-title`, `--fs-headline`, `--fs-body`, `--fs-callout`, `--fs-subhead`, `--fs-footnote`, `--fs-caption`, `--fs-micro`
-- Icon sizes: `--fs-icon-sm`, `--fs-icon-md`, `--fs-icon-lg`, `--fs-icon-xl`
-
-**Other tokens**
-- Border radius → `--r-sm`, `--r-md`, `--r-lg`, `--r-xl`, `--r-full`
-- Shadows → `--shadow-sm`, `--shadow-md`, `--shadow-lg`
-- Z-index → `--z-dropdown`, `--z-modal`, `--z-toast`
-- Transitions → `--dur-fast`, `--dur-normal`, `--dur-slow`
-- Focus ring → `--focus-ring`
-- Adaptive layout → `--app-sidebar-width` (list/table widths follow the content pane on tablet — no max-width caps, per Apple HIG / Mail behavior)
+**Before auditing:** Read the `:root` block in `frontend/styles.css` — that is the canonical, always-current token definition. Never rely on a cached list; new tokens are added as features grow. The token categories are: colors, spacing (`--space-*`), typography (`--fs-*`), border radius (`--r-*`), shadows (`--shadow-*`), z-index (`--z-*`), transitions (`--dur-*`), focus ring, and layout (`--app-sidebar-width`). Accent shadows always use `color-mix(in oklab, var(--accent) X%, transparent)` — never raw `rgba(…)` for tinting.
 
 ## What is allowed
 
