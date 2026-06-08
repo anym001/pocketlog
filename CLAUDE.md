@@ -203,10 +203,6 @@ Two static JSON bundles at `frontend/i18n/<bundle>.json` (de/en today), shipped 
 
 → Consult [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md) before every frontend change.
 
-Quick rules: mobile-first 430 px · `env(safe-area-inset-*)` · **DM Serif Display** + **DM Sans** only · `fmtCurrency(n)` / `fmtSignedCurrency(n)` · ISO 8601 · touch ≥ 44×44 px · WCAG-AA · app name always "PocketLog" · **no hardcoded inline text** — use `data-i18n`/`tr()` (see i18n section).
-
-Tokens: `var(--accent/--green/--red/--text/--bg-canvas …)` · `--fs-*` · `--space-*` · `--r-*/--shadow-*/--z-*/--dur-*`. No hex/px literals — hardcoded values are almost always a bug.
-
 ## Conventions
 
 **Branching/PR workflow (mandatory):** Development always on short-lived
