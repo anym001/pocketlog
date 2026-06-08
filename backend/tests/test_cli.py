@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import uuid
 
-from app import auth, cli, crud, models
 from sqlalchemy import select
+
+from app import auth, cli, crud, models
 
 
 def test_cli_reset_admin_password_happy_path(db_session, monkeypatch):

@@ -96,7 +96,7 @@ def test_setup_for_pending_admin_assigns_password(app, db_session):
     promoviert und muss im Setup nur sein Passwort vergeben. Der
     Username ist DB-seitig fix — wir akzeptieren, was der Server
     vorschlägt."""
-    from app import auth, crud, models
+    from app import auth, models
 
     db_session.query(models.User).delete()
     db_session.commit()

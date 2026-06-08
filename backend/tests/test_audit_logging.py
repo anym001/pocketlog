@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import crud
+
 from .conftest import TEST_PASSWORD
 
 AUDIT = "pocketlog.audit"
@@ -302,6 +303,7 @@ def test_log_file_writes_and_rotates(tmp_path, monkeypatch):
     """LOG_FILE writes audit records to disk (in addition to stderr) and the
     rotating handler caps file count."""
     import logging.handlers as handlers_mod
+
     from app import logging_config
 
     log_path = tmp_path / "logs" / "audit.log"

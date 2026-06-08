@@ -1,4 +1,5 @@
-from datetime import date as date_type, datetime
+from datetime import date as date_type
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -21,7 +22,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
-
 
 # Junction table between transactions and tags. Migration 0008 holds the
 # DDL; this declaration just lets ORM-level operations (.append, .remove,

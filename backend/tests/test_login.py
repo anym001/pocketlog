@@ -1,7 +1,6 @@
 """Login-Endpoint: Erfolg, Fehler, Lockout, Cookies, Sliding-Refresh."""
 from __future__ import annotations
 
-import time
 from datetime import timedelta
 
 from fastapi.testclient import TestClient
