@@ -102,6 +102,9 @@ via two breakpoints — the breakpoint value lives literally in `@media`
 - **Bottom bar:** Stays floating, with a 16-px inset from both visual edges —
   left to the sidebar right edge, right to the viewport. In collapsed state
   to the viewport left. Mirrors iPhone behaviour.
+- **Bottom bar clearance:** `var(--bottom-bar-clearance)` (66 px) is a layout
+  constant reserved for all panels and scrollable content so nothing is obscured
+  by the floating bottom bar. Apply as `padding-bottom` on scrollable containers.
 - **JS guards:** `openDrawer()` / `closeDrawer()` are no-ops from 768 px.
   `body.style.overflow = 'hidden'` may still be set in modals
   (background lock is useful on desktop too). The source of truth for the
@@ -179,6 +182,11 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
 - **Contrast:** minimum WCAG AA — `4.5 : 1` for body text, `3 : 1` for
   large text (≥ 18 pt regular or ≥ 14 pt bold) and for graphical elements.
   Check every new colour combination in both light *and* dark mode.
+- **Per-category colour (`--cat-color`):** Category-linked cards (goals,
+  recurring rules) receive `style="--cat-color: <hex>"` as an inline custom
+  property set from the category's stored colour. Child elements (icon
+  background, progress fill, amount badge) inherit this value. Never hardcode
+  a category colour in CSS — always reference `var(--cat-color)`.
 - **Colour is never the only signal.** Income/expenses additionally carry
   a `+` or `−` (U+2212). Error states carry text, not just a red border.
 - **No hard black/white backgrounds.** Page canvas always `--bg-grouped`,
@@ -198,7 +206,7 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   |---|---|---|---|
   | `display`  | `--fs-display`    | Balance display                      | `2.25rem` (36 px), DM Serif Display |
   | `title`    | `--fs-title`      | Screen / modal title                 | `1.5rem` (24 px), DM Serif Display |
-  | `title-sm` | `--fs-title-sm`   | Compact title, stat number           | `1.25rem` (20 px) |
+  | `title-sm` | `--fs-title-sm`   | Compact title, stat number           | `1.25rem` (20 px), DM Sans 600 |
   | `headline` | `--fs-headline`   | Card heading                         | `1.125rem` (18 px), DM Sans 600 |
   | `body`     | `--fs-body`       | Body text, form inputs               | `1rem` (16 px), DM Sans 400 |
   | `callout`  | `--fs-callout`    | Secondary buttons, labels            | `0.9375rem` (15 px), DM Sans 500 |
@@ -217,6 +225,7 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | `--btn-chrome-size` | Hamburger, modal back, drawer close, sync, colour swatch| `44px`    |
   | `--btn-fab-size`    | FAB, search bar height                                 | `50px`    |
   | `--btn-icon-size`   | Glyph in chrome buttons (`‹ ✕ ⌕ …`)                    | `1.25rem` |
+  | `--nav-icon-size`   | Icon container in drawer navigation rows               | `30px`    |
 
 - **Adjusting a single instance:** override the token call in the CSS block
   of the relevant class, e.g. `font-size: 1rem` locally instead of
@@ -232,11 +241,17 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   |                | `--z-drawer-backdrop`          | `400` (drawer dimmer) |
   |                | `--z-drawer`                   | `401` (drawer panel) |
   |                | `--z-modal`                    | `500` (sheet/modal) |
+  |                | `--z-picker`                   | `600` (tag picker, sits above open modals) |
   |                | `--z-toast`                    | `800` (toast / system) |
   | Animation      | `--dur-fast`                   | `0.15s` (tap feedback) |
   |                | `--dur-base`                   | `0.2s` (default) |
   |                | `--dur-medium`                 | `0.25s` (chrome buttons) |
   |                | `--dur-slow`                   | `0.3s` (panel / overlay) |
+  |                | `--dur-progress`               | `0.7s` (goal/category bar width fill) |
+  |                | `--dur-pulse`                  | `1.2s` (sync-dot syncing animation) |
+  | Easing         | `--ease-spring`                | `cubic-bezier(0.32, 0.72, 0, 1)` — default transitions |
+  |                | `--ease-bounce`                | `cubic-bezier(0.34, 1.56, 0.64, 1)` — FAB + buttons |
+  |                | `--ease-soft`                  | `cubic-bezier(0.4, 0, 0.2, 1)` — fades + overlays |
   | Focus          | `--focus-ring`                 | `0 0 0 3px var(--accent-tint)` |
   | Border         | `--border-hairline`            | `0.5px solid var(--hairline-soft)` |
   |                | `--border-hairline-strong`     | `0.5px solid var(--hairline)` |
@@ -429,8 +444,6 @@ Required — no exceptions "because PWA":
 - **Language:** `<html lang="de">` set correctly.
 
 ## Writing Style & Copy (Apple Style Guide)
-
-→ Full rules in [`docs/WRITING_GUIDE.md`](docs/WRITING_GUIDE.md).
 
 Quick rules:
 - **Sentence case:** buttons, titles, labels lowercased except proper nouns.
