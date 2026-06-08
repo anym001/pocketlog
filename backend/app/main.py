@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from . import auth, crud, exceptions, models, recurring, schemas
+from . import auth, crud, errors, exceptions, models, recurring, schemas
 from .database import get_db
 from .logging_config import client_ip, configure_logging, safe
 
@@ -353,7 +353,7 @@ def setup_admin(
     if not needs:
         # Setup ist bereits abgeschlossen — kein Admin-Override-Pfad
         # offen lassen.
-        raise HTTPException(status_code=409, detail="setup_already_done")
+        raise errors.conflict("setup_already_done")
 
     if suggested is not None:
         # Bestand-Admin: Username ist DB-seitig vorgegeben, wir
@@ -362,7 +362,7 @@ def setup_admin(
         if user is None or not user.is_admin or user.password_hash is not None:
             # Race: zwischen status-check und setup hat sich der State
             # geändert. Sauber abbrechen.
-            raise HTTPException(status_code=409, detail="setup_already_done")
+            raise errors.conflict("setup_already_done")
         crud.set_user_password(db, user, payload.password, force_change=False)
         # Locale aus dem Setup-Screen auch für den migrierten Admin
         # übernehmen — seine Kategorien sind ggf. schon (deutsch) geseedet,
@@ -384,7 +384,7 @@ def setup_admin(
             # Race mit einem parallelen Setup-Versuch — Username
             # existiert schon. Aus Sicht des zweiten Setup-Versuchs ist
             # die DB jetzt initialisiert.
-            raise HTTPException(status_code=409, detail="setup_already_done")
+            raise errors.conflict("setup_already_done")
         mode = "fresh"
 
     audit.info(
@@ -636,7 +636,7 @@ def admin_create_user(
             currency=admin_settings.currency,
         )
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="username_taken")
+        raise errors.conflict("username_taken")
     audit.info(
         "admin.user.create actor_admin_id=%s new_user_id=%s username=%s ip=%s",
         _admin.id,
@@ -760,7 +760,7 @@ def post_category(payload: schemas.CategoryCreate, user: CurrentUser, db: DB):
     try:
         return crud.create_category(db, user.id, payload)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="category exists")
+        raise errors.conflict("category exists")
 
 
 @app.put("/api/categories/{category_id}", response_model=schemas.CategoryOut)
@@ -773,9 +773,9 @@ def put_category(
     try:
         cat = crud.update_category(db, user.id, category_id, payload)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="category exists")
+        raise errors.conflict("category exists")
     if cat is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return cat
 
 
@@ -785,7 +785,7 @@ def remove_category(category_id: int, user: CurrentUser, db: DB):
     # mapped to 409 by the global handler.
     ok = crud.delete_category(db, user.id, category_id)
     if not ok:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return Response(status_code=204)
 
 
@@ -804,7 +804,7 @@ def post_goal(payload: schemas.GoalCreate, user: CurrentUser, db: DB):
     try:
         return crud.create_goal(db, user.id, payload)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="goal exists for category")
+        raise errors.conflict("goal exists for category")
 
 
 @app.put("/api/goals/{goal_id}", response_model=schemas.GoalOut)
@@ -817,9 +817,9 @@ def put_goal(
     try:
         goal = crud.update_goal(db, user.id, goal_id, payload)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="goal exists for category")
+        raise errors.conflict("goal exists for category")
     if goal is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return goal
 
 
@@ -827,7 +827,7 @@ def put_goal(
 def remove_goal(goal_id: int, user: CurrentUser, db: DB):
     ok = crud.delete_goal(db, user.id, goal_id)
     if not ok:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return Response(status_code=204)
 
 
@@ -860,7 +860,7 @@ def post_recurring(
             db, user.id, payload, today=date_type.today()
         )
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="rule name exists")
+        raise errors.conflict("rule name exists")
     audit.info(
         "recurring.create id=%s rule_id=%s freq=%s interval=%s materialized=%s ip=%s",
         user.id,
@@ -890,9 +890,9 @@ def put_recurring(
     try:
         rule = crud.update_recurring_rule(db, user.id, rule_id, payload)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="rule name exists")
+        raise errors.conflict("rule name exists")
     if rule is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     audit.info(
         "recurring.update id=%s rule_id=%s ip=%s",
         user.id,
@@ -905,7 +905,7 @@ def put_recurring(
 @app.delete("/api/recurring/{rule_id}", status_code=204)
 def remove_recurring(rule_id: int, request: Request, user: CurrentUser, db: DB):
     if not crud.delete_recurring_rule(db, user.id, rule_id):
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     audit.info(
         "recurring.delete id=%s rule_id=%s ip=%s",
         user.id,
@@ -922,7 +922,7 @@ def remove_recurring(rule_id: int, request: Request, user: CurrentUser, db: DB):
 def post_recurring_skip_next(rule_id: int, user: CurrentUser, db: DB):
     result = crud.skip_next_occurrence(db, user.id, rule_id)
     if result is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     skipped, nxt = result
     return schemas.RecurringSkipOut(skipped_date=skipped, next_occurrence_date=nxt)
 
@@ -934,7 +934,7 @@ def remove_recurring_skip(rule_id: int, skip_date: str, user: CurrentUser, db: D
     except ValueError:
         raise HTTPException(status_code=400, detail="invalid date")
     if not crud.remove_skip(db, user.id, rule_id, d):
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return Response(status_code=204)
 
 
@@ -1006,14 +1006,14 @@ def put_transaction(
 ):
     tx = crud.update_transaction(db, user.id, tx_id, payload)
     if tx is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return tx
 
 
 @app.delete("/api/transactions/{tx_id}", status_code=204)
 def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
     if not crud.delete_transaction(db, user.id, tx_id):
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return Response(status_code=204)
 
 
@@ -1032,7 +1032,7 @@ def post_tag(payload: schemas.TagCreate, user: CurrentUser, db: DB):
     try:
         tag = crud.create_tag(db, user.id, payload.name)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="tag exists")
+        raise errors.conflict("tag exists")
     return {"name": tag.name}
 
 
@@ -1041,7 +1041,7 @@ def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
     try:
         affected = crud.rename_tag(db, user.id, name, payload.new_name)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="tag exists")
+        raise errors.conflict("tag exists")
     return {"affected": affected}
 
 
