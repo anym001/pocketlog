@@ -517,7 +517,7 @@ def create_recurring_rule(
     # Local import to avoid a top-level cycle with app.recurring -> crud.
     from . import recurring as recurring_mod
 
-    if not _check_category_owned(db, user_id, payload.category_id):
+    if not _owned_category_exists(db, user_id, payload.category_id):
         raise exceptions.CategoryNotFoundError()
 
     earliest = _subtract_months(today, recurring_mod.MAX_BACKDATE_MONTHS)
@@ -573,7 +573,7 @@ def update_recurring_rule(
     rule = _load_rule(db, user_id, rule_id)
     if rule is None:
         return None
-    if not _check_category_owned(db, user_id, payload.category_id):
+    if not _owned_category_exists(db, user_id, payload.category_id):
         raise exceptions.CategoryNotFoundError()
 
     _apply_rule_fields(rule, payload)
@@ -727,20 +727,6 @@ def list_transactions_by_range(
     return list(db.scalars(q))
 
 
-def _check_category_owned(db: Session, user_id: int, category_id: int) -> bool:
-    return (
-        db.scalar(
-            select(models.Category.id).where(
-                and_(
-                    models.Category.id == category_id,
-                    models.Category.user_id == user_id,
-                )
-            )
-        )
-        is not None
-    )
-
-
 def _build_tag_cache(db: Session, user_id: int) -> dict[str, models.Tag]:
     """One SELECT of every tag the user owns, keyed by case-fold name.
 
@@ -799,7 +785,7 @@ def _resolve_tags(
 def create_transaction(
     db: Session, user_id: int, payload: schemas.TransactionCreate
 ) -> models.Transaction:
-    if not _check_category_owned(db, user_id, payload.category_id):
+    if not _owned_category_exists(db, user_id, payload.category_id):
         raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
@@ -824,7 +810,7 @@ def update_transaction(
     )
     if tx is None:
         return None
-    if not _check_category_owned(db, user_id, payload.category_id):
+    if not _owned_category_exists(db, user_id, payload.category_id):
         raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
