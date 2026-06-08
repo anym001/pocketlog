@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from . import auth, crud, errors, exceptions, models, recurring, schemas
+from . import auth, constants, crud, errors, exceptions, models, recurring, schemas
 from .database import get_db
 from .logging_config import client_ip, configure_logging, safe
 
@@ -1106,14 +1106,11 @@ def put_settings(payload: schemas.SettingsUpdate, user: CurrentUser, db: DB):
 # CSV-Import
 # ---------------------------------------------------------------------
 
-MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB
-MAX_IMPORT_ROWS = 10_000
-
 
 @app.post("/api/import/csv", response_model=schemas.ImportResult)
 async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
     raw = await file.read()
-    if len(raw) > MAX_IMPORT_BYTES:
+    if len(raw) > constants.MAX_IMPORT_BYTES:
         raise HTTPException(status_code=413, detail="file too large (>5MB)")
     if not raw:
         raise HTTPException(status_code=400, detail="empty file")
@@ -1125,22 +1122,17 @@ async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
             text = raw.decode("cp1252")
         except UnicodeDecodeError:
             raise HTTPException(status_code=400, detail="encoding not utf-8/cp1252")
-    return crud.import_csv(db, user.id, text, max_rows=MAX_IMPORT_ROWS)
+    return crud.import_csv(db, user.id, text, max_rows=constants.MAX_IMPORT_ROWS)
 
 
 # ---------------------------------------------------------------------
 # CSV-Export
 # ---------------------------------------------------------------------
 
-# Excel, Numbers and LibreOffice evaluate cell contents that start with =, +,
-# -, @ or a leading tab/CR as a formula. A user-controlled field that begins
-# with one of those characters would execute when the file is re-opened. Prefix
-# a single quote so the cell is forced to text without losing information.
-_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-
 
 def _csv_safe(value: str) -> str:
-    if value and value[0] in _CSV_FORMULA_PREFIXES:
+    # CSV formula-injection guard; prefix set documented in app.constants.
+    if value and value[0] in constants.CSV_FORMULA_PREFIXES:
         return "'" + value
     return value
 
