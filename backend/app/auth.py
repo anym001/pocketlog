@@ -14,6 +14,7 @@ Threat-Model siehe ``CLAUDE.md`` und ``docs/SETUP.md``. Kurzfassung:
   HttpOnly, JS liest es aus dem Cookie und schickt es als
   ``X-CSRF-Token``-Header bei jedem non-GET zurück.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -79,6 +80,7 @@ def verify_password_dummy() -> None:
 # Session-Tokens
 # ---------------------------------------------------------------------
 
+
 def generate_session_token() -> tuple[str, str]:
     """Erzeugt ein Session-Token. Gibt ``(plain, sha256_hex)`` zurück.
 
@@ -106,6 +108,7 @@ def constant_time_eq(a: str, b: str) -> bool:
 # ---------------------------------------------------------------------
 # Session-Lifetimes
 # ---------------------------------------------------------------------
+
 
 def _env_int(name: str, default: int) -> int:
     raw = os.environ.get(name, "").strip()
@@ -177,9 +180,7 @@ def create_session(
     return session, plain
 
 
-def get_session_by_token(
-    db: DbSession, plain_token: str
-) -> models.Session | None:
+def get_session_by_token(db: DbSession, plain_token: str) -> models.Session | None:
     """Lookup nach Cookie-Wert. Liefert nur gültige (nicht-abgelaufene)
     Sessions; abgelaufene werden gleich beim Lookup verworfen, damit
     sich die ``sessions``-Tabelle nicht stillschweigend aufbläht."""
@@ -243,9 +244,7 @@ def revoke_all_user_sessions(
 def cleanup_expired_sessions(db: DbSession) -> int:
     """Entfernt abgelaufene Sessions. Best-Effort, fehlerlos."""
     now = _utcnow()
-    result = db.execute(
-        delete(models.Session).where(models.Session.expires_at <= now)
-    )
+    result = db.execute(delete(models.Session).where(models.Session.expires_at <= now))
     db.commit()
     return result.rowcount or 0
 

@@ -4,6 +4,7 @@ A missing key in one bundle would render as the raw key (`tr()`
 fallback) on language switch. Pinning the diff here means a forgotten
 translation fails CI immediately, not in production.
 """
+
 from __future__ import annotations
 
 import json

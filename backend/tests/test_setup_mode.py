@@ -1,4 +1,5 @@
 """Setup-Modus: bootstrap des ersten Admins via Setup-View."""
+
 from __future__ import annotations
 
 import uuid

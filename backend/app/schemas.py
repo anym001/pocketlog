@@ -44,6 +44,7 @@ def _strip_control_required(value: str) -> str:
 
 # -------- Categories --------
 
+
 class CategoryBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     # Icon ID from the bundled Phosphor sprite (frontend/icons/categories/
@@ -73,6 +74,7 @@ class CategoryOut(CategoryBase):
 
 
 # -------- Goals --------
+
 
 class GoalBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
@@ -106,7 +108,8 @@ class GoalBase(BaseModel):
             # There must be room to save into.
             if self.target_amount <= self.initial_amount:
                 raise ValueError(
-                    "target_amount must be greater than initial_amount for a savings goal"
+                    "target_amount must be greater than initial_amount "
+                    "for a savings goal"
                 )
         else:  # pay_down
             # There must be a debt, and the target must be below it.
@@ -136,6 +139,7 @@ class GoalOut(GoalBase):
 
 # -------- Tags --------
 
+
 class TagCreate(BaseModel):
     name: str = Field(min_length=1, max_length=64)
 
@@ -162,6 +166,7 @@ class TagOut(BaseModel):
 # -------- Transactions --------
 # The frontend uses the JSON field "desc"; the DB column is "description"
 # (avoids reserved-word conflicts). The Pydantic alias accepts both.
+
 
 def _normalise_tag_list(value: list[str] | None) -> list[str] | None:
     """Shared between TransactionIn and RecurringRuleBase.
@@ -268,6 +273,7 @@ class TransactionOut(BaseModel):
 # frequency, end_date >= start_date) lives in the model_validator so the
 # frontend can map each failure to a stable i18n key.
 
+
 class RecurringRuleBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
@@ -360,9 +366,7 @@ class RecurringRuleOut(RecurringRuleBase):
     def _extract_skip_dates(cls, value):
         if value is None:
             return []
-        return [
-            s.skip_date if hasattr(s, "skip_date") else s for s in value
-        ]
+        return [s.skip_date if hasattr(s, "skip_date") else s for s in value]
 
     @field_validator("tags", mode="before")
     @classmethod
@@ -379,6 +383,7 @@ class RecurringRuleOut(RecurringRuleBase):
 class RecurringRuleCreateResponse(BaseModel):
     """Wraps RecurringRuleOut with the count of transactions that were
     auto-materialized in the same request (backdated rules)."""
+
     rule: RecurringRuleOut
     materialized_count: int = 0
 
@@ -418,9 +423,7 @@ def _normalise_locale(value: str) -> str:
         parts[1] = parts[1].upper()
     code = "-".join(p for p in parts if p)
     if code not in SUPPORTED_LOCALES:
-        raise ValueError(
-            "locale must be one of: " + ", ".join(SUPPORTED_LOCALES)
-        )
+        raise ValueError("locale must be one of: " + ", ".join(SUPPORTED_LOCALES))
     return code
 
 
@@ -436,9 +439,7 @@ SUPPORTED_CURRENCIES = ("EUR", "USD", "GBP", "CHF", "JPY")
 def _normalise_currency(value: str) -> str:
     code = (value or "").strip().upper()
     if code not in SUPPORTED_CURRENCIES:
-        raise ValueError(
-            "currency must be one of: " + ", ".join(SUPPORTED_CURRENCIES)
-        )
+        raise ValueError("currency must be one of: " + ", ".join(SUPPORTED_CURRENCIES))
     return code
 
 
@@ -465,6 +466,7 @@ class SettingsUpdate(BaseModel):
 # Per-row errors carry a stable machine ``code`` (+ optional ``params``)
 # instead of a localized string, so the frontend can translate them. The
 # code catalogue lives in crud._CSV_ERROR_CODES / frontend i18n "import.error.*".
+
 
 class ImportRowError(BaseModel):
     row: int
@@ -551,6 +553,7 @@ class SetupRequest(BaseModel):
     ignoriert das Backend den Username und nimmt den im DB hinterlegten
     Wert — die Validierung läuft aber, damit ein leerer Wert nicht
     durchrutscht."""
+
     username: str = Field(min_length=1, max_length=150)
     password: NewPassword
     # Locale picked on the setup screen. Seeds the default categories in the
@@ -601,9 +604,7 @@ class ChangePasswordRequest(BaseModel):
     # administrative (admin reset, CLI bootstrap, or NULL after the
     # migration). In the voluntary self-service path the value is required
     # and verified.
-    current_password: str | None = Field(
-        default=None, max_length=MAX_PASSWORD_LENGTH
-    )
+    current_password: str | None = Field(default=None, max_length=MAX_PASSWORD_LENGTH)
     new_password: NewPassword
 
 

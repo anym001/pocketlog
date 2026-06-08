@@ -7,6 +7,7 @@ user_id-scoped CRUD for isolation. Goal progress is computed client-side
 surface, the 1:1 category constraint, validation, ownership/isolation,
 CSRF and the cascade/guard behaviour — not progress maths.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -195,7 +196,9 @@ def test_goal_post_requires_csrf(app, regular_user):
     )
     assert created.status_code == 201
     gid = created.json()["id"]
-    assert client.put(f"/api/goals/{gid}", json=_savings_payload(cat)).status_code == 403
+    assert (
+        client.put(f"/api/goals/{gid}", json=_savings_payload(cat)).status_code == 403
+    )
     assert client.delete(f"/api/goals/{gid}").status_code == 403
 
 
@@ -203,7 +206,11 @@ def _new_category_with_csrf(client, csrf: str) -> int:
     r = client.post(
         "/api/categories",
         headers={"X-CSRF-Token": csrf},
-        json={"name": f"Cat-{uuid.uuid4().hex[:8]}", "icon": "house", "color": "#123456"},
+        json={
+            "name": f"Cat-{uuid.uuid4().hex[:8]}",
+            "icon": "house",
+            "color": "#123456",
+        },
     )
     assert r.status_code == 201, r.text
     return r.json()["id"]
@@ -266,7 +273,9 @@ def test_update_foreign_goal_is_404(app, client, db_session):
     other_client.headers["X-CSRF-Token"] = res.json()["user"]["csrf_token"]
     foreign_cat = _new_category(other_client)
     assert (
-        other_client.put(f"/api/goals/{gid}", json=_savings_payload(foreign_cat)).status_code
+        other_client.put(
+            f"/api/goals/{gid}", json=_savings_payload(foreign_cat)
+        ).status_code
         == 404
     )
 
@@ -348,6 +357,4 @@ def test_user_delete_cascades_goals(db_session):
     assert crud.list_goals(db_session, uid)
     crud.delete_user(db_session, user)
     db_session.expire_all()
-    assert (
-        db_session.query(models.Goal).filter(models.Goal.user_id == uid).count() == 0
-    )
+    assert db_session.query(models.Goal).filter(models.Goal.user_id == uid).count() == 0

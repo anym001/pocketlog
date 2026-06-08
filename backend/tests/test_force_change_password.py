@@ -1,5 +1,6 @@
 """Force-Change-Password-Pfad: blockt App-Endpoints, löst Flag nach
 erfolgreichem Change, invalidiert andere Sessions."""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -79,12 +80,16 @@ def test_change_password_invalidates_other_sessions(app, db_session):
     )
     # Session A
     a = TestClient(app)
-    a.post("/api/auth/login", json={"username": user.username, "password": TEST_PASSWORD})
+    a.post(
+        "/api/auth/login", json={"username": user.username, "password": TEST_PASSWORD}
+    )
     a.headers["X-CSRF-Token"] = a.cookies["pocketlog_csrf"]
 
     # Session B
     b = TestClient(app)
-    b.post("/api/auth/login", json={"username": user.username, "password": TEST_PASSWORD})
+    b.post(
+        "/api/auth/login", json={"username": user.username, "password": TEST_PASSWORD}
+    )
 
     # Beide klappen gerade noch
     assert a.get("/api/categories").status_code == 200
@@ -205,6 +210,7 @@ def test_change_password_no_current_password_when_hash_is_null(app, db_session):
 
     # Login is impossible with NULL hash, so we create a session directly.
     from app import auth as auth_mod
+
     session, plain = auth_mod.create_session(
         db_session, user, remember_me=False, user_agent=None
     )

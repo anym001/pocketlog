@@ -1,5 +1,6 @@
 """CSRF-Schutz: Header-Pflicht für non-GET, falscher Token blockt,
 Token-Rotation bei Login."""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -63,9 +64,7 @@ def test_delete_requires_csrf(app, regular_user):
     res = client.delete(f"/api/categories/{cat_id}")
     assert res.status_code == 403
     # Mit Header geht's.
-    res = client.delete(
-        f"/api/categories/{cat_id}", headers={"X-CSRF-Token": csrf}
-    )
+    res = client.delete(f"/api/categories/{cat_id}", headers={"X-CSRF-Token": csrf})
     assert res.status_code in (204, 409)
 
 
