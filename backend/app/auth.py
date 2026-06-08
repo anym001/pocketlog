@@ -20,10 +20,10 @@ import hashlib
 import hmac
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHash, VerifyMismatchError, VerificationError
+from argon2.exceptions import InvalidHash, VerificationError, VerifyMismatchError
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 
@@ -130,7 +130,7 @@ REFRESH_GRACE_SECONDS = 5 * 60
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _sliding_lifetime(remember_me: bool) -> timedelta:

@@ -20,7 +20,6 @@ from __future__ import annotations
 import calendar
 import logging
 from datetime import date as date_type
-from typing import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError

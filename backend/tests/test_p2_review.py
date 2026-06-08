@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from sqlalchemy import UniqueConstraint
 
-
 # ── P2-10 ────────────────────────────────────────────────────────────────────
 
 

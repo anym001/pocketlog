@@ -2,7 +2,8 @@ import csv
 import io
 import logging
 import os
-from datetime import date as date_type, datetime, timedelta
+from datetime import date as date_type
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import and_, case, delete, extract, func, select

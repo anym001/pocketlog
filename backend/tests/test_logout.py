@@ -8,6 +8,7 @@ from .conftest import TEST_PASSWORD
 
 def test_logout_removes_session_and_clears_cookies(app, regular_user, db_session):
     from sqlalchemy import select as sa_select
+
     from app import models
 
     client = TestClient(app)

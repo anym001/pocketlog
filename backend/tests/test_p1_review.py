@@ -3,9 +3,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
 from sqlalchemy.exc import IntegrityError
-
 
 # ── P1-9: CSV-import IntegrityError must not leak DB internals ──────────────
 
@@ -17,9 +15,8 @@ def test_csv_import_integrity_error_returns_generic_message(monkeypatch, app):
     constraint names, or the exception class name. The real detail goes
     to the server log, not into the response body.
     """
-    from app import crud
+    from app import crud, models
     from app.database import SessionLocal
-    from app import models
 
     # Pretend the commit hits the same kind of MariaDB error the leak
     # would have surfaced: a duplicate-key violation whose `e.orig`

@@ -61,8 +61,6 @@ def test_admin_reset_password_forces_change_and_kills_sessions(
 ):
     """Reset durch Admin: Passwort neu, force_change=true, alle
     Sessions des Ziel-Users werden gekillt."""
-    from sqlalchemy import select as sa_select
-    from app import models
 
     # Regular-User loggt sich ein, hat danach eine Session.
     user_client = TestClient(app)
@@ -192,8 +190,9 @@ def test_admin_delete_user_cascades_data(
     """Löschen des Users cascadet auf seine Kategorien/Buchungen/Sessions
     (FK ON DELETE CASCADE) — die Row im users-table ist weg, und mindestens
     eine Child-Row, die vorher existiert hat, ist es auch."""
-    from app import auth, crud, models
     from sqlalchemy import select
+
+    from app import auth, crud, models
 
     target_id = regular_user.id
     # Eine Session und mindestens eine Kategorie liegen über

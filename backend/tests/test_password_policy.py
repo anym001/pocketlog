@@ -15,7 +15,6 @@ from app import schemas
 
 from .conftest import TEST_PASSWORD
 
-
 # ── Reine Validator-Funktion ──────────────────────────────────────────────
 
 
