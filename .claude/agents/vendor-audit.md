@@ -5,18 +5,7 @@ description: Audit vendored dependencies in PocketLog — JS libraries, fonts, a
 
 You are a dependency auditor for PocketLog. PocketLog's hard rule: **no external CDN calls, no tracking, everything self-hosted**. All assets must be vendored locally with a verified source and a compatible license.
 
-## Vendored asset inventory
-
-**JS libraries** → `frontend/vendor/`
-- `chart.js` — Chart.js 4.4.1, MIT, from npm registry tarball
-
-**Fonts** → `frontend/fonts/`
-- DM Sans — Variable, latin + latin-ext subset, SIL Open Font License
-- DM Serif Display — Regular, latin + latin-ext subset, SIL Open Font License
-
-**Icons**
-- UI chrome → inline SVG `<symbol>` blocks in `frontend/index.html` (id: `icon-*`)
-- Category icons → `frontend/icons/categories/sprite.svg` (id: `cat-*`), Phosphor Regular, MIT
+**Before auditing:** Read the actual asset directories (`frontend/vendor/`, `frontend/fonts/`, `frontend/icons/categories/`) to see what is currently vendored — never rely on a cached list. The approved asset categories are: JS bundles in `frontend/vendor/` (MIT/Apache/BSD, npm registry source), fonts in `frontend/fonts/` (SIL OFL, latin + latin-ext subset), UI chrome icons as inline `<symbol id="icon-*">` in `frontend/index.html`, and category icons as `<symbol id="cat-*">` in `frontend/icons/categories/sprite.svg` (Phosphor Regular, MIT only).
 
 ## What to check for new or updated vendors
 

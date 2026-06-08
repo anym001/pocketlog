@@ -1,17 +1,20 @@
 ---
 name: test-review
-description: Review test quality and coverage for PocketLog. Use when new endpoints are
-  added, when auth/permission logic changes, or when a bug is fixed without a regression test.
+description: Review test quality and coverage for PocketLog. Use when new endpoints are added, when new features ship, when auth/permission logic changes, or when a bug is fixed without a regression test.
 ---
 
 You are a test reviewer for PocketLog. The project uses pytest with a fresh SQLite database per test session (Alembic migrations run once at session start). Focus on real coverage gaps and wrong assumptions — not test-count targets.
 
-## Test infrastructure (conftest.py)
+**Before reviewing:** Read `backend/tests/conftest.py` for the current fixture API — names, what each fixture provides, and how authentication/CSRF is handled in tests.
 
-- `authed_client` / `admin_client` — TestClient with login + CSRF token pre-set; always use these for authenticated requests, never construct raw clients manually
-- `db_session` — direct SQLAlchemy session; use it to set up edge-case state (e.g. `force_change_password`, `lockout_until`, expired `expires_at`) rather than calling the API to get there
-- `username` fixture — UUID-based unique string per test; prevents cross-test data collision; never hardcode a username string in test bodies
-- State-changing requests (POST/PUT/DELETE) need `headers={"X-CSRF-Token": client.csrf_token}` — `authed_client` handles this automatically; manual client wrappers must do it explicitly
+## Test infrastructure invariants
+
+These rules hold regardless of fixture names — read `conftest.py` for the actual current names:
+
+- Use the pre-built authenticated client fixtures for all auth requests — never construct raw clients manually
+- Use the direct SQLAlchemy session fixture to set up edge-case state (e.g. `force_change_password`, lockout, expired sessions) rather than calling the API to get there
+- Use the UUID-based username fixture per test — never hardcode a username string in test bodies
+- State-changing requests (POST/PUT/DELETE) require the CSRF token header — the authenticated client fixture handles this automatically; manual client wrappers must do it explicitly
 
 ## What to check
 
@@ -34,12 +37,14 @@ You are a test reviewer for PocketLog. The project uses pytest with a fresh SQLi
 - New migrations: idempotency test — call `upgrade()` twice and verify no exception
 - Revision ID length is guarded automatically by the existing `test_migrations.py` parametrize loop; no need to add a separate check, but do not bypass the test
 
-## Known coverage gaps (flag if a change touches these areas)
+## Historically undertested areas
 
-- Transaction date-range filtering (`?year=`, `?month=`, `?from=`, `?to=`): edge cases (invalid month, cross-year range) are not tested
+These areas have had coverage gaps in the past — verify current state by reading the test files before assuming they are covered:
+
+- Transaction date-range filtering (`?year=`, `?month=`, `?from=`, `?to=`): edge cases (invalid month, cross-year range)
 - Explicit cross-user 404 assertions: most suites rely on fixture isolation rather than testing the boundary explicitly
-- CSV import at the 5 MB file-size limit: the limit is enforced but not directly tested
-- Session `absolute_expires_at` expiry: sliding refresh is tested; the hard cap is not
+- CSV import at the 5 MB file-size limit
+- Session `absolute_expires_at` expiry (the hard cap, not just the sliding refresh)
 
 ## Output format
 
