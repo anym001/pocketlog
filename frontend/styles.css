@@ -169,6 +169,7 @@
         --z-drawer-backdrop: 400; /* Drawer-Overlay (Dimmer) */
         --z-drawer: 401; /* Drawer-Panel über seinem Backdrop */
         --z-modal: 500; /* Modal-Overlay + Inhalt */
+        --z-picker: 600; /* Tag-Picker (über anderen Modals) */
         --z-toast: 800; /* Toasts / System-Meldungen */
 
         /* Motion durations — common timings only. Odd values (0.22, 0.28,
@@ -929,6 +930,23 @@
         min-width: 0;
         max-width: 100%;
       }
+      /* Row that holds the description text + the optional recurring
+         badge as a sibling. The badge sits outside .t-note so the
+         description's ellipsis can never clip it on long rows. */
+      .t-note-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        min-width: 0;
+      }
+      .t-note-row .t-note {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .t-note-row .tx-recurring-badge {
+        flex: 0 0 auto;
+        margin-inline-start: 0;
+      }
       .t-tags {
         display: flex;
         gap: var(--space-4);
@@ -1024,11 +1042,12 @@
         z-index: var(--z-floating);
       }
       /* Search + FAB only make sense in the transactions/categories ledger
-         views. Reports (charts) and the Goals view have neither searchable
-         rows nor a "new transaction" affordance, so hide the whole bar there.
-         Body classes are toggled in showPanel(). */
+         views. Reports (charts), the Goals view and the Recurring view have
+         neither searchable rows nor a "new transaction" affordance, so hide
+         the whole bar there. Body classes are toggled in showPanel(). */
       body.in-report .bottom-bar,
-      body.on-goals .bottom-bar {
+      body.on-goals .bottom-bar,
+      body.on-recurring .bottom-bar {
         display: none;
       }
       .search-wrap {
@@ -1493,6 +1512,8 @@
         align-items: flex-end;
         justify-content: center;
       }
+      /* Tag picker must sit above any parent modal (booking or recurring). */
+      #tagPickerOverlay { z-index: var(--z-picker); }
       .modal-overlay.open {
         display: flex;
         animation: overlay-in var(--dur-slow) var(--ease-soft);
@@ -1672,7 +1693,73 @@
         outline: none;
         transition: all var(--dur-base) var(--ease-spring);
         -webkit-appearance: none;
+        /* Pin a deterministic height (line-height + vertical padding) so an
+           empty <input type="date"> renders identically to a filled one —
+           iOS Safari otherwise collapses the empty date control. */
+        line-height: 1.2;
+        min-height: calc(2 * var(--space-14) + 1.2 * var(--fs-body));
       }
+      /* The generic input height above is meant for text/date/number/select;
+         don't stretch a checkbox (e.g. the recurring "Aktiv" control) with it. */
+      .form-group input[type='checkbox'] {
+        min-height: 0;
+      }
+      /* Pin text/number/date inputs to one identical height so swapping the
+         recurring "Enddatum" (date) and "Maximale Anzahl" (number) fields
+         doesn't change the row height. A native date control can render a
+         touch taller than a number field on iOS; a fixed height clamps both
+         to the same box (box-sizing is border-box globally). */
+      .form-group input[type='text'],
+      .form-group input[type='number'],
+      .form-group input[type='date'] {
+        height: calc(2 * var(--space-14) + 1.2 * var(--fs-body));
+      }
+
+      /* iOS-style toggle switch — a styled <input type="checkbox">. Used
+         for the recurring rule's "Aktiv" field and the pause/resume
+         control on each recurring card. Self-contained so it overrides
+         the generic .form-group input chrome above. */
+      input.switch {
+        -webkit-appearance: none;
+        appearance: none;
+        position: relative;
+        flex-shrink: 0;
+        width: calc(2 * var(--space-24));
+        height: calc(var(--space-20) + var(--space-8));
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        border: var(--border-hairline);
+        border-radius: var(--r-pill);
+        background: var(--surface-tint);
+        box-shadow: none;
+        cursor: pointer;
+        transition: background var(--dur-base) var(--ease-soft);
+      }
+      input.switch::after {
+        content: '';
+        position: absolute;
+        top: var(--space-2);
+        left: var(--space-2);
+        width: var(--space-24);
+        height: var(--space-24);
+        border-radius: var(--r-pill);
+        background: var(--on-accent);
+        box-shadow: var(--shadow-soft);
+        transition: transform var(--dur-base) var(--ease-spring);
+      }
+      input.switch:checked {
+        background: var(--green);
+        border-color: transparent;
+      }
+      input.switch:checked::after {
+        transform: translateX(var(--space-20));
+      }
+      input.switch:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
       .form-group input:focus,
       .form-group select:focus {
         border-color: var(--accent);
@@ -1687,6 +1774,20 @@
         letter-spacing: -0.02em;
         padding: var(--space-12) var(--space-16);
         font-variant-numeric: tabular-nums;
+      }
+
+      /* Recurring "Interval" row: a small count input next to the unit
+         dropdown (Tag/Woche/Monat/Quartal/Jahr) on a single line. */
+      .rec-interval-row {
+        display: flex;
+        gap: var(--space-12);
+      }
+      .rec-interval-row input {
+        flex: 0 0 auto;
+        width: calc(var(--space-56) + var(--space-24));
+      }
+      .rec-interval-row select {
+        flex: 1;
       }
 
       .tags-input-wrap {
@@ -2276,12 +2377,15 @@
       }
 
       /* ====== REPORTS ====== */
-      /* Reports and the Goals view are not month-scoped, so the month
-         switcher and the income/expense summary are hidden for both. */
+      /* Reports, the Goals view and the Recurring view are not month-scoped,
+         so the month switcher and the income/expense summary are hidden for
+         all of them. */
       body.in-report .month-nav,
       body.in-report .summary,
       body.on-goals .month-nav,
-      body.on-goals .summary {
+      body.on-goals .summary,
+      body.on-recurring .month-nav,
+      body.on-recurring .summary {
         max-height: 0;
         opacity: 0;
         padding-top: 0;
@@ -2968,6 +3072,199 @@
         transform: none;
       }
 
+      /* ====== INFO BANNERS ======
+         Persistent inline notice, dismissed by the user — distinct
+         from toast (auto-fades after 3s, not suitable for an
+         actionable message). Currently fed by the recurring catch-up
+         on app start. */
+      /* ====== RECURRING — list + badge + skip rows ======
+         Mirrors the .goal-card / .t-icon patterns so light/dark themes
+         and spacing stay consistent. */
+      .recurring-card {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: var(--space-12);
+        padding: var(--space-14);
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        margin-bottom: var(--space-12);
+        box-shadow: var(--shadow-soft);
+      }
+      /* The clickable body (everything but the pause/resume switch) opens
+         the edit modal; the switch lives outside it so a tap there never
+         opens the modal. */
+      .recurring-card-main {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: var(--space-12);
+        background: none;
+        border: 0;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: inherit;
+        text-align: start;
+        cursor: pointer;
+      }
+      .recurring-card.is-inactive {
+        opacity: 0.55;
+      }
+      .recurring-card-main:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-sm);
+      }
+      /* iOS Settings-style row: label on the left, switch on the right.
+         Used for the "Aktiv" toggle at the top of the recurring modal. */
+      .form-switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg-canvas);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        padding: var(--space-14) var(--space-16);
+        margin-bottom: var(--space-16);
+        cursor: pointer;
+      }
+      .form-switch-row label {
+        font-size: var(--fs-body);
+        color: var(--text);
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .recurring-card-icon {
+        width: var(--icon-list-md);
+        height: var(--icon-list-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        border-radius: var(--r-sm);
+        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
+        color: var(--cat-color, var(--text));
+        border: var(--border-hairline);
+      }
+      .recurring-card-icon .cat-glyph {
+        width: 70%;
+        height: 70%;
+      }
+      .recurring-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        min-width: 0;
+      }
+      .recurring-card-name {
+        font-weight: 600;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      /* Two fixed single-line sub-rows (summary + status). Ellipsizing
+         instead of wrapping keeps every card the same height — active and
+         paused alike — and stops a long amount from squeezing the text into
+         three ragged lines. */
+      .recurring-card-sub {
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+      }
+      .recurring-card-amount {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      /* Colour the amount by direction — no +/− sign needed. */
+      .recurring-card-amount.in {
+        color: var(--green);
+      }
+      .recurring-card-amount.out {
+        color: var(--red);
+      }
+      .tx-recurring-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-inline-start: var(--space-8);
+        color: var(--text3);
+        /* em-scaled so the badge tracks the parent .t-note font-size
+           instead of a fixed pixel size. */
+        font-size: var(--fs-micro);
+      }
+      .tx-recurring-badge .ui-icon {
+        width: 1em;
+        height: 1em;
+      }
+      .recurring-skips-heading {
+        display: block;
+        margin-top: var(--space-12);
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+      }
+      .recurring-skip-list {
+        list-style: none;
+        padding: 0;
+        margin: var(--space-8) 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+      }
+      .recurring-skip-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-8) var(--space-12);
+        background: var(--surface-tint);
+        border-radius: var(--r-sm);
+        font-size: var(--fs-footnote);
+      }
+      .recurring-skip-list li.is-empty {
+        background: transparent;
+        padding: var(--space-4) 0;
+        color: var(--text3);
+        justify-content: flex-start;
+      }
+      .recurring-skip-list button {
+        background: transparent;
+        border: 0;
+        /* ≥ 44 × 44 tap target. */
+        width: var(--btn-chrome-size);
+        height: var(--btn-chrome-size);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text3);
+        cursor: pointer;
+        border-radius: var(--r-sm);
+      }
+      .recurring-skip-list button:hover {
+        color: var(--accent);
+      }
+      .form-hint {
+        margin: var(--space-4) 0 0;
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+      }
+      .form-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-12);
+      }
+      .form-row > label {
+        flex: 1;
+      }
+
       /* ====== TOASTS ====== */
       .toast-host {
         position: fixed;
@@ -3236,6 +3533,12 @@
         .report-canvas-wrap,
         .report-canvas-wrap canvas {
           max-height: 420px;
+        }
+        /* The square donut charts grow proportionally too (kept aspect-ratio
+           1, so width is the only knob) — mirrors the trend charts' desktop
+           enlargement instead of staying pinned at the mobile 240 px. */
+        .donut-wrap {
+          max-width: 320px;
         }
       }
 

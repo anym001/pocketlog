@@ -360,6 +360,110 @@ def test_safe_strips_control_chars_and_truncates():
     assert out == "x" * 10 + "…"
 
 
+# ── recurring rules ──────────────────────────────────────────────────────
+
+
+def test_recurring_create_logs_audit(app, regular_user, caplog):
+    """A new rule emits an INFO event carrying only ids + structural
+    metadata — never the user-supplied free-text fields."""
+    from datetime import date, timedelta
+
+    client = _login(app, regular_user)
+    cat = client.post(
+        "/api/categories",
+        json={"name": "AuditCat", "icon": "house", "color": "#123456"},
+    ).json()["id"]
+    caplog.clear()
+    res = client.post(
+        "/api/recurring",
+        json={
+            "name": "AuditRule",
+            "amount": "9.99",
+            "type": "out",
+            "category_id": cat,
+            "desc": "",
+            "frequency": "monthly",
+            "interval": 1,
+            "day_of_month": 1,
+            "start_date": (date.today() + timedelta(days=30)).isoformat(),
+        },
+    )
+    assert res.status_code == 201, res.text
+    recs = [r for r in caplog.records if r.name == AUDIT]
+    create_recs = [r for r in recs if r.getMessage().startswith("recurring.create")]
+    assert len(create_recs) == 1
+    msg = create_recs[0].getMessage()
+    assert create_recs[0].levelno == logging.INFO
+    assert f"id={regular_user.id}" in msg
+    assert "rule_id=" in msg
+    assert "freq=monthly" in msg
+    assert "interval=1" in msg
+    assert "materialized=0" in msg
+    assert "ip=" in msg
+
+
+def test_recurring_audit_never_contains_user_free_text(
+    app, regular_user, caplog
+):
+    """Sentinel name / desc / amount must NOT appear in any audit
+    record. They're user-controlled free-text; logging them would
+    surprise an operator scanning logs for production debugging,
+    and a future leak into stderr/log files would be undetectable.
+    """
+    from datetime import date, timedelta
+
+    sentinel_name = "SECRET-RULE-NAME-AUDIT-XYZ"
+    sentinel_desc = "SECRET-RULE-DESC-AUDIT-XYZ"
+    sentinel_amount = "1234.56"
+
+    client = _login(app, regular_user)
+    cat = client.post(
+        "/api/categories",
+        json={"name": "AuditCat2", "icon": "house", "color": "#123456"},
+    ).json()["id"]
+    caplog.clear()
+    create = client.post(
+        "/api/recurring",
+        json={
+            "name": sentinel_name,
+            "amount": sentinel_amount,
+            "type": "out",
+            "category_id": cat,
+            "desc": sentinel_desc,
+            "frequency": "monthly",
+            "interval": 1,
+            "day_of_month": 1,
+            # Backdated so the catch-up runs and emits its own audit
+            # line. We want both code paths covered.
+            "start_date": (date.today() - timedelta(days=40)).isoformat(),
+        },
+    )
+    assert create.status_code == 201, create.text
+    rule_id = create.json()["rule"]["id"]
+    # Update + delete to exercise every audit emit site.
+    client.put(
+        f"/api/recurring/{rule_id}",
+        json={
+            "name": sentinel_name + "-2",
+            "amount": sentinel_amount,
+            "type": "out",
+            "category_id": cat,
+            "desc": sentinel_desc + "-2",
+            "frequency": "monthly",
+            "interval": 1,
+            "day_of_month": 1,
+            "start_date": (date.today() + timedelta(days=60)).isoformat(),
+        },
+    )
+    client.delete(f"/api/recurring/{rule_id}")
+
+    text = caplog.text
+    forbidden = [sentinel_name, sentinel_desc, sentinel_amount,
+                 sentinel_name + "-2", sentinel_desc + "-2"]
+    leaks = [tok for tok in forbidden if tok in text]
+    assert not leaks, f"user free-text leaked into audit log: {leaks!r}"
+
+
 # ── helpers ──────────────────────────────────────────────────────────────
 
 
