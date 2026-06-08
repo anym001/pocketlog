@@ -16,13 +16,8 @@ You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVEN
 - Delete affordance on `.tx-row` is swipe-to-reveal only (`.tx-action`); do not add hover/pointer-only delete buttons — the swipe action stays the single mechanism across all viewports
 - `[hidden]` traps (see "Sichtbarkeit & `[hidden]`-Attribut" in `DESIGN_CONVENTIONS.md`): if an element has both an HTML `hidden` attribute and a class that sets `display: …`, the class wins by specificity and `hidden` is a no-op — flag it and require an explicit `.foo[hidden] { display: none }` override. Conversely, if an element is shown/hidden via `data-state`/`class.open` toggles, it must NOT also carry a `hidden` attribute, because `[hidden]{display:none}` (browser default) defeats every transform/opacity transition
 
-**Tokens — the #1 mistake in this codebase**
-Read the `:root` block in `frontend/styles.css` for the full current token set. The categories are:
-- Colors exclusively via CSS variables (`--accent`, `--green`, `--red`, `--text`, `--bg-canvas`, etc.) — never hex/rgba/hsl literals
-- Accent shadows via `color-mix(in oklab, var(--accent) X%, transparent)` — never hardcoded rgba
-- Spacing only from `--space-*` scale
-- Font sizes only from `--fs-*` scale; icon sizes from `--fs-icon-*`
-- Border radius, shadows, z-index, animation durations, focus-ring — all from `--r-*`, `--shadow-*`, `--z-*`, `--dur-*`, `--focus-ring` tokens
+**Tokens**
+Flag obvious hardcoded hex/rgba/px values you notice during visual review. For an exhaustive token scan, trigger the `token-audit` agent separately — it reads `styles.css` `:root` and lists every violation by file and line.
 
 **Typography**
 - Only DM Serif Display and DM Sans — never Inter, Roboto, Arial, or system font stacks
