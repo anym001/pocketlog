@@ -1,4 +1,5 @@
 """Input/output validation tests for the CSV pipeline and tag bounds."""
+
 from __future__ import annotations
 
 import pytest

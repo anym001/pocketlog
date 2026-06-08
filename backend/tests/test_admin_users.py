@@ -1,5 +1,6 @@
 """Admin-Endpoints: User-Liste, anlegen, Passwort-Reset, deaktivieren,
 löschen — inklusive Self-/Admin-Schutz."""
+
 from __future__ import annotations
 
 import uuid
@@ -158,9 +159,7 @@ def test_admin_cannot_deactivate_other_admin(app, admin_client, db_session):
     assert res.json()["detail"] == "cannot_modify_admin"
 
 
-def test_admin_deactivate_then_activate_restores_login(
-    app, admin_client, regular_user
-):
+def test_admin_deactivate_then_activate_restores_login(app, admin_client, regular_user):
     # Deaktivieren
     res = admin_client.post(f"/api/admin/users/{regular_user.id}/deactivate")
     assert res.status_code == 204
@@ -184,9 +183,7 @@ def test_admin_deactivate_then_activate_restores_login(
     assert res.status_code == 200
 
 
-def test_admin_delete_user_cascades_data(
-    admin_client, regular_user, db_session
-):
+def test_admin_delete_user_cascades_data(admin_client, regular_user, db_session):
     """Löschen des Users cascadet auf seine Kategorien/Buchungen/Sessions
     (FK ON DELETE CASCADE) — die Row im users-table ist weg, und mindestens
     eine Child-Row, die vorher existiert hat, ist es auch."""
@@ -214,12 +211,18 @@ def test_admin_delete_user_cascades_data(
 
     db_session.expire_all()
     assert crud.get_user_by_id(db_session, target_id) is None
-    assert db_session.scalar(
-        select(models.Category).where(models.Category.user_id == target_id).limit(1)
-    ) is None
-    assert db_session.scalar(
-        select(models.Session).where(models.Session.user_id == target_id).limit(1)
-    ) is None
+    assert (
+        db_session.scalar(
+            select(models.Category).where(models.Category.user_id == target_id).limit(1)
+        )
+        is None
+    )
+    assert (
+        db_session.scalar(
+            select(models.Session).where(models.Session.user_id == target_id).limit(1)
+        )
+        is None
+    )
 
 
 def test_admin_delete_unknown_user_is_404(admin_client):

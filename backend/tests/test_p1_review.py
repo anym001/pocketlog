@@ -1,4 +1,5 @@
 """Regression guards for the P1 review fixes (2026-05-23)."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -44,6 +45,7 @@ def test_csv_import_integrity_error_returns_generic_message(monkeypatch, app):
 
         # Force ONLY the final commit inside import_csv to fail.
         from sqlalchemy.orm import Session
+
         monkeypatch.setattr(Session, "commit", boom)
 
         csv_text = (
@@ -74,7 +76,9 @@ def test_csv_import_integrity_error_returns_generic_message(monkeypatch, app):
         "duplicate entry",
     ]
     leaks = [token for token in forbidden if token in reasons]
-    assert not leaks, f"DB internals leaked into API error: {leaks!r} found in {reasons!r}"
+    assert not leaks, (
+        f"DB internals leaked into API error: {leaks!r} found in {reasons!r}"
+    )
 
 
 # ── P1-10: TransactionOut serialisation aliases ─────────────────────────────
@@ -93,7 +97,9 @@ def test_transaction_out_follows_alias_convention():
     uses_serialization_alias = any(
         f.serialization_alias is not None for f in TransactionOut.model_fields.values()
     )
-    assert uses_serialization_alias, "test premise broken: no serialization_alias on TransactionOut"
+    assert uses_serialization_alias, (
+        "test premise broken: no serialization_alias on TransactionOut"
+    )
 
     config = TransactionOut.model_config
     assert config.get("populate_by_name") is True, (
@@ -120,8 +126,12 @@ def test_transaction_out_serialises_description_as_desc():
     )
 
     dumped = instance.model_dump(by_alias=True)
-    assert "desc" in dumped, "TransactionOut must serialise description as 'desc' for the frontend"
-    assert "description" not in dumped, "alias must replace the field name when by_alias=True"
+    assert "desc" in dumped, (
+        "TransactionOut must serialise description as 'desc' for the frontend"
+    )
+    assert "description" not in dumped, (
+        "alias must replace the field name when by_alias=True"
+    )
     assert dumped["desc"] == "Brot"
 
     plain = instance.model_dump()

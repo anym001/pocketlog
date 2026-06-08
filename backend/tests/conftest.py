@@ -5,6 +5,7 @@ URL is set before any ``app.*`` module is imported, so the engine in
 ``app.database`` resolves to SQLite. ``SESSION_COOKIE_SECURE=0`` is set
 so test cookies survive the HTTP TestClient (which doesn't speak TLS).
 """
+
 import os
 import uuid
 from pathlib import Path

@@ -11,6 +11,7 @@ login.
 
 Output is English only: this is operator tooling, not end-user UI.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,8 +36,7 @@ def _resolve_target_user(db, username: str | None):
     admins = [u for u in crud.list_all_users(db) if u.is_admin]
     if not admins:
         print(
-            "No admin in the database. Use setup mode "
-            "(GET /api/auth/setup-status).",
+            "No admin in the database. Use setup mode (GET /api/auth/setup-status).",
             file=sys.stderr,
         )
         return None

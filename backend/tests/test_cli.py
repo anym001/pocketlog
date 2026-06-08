@@ -7,6 +7,7 @@ weil die Force-Change-View die ``current_password``-Verifikation
 überspringt und ein noch lebender Session-Hijack sonst das frische
 Passwort selbst setzen könnte.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -33,9 +34,12 @@ def test_cli_reset_admin_password_happy_path(db_session, monkeypatch):
     auth.create_session(db_session, user, remember_me=False, user_agent=None)
     db_session.commit()
 
-    assert db_session.scalar(
-        select(models.Session).where(models.Session.user_id == user.id).limit(1)
-    ) is not None
+    assert (
+        db_session.scalar(
+            select(models.Session).where(models.Session.user_id == user.id).limit(1)
+        )
+        is not None
+    )
 
     # CLI gegen den Default-SessionLocal patchen, sodass es auf
     # unsere Test-Engine zeigt statt auf die echte App-DB.
@@ -45,11 +49,15 @@ def test_cli_reset_admin_password_happy_path(db_session, monkeypatch):
     # daher explizit den Username an, damit der CLI nicht abbricht. Der
     # Multi-Admin-Fehlerpfad wird separat geprüft.
     new_password = "Recovery-password-2026"
-    rc = cli.main([
-        "reset-admin-password",
-        "--username", user.username,
-        "--password", new_password,
-    ])
+    rc = cli.main(
+        [
+            "reset-admin-password",
+            "--username",
+            user.username,
+            "--password",
+            new_password,
+        ]
+    )
     assert rc == 0
 
     db_session.expire_all()
@@ -60,9 +68,12 @@ def test_cli_reset_admin_password_happy_path(db_session, monkeypatch):
     assert refreshed.lockout_until is None
     assert auth.verify_password(new_password, refreshed.password_hash)
     # Sessions weg — das ist der eigentliche Sicherheits-Check.
-    assert db_session.scalar(
-        select(models.Session).where(models.Session.user_id == user.id).limit(1)
-    ) is None
+    assert (
+        db_session.scalar(
+            select(models.Session).where(models.Session.user_id == user.id).limit(1)
+        )
+        is None
+    )
 
 
 def test_cli_reset_admin_password_too_short_rejected(db_session, monkeypatch, capsys):
@@ -77,11 +88,15 @@ def test_cli_reset_admin_password_too_short_rejected(db_session, monkeypatch, ca
 
     monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
 
-    rc = cli.main([
-        "reset-admin-password",
-        "--username", user.username,
-        "--password", "too-short",
-    ])
+    rc = cli.main(
+        [
+            "reset-admin-password",
+            "--username",
+            user.username,
+            "--password",
+            "too-short",
+        ]
+    )
     assert rc == 1
 
     db_session.expire_all()
@@ -91,25 +106,31 @@ def test_cli_reset_admin_password_too_short_rejected(db_session, monkeypatch, ca
 
 def test_cli_reset_unknown_user_returns_1(db_session, monkeypatch):
     monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
-    rc = cli.main([
-        "reset-admin-password",
-        "--username", f"no-such-user-{uuid.uuid4().hex[:8]}",
-        "--password", "Valid-password-2026",
-    ])
+    rc = cli.main(
+        [
+            "reset-admin-password",
+            "--username",
+            f"no-such-user-{uuid.uuid4().hex[:8]}",
+            "--password",
+            "Valid-password-2026",
+        ]
+    )
     assert rc == 1
 
 
 def test_cli_output_is_english(db_session, monkeypatch, capsys):
     """Operator CLI is English-only — no German leaks into operator output."""
     monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
-    rc = cli.main([
-        "reset-admin-password",
-        "--username", f"no-such-user-{uuid.uuid4().hex[:8]}",
-        "--password", "Valid-password-2026",
-    ])
+    rc = cli.main(
+        [
+            "reset-admin-password",
+            "--username",
+            f"no-such-user-{uuid.uuid4().hex[:8]}",
+            "--password",
+            "Valid-password-2026",
+        ]
+    )
     assert rc == 1
     err = capsys.readouterr().err
     assert "not found" in err
     assert "nicht gefunden" not in err
-
-

@@ -4,6 +4,7 @@ for auth and admin actions, at the right level and WITHOUT leaking secrets.
 These are the operator's only audit trail (no DB audit table), so we pin both
 the presence/level of events and the absence of credentials in the output.
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,9 +50,7 @@ def test_uvicorn_loggers_use_unified_format(app):
     for name in ("pocketlog", "uvicorn", "uvicorn.error", "uvicorn.access"):
         lg = logging.getLogger(name)
         assert lg.propagate is False, f"{name} should not propagate"
-        formats = {
-            h.formatter._fmt for h in lg.handlers if h.formatter is not None
-        }
+        formats = {h.formatter._fmt for h in lg.handlers if h.formatter is not None}
         assert _TEXT_FORMAT in formats, (
             f"{name} has no handler using the unified format; got {formats}"
         )
@@ -316,8 +315,7 @@ def test_log_file_writes_and_rotates(tmp_path, monkeypatch):
     try:
         logging_config._attach_file_handler(logging.INFO)
         file_handlers = [
-            h for h in plog.handlers
-            if isinstance(h, handlers_mod.RotatingFileHandler)
+            h for h in plog.handlers if isinstance(h, handlers_mod.RotatingFileHandler)
         ]
         assert file_handlers, "expected a RotatingFileHandler on pocketlog"
         fh = file_handlers[-1]
@@ -404,9 +402,7 @@ def test_recurring_create_logs_audit(app, regular_user, caplog):
     assert "ip=" in msg
 
 
-def test_recurring_audit_never_contains_user_free_text(
-    app, regular_user, caplog
-):
+def test_recurring_audit_never_contains_user_free_text(app, regular_user, caplog):
     """Sentinel name / desc / amount must NOT appear in any audit
     record. They're user-controlled free-text; logging them would
     surprise an operator scanning logs for production debugging,
@@ -460,8 +456,13 @@ def test_recurring_audit_never_contains_user_free_text(
     client.delete(f"/api/recurring/{rule_id}")
 
     text = caplog.text
-    forbidden = [sentinel_name, sentinel_desc, sentinel_amount,
-                 sentinel_name + "-2", sentinel_desc + "-2"]
+    forbidden = [
+        sentinel_name,
+        sentinel_desc,
+        sentinel_amount,
+        sentinel_name + "-2",
+        sentinel_desc + "-2",
+    ]
     leaks = [tok for tok in forbidden if tok in text]
     assert not leaks, f"user free-text leaked into audit log: {leaks!r}"
 

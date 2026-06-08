@@ -4,3 +4,6 @@
 
 pytest==9.0.3
 httpx==0.28.1
+
+# Lint + format. Pinned so CI and local runs agree on formatting decisions.
+ruff==0.15.16

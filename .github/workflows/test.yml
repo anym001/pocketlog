@@ -9,6 +9,23 @@ on:
   workflow_call:
 
 jobs:
+  lint-backend:
+    # Static gate: ruff lint + format check on the backend. Catches style and
+    # import regressions before they reach review. No app boot, so it's fast.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.15.16
+      - name: ruff check
+        run: ruff check .
+        working-directory: backend
+      - name: ruff format --check
+        run: ruff format --check .
+        working-directory: backend
+
   test-sqlite:
     # Full pytest suite on the default SQLite backend (also runs all
     # migrations against SQLite via the conftest session fixture).

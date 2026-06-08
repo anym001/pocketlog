@@ -15,6 +15,7 @@ next_occurrence_date <= today``) so the "trigger" is the next time
 the user opens the app. See ``main.auth_me`` and
 ``main.get_transactions`` for the call sites.
 """
+
 from __future__ import annotations
 
 import calendar
@@ -44,6 +45,7 @@ logger = logging.getLogger("pocketlog.api")
 
 # ---------- pure date math ----------
 
+
 def _clamp_day(year: int, month: int, day_of_month: int) -> date_type:
     """Return ``date(year, month, min(day_of_month, last_day))``.
 
@@ -72,15 +74,10 @@ def _terminated_by_count(rule: models.RecurringRule) -> bool:
     # so create_recurring_rule can ask "is this rule already over"
     # before the row exists.
     count = rule.occurrences_count or 0
-    return (
-        rule.max_occurrences is not None
-        and count >= rule.max_occurrences
-    )
+    return rule.max_occurrences is not None and count >= rule.max_occurrences
 
 
-def _terminated_by_date(
-    rule: models.RecurringRule, candidate: date_type
-) -> bool:
+def _terminated_by_date(rule: models.RecurringRule, candidate: date_type) -> bool:
     return rule.end_date is not None and candidate > rule.end_date
 
 
@@ -108,6 +105,7 @@ def first_occurrence_on_or_after(
         # weekday() is Mon=0 .. Sun=6 — matches our 0..6 storage.
         days_ahead = (target_weekday - anchor.weekday()) % 7
         from datetime import timedelta
+
         candidate = anchor + timedelta(days=days_ahead)
     else:
         # monthly / quarterly / yearly: clamp the requested
@@ -135,9 +133,7 @@ def _frequency_step_months(frequency: str) -> int:
     raise ValueError(f"not a month-based frequency: {frequency}")
 
 
-def next_occurrence(
-    rule: models.RecurringRule, after: date_type
-) -> date_type | None:
+def next_occurrence(rule: models.RecurringRule, after: date_type) -> date_type | None:
     """Next occurrence *strictly* after ``after``.
 
     Honours ``interval`` (every N units), ``weekday`` for weekly,
@@ -209,7 +205,8 @@ def occurrences_until(
         if safety > limit * 4 + 100:
             logger.error(
                 "recurring.runaway_walk rule_id=%s cursor=%s",
-                rule.id, cursor,
+                rule.id,
+                cursor,
             )
             break
         if cursor in skips:
@@ -228,7 +225,10 @@ def occurrences_until(
 
 # ---------- materialization engine ----------
 
-def _due_rules(db: Session, user_id: int, today: date_type) -> list[models.RecurringRule]:
+
+def _due_rules(
+    db: Session, user_id: int, today: date_type
+) -> list[models.RecurringRule]:
     """Pull all rules whose cursor falls on/before today.
 
     Eager-loads tags + skips so the loop below does no extra queries
@@ -335,7 +335,8 @@ def materialize_due(
                 # silently and let the cursor advance as usual.
                 logger.debug(
                     "recurring.race_skipped rule_id=%s date=%s",
-                    rule.id, d,
+                    rule.id,
+                    d,
                 )
                 continue
             inserted += 1
@@ -380,9 +381,7 @@ def catch_up_safely(
     try:
         return materialize_due(db, user, today, limit=limit)
     except Exception:
-        logger.exception(
-            "recurring.catch_up_failed user=%d", user.id
-        )
+        logger.exception("recurring.catch_up_failed user=%d", user.id)
         try:
             db.rollback()
         except Exception:

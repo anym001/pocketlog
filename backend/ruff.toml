@@ -8,6 +8,11 @@
 line-length = 88
 target-version = "py312"
 
+# Alembic migrations are generated and frozen once applied. Their import
+# order, `typing.Union` boilerplate and layout match the generator template,
+# so ruff leaves them untouched entirely (lint and format).
+extend-exclude = ["migrations"]
+
 [lint]
 # E/W: pycodestyle, F: Pyflakes, I: isort, UP: pyupgrade, B: flake8-bugbear.
 select = ["E", "W", "F", "I", "UP", "B"]
@@ -15,9 +20,3 @@ select = ["E", "W", "F", "I", "UP", "B"]
 # refactor reshapes that error handling on its own terms, so we don't force
 # the chaining annotation here.
 ignore = ["B904"]
-
-[lint.per-file-ignores]
-# Migrations are Alembic-generated and frozen once applied; their import
-# order, unused `sa`/`op` helpers and `typing.Union` boilerplate match the
-# generator template, so we don't rewrite them.
-"migrations/*" = ["F401", "I001", "UP"]

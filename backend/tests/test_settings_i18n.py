@@ -64,8 +64,7 @@ def test_create_user_seeds_categories_by_locale_bundle(db_session):
         currency="USD",
     )
     names = {
-        c.name
-        for c in db_session.query(models.Category).filter_by(user_id=user.id)
+        c.name for c in db_session.query(models.Category).filter_by(user_id=user.id)
     }
     assert "Groceries" in names
     assert "Lebensmittel" not in names
@@ -86,8 +85,7 @@ def test_de_at_seeds_german_categories(db_session):
         locale="de-AT",
     )
     names = {
-        c.name
-        for c in db_session.query(models.Category).filter_by(user_id=user.id)
+        c.name for c in db_session.query(models.Category).filter_by(user_id=user.id)
     }
     assert "Lebensmittel" in names  # de-AT -> de bundle
 
@@ -107,8 +105,7 @@ def test_admin_created_user_inherits_admin_locale(admin_client, db_session):
     assert settings.locale == "en-US"
     assert settings.currency == "USD"
     names = {
-        c.name
-        for c in db_session.query(models.Category).filter_by(user_id=new_id)
+        c.name for c in db_session.query(models.Category).filter_by(user_id=new_id)
     }
     assert "Groceries" in names
 
