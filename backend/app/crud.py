@@ -10,7 +10,7 @@ from sqlalchemy import and_, case, delete, extract, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import auth, models, schemas
+from . import auth, exceptions, models, schemas
 
 logger = logging.getLogger("pocketlog.crud")
 
@@ -307,7 +307,7 @@ def delete_category(db: Session, user_id: int, category_id: int) -> bool:
         .limit(1)
     )
     if in_use is not None:
-        raise ValueError("category_in_use")
+        raise exceptions.CategoryInUseError()
     # A goal references exactly one category; deleting it out from under a
     # goal would orphan the tracker (CASCADE would silently drop the goal).
     # Block instead — symmetric with the transaction guard above; the user
@@ -316,7 +316,7 @@ def delete_category(db: Session, user_id: int, category_id: int) -> bool:
         select(models.Goal.id).where(models.Goal.category_id == category_id).limit(1)
     )
     if has_goal is not None:
-        raise ValueError("category_has_goal")
+        raise exceptions.CategoryHasGoalError()
     # A recurring rule references a category with ON DELETE RESTRICT —
     # without this guard the FK would fail later with an opaque
     # IntegrityError. The user must delete the rule first.
@@ -326,7 +326,7 @@ def delete_category(db: Session, user_id: int, category_id: int) -> bool:
         .limit(1)
     )
     if has_rule is not None:
-        raise ValueError("category_has_recurring_rule")
+        raise exceptions.CategoryHasRecurringRuleError()
     db.delete(cat)
     db.commit()
     return True
@@ -363,7 +363,7 @@ def _owned_category_exists(db: Session, user_id: int, category_id: int) -> bool:
 
 def create_goal(db: Session, user_id: int, payload: schemas.GoalCreate) -> models.Goal:
     if not _owned_category_exists(db, user_id, payload.category_id):
-        raise ValueError("category_not_found")
+        raise exceptions.CategoryNotFoundError()
     goal = models.Goal(user_id=user_id, **payload.model_dump())
     db.add(goal)
     try:
@@ -392,7 +392,7 @@ def update_goal(
     if goal is None:
         return None
     if not _owned_category_exists(db, user_id, payload.category_id):
-        raise ValueError("category_not_found")
+        raise exceptions.CategoryNotFoundError()
     for k, v in payload.model_dump().items():
         setattr(goal, k, v)
     try:
@@ -518,11 +518,11 @@ def create_recurring_rule(
     from . import recurring as recurring_mod
 
     if not _check_category_owned(db, user_id, payload.category_id):
-        raise ValueError("category_not_found")
+        raise exceptions.CategoryNotFoundError()
 
     earliest = _subtract_months(today, recurring_mod.MAX_BACKDATE_MONTHS)
     if payload.start_date < earliest:
-        raise ValueError("backdate_too_far")
+        raise exceptions.BackdateTooFarError()
 
     rule = models.RecurringRule(user_id=user_id)
     _apply_rule_fields(rule, payload)
@@ -574,7 +574,7 @@ def update_recurring_rule(
     if rule is None:
         return None
     if not _check_category_owned(db, user_id, payload.category_id):
-        raise ValueError("category_not_found")
+        raise exceptions.CategoryNotFoundError()
 
     _apply_rule_fields(rule, payload)
     rule.tags = _resolve_tags(db, user_id, payload.tags)
@@ -800,7 +800,7 @@ def create_transaction(
     db: Session, user_id: int, payload: schemas.TransactionCreate
 ) -> models.Transaction:
     if not _check_category_owned(db, user_id, payload.category_id):
-        raise ValueError("unknown_category")
+        raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
     tx = models.Transaction(user_id=user_id, **data)
@@ -825,7 +825,7 @@ def update_transaction(
     if tx is None:
         return None
     if not _check_category_owned(db, user_id, payload.category_id):
-        raise ValueError("unknown_category")
+        raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
     for k, v in data.items():
@@ -886,7 +886,7 @@ def _find_tag_by_name(db: Session, user_id: int, name: str) -> models.Tag | None
 def create_tag(db: Session, user_id: int, name: str) -> models.Tag:
     name = (name or "").strip()
     if not name:
-        raise ValueError("empty_name")
+        raise exceptions.EmptyNameError()
     tag = models.Tag(user_id=user_id, name=name[:64])
     db.add(tag)
     try:
@@ -902,7 +902,7 @@ def rename_tag(db: Session, user_id: int, old_name: str, new_name: str) -> int:
     old_name = (old_name or "").strip()
     new_name = (new_name or "").strip()
     if not old_name or not new_name:
-        raise ValueError("empty_name")
+        raise exceptions.EmptyNameError()
 
     old_tag = _find_tag_by_name(db, user_id, old_name)
     if old_tag is None:

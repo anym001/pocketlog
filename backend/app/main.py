@@ -15,13 +15,13 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from . import auth, crud, models, recurring, schemas
+from . import auth, crud, exceptions, models, recurring, schemas
 from .database import get_db
 from .logging_config import client_ip, configure_logging, safe
 
@@ -57,6 +57,19 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/api/openapi.json" if DOCS_ENABLED else None,
 )
+
+
+@app.exception_handler(exceptions.DomainError)
+async def _domain_error_handler(
+    request: Request, exc: exceptions.DomainError
+) -> JSONResponse:
+    """Map any domain-level business-rule violation to its HTTP response.
+
+    Status and detail come straight off the exception, so the response is
+    identical to the former per-endpoint ``HTTPException`` mapping — and the
+    frontend's machine-readable error contract is unchanged.
+    """
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 # Content-Security-Policy — set in the backend because SWAG's ssl.conf does
@@ -768,16 +781,9 @@ def put_category(
 
 @app.delete("/api/categories/{category_id}", status_code=204)
 def remove_category(category_id: int, user: CurrentUser, db: DB):
-    try:
-        ok = crud.delete_category(db, user.id, category_id)
-    except ValueError as e:
-        if str(e) == "category_in_use":
-            raise HTTPException(status_code=409, detail="category in use")
-        if str(e) == "category_has_goal":
-            raise HTTPException(status_code=409, detail="category has goal")
-        if str(e) == "category_has_recurring_rule":
-            raise HTTPException(status_code=409, detail="category has recurring rule")
-        raise
+    # In-use / has-goal / has-recurring-rule are raised as DomainErrors and
+    # mapped to 409 by the global handler.
+    ok = crud.delete_category(db, user.id, category_id)
     if not ok:
         raise HTTPException(status_code=404, detail="not found")
     return Response(status_code=204)
@@ -797,10 +803,6 @@ def get_goals(user: CurrentUser, db: DB):
 def post_goal(payload: schemas.GoalCreate, user: CurrentUser, db: DB):
     try:
         return crud.create_goal(db, user.id, payload)
-    except ValueError as e:
-        if str(e) == "category_not_found":
-            raise HTTPException(status_code=422, detail="category not found")
-        raise
     except IntegrityError:
         raise HTTPException(status_code=409, detail="goal exists for category")
 
@@ -814,10 +816,6 @@ def put_goal(
 ):
     try:
         goal = crud.update_goal(db, user.id, goal_id, payload)
-    except ValueError as e:
-        if str(e) == "category_not_found":
-            raise HTTPException(status_code=422, detail="category not found")
-        raise
     except IntegrityError:
         raise HTTPException(status_code=409, detail="goal exists for category")
     if goal is None:
@@ -861,13 +859,6 @@ def post_recurring(
         rule, count = crud.create_recurring_rule(
             db, user.id, payload, today=date_type.today()
         )
-    except ValueError as e:
-        code = str(e)
-        if code == "category_not_found":
-            raise HTTPException(status_code=422, detail="category not found")
-        if code == "backdate_too_far":
-            raise HTTPException(status_code=422, detail="backdate too far")
-        raise
     except IntegrityError:
         raise HTTPException(status_code=409, detail="rule name exists")
     audit.info(
@@ -898,10 +889,6 @@ def put_recurring(
 ):
     try:
         rule = crud.update_recurring_rule(db, user.id, rule_id, payload)
-    except ValueError as e:
-        if str(e) == "category_not_found":
-            raise HTTPException(status_code=422, detail="category not found")
-        raise
     except IntegrityError:
         raise HTTPException(status_code=409, detail="rule name exists")
     if rule is None:
@@ -1002,10 +989,8 @@ def get_transactions(
     status_code=201,
 )
 def post_transaction(payload: schemas.TransactionCreate, user: CurrentUser, db: DB):
-    try:
-        return crud.create_transaction(db, user.id, payload)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # A foreign category raises UnknownCategoryError -> 400 (global handler).
+    return crud.create_transaction(db, user.id, payload)
 
 
 @app.put(
@@ -1019,10 +1004,7 @@ def put_transaction(
     user: CurrentUser,
     db: DB,
 ):
-    try:
-        tx = crud.update_transaction(db, user.id, tx_id, payload)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    tx = crud.update_transaction(db, user.id, tx_id, payload)
     if tx is None:
         raise HTTPException(status_code=404, detail="not found")
     return tx
@@ -1049,8 +1031,6 @@ def get_tags(user: CurrentUser, db: DB):
 def post_tag(payload: schemas.TagCreate, user: CurrentUser, db: DB):
     try:
         tag = crud.create_tag(db, user.id, payload.name)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except IntegrityError:
         raise HTTPException(status_code=409, detail="tag exists")
     return {"name": tag.name}
@@ -1060,8 +1040,6 @@ def post_tag(payload: schemas.TagCreate, user: CurrentUser, db: DB):
 def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
     try:
         affected = crud.rename_tag(db, user.id, name, payload.new_name)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except IntegrityError:
         raise HTTPException(status_code=409, detail="tag exists")
     return {"affected": affected}
