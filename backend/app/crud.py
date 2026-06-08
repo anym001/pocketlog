@@ -10,7 +10,7 @@ from sqlalchemy import and_, case, delete, extract, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import auth, exceptions, models, schemas
+from . import auth, constants, exceptions, models, schemas
 
 logger = logging.getLogger("pocketlog.crud")
 
@@ -1038,8 +1038,6 @@ _TYPE_ALIASES = {
     "ausgaben": "out",
 }
 
-_DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%Y/%m/%d")
-
 
 def _norm_key(k: str | None) -> str:
     return (k or "").strip().lstrip("﻿").lower()
@@ -1057,7 +1055,7 @@ class CsvRowError(ValueError):
 
 
 def _parse_date(s: str) -> date_type:
-    for fmt in _DATE_FORMATS:
+    for fmt in constants.DATE_FORMATS:
         try:
             return datetime.strptime(s, fmt).date()
         except ValueError:
@@ -1155,7 +1153,9 @@ def _build_transaction(
     return tx
 
 
-def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> dict:
+def import_csv(
+    db: Session, user_id: int, text: str, max_rows: int = constants.MAX_IMPORT_ROWS
+) -> dict:
     # Auto-detect delimiter (; , \t)
     sample = text[:4096]
     try:

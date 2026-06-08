@@ -29,6 +29,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 
 from . import models
+from .constants import LOCKOUT_MAX_SECONDS, LOCKOUT_THRESHOLD
 
 # ---------------------------------------------------------------------
 # Passwort-Hashing
@@ -253,14 +254,8 @@ def cleanup_expired_sessions(db: DbSession) -> int:
 # Brute-Force-Backoff
 # ---------------------------------------------------------------------
 
-# Erst ab dem N-ten Fehlversuch greift das Backoff. Vorher zählt die
-# App nur — damit der gelegentliche „Vertippt"-Fall keinen Lockout
-# auslöst.
-LOCKOUT_THRESHOLD = 5
-# Caps: Backoff verdoppelt sich, bis maximal 60s. Schmal genug um
-# legitime User nicht zu blockieren, breit genug um automatisierte
-# Probing-Tools auszubremsen.
-LOCKOUT_MAX_SECONDS = 60
+# Brute-force backoff knobs (LOCKOUT_THRESHOLD / LOCKOUT_MAX_SECONDS) live in
+# app.constants and are imported at the top of this module.
 
 
 def current_lockout_seconds(user: models.User) -> int | None:
