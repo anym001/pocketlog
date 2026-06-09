@@ -25,10 +25,8 @@ try {
   localStorage.removeItem('pocketlog.apiBase');
 } catch (e) {}
 
-let currentMonth = new Date().getMonth();
-let currentYear = new Date().getFullYear();
-let currentType = 'out';
-let currentTags = [];
+// Currently displayed period (appState.view.{month,year}) and the booking-form
+// draft (appState.form.{type,tags}) live in state.js.
 
 // ── REPORTS-STATE ─────────────────────────────────────────────────────────────
 // Welche Auswertung gerade aktiv ist (Quelle der Wahrheit für panel-charts).
@@ -48,45 +46,33 @@ const REPORT_TITLE_KEYS = {
   top: 'reports.top',
 };
 const reportTitle = (id) => tr(REPORT_TITLE_KEYS[id] || 'reports.overview');
-let currentReport = (() => {
+// Reports state lives in appState.reports (state.js). `current` (the active
+// report) is restored from localStorage here, defaulting to 'overview'; the
+// `range` (period picker) and `rangeLock` (optional 'month'/'year' lock that
+// pins the picker for reports only meaningful at one granularity; null = free)
+// keep their identical defaults from state.js.
+appState.reports.current = (() => {
   const v = localStorage.getItem(REPORT_STORAGE_KEY);
   return REPORT_IDS.includes(v) ? v : 'overview';
 })();
-const _today = new Date();
-let reportRange = {
-  kind: 'month',
-  anchor: {
-    y: _today.getFullYear(),
-    m: _today.getMonth(),
-    q: Math.floor(_today.getMonth() / 3),
-  },
-  from: '',
-  to: '',
-};
-// Optionaler Lock: 'month' oder 'year' erzwingt den Picker-Modus für Reports,
-// die nur in dieser Granularität sinnvoll sind. null = frei wählbar.
-let _rangeLock = null;
 // Chart.js-Instanzen pro Report, getrennt damit destroy() keine fremde Instanz trifft.
 const chartInsts = { month: null, year: null, categories: null, tags: null, trend: null };
 
 // ── TREND-STATE ───────────────────────────────────────────────────────────────
 const TREND_STORAGE_KEY = 'pocketlog.trend';
 const TREND_RANGE_KEY = 'pocketlog.trend.range';
-let _trendKind = 'category'; // 'category' | 'tag'
-let _trendSelection = []; // ['cat:42'] heute, später bis zu 3
-let _trendPickerOpen = false;
-let _trendPickerFilter = '';
-let _earliestTxDate = null; // Session-Cache
-let _trendYearFrom = null; // integer, z.B. 2022
-let _trendYearTo = null; // integer, z.B. 2026
+// Trend chart state lives in appState.trend (state.js): kind ('category'|'tag'),
+// selection (['cat:42'], up to 3), pickerOpen, pickerFilter, earliestTxDate
+// (session cache), yearFrom / yearTo (integers). The IIFE below restores
+// kind/selection/year range from localStorage into appState.trend.
 (function _restoreTrendState() {
   try {
     const raw = localStorage.getItem(TREND_STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      if (s.kind === 'category' || s.kind === 'tag') _trendKind = s.kind;
+      if (s.kind === 'category' || s.kind === 'tag') appState.trend.kind = s.kind;
       if (Array.isArray(s.selection)) {
-        _trendSelection = s.selection
+        appState.trend.selection = s.selection
           .filter((e) => typeof e === 'string' && (e.startsWith('cat:') || e.startsWith('tag:')))
           .slice(0, 3);
       }
@@ -97,8 +83,8 @@ let _trendYearTo = null; // integer, z.B. 2026
     if (raw) {
       const r = JSON.parse(raw);
       if (r && Number.isInteger(r.yearFrom) && Number.isInteger(r.yearTo)) {
-        _trendYearFrom = r.yearFrom;
-        _trendYearTo = r.yearTo;
+        appState.trend.yearFrom = r.yearFrom;
+        appState.trend.yearTo = r.yearTo;
       }
     }
   } catch (e) {}
@@ -108,16 +94,16 @@ const _txCacheByYear = new Map();
 function invalidateReportCache() {
   _txCacheByYear.clear();
 }
-// Beim Drill-Down aus der Kategorienanalyse merken, wohin „Abbrechen" zurückspringt.
-let _searchExitTarget = null;
-// Letzte vom aktiven Report geladene Transaktionen — wird von editTransaction
-// konsultiert, damit ein Klick auf eine Top-Liste die echte Buchung findet
-// (nicht nur die des aktuellen Monats aus der Transaktions-View).
-let _reportTxPool = null;
+// appState.reports.searchExitTarget — drill-down from the category analysis
+// remembers where „Abbrechen" jumps back to. appState.reports.txPool — the
+// last transactions loaded by the active report, consulted by editTransaction
+// so a click on a top list finds the real booking (not just the current
+// month's from the transactions view). Both default in state.js.
 
-let transactions = []; // wird per API geladen
-let categories = []; // wird per API geladen
-let availableTags = []; // distinkte Tags des Users (alphabetisch sortiert)
+// Core ledger data lives in appState.ledger (state.js): transactions (the
+// current view's slice, loaded per API), categories (loaded per API),
+// appState.ledger.availableTags (the user's distinct tags, alphabetical) and `all` (the full
+// pool used by search). `appState.ledger.all` below maps to appState.ledger.all.
 const tagCounts = new Map(); // tag-name (case-folded) → Anzahl Verwendungen
 
 // ── API HELPER ────────────────────────────────────────────────────────────────
@@ -302,20 +288,19 @@ const fmtCurrency = (n) =>
 // Month names are derived from the active locale via Intl rather than
 // hardcoded, so they follow the language setting. Rebuilt on startup
 // and on every i18n:changed (see registerI18nListener).
-let MONTHS = [];
-let MONTHS_SHORT = [];
+// Localised month names live in appState.calendar.{months,monthsShort} (state.js).
 function rebuildMonthNames() {
   const loc = _locale();
   const long = new Intl.DateTimeFormat(loc, { month: 'long' });
   const short = new Intl.DateTimeFormat(loc, { month: 'short' });
-  MONTHS = [];
-  MONTHS_SHORT = [];
+  appState.calendar.months = [];
+  appState.calendar.monthsShort = [];
   for (let m = 0; m < 12; m++) {
     const d = new Date(2021, m, 1);
-    MONTHS.push(long.format(d));
+    appState.calendar.months.push(long.format(d));
     // Some locales append a dot to the short month ("Jan."); drop it
     // for the compact chart axis labels.
-    MONTHS_SHORT.push(short.format(d).replace(/\.$/, ''));
+    appState.calendar.monthsShort.push(short.format(d).replace(/\.$/, ''));
   }
 }
 rebuildMonthNames();
@@ -414,26 +399,21 @@ function confirmAction({
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
-let _activePanel = 'transactions';
-// Timestamp of the last booking-modal open; guards closeModalOutside
-// against the ghost click that trails a tap which opened it.
-let _bookingModalOpenedAt = 0;
-let _searchQuery = '';
-let _allTransactions = null;
-// Exact category filter set when the user taps the "more" icon on a
-// category row. Mutually exclusive with text search — typing in the
-// search input clears it (`onSearch`).
-let _categoryFilterId = null;
-// Exact tag filter set when the user drills down from the tag analysis.
-// Mutually exclusive with text search and category filter.
-let _tagFilterName = null;
+// Navigation / cross-cutting UI state lives in appState.nav (state.js):
+//   activePanel; bookingModalOpenedAt (timestamp of the last booking-modal
+//   open, guards closeModalOutside against the ghost click that trails the tap
+//   which opened it); searchQuery; categoryFilterId (set when the user taps the
+//   "more" icon on a category row — mutually exclusive with text search, which
+//   clears it in onSearch); tagFilterName (drill-down from the tag analysis,
+//   mutually exclusive with text search and category filter); infoPanelSeq;
+//   goalRelayoutTimer.
 
 function _resetSearch() {
-  _searchQuery = '';
-  _categoryFilterId = null;
-  _tagFilterName = null;
-  _allTransactions = null;
-  _searchExitTarget = null;
+  appState.nav.searchQuery = '';
+  appState.nav.categoryFilterId = null;
+  appState.nav.tagFilterName = null;
+  appState.ledger.all = null;
+  appState.reports.searchExitTarget = null;
   document.body.classList.remove('searching');
   document.getElementById('searchInput').value = '';
   const fab = document.querySelector('.fab');
@@ -446,12 +426,17 @@ function _resetSearch() {
 }
 
 function showPanel(id) {
-  if (_searchQuery || _categoryFilterId != null || _tagFilterName != null) _resetSearch();
-  _activePanel = id;
+  if (
+    appState.nav.searchQuery ||
+    appState.nav.categoryFilterId != null ||
+    appState.nav.tagFilterName != null
+  )
+    _resetSearch();
+  appState.nav.activePanel = id;
   document.body.classList.toggle('in-report', id === 'charts');
   document.body.classList.toggle('on-goals', id === 'goals');
   document.body.classList.toggle('on-recurring', id === 'recurring');
-  if (id !== 'charts') _reportTxPool = null;
+  if (id !== 'charts') appState.reports.txPool = null;
   document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   document.querySelectorAll('.drawer-nav-item[data-panel]').forEach((btn) => {
@@ -469,13 +454,15 @@ function showPanel(id) {
 // Charts-Panel.
 function openReport(id) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
-  if (id === 'trend') _trendPickerOpen = false;
-  currentReport = id;
+  if (id === 'trend') appState.trend.pickerOpen = false;
+  appState.reports.current = id;
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
   } catch (e) {}
-  if (id === 'month' && reportRange.kind !== 'month') setRangeKind('month', { skipRender: true });
-  if (id === 'year' && reportRange.kind !== 'year') setRangeKind('year', { skipRender: true });
+  if (id === 'month' && appState.reports.range.kind !== 'month')
+    setRangeKind('month', { skipRender: true });
+  if (id === 'year' && appState.reports.range.kind !== 'year')
+    setRangeKind('year', { skipRender: true });
   showPanel('charts');
 }
 
@@ -653,14 +640,14 @@ function releaseFocusTrap(key) {
 }
 
 function changeMonth(d) {
-  currentMonth += d;
-  if (currentMonth > 11) {
-    currentMonth = 0;
-    currentYear++;
+  appState.view.month += d;
+  if (appState.view.month > 11) {
+    appState.view.month = 0;
+    appState.view.year++;
   }
-  if (currentMonth < 0) {
-    currentMonth = 11;
-    currentYear--;
+  if (appState.view.month < 0) {
+    appState.view.month = 11;
+    appState.view.year--;
   }
   loadAndRender();
 }
@@ -673,30 +660,39 @@ function normalizeTx(t) {
 }
 
 async function loadAndRender() {
-  document.getElementById('monthLabel').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
+  document.getElementById('monthLabel').textContent =
+    `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
   try {
-    const raw = await api('GET', `/transactions?year=${currentYear}&month=${currentMonth + 1}`);
-    transactions = raw.map(normalizeTx);
+    const raw = await api(
+      'GET',
+      `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`,
+    );
+    appState.ledger.transactions = raw.map(normalizeTx);
   } catch (e) {
     console.error('Fehler beim Laden:', e);
-    transactions = [];
+    appState.ledger.transactions = [];
   }
   renderAll();
-  if (_searchQuery) {
+  if (appState.nav.searchQuery) {
     try {
       const all = await api('GET', '/transactions');
-      _allTransactions = all.map(normalizeTx);
+      appState.ledger.all = all.map(normalizeTx);
     } catch (e) {
-      _allTransactions = [];
+      appState.ledger.all = [];
     }
     applySearch();
   }
 }
 
 function renderAll() {
-  document.getElementById('monthLabel').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
-  const out = transactions.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
-  const inc = transactions.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0);
+  document.getElementById('monthLabel').textContent =
+    `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
+  const out = appState.ledger.transactions
+    .filter((t) => t.type === 'out')
+    .reduce((a, t) => a + t.amount, 0);
+  const inc = appState.ledger.transactions
+    .filter((t) => t.type === 'in')
+    .reduce((a, t) => a + t.amount, 0);
   // No +/− sign on the summary cards — the label and the
   // positive/negative color already convey direction, and dropping the
   // sign keeps long amounts from overflowing the card's right edge.
@@ -704,22 +700,22 @@ function renderAll() {
   document.getElementById('totalOut').textContent = fmtCurrency(out);
   document.getElementById('totalIn').textContent = fmtCurrency(inc);
   applySearch();
-  if (_activePanel === 'categories') renderCategoryView();
+  if (appState.nav.activePanel === 'categories') renderCategoryView();
 }
 
 function applySearch() {
-  const q = _searchQuery;
-  const catFilter = _categoryFilterId;
-  const tagFilter = _tagFilterName;
+  const q = appState.nav.searchQuery;
+  const catFilter = appState.nav.categoryFilterId;
+  const tagFilter = appState.nav.tagFilterName;
   if (!q && catFilter == null && tagFilter == null) {
-    renderTransactions(transactions);
+    renderTransactions(appState.ledger.transactions);
     return;
   }
-  // The drill-down from the monthly view leaves `_allTransactions` unset,
+  // The drill-down from the monthly view leaves `appState.ledger.all` unset,
   // so we naturally fall back to the month-scoped `transactions` pool.
-  // When the drill-down comes from a report, `_allTransactions` holds the
+  // When the drill-down comes from a report, `appState.ledger.all` holds the
   // report range — same logic, just a wider pool.
-  const pool = _allTransactions ?? transactions;
+  const pool = appState.ledger.all ?? appState.ledger.transactions;
   const filtered = pool.filter((t) => {
     if (catFilter != null) return t.category_id === catFilter;
     if (tagFilter != null) return Array.isArray(t.tags) && t.tags.includes(tagFilter);
@@ -744,20 +740,20 @@ async function _setSearchPanelActive(active) {
     fab.onclick = clearSearch;
     // Only load the global pool for text search — category drill-down
     // stays month-scoped via the already-loaded `transactions`.
-    if (_searchQuery && !_allTransactions) {
+    if (appState.nav.searchQuery && !appState.ledger.all) {
       try {
         const raw = await api('GET', '/transactions');
-        _allTransactions = raw.map(normalizeTx);
+        appState.ledger.all = raw.map(normalizeTx);
       } catch (e) {
-        _allTransactions = [];
+        appState.ledger.all = [];
       }
     }
     applySearch();
   } else {
-    _allTransactions = null;
+    appState.ledger.all = null;
     document.body.classList.remove('searching');
     document.getElementById('panel-search').classList.remove('active');
-    document.getElementById('panel-' + _activePanel).classList.add('active');
+    document.getElementById('panel-' + appState.nav.activePanel).classList.add('active');
     fab.innerHTML = ICON_SVG.plus;
     fab.classList.remove('search-exit');
     fab.setAttribute('aria-label', tr('fab.newTransaction'));
@@ -768,19 +764,22 @@ async function _setSearchPanelActive(active) {
 async function onSearch(val) {
   // Typing in the search input cancels any active drill-down filter
   // so the panel switches back to plain text-match behaviour.
-  if (_categoryFilterId != null) _categoryFilterId = null;
-  if (_tagFilterName != null) _tagFilterName = null;
-  const wasEmpty = !_searchQuery;
-  _searchQuery = val.trim().toLowerCase();
-  if (_searchQuery && wasEmpty) await _setSearchPanelActive(true);
-  else if (!_searchQuery && !wasEmpty) _setSearchPanelActive(false);
+  if (appState.nav.categoryFilterId != null) appState.nav.categoryFilterId = null;
+  if (appState.nav.tagFilterName != null) appState.nav.tagFilterName = null;
+  const wasEmpty = !appState.nav.searchQuery;
+  appState.nav.searchQuery = val.trim().toLowerCase();
+  if (appState.nav.searchQuery && wasEmpty) await _setSearchPanelActive(true);
+  else if (!appState.nav.searchQuery && !wasEmpty) _setSearchPanelActive(false);
   else applySearch();
 }
 
 function clearSearch() {
-  const wasActive = !!_searchQuery || _categoryFilterId != null || _tagFilterName != null;
-  const exitTo = _searchExitTarget;
-  _searchExitTarget = null;
+  const wasActive =
+    !!appState.nav.searchQuery ||
+    appState.nav.categoryFilterId != null ||
+    appState.nav.tagFilterName != null;
+  const exitTo = appState.reports.searchExitTarget;
+  appState.reports.searchExitTarget = null;
   _resetSearch();
   if (wasActive) _setSearchPanelActive(false);
   if (exitTo) showPanel(exitTo);
@@ -788,7 +787,7 @@ function clearSearch() {
 
 function getCatById(id) {
   return (
-    categories.find((c) => c.id === Number(id)) || {
+    appState.ledger.categories.find((c) => c.id === Number(id)) || {
       name: tr('categories.fallbackName'),
       icon: 'package',
       color: '#9e9b96',
@@ -798,8 +797,8 @@ function getCatById(id) {
 
 function renderTransactions(txs, el = document.getElementById('transactionList')) {
   if (!txs.length) {
-    el.innerHTML = _searchQuery
-      ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>${tr('tx.emptySearch', { query: _escText(_searchQuery) })}<br>${tr('tx.emptySearchHint')}</p></div>`
+    el.innerHTML = appState.nav.searchQuery
+      ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>${tr('tx.emptySearch', { query: _escText(appState.nav.searchQuery) })}<br>${tr('tx.emptySearchHint')}</p></div>`
       : `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>${tr('tx.emptyMonth')}<br>${tr('tx.emptyMonthHint')}</p></div>`;
     return;
   }
@@ -867,21 +866,21 @@ function renderCategoryView() {
   const el = document.getElementById('categoryViewList');
   if (!el) return;
 
-  if (!categories.length) {
+  if (!appState.ledger.categories.length) {
     el.innerHTML = `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>${tr('categories.emptyView')}<br>${tr('categories.emptyViewHint')}</p></div>`;
     return;
   }
 
   // Net amount per category from current month's transactions
   const totals = {};
-  transactions.forEach((t) => {
+  appState.ledger.transactions.forEach((t) => {
     const key = t.category_id ?? 0;
     if (!totals[key]) totals[key] = 0;
     totals[key] += t.type === 'out' ? -t.amount : t.amount;
   });
 
   // All categories, sorted alphabetically — zero if no transactions this month
-  const rows = categories
+  const rows = appState.ledger.categories
     .map((cat) => ({
       id: cat.id,
       name: cat.name,
@@ -921,10 +920,10 @@ function openModalForCategory(catId) {
 async function showTransactionsForCategory(catId) {
   const cat = getCatById(catId);
   // Reuses the search-results panel as the host UI, but the actual
-  // filter is exact-by-id (applySearch checks _categoryFilterId
+  // filter is exact-by-id (applySearch checks appState.nav.categoryFilterId
   // before the substring search path).
-  _categoryFilterId = catId;
-  _searchQuery = '';
+  appState.nav.categoryFilterId = catId;
+  appState.nav.searchQuery = '';
   document.getElementById('searchInput').value = cat.name;
   await _setSearchPanelActive(true);
 }
@@ -1041,7 +1040,7 @@ function attachSwipeHandlers(container) {
         if (await _enqueueOfflineDelete(id)) {
           row.classList.remove('swiped');
           // Optimistisch entfernen, Sync übernimmt der SW
-          transactions = transactions.filter((t) => t.id !== id);
+          appState.ledger.transactions = appState.ledger.transactions.filter((t) => t.id !== id);
           renderAll();
           updateSyncBadge();
           return;
@@ -1107,35 +1106,35 @@ function computeRange(kind, a) {
     return { from: _iso(a.y, 0, 1), to: _iso(a.y, 11, 31) };
   }
   // custom: from/to bleiben wie zuletzt eingegeben.
-  return { from: reportRange.from, to: reportRange.to };
+  return { from: appState.reports.range.from, to: appState.reports.range.to };
 }
 
 function applyRange(opts = {}) {
-  const r = computeRange(reportRange.kind, reportRange.anchor);
-  if (reportRange.kind !== 'custom') {
-    reportRange.from = r.from;
-    reportRange.to = r.to;
+  const r = computeRange(appState.reports.range.kind, appState.reports.range.anchor);
+  if (appState.reports.range.kind !== 'custom') {
+    appState.reports.range.from = r.from;
+    appState.reports.range.to = r.to;
   }
   updatePickerUI();
-  if (!opts.skipRender && _activePanel === 'charts') renderReport();
+  if (!opts.skipRender && appState.nav.activePanel === 'charts') renderReport();
 }
 
 function setRangeKind(kind, opts = {}) {
-  if (_rangeLock && kind !== _rangeLock) return;
+  if (appState.reports.rangeLock && kind !== appState.reports.rangeLock) return;
   if (!['month', 'quarter', 'year', 'custom'].includes(kind)) return;
-  reportRange.kind = kind;
-  if (kind === 'custom' && (!reportRange.from || !reportRange.to)) {
+  appState.reports.range.kind = kind;
+  if (kind === 'custom' && (!appState.reports.range.from || !appState.reports.range.to)) {
     // Beim Wechsel auf „Eigen" mit den aktuellen Monatsgrenzen vorbelegen.
-    const r = computeRange('month', reportRange.anchor);
-    reportRange.from = r.from;
-    reportRange.to = r.to;
+    const r = computeRange('month', appState.reports.range.anchor);
+    appState.reports.range.from = r.from;
+    appState.reports.range.to = r.to;
   }
   applyRange(opts);
 }
 
 function shiftRange(delta) {
-  const a = reportRange.anchor;
-  if (reportRange.kind === 'month') {
+  const a = appState.reports.range.anchor;
+  if (appState.reports.range.kind === 'month') {
     let m = a.m + delta,
       y = a.y;
     while (m < 0) {
@@ -1149,7 +1148,7 @@ function shiftRange(delta) {
     a.m = m;
     a.y = y;
     a.q = Math.floor(m / 3);
-  } else if (reportRange.kind === 'quarter') {
+  } else if (appState.reports.range.kind === 'quarter') {
     let q = a.q + delta,
       y = a.y;
     while (q < 0) {
@@ -1163,7 +1162,7 @@ function shiftRange(delta) {
     a.q = q;
     a.y = y;
     a.m = q * 3;
-  } else if (reportRange.kind === 'year') {
+  } else if (appState.reports.range.kind === 'year') {
     a.y += delta;
   } else {
     return; // Custom hat keinen Stepper
@@ -1179,13 +1178,13 @@ function onCustomRangeChange() {
     toast(tr('reports.endAfterStart'));
     return;
   }
-  reportRange.from = from;
-  reportRange.to = to;
+  appState.reports.range.from = from;
+  appState.reports.range.to = to;
   renderReport();
 }
 
 function setRangeLock(kind) {
-  _rangeLock = kind;
+  appState.reports.rangeLock = kind;
   const tabs = document.querySelectorAll('#rangeKindTabs button');
   tabs.forEach((b) => {
     const allowed = !kind || b.dataset.kind === kind;
@@ -1195,38 +1194,38 @@ function setRangeLock(kind) {
 }
 
 function _rangeStepperLabel() {
-  const a = reportRange.anchor;
-  if (reportRange.kind === 'month') return `${MONTHS[a.m]} ${a.y}`;
-  if (reportRange.kind === 'quarter') return `Q${a.q + 1} ${a.y}`;
-  if (reportRange.kind === 'year') return `${a.y}`;
+  const a = appState.reports.range.anchor;
+  if (appState.reports.range.kind === 'month') return `${appState.calendar.months[a.m]} ${a.y}`;
+  if (appState.reports.range.kind === 'quarter') return `Q${a.q + 1} ${a.y}`;
+  if (appState.reports.range.kind === 'year') return `${a.y}`;
   return '';
 }
 
 function _rangeSubtitle(txCount) {
   const noun = txCount === 1 ? tr('tx.countOne') : tr('tx.countOther');
-  if (reportRange.kind === 'custom') {
+  if (appState.reports.range.kind === 'custom') {
     const fmt = (iso) => {
       const [y, m, d] = iso.split('-');
       return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(_locale());
     };
-    return `${fmt(reportRange.from)} – ${fmt(reportRange.to)} · ${txCount} ${noun}`;
+    return `${fmt(appState.reports.range.from)} – ${fmt(appState.reports.range.to)} · ${txCount} ${noun}`;
   }
   return `${_rangeStepperLabel()} · ${txCount} ${noun}`;
 }
 
 function updatePickerUI() {
   document.querySelectorAll('#rangeKindTabs button').forEach((b) => {
-    const active = b.dataset.kind === reportRange.kind;
+    const active = b.dataset.kind === appState.reports.range.kind;
     b.setAttribute('aria-selected', String(active));
     b.classList.toggle('is-active', active);
   });
   const stepper = document.getElementById('rangeStepper');
   const custom = document.getElementById('rangeCustom');
-  if (reportRange.kind === 'custom') {
+  if (appState.reports.range.kind === 'custom') {
     stepper.hidden = true;
     custom.hidden = false;
-    document.getElementById('rangeFrom').value = reportRange.from || '';
-    document.getElementById('rangeTo').value = reportRange.to || '';
+    document.getElementById('rangeFrom').value = appState.reports.range.from || '';
+    document.getElementById('rangeTo').value = appState.reports.range.to || '';
   } else {
     stepper.hidden = false;
     custom.hidden = true;
@@ -1259,9 +1258,9 @@ async function loadRangeTxs(from, to) {
 
 // ── REPORTS — RENDER DISPATCH ─────────────────────────────────────────────────
 
-async function renderReport(id = currentReport) {
+async function renderReport(id = appState.reports.current) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
-  currentReport = id;
+  appState.reports.current = id;
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
   } catch (e) {}
@@ -1271,8 +1270,8 @@ async function renderReport(id = currentReport) {
   }
   const locks = { month: 'month', year: 'year' };
   setRangeLock(locks[id] || null);
-  if (_rangeLock && reportRange.kind !== _rangeLock) {
-    reportRange.kind = _rangeLock;
+  if (appState.reports.rangeLock && appState.reports.range.kind !== appState.reports.rangeLock) {
+    appState.reports.range.kind = appState.reports.rangeLock;
     applyRange({ skipRender: true });
   }
   updatePickerUI();
@@ -1288,11 +1287,12 @@ async function renderReport(id = currentReport) {
   const body = document.getElementById('reportBody');
   body.innerHTML = '';
 
-  // Trend uses its own private year range and never touches reportRange.
-  const rangeFrom = id === 'trend' ? `${_trendYearFrom}-01-01` : reportRange.from;
-  const rangeTo = id === 'trend' ? `${_trendYearTo}-12-31` : reportRange.to;
+  // Trend uses its own private year range and never touches appState.reports.range.
+  const rangeFrom =
+    id === 'trend' ? `${appState.trend.yearFrom}-01-01` : appState.reports.range.from;
+  const rangeTo = id === 'trend' ? `${appState.trend.yearTo}-12-31` : appState.reports.range.to;
   const txs = await loadRangeTxs(rangeFrom, rangeTo);
-  _reportTxPool = txs;
+  appState.reports.txPool = txs;
   document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
 
   if (id === 'overview') await renderReportOverview(body, txs);
@@ -1395,7 +1395,7 @@ async function renderReportOverview(body, txs) {
 // ── REPORTS — MONTH ───────────────────────────────────────────────────────────
 
 function renderReportMonth(body, txs) {
-  const a = reportRange.anchor;
+  const a = appState.reports.range.anchor;
   const days = _daysInMonth(a.y, a.m);
   const labels = Array.from({ length: days }, (_, i) => i + 1);
   const byDay = {};
@@ -1411,7 +1411,7 @@ function renderReportMonth(body, txs) {
   body.innerHTML = `
           <div class="report-section">
             <div class="report-canvas-wrap"><canvas id="monthChart" role="img" aria-labelledby="reportTitle" aria-describedby="monthChartSummary"></canvas></div>
-            <p id="monthChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.monthSummary', { month: MONTHS[a.m], year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
+            <p id="monthChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.monthSummary', { month: appState.calendar.months[a.m], year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
           </div>
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
@@ -1459,7 +1459,7 @@ function renderReportMonth(body, txs) {
 // ── REPORTS — YEAR ────────────────────────────────────────────────────────────
 
 async function renderReportYear(body, txs) {
-  const a = reportRange.anchor;
+  const a = appState.reports.range.anchor;
   const aggregate = (pool) =>
     Array.from({ length: 12 }, (_, m) => {
       const tx = pool.filter((t) => new Date(t.date).getMonth() === m);
@@ -1521,7 +1521,7 @@ async function renderReportYear(body, txs) {
   }
   chartInsts.year = new Chart(document.getElementById('yearChart'), {
     type: 'line',
-    data: { labels: MONTHS_SHORT, datasets },
+    data: { labels: appState.calendar.monthsShort, datasets },
     options: {
       responsive: true,
       plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
@@ -1587,11 +1587,11 @@ function renderReportCategories(body, txs) {
 }
 
 async function drillDownCategory(catId, fromIso, toIso) {
-  _searchExitTarget = 'charts';
-  _categoryFilterId = catId;
-  const from = fromIso || reportRange.from;
-  const to = toIso || reportRange.to;
-  _allTransactions = await loadRangeTxs(from, to);
+  appState.reports.searchExitTarget = 'charts';
+  appState.nav.categoryFilterId = catId;
+  const from = fromIso || appState.reports.range.from;
+  const to = toIso || appState.reports.range.to;
+  appState.ledger.all = await loadRangeTxs(from, to);
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);
   applySearch();
@@ -1698,11 +1698,11 @@ function renderReportTags(body, txs) {
 }
 
 async function drillDownTag(name, fromIso, toIso) {
-  _searchExitTarget = 'charts';
-  _tagFilterName = name;
-  const from = fromIso || reportRange.from;
-  const to = toIso || reportRange.to;
-  _allTransactions = await loadRangeTxs(from, to);
+  appState.reports.searchExitTarget = 'charts';
+  appState.nav.tagFilterName = name;
+  const from = fromIso || appState.reports.range.from;
+  const to = toIso || appState.reports.range.to;
+  appState.ledger.all = await loadRangeTxs(from, to);
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);
   applySearch();
@@ -1714,7 +1714,7 @@ function _persistTrendState() {
   try {
     localStorage.setItem(
       TREND_STORAGE_KEY,
-      JSON.stringify({ kind: _trendKind, selection: _trendSelection }),
+      JSON.stringify({ kind: appState.trend.kind, selection: appState.trend.selection }),
     );
   } catch (e) {}
 }
@@ -1723,13 +1723,13 @@ function _persistTrendRange() {
   try {
     localStorage.setItem(
       TREND_RANGE_KEY,
-      JSON.stringify({ yearFrom: _trendYearFrom, yearTo: _trendYearTo }),
+      JSON.stringify({ yearFrom: appState.trend.yearFrom, yearTo: appState.trend.yearTo }),
     );
   } catch (e) {}
 }
 
 async function _findEarliestTxDate() {
-  if (_earliestTxDate) return _earliestTxDate;
+  if (appState.trend.earliestTxDate) return appState.trend.earliestTxDate;
   const today = new Date();
   let year = today.getFullYear();
   let earliest = null;
@@ -1752,18 +1752,18 @@ async function _findEarliestTxDate() {
     const fallback = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
     earliest = _iso(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
   }
-  _earliestTxDate = earliest;
+  appState.trend.earliestTxDate = earliest;
   return earliest;
 }
 
 async function _ensureTrendDefaultRange() {
-  // _earliestTxDate immer auflösen — der Jahres-Picker im Render
+  // appState.trend.earliestTxDate immer auflösen — der Jahres-Picker im Render
   // braucht minYear, auch wenn die Range aus localStorage kommt.
   const earliest = await _findEarliestTxDate();
-  if (_trendYearFrom && _trendYearTo) return;
+  if (appState.trend.yearFrom && appState.trend.yearTo) return;
   const today = new Date();
-  _trendYearFrom = parseInt(earliest.slice(0, 4), 10);
-  _trendYearTo = today.getFullYear();
+  appState.trend.yearFrom = parseInt(earliest.slice(0, 4), 10);
+  appState.trend.yearTo = today.getFullYear();
   _persistTrendRange();
 }
 
@@ -1786,7 +1786,7 @@ function _autoGranularity(fromIso, toIso) {
 // _trendMatchesEntity, _monthlyTotals, _trendStats) lives in reportsData.js
 // (loaded before this file). The impure trend helpers that remain below —
 // _bucketLabel, _trendEntityFromId, _pickDefaultTrendEntity, _trendSeries —
-// read app globals (MONTHS_SHORT, categories) and so stay here.
+// read app globals (appState.calendar.monthsShort, categories) and so stay here.
 
 function _bucketLabel(key, granularity) {
   if (granularity === 'year') return key;
@@ -1795,14 +1795,14 @@ function _bucketLabel(key, granularity) {
     return `${q} ${y}`;
   }
   const [y, m] = key.split('-');
-  return `${MONTHS_SHORT[parseInt(m, 10) - 1]} ${y.slice(2)}`;
+  return `${appState.calendar.monthsShort[parseInt(m, 10) - 1]} ${y.slice(2)}`;
 }
 
 function _trendEntityFromId(id) {
   if (!id) return null;
   if (id.startsWith('cat:')) {
     const catId = parseInt(id.slice(4), 10);
-    const cat = categories.find((c) => c.id === catId);
+    const cat = appState.ledger.categories.find((c) => c.id === catId);
     if (!cat) return null;
     return { kind: 'category', id, catId, name: cat.name, color: cat.color };
   }
@@ -1816,7 +1816,7 @@ function _trendEntityFromId(id) {
 function _pickDefaultTrendEntity(txs, kind) {
   if (kind === 'category') {
     for (const r of _totalsByCategory(txs, 'out')) {
-      if (categories.find((c) => c.id === r.catId)) return `cat:${r.catId}`;
+      if (appState.ledger.categories.find((c) => c.id === r.catId)) return `cat:${r.catId}`;
     }
   } else {
     const top = _totalsByTag(txs, 'out')[0];
@@ -1844,7 +1844,7 @@ function _trendSeries(txs, entityId, granularity, bucketKeys) {
 
 function _trendPeakLabel(key) {
   const [y, m] = key.split('-');
-  return `${MONTHS[parseInt(m, 10) - 1]} ${y}`;
+  return `${appState.calendar.months[parseInt(m, 10) - 1]} ${y}`;
 }
 
 function _trendChipMarkup(id, name, color, selected) {
@@ -1860,12 +1860,12 @@ function _trendPickerOptions(txs, kind, selectedId, filter) {
     const ranked = _totalsByCategory(txs, 'out');
     const seen = new Set();
     for (const r of ranked) {
-      const cat = categories.find((c) => c.id === r.catId);
+      const cat = appState.ledger.categories.find((c) => c.id === r.catId);
       if (!cat) continue;
       seen.add(r.catId);
       options.push({ id: `cat:${r.catId}`, label: cat.name, color: cat.color });
     }
-    const rest = categories
+    const rest = appState.ledger.categories
       .filter((c) => !seen.has(c.id))
       .sort((a, b) => a.name.localeCompare(b.name, _locale()));
     for (const c of rest) {
@@ -1926,41 +1926,46 @@ function _trendStatsMarkup(stats) {
 
 function setTrendKind(kind) {
   if (kind !== 'category' && kind !== 'tag') return;
-  if (_trendKind === kind) return;
-  _trendKind = kind;
-  _trendSelection = [];
-  _trendPickerOpen = false;
-  _trendPickerFilter = '';
+  if (appState.trend.kind === kind) return;
+  appState.trend.kind = kind;
+  appState.trend.selection = [];
+  appState.trend.pickerOpen = false;
+  appState.trend.pickerFilter = '';
   _persistTrendState();
   renderReport();
 }
 
 function selectTrendEntity(id) {
-  _trendSelection = [id];
-  _trendPickerOpen = false;
-  _trendPickerFilter = '';
+  appState.trend.selection = [id];
+  appState.trend.pickerOpen = false;
+  appState.trend.pickerFilter = '';
   _persistTrendState();
   renderReport();
 }
 
 function toggleTrendPicker(open) {
-  _trendPickerOpen = open === undefined ? !_trendPickerOpen : !!open;
+  appState.trend.pickerOpen = open === undefined ? !appState.trend.pickerOpen : !!open;
   const activeRow = document.getElementById('trendActiveRow');
   const picker = document.getElementById('trendPickerOpen');
-  if (activeRow) activeRow.hidden = _trendPickerOpen;
-  if (picker) picker.hidden = !_trendPickerOpen;
-  if (_trendPickerOpen && picker) {
+  if (activeRow) activeRow.hidden = appState.trend.pickerOpen;
+  if (picker) picker.hidden = !appState.trend.pickerOpen;
+  if (appState.trend.pickerOpen && picker) {
     const input = picker.querySelector('input');
     if (input) input.focus();
   }
 }
 
 function filterTrendChips(value) {
-  _trendPickerFilter = value;
+  appState.trend.pickerFilter = value;
   const container = document.getElementById('trendPickerChips');
   if (!container) return;
-  const selectedId = _trendSelection[0] || null;
-  const options = _trendPickerOptions(_reportTxPool || [], _trendKind, selectedId, value);
+  const selectedId = appState.trend.selection[0] || null;
+  const options = _trendPickerOptions(
+    appState.reports.txPool || [],
+    appState.trend.kind,
+    selectedId,
+    value,
+  );
   container.innerHTML = options
     .map((o) => _trendChipMarkup(o.id, o.label, o.color, selectedId && o.id === selectedId))
     .join('');
@@ -1969,14 +1974,18 @@ function filterTrendChips(value) {
 
 async function setTrendYear(field, value) {
   const today = new Date().getFullYear();
-  const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+  const minYear = appState.trend.earliestTxDate
+    ? parseInt(appState.trend.earliestTxDate.slice(0, 4), 10)
+    : today - 20;
   value = Math.round(Math.max(minYear, Math.min(today, value)));
   if (field === 'from') {
-    _trendYearFrom = value;
-    if (_trendYearTo < _trendYearFrom) _trendYearTo = _trendYearFrom;
+    appState.trend.yearFrom = value;
+    if (appState.trend.yearTo < appState.trend.yearFrom)
+      appState.trend.yearTo = appState.trend.yearFrom;
   } else {
-    _trendYearTo = value;
-    if (_trendYearFrom > _trendYearTo) _trendYearFrom = _trendYearTo;
+    appState.trend.yearTo = value;
+    if (appState.trend.yearFrom > appState.trend.yearTo)
+      appState.trend.yearFrom = appState.trend.yearTo;
   }
   _persistTrendRange();
   await renderReport('trend');
@@ -1984,21 +1993,25 @@ async function setTrendYear(field, value) {
 
 async function renderReportTrend(body, txs) {
   // Beim ersten Öffnen oder nach Kategorie-Löschung: Selection neu setzen
-  let selected = _trendSelection[0] ? _trendEntityFromId(_trendSelection[0]) : null;
-  if (selected && selected.kind !== _trendKind) selected = null;
+  let selected = appState.trend.selection[0]
+    ? _trendEntityFromId(appState.trend.selection[0])
+    : null;
+  if (selected && selected.kind !== appState.trend.kind) selected = null;
   if (!selected) {
-    const def = _pickDefaultTrendEntity(txs, _trendKind);
+    const def = _pickDefaultTrendEntity(txs, appState.trend.kind);
     if (def) {
-      _trendSelection = [def];
+      appState.trend.selection = [def];
       _persistTrendState();
       selected = _trendEntityFromId(def);
     } else {
-      _trendSelection = [];
+      appState.trend.selection = [];
     }
   }
 
   const today = new Date().getFullYear();
-  const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+  const minYear = appState.trend.earliestTxDate
+    ? parseInt(appState.trend.earliestTxDate.slice(0, 4), 10)
+    : today - 20;
   const yearOptions = (selectedYear) => {
     let html = '';
     for (let y = minYear; y <= today; y++) {
@@ -2010,28 +2023,33 @@ async function renderReportTrend(body, txs) {
   const yearPickerMarkup = `<div class="range-custom trend-year-picker">
             <label class="range-custom-field">
               <span>${tr('reports.rangeFrom')}</span>
-              <select aria-label="${_escAttr(tr('reports.fromYear'))}" onchange="setTrendYear('from', +this.value)">${yearOptions(_trendYearFrom || today)}</select>
+              <select aria-label="${_escAttr(tr('reports.fromYear'))}" onchange="setTrendYear('from', +this.value)">${yearOptions(appState.trend.yearFrom || today)}</select>
             </label>
             <label class="range-custom-field">
               <span>${tr('reports.rangeTo')}</span>
-              <select aria-label="${_escAttr(tr('reports.toYear'))}" onchange="setTrendYear('to', +this.value)">${yearOptions(_trendYearTo || today)}</select>
+              <select aria-label="${_escAttr(tr('reports.toYear'))}" onchange="setTrendYear('to', +this.value)">${yearOptions(appState.trend.yearTo || today)}</select>
             </label>
           </div>`;
 
-  const options = _trendPickerOptions(txs, _trendKind, selected && selected.id, _trendPickerFilter);
+  const options = _trendPickerOptions(
+    txs,
+    appState.trend.kind,
+    selected && selected.id,
+    appState.trend.pickerFilter,
+  );
   const chipsMarkup = options
     .map((o) => _trendChipMarkup(o.id, o.label, o.color, selected && o.id === selected.id))
     .join('');
   const searchPlaceholder =
-    _trendKind === 'category' ? tr('reports.searchCategory') : tr('reports.searchTag');
+    appState.trend.kind === 'category' ? tr('reports.searchCategory') : tr('reports.searchTag');
 
   const segmentedMarkup = `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.trendSelect'))}">
-            <button type="button" role="tab" aria-selected="${_trendKind === 'category'}" class="${_trendKind === 'category' ? 'is-active' : ''}" onclick="setTrendKind('category')">${tr('reports.kindCategories')}</button>
-            <button type="button" role="tab" aria-selected="${_trendKind === 'tag'}" class="${_trendKind === 'tag' ? 'is-active' : ''}" onclick="setTrendKind('tag')">${tr('reports.kindTags')}</button>
+            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'category'}" class="${appState.trend.kind === 'category' ? 'is-active' : ''}" onclick="setTrendKind('category')">${tr('reports.kindCategories')}</button>
+            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'tag'}" class="${appState.trend.kind === 'tag' ? 'is-active' : ''}" onclick="setTrendKind('tag')">${tr('reports.kindTags')}</button>
           </div>`;
 
   const activeMarkup = selected
-    ? `<div class="trend-active-row" id="trendActiveRow"${_trendPickerOpen ? ' hidden' : ''}>
+    ? `<div class="trend-active-row" id="trendActiveRow"${appState.trend.pickerOpen ? ' hidden' : ''}>
               <div class="trend-active-info">
                 <span class="trend-active-dot" style="background:${selected.color}"></span>
                 <div class="trend-active-text">
@@ -2043,10 +2061,10 @@ async function renderReportTrend(body, txs) {
             </div>`
     : '';
 
-  const pickerOpenMarkup = `<div class="trend-picker-open" id="trendPickerOpen"${_trendPickerOpen || !selected ? '' : ' hidden'}>
+  const pickerOpenMarkup = `<div class="trend-picker-open" id="trendPickerOpen"${appState.trend.pickerOpen || !selected ? '' : ' hidden'}>
             <div class="search-wrap">
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-search" /></svg>
-              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(_trendPickerFilter)}" oninput="filterTrendChips(this.value)" autocomplete="off" />
+              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(appState.trend.pickerFilter)}" oninput="filterTrendChips(this.value)" autocomplete="off" />
             </div>
             <div class="tag-picker-chips" id="trendPickerChips">${chipsMarkup}</div>
           </div>`;
@@ -2055,7 +2073,7 @@ async function renderReportTrend(body, txs) {
     body.innerHTML = `
             ${yearPickerMarkup}
             <div class="report-section">${segmentedMarkup}${pickerOpenMarkup}</div>
-            <div class="report-section">${_emptyState(_trendKind === 'category' ? tr('reports.noCategoriesInRange') : tr('reports.noTagsInRange'))}</div>
+            <div class="report-section">${_emptyState(appState.trend.kind === 'category' ? tr('reports.noCategoriesInRange') : tr('reports.noTagsInRange'))}</div>
           `;
     _bindTrendChipHandlers(body);
     return;
@@ -2068,8 +2086,8 @@ async function renderReportTrend(body, txs) {
   const granularity = 'month';
   const todayDate = new Date();
   const todayIso = _iso(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
-  const trendFromIso = `${_trendYearFrom}-01-01`;
-  const trendToIso = `${_trendYearTo}-12-31`;
+  const trendFromIso = `${appState.trend.yearFrom}-01-01`;
+  const trendToIso = `${appState.trend.yearTo}-12-31`;
   const effectiveTo = trendToIso > todayIso ? todayIso : trendToIso;
   const bucketKeys = _bucketAxis(trendFromIso, effectiveTo, granularity);
   const bucketLabels = bucketKeys.map((k) => _bucketLabel(k, granularity));
@@ -2190,8 +2208,8 @@ async function renderReportForecast(body, rangeTxs) {
   const dailyAvg = histOut.reduce((s, t) => s + t.amount, 0) / histDays;
 
   // Gewählter Zeitraum aus dem Time-Picker.
-  const rangeFromIso = reportRange.from;
-  const rangeToIso = reportRange.to;
+  const rangeFromIso = appState.reports.range.from;
+  const rangeToIso = appState.reports.range.to;
   const rangeFromDate = new Date(rangeFromIso + 'T00:00:00');
   const rangeToDate = new Date(rangeToIso + 'T00:00:00');
   const daysTotal = Math.round((rangeToDate - rangeFromDate) / msDay) + 1;
@@ -2246,7 +2264,7 @@ async function renderReportForecast(body, rangeTxs) {
   };
 
   // Labels skalieren mit Time-Picker-Kind.
-  const kind = reportRange.kind;
+  const kind = appState.reports.range.kind;
   const cardLabel =
     kind === 'month'
       ? tr('forecast.projMonth')
@@ -2325,7 +2343,7 @@ function renderReportTop(body, txs) {
 // ── MODAL ─────────────────────────────────────────────────────────────────────
 function openModal(tx) {
   rememberModalFocus('booking');
-  currentTags = tx?.tags ? tx.tags.slice() : [];
+  appState.form.tags = tx?.tags ? tx.tags.slice() : [];
   document.getElementById('inputAmount').value =
     tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
   document.getElementById('inputDesc').value = tx?.desc || '';
@@ -2334,7 +2352,7 @@ function openModal(tx) {
   // Alphabetical de_DE sort — consistent with renderCategories()
   // and renderCategoryView() so the user sees the same order
   // wherever they look at categories.
-  catSel.innerHTML = [...categories]
+  catSel.innerHTML = [...appState.ledger.categories]
     .sort((a, b) => a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }))
     .map((c) => `<option value="${c.id}">${_escText(c.name)}</option>`)
     .join('');
@@ -2351,7 +2369,7 @@ function openModal(tx) {
   document.getElementById('inputAmount').placeholder = _formatAmountInput(0);
   document.getElementById('deleteBtn').style.display = tx ? 'block' : 'none';
   document.getElementById('modalOverlay').classList.add('open');
-  _bookingModalOpenedAt = Date.now();
+  appState.nav.bookingModalOpenedAt = Date.now();
   document.body.style.overflow = 'hidden';
   setTimeout(() => document.getElementById('inputAmount').focus(), 300);
   document.getElementById('modalOverlay').dataset.editId = tx?.id || '';
@@ -2370,12 +2388,12 @@ function closeModal() {
 // tap works" bug). Ignore backdrop clicks for a brief window after
 // opening so only a deliberate later tap dismisses it.
 function closeModalOutside(e) {
-  if (Date.now() - _bookingModalOpenedAt < 400) return;
+  if (Date.now() - appState.nav.bookingModalOpenedAt < 400) return;
   if (e.target === document.getElementById('modalOverlay')) closeModal();
 }
 function editTransaction(id) {
   const num = Number(id);
-  const pools = [_allTransactions, _reportTxPool, transactions];
+  const pools = [appState.ledger.all, appState.reports.txPool, appState.ledger.transactions];
   for (const p of pools) {
     if (!p) continue;
     const t = p.find((t) => t.id === num);
@@ -2416,7 +2434,7 @@ async function deleteCurrentTransaction() {
 }
 
 function setType(type, btn) {
-  currentType = type;
+  appState.form.type = type;
   document.querySelectorAll('.type-btn').forEach((b) => b.classList.remove('active'));
   document.querySelector('.type-btn.' + type).classList.add('active');
   document.getElementById('submitBtn').className = 'submit-btn' + (type === 'in' ? ' green' : '');
@@ -2460,14 +2478,14 @@ function normalizeAmountInput() {
 }
 
 function removeTag(t) {
-  currentTags = currentTags.filter((x) => x !== t);
+  appState.form.tags = appState.form.tags.filter((x) => x !== t);
   renderTagPills();
   renderTagSuggestions();
 }
 function renderTagPills() {
   const wrap = document.getElementById('tagsWrap');
   const btn = document.getElementById('tagPickerBtn');
-  wrap.innerHTML = currentTags
+  wrap.innerHTML = appState.form.tags
     .map(
       (t) =>
         `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-tag="${_escAttr(t)}" aria-label="${_escAttr(tr('tags.removeAria', { name: t }))}">${ICON_SVG.close}</button></span>`,
@@ -2493,21 +2511,21 @@ async function addTransaction() {
     desc,
     category_id: cat || null,
     date,
-    type: currentType,
-    tags: currentTags,
+    type: appState.form.type,
+    tags: appState.form.tags,
   };
   const editId = document.getElementById('modalOverlay').dataset.editId;
   const method = editId ? 'PUT' : 'POST';
   const path = editId ? `/transactions/${editId}` : '/transactions';
   try {
     await api(method, path, body);
-    mergeIntoAvailableTags(currentTags);
+    mergeIntoAvailableTags(appState.form.tags);
     closeModal();
     await Promise.all([loadAndRender(), loadTags()]);
   } catch (e) {
     if (!navigator.onLine && window.PocketLogOutbox) {
       await window.PocketLogOutbox.enqueue({ method, path, body });
-      mergeIntoAvailableTags(currentTags);
+      mergeIntoAvailableTags(appState.form.tags);
       closeModal();
       updateSyncBadge();
       return;
@@ -2518,20 +2536,22 @@ async function addTransaction() {
 
 function mergeIntoAvailableTags(tags) {
   if (!Array.isArray(tags) || !tags.length) return;
-  const lower = new Set(availableTags.map((t) => t.toLowerCase()));
+  const lower = new Set(appState.ledger.availableTags.map((t) => t.toLowerCase()));
   let changed = false;
   for (const t of tags) {
     const v = (t || '').trim().toLowerCase();
     if (!v) continue;
     tagCounts.set(v, (tagCounts.get(v) || 0) + 1);
     if (!lower.has(v)) {
-      availableTags.push(v);
+      appState.ledger.availableTags.push(v);
       lower.add(v);
       changed = true;
     }
   }
   if (changed) {
-    availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    appState.ledger.availableTags.sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    );
     renderTagList();
   }
 }
@@ -2541,9 +2561,9 @@ const CAT_CREATE_COLORS = ['#D97757', '#6b7aa1', '#788C5D', '#c47ab0', '#e0a44a'
 
 async function loadCategories() {
   try {
-    categories = await api('GET', '/categories');
+    appState.ledger.categories = await api('GET', '/categories');
   } catch (e) {
-    categories = [];
+    appState.ledger.categories = [];
   }
 }
 
@@ -2551,14 +2571,14 @@ async function loadTags() {
   try {
     const tags = await api('GET', '/tags');
     const list = Array.isArray(tags) ? tags : [];
-    availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
+    appState.ledger.availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
     tagCounts.clear();
     for (const t of list) {
       if (typeof t === 'string') continue;
       tagCounts.set(t.name.toLowerCase(), Number(t.count) || 0);
     }
   } catch (e) {
-    availableTags = [];
+    appState.ledger.availableTags = [];
     tagCounts.clear();
   }
   renderTagList();
@@ -2567,8 +2587,8 @@ async function loadTags() {
 function renderTagSuggestions() {
   const box = document.getElementById('tagSuggestions');
   if (!box) return;
-  const selected = new Set(currentTags.map((x) => x.toLowerCase()));
-  const remaining = availableTags.filter((t) => !selected.has(t.toLowerCase()));
+  const selected = new Set(appState.form.tags.map((x) => x.toLowerCase()));
+  const remaining = appState.ledger.availableTags.filter((t) => !selected.has(t.toLowerCase()));
   // Pick the 10 most-used (last 30 days), then render alphabetically
   // so users can scan the row without re-learning order each open.
   remaining.sort((a, b) => {
@@ -2593,24 +2613,22 @@ function renderTagSuggestions() {
 function addTagFromSuggestion(t) {
   if (!t) return;
   const key = t.toLowerCase();
-  if (!currentTags.some((x) => x.toLowerCase() === key)) currentTags.push(t);
+  if (!appState.form.tags.some((x) => x.toLowerCase() === key)) appState.form.tags.push(t);
   renderTagPills();
   renderTagSuggestions();
 }
 
 // ── TAG PICKER MODAL ──────────────────────────────────────────────────────────
-// Staging state: changes apply to `currentTags` only on „Fertig".
-let pickerSelection = [];
-// Which modal opened the picker: 'transaction' | 'recurring'
-let _tagPickerContext = 'transaction';
-// Tags staged in the recurring rule editor
-let currentRecurringTags = [];
+// Tag-picker staging state lives in appState.tagPicker (state.js):
+//   selection     — staged tags; apply to appState.form.tags only on „Fertig"
+//   context       — which modal opened the picker: 'transaction' | 'recurring'
+//   recurringTags — tags staged in the recurring rule editor
 
 function renderRecurringTagPills() {
   const wrap = document.getElementById('recTagsWrap');
   const btn = document.getElementById('recTagPickerBtn');
   if (!wrap || !btn) return;
-  wrap.innerHTML = currentRecurringTags
+  wrap.innerHTML = appState.tagPicker.recurringTags
     .map(
       (t) =>
         `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-rec-tag="${_escAttr(t)}" aria-label="${_escAttr(tr('tags.removeAria', { name: t }))}">${ICON_SVG.close}</button></span>`,
@@ -2622,7 +2640,7 @@ function renderRecurringTagPills() {
   wrap.appendChild(btn);
 }
 function removeRecurringTag(t) {
-  currentRecurringTags = currentRecurringTags.filter((x) => x !== t);
+  appState.tagPicker.recurringTags = appState.tagPicker.recurringTags.filter((x) => x !== t);
   renderRecurringTagPills();
 }
 
@@ -2630,9 +2648,10 @@ function openTagPicker() {
   openTagPickerFor('transaction');
 }
 function openTagPickerFor(context) {
-  _tagPickerContext = context;
+  appState.tagPicker.context = context;
   rememberModalFocus('tagPicker');
-  pickerSelection = context === 'recurring' ? [...currentRecurringTags] : [...currentTags];
+  appState.tagPicker.selection =
+    context === 'recurring' ? [...appState.tagPicker.recurringTags] : [...appState.form.tags];
   document.getElementById('tagPickerFilter').value = '';
   document.getElementById('tagPickerNew').value = '';
   const chips = document.getElementById('tagPickerChips');
@@ -2656,7 +2675,7 @@ function closeTagPicker() {
   if (!bookingOpen && !recurringOpen) {
     document.body.style.overflow = '';
   }
-  pickerSelection = [];
+  appState.tagPicker.selection = [];
   releaseFocusTrap('tagPicker');
   restoreModalFocus('tagPicker');
 }
@@ -2664,12 +2683,12 @@ function closeTagPickerOutside(e) {
   if (e.target === document.getElementById('tagPickerOverlay')) closeTagPicker();
 }
 function commitTagPicker() {
-  if (_tagPickerContext === 'recurring') {
-    currentRecurringTags = [...pickerSelection];
+  if (appState.tagPicker.context === 'recurring') {
+    appState.tagPicker.recurringTags = [...appState.tagPicker.selection];
     closeTagPicker();
     renderRecurringTagPills();
   } else {
-    currentTags = [...pickerSelection];
+    appState.form.tags = [...appState.tagPicker.selection];
     closeTagPicker();
     renderTagPills();
     renderTagSuggestions();
@@ -2679,8 +2698,10 @@ function renderTagPickerChips() {
   const box = document.getElementById('tagPickerChips');
   if (!box) return;
   const q = (document.getElementById('tagPickerFilter').value || '').trim().toLowerCase();
-  const filtered = q ? availableTags.filter((t) => t.toLowerCase().includes(q)) : availableTags;
-  const selected = new Set(pickerSelection.map((x) => x.toLowerCase()));
+  const filtered = q
+    ? appState.ledger.availableTags.filter((t) => t.toLowerCase().includes(q))
+    : appState.ledger.availableTags;
+  const selected = new Set(appState.tagPicker.selection.map((x) => x.toLowerCase()));
   box.innerHTML = filtered
     .map((t) => {
       const isSel = selected.has(t.toLowerCase());
@@ -2692,9 +2713,9 @@ function renderTagPickerChips() {
   });
 }
 function togglePickerTag(t) {
-  const i = pickerSelection.findIndex((x) => x.toLowerCase() === t.toLowerCase());
-  if (i >= 0) pickerSelection.splice(i, 1);
-  else pickerSelection.push(t);
+  const i = appState.tagPicker.selection.findIndex((x) => x.toLowerCase() === t.toLowerCase());
+  if (i >= 0) appState.tagPicker.selection.splice(i, 1);
+  else appState.tagPicker.selection.push(t);
   renderTagPickerChips();
 }
 function handleTagPickerNew(e) {
@@ -2708,14 +2729,16 @@ function addTagFromPicker() {
   const val = inp.value.trim();
   if (!val) return;
   const key = val.toLowerCase();
-  const existing = availableTags.find((t) => t.toLowerCase() === key);
+  const existing = appState.ledger.availableTags.find((t) => t.toLowerCase() === key);
   const name = existing || val;
   if (!existing) {
-    availableTags.push(name);
-    availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    appState.ledger.availableTags.push(name);
+    appState.ledger.availableTags.sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    );
   }
-  if (!pickerSelection.some((x) => x.toLowerCase() === key)) {
-    pickerSelection.push(name);
+  if (!appState.tagPicker.selection.some((x) => x.toLowerCase() === key)) {
+    appState.tagPicker.selection.push(name);
   }
   inp.value = '';
   renderTagPickerChips();
@@ -2724,11 +2747,11 @@ function addTagFromPicker() {
 function renderCategories() {
   const box = document.getElementById('catList');
   if (!box) return;
-  if (!categories.length) {
+  if (!appState.ledger.categories.length) {
     box.innerHTML = `<p class="empty-state-hint">${tr('categories.none')}</p>`;
     return;
   }
-  const sorted = [...categories].sort((a, b) =>
+  const sorted = [...appState.ledger.categories].sort((a, b) =>
     a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
   );
   box.innerHTML = '';
@@ -3008,27 +3031,28 @@ async function loadCategoryIconSprite() {
   }
 }
 
-let editingCatId = null;
-let editingCatColor = '#9e9b96';
-let editingCatIcon = CAT_ICON_FALLBACK;
+// Category create/edit modal draft lives in appState.catEdit (state.js);
+// seed the icon default from CAT_ICON_FALLBACK (defined above).
+appState.catEdit.icon = CAT_ICON_FALLBACK;
 
 function openCatModal(id) {
   rememberModalFocus('cat');
   const deleteBtn = document.getElementById('catDeleteBtn');
   const title = document.getElementById('catModalTitle');
   if (id) {
-    const c = categories.find((x) => x.id === id);
+    const c = appState.ledger.categories.find((x) => x.id === id);
     if (!c) return;
-    editingCatId = c.id;
-    editingCatColor = c.color || '#9e9b96';
-    editingCatIcon = CAT_ICON_VALID.has(c.icon) ? c.icon : CAT_ICON_FALLBACK;
+    appState.catEdit.id = c.id;
+    appState.catEdit.color = c.color || '#9e9b96';
+    appState.catEdit.icon = CAT_ICON_VALID.has(c.icon) ? c.icon : CAT_ICON_FALLBACK;
     document.getElementById('catEditName').value = c.name || '';
     title.textContent = tr('categories.editTitle');
     deleteBtn.style.display = '';
   } else {
-    editingCatId = null;
-    editingCatColor = CAT_CREATE_COLORS[categories.length % CAT_CREATE_COLORS.length];
-    editingCatIcon = CAT_ICON_FALLBACK;
+    appState.catEdit.id = null;
+    appState.catEdit.color =
+      CAT_CREATE_COLORS[appState.ledger.categories.length % CAT_CREATE_COLORS.length];
+    appState.catEdit.icon = CAT_ICON_FALLBACK;
     document.getElementById('catEditName').value = '';
     title.textContent = tr('categories.newTitle');
     deleteBtn.style.display = 'none';
@@ -3044,29 +3068,32 @@ function openCatModal(id) {
 function renderCatIconPreview() {
   const el = document.getElementById('catEditIconPreview');
   if (!el) return;
-  el.style.color = editingCatColor;
-  el.innerHTML = catIconSvg(editingCatIcon);
+  el.style.color = appState.catEdit.color;
+  el.innerHTML = catIconSvg(appState.catEdit.icon);
 }
 
 function renderCatColorSwatches() {
   const presets = [...CAT_COLOR_PRESETS];
-  const hasCurrent = presets.some((p) => p.hex.toLowerCase() === editingCatColor.toLowerCase());
-  if (!hasCurrent) presets.push({ hex: editingCatColor, name: tr('categories.customColorName') });
+  const hasCurrent = presets.some(
+    (p) => p.hex.toLowerCase() === appState.catEdit.color.toLowerCase(),
+  );
+  if (!hasCurrent)
+    presets.push({ hex: appState.catEdit.color, name: tr('categories.customColorName') });
   const box = document.getElementById('catEditColors');
   box.innerHTML =
     presets
       .map((p) => {
-        const isActive = p.hex.toLowerCase() === editingCatColor.toLowerCase();
+        const isActive = p.hex.toLowerCase() === appState.catEdit.color.toLowerCase();
         return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
       })
       .join('') +
     `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
+     <input type="color" value="${appState.catEdit.color}" onchange="pickCatColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
    </label>`;
 }
 
 function pickCatColor(c) {
-  editingCatColor = c;
+  appState.catEdit.color = c;
   renderCatColorSwatches();
   renderCatIconPreview();
 }
@@ -3074,7 +3101,7 @@ function pickCatColor(c) {
 function closeCatModal() {
   document.getElementById('catModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingCatId = null;
+  appState.catEdit.id = null;
   releaseFocusTrap('cat');
   restoreModalFocus('cat');
 }
@@ -3110,7 +3137,7 @@ function renderIconPicker() {
   host.innerHTML = CAT_ICON_GROUPS.map((g) => {
     const cells = g.ids
       .map((id) => {
-        const active = id === editingCatIcon ? ' active' : '';
+        const active = id === appState.catEdit.icon ? ' active' : '';
         const pressed = active ? 'true' : 'false';
         return `<button type="button" class="icon-picker-cell${active}"
               aria-pressed="${pressed}" aria-label="${id}"
@@ -3125,27 +3152,33 @@ function renderIconPicker() {
 }
 
 function pickIcon(id) {
-  editingCatIcon = CAT_ICON_VALID.has(id) ? id : CAT_ICON_FALLBACK;
+  appState.catEdit.icon = CAT_ICON_VALID.has(id) ? id : CAT_ICON_FALLBACK;
   renderCatIconPreview();
   closeIconPicker();
 }
 
 async function saveCategoryEdit() {
   const name = document.getElementById('catEditName').value.trim();
-  const icon = CAT_ICON_VALID.has(editingCatIcon) ? editingCatIcon : CAT_ICON_FALLBACK;
+  const icon = CAT_ICON_VALID.has(appState.catEdit.icon)
+    ? appState.catEdit.icon
+    : CAT_ICON_FALLBACK;
   if (!name) {
     toast(tr('common.nameRequired'), 'error');
     return;
   }
-  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(appState.catEdit.color)) {
     toast(tr('categories.invalidColor'), 'error');
     return;
   }
   try {
-    if (editingCatId) {
-      await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
+    if (appState.catEdit.id) {
+      await api('PUT', `/categories/${appState.catEdit.id}`, {
+        name,
+        icon,
+        color: appState.catEdit.color,
+      });
     } else {
-      await api('POST', '/categories', { name, icon, color: editingCatColor });
+      await api('POST', '/categories', { name, icon, color: appState.catEdit.color });
     }
     closeCatModal();
     await loadCategories();
@@ -3161,14 +3194,14 @@ async function saveCategoryEdit() {
 }
 
 async function deleteCategoryEdit() {
-  if (!editingCatId) return;
+  if (!appState.catEdit.id) return;
   const ok = await confirmAction({
     title: tr('categories.deleteConfirm'),
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
   try {
-    await api('DELETE', `/categories/${editingCatId}`);
+    await api('DELETE', `/categories/${appState.catEdit.id}`);
     closeCatModal();
     await loadCategories();
     renderCategories();
@@ -3196,15 +3229,13 @@ async function deleteCategoryEdit() {
 // category's transactions dated on/after start_date — the API stores
 // no aggregate. 'save_up' counts `in`-type up to target; 'pay_down'
 // counts `out`-type down from initial_amount toward target.
-let goals = [];
-let editingGoalId = null;
-let editingGoalColor = '#9e9b96';
+// Goals list + edit-modal draft live in appState.goals (state.js).
 
 async function loadGoals() {
   try {
-    goals = await api('GET', '/goals');
+    appState.goals.list = await api('GET', '/goals');
   } catch (e) {
-    goals = [];
+    appState.goals.list = [];
   }
 }
 
@@ -3213,16 +3244,16 @@ async function loadGoals() {
 async function renderGoalsView() {
   const el = document.getElementById('goalsViewList');
   if (!el) return;
-  if (!goals.length) {
+  if (!appState.goals.list.length) {
     el.innerHTML = `<div class="empty-state"><svg class="cat-glyph goals-empty-glyph" aria-hidden="true"><use href="#cat-piggy-bank"/></svg><p>${tr('goals.emptyView')}<br>${tr('goals.emptyViewHint')}</p></div>`;
     return;
   }
   // Progress spans each goal's whole life, not the current month, so we
   // fetch one combined range from the earliest start_date to today and
   // compute every goal off that single pool.
-  const minStart = goals.reduce(
+  const minStart = appState.goals.list.reduce(
     (m, g) => (g.start_date < m ? g.start_date : m),
-    goals[0].start_date,
+    appState.goals.list[0].start_date,
   );
   const now = new Date();
   const todayIso = _iso(now.getFullYear(), now.getMonth(), now.getDate());
@@ -3232,7 +3263,7 @@ async function renderGoalsView() {
   } catch (e) {
     pool = [];
   }
-  const sorted = [...goals].sort((a, b) =>
+  const sorted = [...appState.goals.list].sort((a, b) =>
     a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
   );
   el.innerHTML = sorted
@@ -3303,8 +3334,7 @@ async function renderGoalsView() {
 // Toggle `.is-wrapped` on each goal card's primary line depending on
 // whether its "· Ziel € X" suffix sits on a second line. Hiding the
 // separator only ever shortens that second line, so this can't feed back
-// into the wrap decision (no oscillation).
-let _goalRelayoutTimer = null;
+// into the wrap decision (no oscillation). Timer in appState.nav.goalRelayoutTimer.
 function _relayoutGoalTargets() {
   document.querySelectorAll('.goal-card-primary').forEach((primary) => {
     const target = primary.querySelector('.goal-primary-target');
@@ -3322,7 +3352,7 @@ function _goalAmountValue(id) {
 function populateGoalCategorySelect(selectedId) {
   const sel = document.getElementById('goalEditCategory');
   if (!sel) return;
-  const sorted = [...categories].sort((a, b) =>
+  const sorted = [...appState.ledger.categories].sort((a, b) =>
     a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
   );
   // Fall back to the alphabetically first option when no valid category
@@ -3351,28 +3381,31 @@ function onGoalDirectionChange() {
 
 function renderGoalColorSwatches() {
   const presets = [...CAT_COLOR_PRESETS];
-  const hasCurrent = presets.some((p) => p.hex.toLowerCase() === editingGoalColor.toLowerCase());
-  if (!hasCurrent) presets.push({ hex: editingGoalColor, name: tr('categories.customColorName') });
+  const hasCurrent = presets.some(
+    (p) => p.hex.toLowerCase() === appState.goals.editingColor.toLowerCase(),
+  );
+  if (!hasCurrent)
+    presets.push({ hex: appState.goals.editingColor, name: tr('categories.customColorName') });
   const box = document.getElementById('goalEditColors');
   box.innerHTML =
     presets
       .map((p) => {
-        const isActive = p.hex.toLowerCase() === editingGoalColor.toLowerCase();
+        const isActive = p.hex.toLowerCase() === appState.goals.editingColor.toLowerCase();
         return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickGoalColor('${p.hex}')"></button>`;
       })
       .join('') +
     `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${editingGoalColor}" onchange="pickGoalColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
+     <input type="color" value="${appState.goals.editingColor}" onchange="pickGoalColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
    </label>`;
 }
 
 function pickGoalColor(c) {
-  editingGoalColor = c;
+  appState.goals.editingColor = c;
   renderGoalColorSwatches();
 }
 
 function openGoalModal(id) {
-  if (!categories.length) {
+  if (!appState.ledger.categories.length) {
     toast(tr('goals.needCategory'), 'error');
     return;
   }
@@ -3380,10 +3413,10 @@ function openGoalModal(id) {
   const deleteBtn = document.getElementById('goalDeleteBtn');
   const title = document.getElementById('goalModalTitle');
   if (id) {
-    const g = goals.find((x) => x.id === id);
+    const g = appState.goals.list.find((x) => x.id === id);
     if (!g) return;
-    editingGoalId = g.id;
-    editingGoalColor = g.color || '#9e9b96';
+    appState.goals.editingId = g.id;
+    appState.goals.editingColor = g.color || '#9e9b96';
     document.getElementById('goalEditName').value = g.name || '';
     document.getElementById('goalEditDirection').value = g.direction;
     populateGoalCategorySelect(g.category_id);
@@ -3393,8 +3426,9 @@ function openGoalModal(id) {
     title.textContent = tr('goals.editTitle');
     deleteBtn.style.display = '';
   } else {
-    editingGoalId = null;
-    editingGoalColor = CAT_CREATE_COLORS[goals.length % CAT_CREATE_COLORS.length];
+    appState.goals.editingId = null;
+    appState.goals.editingColor =
+      CAT_CREATE_COLORS[appState.goals.list.length % CAT_CREATE_COLORS.length];
     document.getElementById('goalEditName').value = '';
     document.getElementById('goalEditDirection').value = 'save_up';
     populateGoalCategorySelect(null); // defaults to the first sorted option
@@ -3420,7 +3454,7 @@ function openGoalModal(id) {
 function closeGoalModal() {
   document.getElementById('goalModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingGoalId = null;
+  appState.goals.editingId = null;
   releaseFocusTrap('goal');
   restoreModalFocus('goal');
 }
@@ -3465,17 +3499,17 @@ async function saveGoalEdit() {
     target_amount: target.toFixed(2),
     start_date: startDate,
     icon: direction === 'pay_down' ? 'hand-coins' : 'piggy-bank',
-    color: editingGoalColor,
+    color: appState.goals.editingColor,
   };
   try {
-    if (editingGoalId) {
-      await api('PUT', `/goals/${editingGoalId}`, payload);
+    if (appState.goals.editingId) {
+      await api('PUT', `/goals/${appState.goals.editingId}`, payload);
     } else {
       await api('POST', '/goals', payload);
     }
     closeGoalModal();
     await loadGoals();
-    if (_activePanel === 'goals') await renderGoalsView();
+    if (appState.nav.activePanel === 'goals') await renderGoalsView();
   } catch (e) {
     if (e.message && e.message.includes('409')) {
       toast(tr('goals.categoryTaken'), 'error');
@@ -3488,17 +3522,17 @@ async function saveGoalEdit() {
 }
 
 async function deleteGoalEdit() {
-  if (!editingGoalId) return;
+  if (!appState.goals.editingId) return;
   const ok = await confirmAction({
     title: tr('goals.deleteConfirm'),
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
   try {
-    await api('DELETE', `/goals/${editingGoalId}`);
+    await api('DELETE', `/goals/${appState.goals.editingId}`);
     closeGoalModal();
     await loadGoals();
-    if (_activePanel === 'goals') await renderGoalsView();
+    if (appState.nav.activePanel === 'goals') await renderGoalsView();
   } catch (e) {
     toast(tr('tx.deleteFailed') + e.message, 'error');
   }
@@ -3511,14 +3545,13 @@ async function deleteGoalEdit() {
 // template + skip list. New rows pop into the regular
 // transactions list with a small clockwise badge.
 
-let recurringRules = [];
-let editingRecurringId = null;
+// Recurring rules list + edit-modal draft live in appState.recurring (state.js).
 
 async function loadRecurringRules() {
   try {
-    recurringRules = await api('GET', '/recurring');
+    appState.recurring.rules = await api('GET', '/recurring');
   } catch (e) {
-    recurringRules = [];
+    appState.recurring.rules = [];
   }
 }
 
@@ -3678,8 +3711,8 @@ function _refreshRecurringPreview() {
     : tr('recurring.nextRunNone');
   line.hidden = false;
   // Restore skip button to server-cursor state when toggling back to active.
-  if (btn && editingRecurringId) {
-    const cur = recurringRules.find((x) => x.id === editingRecurringId);
+  if (btn && appState.recurring.editingId) {
+    const cur = appState.recurring.rules.find((x) => x.id === appState.recurring.editingId);
     btn.disabled = !cur?.next_occurrence_date;
   }
 }
@@ -3687,11 +3720,11 @@ function _refreshRecurringPreview() {
 async function renderRecurringView() {
   const el = document.getElementById('recurringViewList');
   if (!el) return;
-  if (!recurringRules.length) {
+  if (!appState.recurring.rules.length) {
     el.innerHTML = `<div class="empty-state"><svg class="cat-glyph goals-empty-glyph" aria-hidden="true"><use href="#icon-arrows-clockwise"/></svg><p>${tr('recurring.emptyView')}<br>${tr('recurring.emptyViewHint')}</p></div>`;
     return;
   }
-  const sorted = [...recurringRules].sort((a, b) => {
+  const sorted = [...appState.recurring.rules].sort((a, b) => {
     if (a.active !== b.active) return a.active ? -1 : 1;
     return a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' });
   });
@@ -3723,7 +3756,7 @@ async function renderRecurringView() {
       // the direction, matching the ledger summary cards.
       const amount = fmtCurrency(Math.abs(r.amount));
       const inactiveCls = r.active ? '' : ' is-inactive';
-      const cat = categories.find((c) => c.id === r.category_id);
+      const cat = appState.ledger.categories.find((c) => c.id === r.category_id);
       const catColor = cat?.color || 'var(--accent)';
       return `<div class="recurring-card${inactiveCls}">
               <button type="button" class="recurring-card-main"
@@ -3747,7 +3780,7 @@ async function renderRecurringView() {
 function populateRecurringCategorySelect(selectedId) {
   const sel = document.getElementById('recEditCategory');
   if (!sel) return;
-  const sorted = [...categories].sort((a, b) =>
+  const sorted = [...appState.ledger.categories].sort((a, b) =>
     a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
   );
   const effectiveId = sorted.some((c) => c.id === selectedId)
@@ -3766,9 +3799,8 @@ function populateRecurringCategorySelect(selectedId) {
 // keeps the .segmented tabs in sync. The save path maps the active
 // kind to a payload where end_date and max_occurrences are mutually
 // exclusive.
-let _recurringValidity = 'unlimited';
 function setRecurringValidity(kind) {
-  _recurringValidity = kind;
+  appState.recurring.validity = kind;
   document.querySelectorAll('#recValidityTabs button').forEach((b) => {
     const active = b.dataset.kind === kind;
     b.setAttribute('aria-selected', String(active));
@@ -3851,7 +3883,7 @@ function _updateRecurringStatusHint(rule) {
 }
 
 function openRecurringModal(id) {
-  if (!categories.length) {
+  if (!appState.ledger.categories.length) {
     toast(tr('recurring.needCategory'), 'error');
     return;
   }
@@ -3861,9 +3893,9 @@ function openRecurringModal(id) {
   const skipsGroup = document.getElementById('recEditSkipsGroup');
   const today = new Date();
   if (id) {
-    const r = recurringRules.find((x) => x.id === id);
+    const r = appState.recurring.rules.find((x) => x.id === id);
     if (!r) return;
-    editingRecurringId = r.id;
+    appState.recurring.editingId = r.id;
     document.getElementById('recEditName').value = r.name || '';
     document.getElementById('recEditType').value = r.type || 'out';
     document.getElementById('recEditAmount').value = _formatAmountInput(Number(r.amount));
@@ -3881,7 +3913,7 @@ function openRecurringModal(id) {
     // on the next save.
     setRecurringValidity(r.max_occurrences != null ? 'count' : r.end_date ? 'date' : 'unlimited');
     document.getElementById('recEditActive').checked = r.active !== false;
-    currentRecurringTags = r.tags ? [...r.tags] : [];
+    appState.tagPicker.recurringTags = r.tags ? [...r.tags] : [];
     renderRecurringTagPills();
     title.textContent = tr('recurring.editTitle');
     deleteBtn.style.display = '';
@@ -3889,7 +3921,7 @@ function openRecurringModal(id) {
     _updateRecurringStatusHint(r);
     _renderRecurringSkipsList(r);
   } else {
-    editingRecurringId = null;
+    appState.recurring.editingId = null;
     document.getElementById('recEditName').value = '';
     document.getElementById('recEditType').value = 'out';
     document.getElementById('recEditAmount').value = '';
@@ -3906,7 +3938,7 @@ function openRecurringModal(id) {
     document.getElementById('recEditMaxOccurrences').value = '';
     setRecurringValidity('unlimited');
     document.getElementById('recEditActive').checked = true;
-    currentRecurringTags = [];
+    appState.tagPicker.recurringTags = [];
     renderRecurringTagPills();
     _refreshRecurringPreview();
     title.textContent = tr('recurring.newTitle');
@@ -3922,7 +3954,7 @@ function openRecurringModal(id) {
 function closeRecurringModal() {
   document.getElementById('recurringModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingRecurringId = null;
+  appState.recurring.editingId = null;
   releaseFocusTrap('recurring');
   restoreModalFocus('recurring');
 }
@@ -3940,7 +3972,7 @@ function _recurringPayloadFromForm() {
   const frequency = document.getElementById('recEditFrequency').value;
   const interval = Math.max(1, parseInt(document.getElementById('recEditInterval').value, 10) || 1);
   const startDate = document.getElementById('recEditStartDate').value;
-  const validity = _recurringValidity;
+  const validity = appState.recurring.validity;
   const endDate =
     validity === 'date' ? document.getElementById('recEditEndDate').value || null : null;
   const maxRaw = document.getElementById('recEditMaxOccurrences').value;
@@ -4015,7 +4047,7 @@ async function saveRecurringEdit() {
     amount: f.amount.toFixed(2),
     category_id: f.categoryId,
     desc: f.description,
-    tags: currentRecurringTags,
+    tags: appState.tagPicker.recurringTags,
     frequency: f.frequency,
     interval: f.interval,
     weekday: f.weekday,
@@ -4026,8 +4058,8 @@ async function saveRecurringEdit() {
     active: f.active,
   };
   try {
-    if (editingRecurringId) {
-      await api('PUT', `/recurring/${editingRecurringId}`, payload);
+    if (appState.recurring.editingId) {
+      await api('PUT', `/recurring/${appState.recurring.editingId}`, payload);
     } else {
       const created = await api('POST', '/recurring', payload);
       const count = created && created.materialized_count;
@@ -4043,7 +4075,7 @@ async function saveRecurringEdit() {
     }
     closeRecurringModal();
     await loadRecurringRules();
-    if (_activePanel === 'recurring') await renderRecurringView();
+    if (appState.nav.activePanel === 'recurring') await renderRecurringView();
     // Re-fetch the ledger right away: a backdated create materializes
     // its past bookings server-side in the same request, and the GET
     // also runs the catch-up, so the new rows are visible immediately
@@ -4063,7 +4095,7 @@ async function saveRecurringEdit() {
 }
 
 async function deleteRecurringEdit() {
-  if (!editingRecurringId) return;
+  if (!appState.recurring.editingId) return;
   const ok = await confirmAction({
     title: tr('recurring.deleteConfirm'),
     message: tr('recurring.deleteBody'),
@@ -4071,10 +4103,10 @@ async function deleteRecurringEdit() {
   });
   if (!ok) return;
   try {
-    await api('DELETE', `/recurring/${editingRecurringId}`);
+    await api('DELETE', `/recurring/${appState.recurring.editingId}`);
     closeRecurringModal();
     await loadRecurringRules();
-    if (_activePanel === 'recurring') await renderRecurringView();
+    if (appState.nav.activePanel === 'recurring') await renderRecurringView();
     _invalidateLocalTxCache();
   } catch (e) {
     toast(tr('tx.deleteFailed') + e.message, 'error');
@@ -4082,28 +4114,28 @@ async function deleteRecurringEdit() {
 }
 
 async function skipNextRecurringOccurrence() {
-  if (!editingRecurringId) return;
+  if (!appState.recurring.editingId) return;
   try {
-    const res = await api('POST', `/recurring/${editingRecurringId}/skip-next`);
+    const res = await api('POST', `/recurring/${appState.recurring.editingId}/skip-next`);
     if (res && res.skipped_date) {
       toast(tr('recurring.skipNextDone', { date: _recurringFormatDate(res.skipped_date) }));
     }
     await loadRecurringRules();
-    const refreshed = recurringRules.find((x) => x.id === editingRecurringId);
+    const refreshed = appState.recurring.rules.find((x) => x.id === appState.recurring.editingId);
     _updateRecurringStatusHint(refreshed);
     _renderRecurringSkipsList(refreshed);
-    if (_activePanel === 'recurring') await renderRecurringView();
+    if (appState.nav.activePanel === 'recurring') await renderRecurringView();
   } catch (e) {
     toast(tr('recurring.skipNextFailed'), 'error');
   }
 }
 
 async function unskipRecurringOccurrence(iso) {
-  if (!editingRecurringId || !iso) return;
+  if (!appState.recurring.editingId || !iso) return;
   try {
-    await api('DELETE', `/recurring/${editingRecurringId}/skip/${iso}`);
+    await api('DELETE', `/recurring/${appState.recurring.editingId}/skip/${iso}`);
     await loadRecurringRules();
-    const refreshed = recurringRules.find((x) => x.id === editingRecurringId);
+    const refreshed = appState.recurring.rules.find((x) => x.id === appState.recurring.editingId);
     _renderRecurringSkipsList(refreshed);
   } catch (e) {
     toast(tr('recurring.unskipFailed'), 'error');
@@ -4115,10 +4147,10 @@ function _invalidateLocalTxCache() {
   // The codebase uses different names in different builds; both
   // assignments are no-ops if the variable doesn't exist.
   try {
-    transactions = [];
+    appState.ledger.transactions = [];
   } catch (_) {}
   try {
-    _allTransactions = null;
+    appState.ledger.all = null;
   } catch (_) {}
   // Also clear the per-year report aggregate cache. api() does
   // this automatically on every non-GET, but the outbox replay
@@ -4131,16 +4163,16 @@ function _invalidateLocalTxCache() {
 }
 
 // ── TAGS (Einstellungen) ──────────────────────────────────────────────────────
-let editingTagName = null;
+// Tag rename modal draft lives in appState.tagEdit.name (state.js).
 
 function renderTagList() {
   const box = document.getElementById('tagList');
   if (!box) return;
-  if (!availableTags.length) {
+  if (!appState.ledger.availableTags.length) {
     box.innerHTML = `<p class="empty-state-hint">${tr('tags.none')}</p>`;
     return;
   }
-  box.innerHTML = availableTags
+  box.innerHTML = appState.ledger.availableTags
     .map(
       (t) => `<div class="tag-pill cat-pill-edit" data-tag="${_escAttr(t)}">${_escText(t)}</div>`,
     )
@@ -4155,12 +4187,12 @@ function openTagModal(name) {
   const deleteBtn = document.getElementById('tagDeleteBtn');
   const title = document.getElementById('tagModalTitle');
   if (name) {
-    editingTagName = name;
+    appState.tagEdit.name = name;
     document.getElementById('tagEditName').value = name;
     title.textContent = tr('tags.editTitle');
     deleteBtn.style.display = '';
   } else {
-    editingTagName = null;
+    appState.tagEdit.name = null;
     document.getElementById('tagEditName').value = '';
     title.textContent = tr('tags.newTitle');
     deleteBtn.style.display = 'none';
@@ -4174,7 +4206,7 @@ function openTagModal(name) {
 function closeTagModal() {
   document.getElementById('tagModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingTagName = null;
+  appState.tagEdit.name = null;
   releaseFocusTrap('tag');
   restoreModalFocus('tag');
 }
@@ -4188,13 +4220,13 @@ async function saveTagEdit() {
     toast(tr('common.nameRequired'), 'error');
     return;
   }
-  if (editingTagName && newName === editingTagName) {
+  if (appState.tagEdit.name && newName === appState.tagEdit.name) {
     closeTagModal();
     return;
   }
   try {
-    if (editingTagName) {
-      await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
+    if (appState.tagEdit.name) {
+      await api('PUT', `/tags/${encodeURIComponent(appState.tagEdit.name)}`, { new_name: newName });
     } else {
       await api('POST', '/tags', { name: newName });
     }
@@ -4212,7 +4244,7 @@ async function saveTagEdit() {
 }
 
 async function deleteTagEdit() {
-  if (!editingTagName) return;
+  if (!appState.tagEdit.name) return;
   const ok = await confirmAction({
     title: tr('tags.deleteConfirm'),
     message: tr('tags.deleteRemoves'),
@@ -4220,7 +4252,7 @@ async function deleteTagEdit() {
   });
   if (!ok) return;
   try {
-    await api('DELETE', `/tags/${encodeURIComponent(editingTagName)}`);
+    await api('DELETE', `/tags/${encodeURIComponent(appState.tagEdit.name)}`);
     closeTagModal();
     await loadTags();
     renderTagList();
@@ -4386,14 +4418,14 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
   const manual = localStorage.getItem(THEME_KEY);
   if (manual === 'dark' || manual === 'light') return;
   document.documentElement.setAttribute('data-dark', e.matches ? 'true' : 'false');
-  if (_activePanel === 'charts') renderReport();
+  if (appState.nav.activePanel === 'charts') renderReport();
 });
 
 function saveTheme(theme) {
   localStorage.setItem(THEME_KEY, theme);
   applyTheme(theme);
   pushSettings({ theme });
-  if (_activePanel === 'charts') renderReport();
+  if (appState.nav.activePanel === 'charts') renderReport();
 }
 
 function loadTheme() {
@@ -4836,13 +4868,12 @@ function _detectPointer() {
 // Antworten (Backend-Version, Health-Probe) überschreiben das DOM nur
 // dann, wenn sie noch zum aktuellen Durchgang gehören. Verhindert,
 // dass eine alte, langsame Antwort einen neueren Stand überschreibt,
-// wenn der User das Panel schnell zweimal öffnet.
-let _infoPanelSeq = 0;
+// wenn der User das Panel schnell zweimal öffnet. Seq in appState.nav.infoPanelSeq.
 
 async function renderInfoPanel() {
-  const mySeq = ++_infoPanelSeq;
+  const mySeq = ++appState.nav.infoPanelSeq;
   const set = (id, value) => {
-    if (mySeq !== _infoPanelSeq) return;
+    if (mySeq !== appState.nav.infoPanelSeq) return;
     const el = document.getElementById(id);
     if (el) el.textContent = value;
   };
@@ -5046,15 +5077,14 @@ async function submitChangePassword() {
 }
 
 // ── ADMIN: BENUTZERVERWALTUNG ─────────────────────────────────────────────────
-let _adminUsers = [];
-let _currentMe = null;
+// Admin user list + current "me" live in appState.admin (state.js).
 
 async function loadAdminUsers() {
   const list = document.getElementById('adminUserList');
   if (!list) return;
   list.textContent = tr('common.loading');
   try {
-    _adminUsers = await api('GET', '/admin/users');
+    appState.admin.users = await api('GET', '/admin/users');
   } catch (e) {
     list.textContent = tr('users.loadFailed');
     return;
@@ -5063,7 +5093,7 @@ async function loadAdminUsers() {
   // veraltet ist.
   try {
     const meRes = await fetch(API + '/auth/me', { credentials: 'same-origin' });
-    if (meRes.ok) _currentMe = await meRes.json();
+    if (meRes.ok) appState.admin.me = await meRes.json();
   } catch (_) {}
   renderAdminUserList();
 }
@@ -5071,20 +5101,20 @@ async function loadAdminUsers() {
 function renderAdminUserList() {
   const list = document.getElementById('adminUserList');
   if (!list) return;
-  if (!_adminUsers.length) {
+  if (!appState.admin.users.length) {
     list.textContent = tr('users.none');
     return;
   }
-  // _currentMe MUSS gesetzt sein, sonst kann die UI ihre Self-Schutz-
+  // appState.admin.me MUSS gesetzt sein, sonst kann die UI ihre Self-Schutz-
   // Regeln nicht durchsetzen (Buttons würden auf der eigenen Zeile
   // aktivierbar wirken, obwohl das Backend sie 400/403't). Lieber
   // einen Render-Fehler zeigen als eine UI-Lüge.
-  if (!_currentMe || _currentMe.id == null) {
+  if (!appState.admin.me || appState.admin.me.id == null) {
     list.textContent = tr('users.noIdentity');
     return;
   }
-  const meId = _currentMe.id;
-  list.innerHTML = _adminUsers
+  const meId = appState.admin.me.id;
+  list.innerHTML = appState.admin.users
     .map((u) => {
       const isSelf = u.id === meId;
       const tags = [];
@@ -5171,10 +5201,9 @@ async function submitAdminCreateUser() {
   }
 }
 
-let _resetPwTargetId = null;
 function openAdminResetPwModal(userId) {
-  _resetPwTargetId = userId;
-  const target = _adminUsers.find((u) => u.id === userId);
+  appState.admin.resetPwTargetId = userId;
+  const target = appState.admin.users.find((u) => u.id === userId);
   document.getElementById('adminResetPwIntro').textContent = target
     ? tr('users.resetIntro', { name: target.username })
     : '';
@@ -5195,7 +5224,7 @@ function closeAdminResetPwModalOutside(e) {
 }
 async function submitAdminResetPassword() {
   _setAuthError('adminResetPwError', '');
-  if (_resetPwTargetId == null) return;
+  if (appState.admin.resetPwTargetId == null) return;
   const pw = document.getElementById('adminResetPwInput').value;
   const pwErr = validateNewPassword(pw);
   if (pwErr) {
@@ -5203,9 +5232,13 @@ async function submitAdminResetPassword() {
     return;
   }
   try {
-    const res = await authFetch('POST', `/admin/users/${_resetPwTargetId}/reset-password`, {
-      new_password: pw,
-    });
+    const res = await authFetch(
+      'POST',
+      `/admin/users/${appState.admin.resetPwTargetId}/reset-password`,
+      {
+        new_password: pw,
+      },
+    );
     if (!res.ok) {
       const pe = _passwordErrorMessage(await res.json().catch(() => ({})));
       _setAuthError('adminResetPwError', pe || tr('users.resetFailed'));
@@ -5220,7 +5253,7 @@ async function submitAdminResetPassword() {
 }
 
 async function adminToggleActive(userId, activate) {
-  const target = _adminUsers.find((u) => u.id === userId);
+  const target = appState.admin.users.find((u) => u.id === userId);
   const name = target ? target.username : tr('users.fallbackName');
   const ok = await confirmAction({
     title: activate ? tr('users.reactivateTitle', { name }) : tr('users.deactivateTitle', { name }),
@@ -5248,7 +5281,7 @@ async function adminToggleActive(userId, activate) {
 }
 
 async function adminDeleteUserConfirm(userId) {
-  const target = _adminUsers.find((u) => u.id === userId);
+  const target = appState.admin.users.find((u) => u.id === userId);
   const name = target ? target.username : tr('users.fallbackName');
   const ok = await confirmAction({
     title: tr('users.deleteConfirm', { name }),
@@ -5436,7 +5469,7 @@ async function submitForcePassword() {
 }
 
 async function _afterAuthSuccess(me) {
-  _currentMe = me;
+  appState.admin.me = me;
   document.body.classList.toggle('is-admin', !!me.is_admin);
   const usernameLabel = document.getElementById('accountUsername');
   if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
@@ -5480,15 +5513,15 @@ async function _afterAuthSuccess(me) {
 function onI18nChanged() {
   rebuildMonthNames();
   syncDisplaySelects();
-  const me = _currentMe;
+  const me = appState.admin.me;
   if (me) {
     const usernameLabel = document.getElementById('accountUsername');
     if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
   }
   renderAll();
-  if (_activePanel === 'charts') renderReport();
-  if (_activePanel === 'goals') renderGoalsView();
-  if (_activePanel === 'recurring') renderRecurringView();
+  if (appState.nav.activePanel === 'charts') renderReport();
+  if (appState.nav.activePanel === 'goals') renderGoalsView();
+  if (appState.nav.activePanel === 'recurring') renderRecurringView();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -5504,9 +5537,9 @@ async function init() {
   document.addEventListener('i18n:changed', onI18nChanged);
   // Re-evaluate goal-card suffix wrapping on viewport/orientation change.
   window.addEventListener('resize', () => {
-    if (_activePanel !== 'goals') return;
-    clearTimeout(_goalRelayoutTimer);
-    _goalRelayoutTimer = setTimeout(_relayoutGoalTargets, 150);
+    if (appState.nav.activePanel !== 'goals') return;
+    clearTimeout(appState.nav.goalRelayoutTimer);
+    appState.nav.goalRelayoutTimer = setTimeout(_relayoutGoalTargets, 150);
   });
   applyTheme(loadTheme());
   syncDisplaySelects();
