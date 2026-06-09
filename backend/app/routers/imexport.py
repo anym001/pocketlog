@@ -9,13 +9,13 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from .. import constants, crud, schemas
-from ..deps import DB, CurrentUser
+from ..deps import DB, CurrentUser, ImportUser
 
 router = APIRouter()
 
 
 @router.post("/api/import/csv", response_model=schemas.ImportResult)
-async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
+async def import_csv(file: UploadFile, user: ImportUser, db: DB):
     raw = await file.read()
     if len(raw) > constants.MAX_IMPORT_BYTES:
         raise HTTPException(status_code=413, detail="file too large (>5MB)")

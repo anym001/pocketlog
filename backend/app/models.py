@@ -128,6 +128,9 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    api_keys: Mapped[list["ApiKey"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Session(Base):
@@ -268,6 +271,9 @@ class Transaction(Base):
         # FK on source_rule_id triggers a SET NULL on rule delete; without
         # this index that check is a full scan on transactions.
         Index("ix_transactions_source_rule_id", "source_rule_id"),
+        # Idempotency guard for CSV imports. NULLs are distinct in every
+        # supported backend, so manual transactions are unaffected.
+        UniqueConstraint("user_id", "import_hash", name="uq_tx_user_import_hash"),
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
     )
 
@@ -298,6 +304,10 @@ class Transaction(Base):
         ),
         nullable=True,
     )
+    # Set by the CSV import path; NULL for manually created transactions.
+    # The UNIQUE(user_id, import_hash) constraint makes repeated imports
+    # of the same bank data idempotent.
+    import_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="transactions")
     category: Mapped[Category] = relationship(back_populates="transactions")
@@ -559,3 +569,41 @@ class RecurringRuleSkip(Base):
     skip_date: Mapped[date_type] = mapped_column(Date, nullable=False)
 
     rule: Mapped[RecurringRule] = relationship(back_populates="skips")
+
+
+class ApiKey(Base):
+    """Per-user bearer token for programmatic API access.
+
+    The raw key (``plk_<base64url>``) is returned once at creation and
+    never stored — only the SHA-256 hex hash is persisted. ``scopes`` is
+    a JSON-serialised list of strings (e.g. ``'["import","read"]'``).
+    """
+
+    __tablename__ = "api_keys"
+    __table_args__ = (
+        UniqueConstraint("key_hash", name="uq_api_keys_key_hash"),
+        Index("ix_api_keys_user_id", "user_id"),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE", name="fk_api_keys_user"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    key_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    scopes: Mapped[str] = mapped_column(
+        String(255), nullable=False, server_default='["import"]'
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        default=lambda: datetime.utcnow(),
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="api_keys")

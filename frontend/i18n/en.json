@@ -88,6 +88,7 @@
     "categories": "Categories",
     "tags": "Tags",
     "importExport": "Import/Export",
+    "apiKeys": "API Keys",
     "display": "General",
     "admin": "Management",
     "users": "Users",
@@ -384,6 +385,7 @@
     "importing": "Importing",
     "imported": "{n} transactions imported",
     "skipped": "{n} skipped",
+    "deduped": "{n} duplicates",
     "errorRows": "{n} rows skipped",
     "importFailed": "Import failed – check your connection",
     "rowLabel": "Row {row}: {msg}",
@@ -400,6 +402,27 @@
       "db_conflict": "Database conflict while saving. Please try again.",
       "row_invalid": "Row could not be processed"
     }
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "empty": "No keys created yet.",
+    "create": "Create new key",
+    "name": "Name",
+    "scopes": "Permissions",
+    "scope.import": "Import",
+    "scope.read": "Read & Export",
+    "scope.write": "Write",
+    "scope.admin": "Admin access",
+    "scope.admin.warning": "This key gets full access including user management.",
+    "createdAt": "Created",
+    "lastUsed": "Last used",
+    "revoke": "Revoke",
+    "revokeConfirm": "Really revoke key \"{name}\"?",
+    "created.title": "Key created",
+    "created.warning": "This key is only shown once and cannot be recovered afterwards.",
+    "created.copy": "Copy",
+    "errorName": "Please enter a name.",
+    "errorScopes": "Select at least one permission."
   },
   "admin": {
     "cacheClear": "Clear cache",

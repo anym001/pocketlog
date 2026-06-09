@@ -2,9 +2,15 @@
 and tags on the fly via the categories/tags modules. Per-row failures carry a
 stable machine ``code`` (``CsvRowError``) so the frontend localizes the
 message — the backend never emits German import prose.
+
+Deduplication: every imported row gets an ``import_hash`` fingerprint
+(SHA-256 of ``date|amount|normalized_description|type``). The UNIQUE
+constraint ``uq_tx_user_import_hash`` on ``(user_id, import_hash)`` makes
+re-importing the same bank data a no-op for the duplicate rows.
 """
 
 import csv
+import hashlib
 import io
 import logging
 from datetime import date as date_type
@@ -148,6 +154,18 @@ def _build_transaction(
     return tx
 
 
+def _import_hash(tx: models.Transaction) -> str:
+    """Fingerprint a transaction for CSV import deduplication.
+
+    Uses the normalised description (lower + strip) so minor whitespace
+    differences between bank CSV generations do not create false negatives.
+    The hash is per-user via the UNIQUE(user_id, import_hash) constraint,
+    not embedded in the hash itself.
+    """
+    payload = f"{tx.date.isoformat()}|{tx.amount}|{tx.description.lower().strip()}|{tx.type}"
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
 def import_csv(
     db: Session, user_id: int, text: str, max_rows: int = constants.MAX_IMPORT_ROWS
 ) -> dict:
@@ -167,11 +185,13 @@ def import_csv(
         return {
             "imported": 0,
             "skipped": 0,
+            "deduped": 0,
             "errors": [{"row": 1, "code": "header_missing", "params": {}}],
         }
 
     imported = 0
     skipped = 0
+    deduped = 0
     errors: list[dict] = []
 
     # Locale-aware fallback category for rows without a category column, so an
@@ -188,6 +208,20 @@ def import_csv(
     # One tag-cache for the whole import — keeps row-by-row tag
     # resolution at O(distinct tags) instead of O(rows × tags).
     tag_cache = _build_tag_cache(db, user_id)
+
+    # Pre-load existing import hashes for this user into a set so dedup
+    # checks are O(1) without a per-row DB query. Also serves as an
+    # in-memory guard for within-file duplicates (e.g. bank CSV with two
+    # identical rows).
+    existing_hashes: set[str] = {
+        row[0]
+        for row in db.execute(
+            select(models.Transaction.import_hash).where(
+                models.Transaction.user_id == user_id,
+                models.Transaction.import_hash.is_not(None),
+            )
+        )
+    }
 
     for idx, row in enumerate(reader, start=2):
         if idx - 1 > max_rows:
@@ -208,6 +242,14 @@ def import_csv(
             if tx is None:
                 skipped += 1
                 continue
+
+            h = _import_hash(tx)
+            if h in existing_hashes:
+                deduped += 1
+                continue
+            existing_hashes.add(h)
+            tx.import_hash = h
+
             db.add(tx)
             imported += 1
             if imported % 200 == 0:
@@ -235,7 +277,8 @@ def import_csv(
         return {
             "imported": 0,
             "skipped": imported + skipped,
+            "deduped": deduped,
             "errors": [{"row": 0, "code": "db_conflict", "params": {}}],
         }
 
-    return {"imported": imported, "skipped": skipped, "errors": errors}
+    return {"imported": imported, "skipped": skipped, "deduped": deduped, "errors": errors}
