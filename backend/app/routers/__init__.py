@@ -5,3 +5,5 @@ concerns (middleware, the domain-error handler, the static-files mount). Each
 module owns one slice of the ``/api`` surface and pulls the shared auth
 dependencies from ``app.deps``.
 """
+
+from . import auth, health  # noqa: F401  (re-exported for main.include_router)
