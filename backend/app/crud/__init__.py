@@ -14,6 +14,7 @@ Submodules:
 - ``transactions``  transaction CRUD
 - ``settings``      user-settings CRUD + bulk data reset
 - ``imexport``      CSV import
+- ``api_keys``      API key management (create, list, revoke)
 """
 
 from .categories import (
@@ -38,6 +39,12 @@ from .goals import (
     delete_goal,
     list_goals,
     update_goal,
+)
+from .api_keys import (
+    create_api_key,
+    get_api_key_by_hash,
+    list_api_keys,
+    revoke_api_key,
 )
 from .imexport import (
     CsvRowError,
@@ -175,4 +182,9 @@ __all__ = [
     "_parse_amount",
     "_parse_date",
     "import_csv",
+    # api_keys
+    "create_api_key",
+    "get_api_key_by_hash",
+    "list_api_keys",
+    "revoke_api_key",
 ]
