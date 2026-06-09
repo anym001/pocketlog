@@ -9,11 +9,11 @@ You are a code reviewer for PocketLog, a household budget PWA. Your job is to re
 
 **Backend (FastAPI / Python)**
 - Every CRUD function has a `user_id: int` parameter — no cross-user data leaks
-- New endpoints are registered in `main.py`, schema in `schemas.py`, logic in `crud.py`
+- New endpoints live in the matching `app/routers/<domain>.py` (one `APIRouter` per domain, wired in `main.py` via `include_router`), schema in `schemas.py`, logic in `crud.py`; shared auth deps come from `app.deps`
 - "Out" schemas have `from_attributes=True` when built via `model_validate()` from ORM objects
 - `Field(alias=…)` schemas also have `populate_by_name=True`
 - Schema changes have a matching Alembic migration (no manual ALTER TABLE)
-- `StaticFiles` mount is registered last in `main.py`
+- `StaticFiles` mount is registered last in `main.py` (after every `include_router`)
 
 **Frontend (Vanilla JS / CSS)**
 - No hardcoded hex/rgba — use CSS tokens (`var(--accent)`, `var(--text)`, etc.)
