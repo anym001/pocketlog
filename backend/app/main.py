@@ -6,14 +6,22 @@ from datetime import date as date_type
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from . import auth, crud, models, recurring, schemas
+from . import auth, constants, crud, errors, exceptions, models, recurring, schemas
 from .database import get_db
 from .logging_config import client_ip, configure_logging, safe
 
@@ -51,6 +59,19 @@ app = FastAPI(
 )
 
 
+@app.exception_handler(exceptions.DomainError)
+async def _domain_error_handler(
+    request: Request, exc: exceptions.DomainError
+) -> JSONResponse:
+    """Map any domain-level business-rule violation to its HTTP response.
+
+    Status and detail come straight off the exception, so the response is
+    identical to the former per-endpoint ``HTTPException`` mapping — and the
+    frontend's machine-readable error contract is unchanged.
+    """
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
 # Content-Security-Policy — set in the backend because SWAG's ssl.conf does
 # not configure one. The remaining security headers (HSTS, X-Frame-Options,
 # X-Content-Type-Options, Referrer-Policy, X-Download-Options) are already
@@ -85,15 +106,19 @@ CSP_POLICY = (
 )
 
 
-_SHELL_NO_CACHE_PATHS = frozenset({
-    "/",
-    "/index.html",
-    "/app.js",
-    "/sw.js",
-    "/db.js",
-    "/styles.css",
-    "/manifest.webmanifest",
-})
+_SHELL_NO_CACHE_PATHS = frozenset(
+    {
+        "/",
+        "/index.html",
+        "/app.js",
+        "/utils.js",
+        "/reportsData.js",
+        "/sw.js",
+        "/db.js",
+        "/styles.css",
+        "/manifest.webmanifest",
+    }
+)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -125,6 +150,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # ---------------------------------------------------------------------
 # Cookie helpers
 # ---------------------------------------------------------------------
+
 
 def _set_session_cookies(
     response: Response,
@@ -200,6 +226,7 @@ def _refresh_cookie_if_needed(
 # Auth-Dependencies
 # ---------------------------------------------------------------------
 
+
 def _unauthorized(response: Response) -> HTTPException:
     """401 + leere Cookies. Verhindert, dass der Browser denselben
     kaputten Cookie immer wieder mitschickt."""
@@ -250,9 +277,7 @@ def require_active_password(
     aufrufen. ``/api/auth/me``, ``/api/auth/logout`` und
     ``/api/auth/change-password`` umgehen diesen Block."""
     if user.force_change_password:
-        raise HTTPException(
-            status_code=403, detail="password_change_required"
-        )
+        raise HTTPException(status_code=403, detail="password_change_required")
     return user
 
 
@@ -274,6 +299,7 @@ DB = Annotated[Session, Depends(get_db)]
 # Public endpoints
 # ---------------------------------------------------------------------
 
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -287,6 +313,7 @@ def version() -> dict:
 # ---------------------------------------------------------------------
 # Auth endpoints
 # ---------------------------------------------------------------------
+
 
 def _needs_setup(db: Session) -> tuple[bool, str | None]:
     """Setup-Modus aktiv? Falls ja, optional Username-Vorschlag.
@@ -328,7 +355,7 @@ def setup_admin(
     if not needs:
         # Setup ist bereits abgeschlossen — kein Admin-Override-Pfad
         # offen lassen.
-        raise HTTPException(status_code=409, detail="setup_already_done")
+        raise errors.conflict("setup_already_done")
 
     if suggested is not None:
         # Bestand-Admin: Username ist DB-seitig vorgegeben, wir
@@ -337,16 +364,12 @@ def setup_admin(
         if user is None or not user.is_admin or user.password_hash is not None:
             # Race: zwischen status-check und setup hat sich der State
             # geändert. Sauber abbrechen.
-            raise HTTPException(status_code=409, detail="setup_already_done")
-        crud.set_user_password(
-            db, user, payload.password, force_change=False
-        )
+            raise errors.conflict("setup_already_done")
+        crud.set_user_password(db, user, payload.password, force_change=False)
         # Locale aus dem Setup-Screen auch für den migrierten Admin
         # übernehmen — seine Kategorien sind ggf. schon (deutsch) geseedet,
         # aber die UI-Locale soll der Wahl folgen.
-        crud.update_settings(
-            db, user.id, schemas.SettingsUpdate(locale=payload.locale)
-        )
+        crud.update_settings(db, user.id, schemas.SettingsUpdate(locale=payload.locale))
         mode = "migrated"
     else:
         # Fresh install: neuer Admin-User mit dem gewählten Username.
@@ -363,12 +386,15 @@ def setup_admin(
             # Race mit einem parallelen Setup-Versuch — Username
             # existiert schon. Aus Sicht des zweiten Setup-Versuchs ist
             # die DB jetzt initialisiert.
-            raise HTTPException(status_code=409, detail="setup_already_done")
+            raise errors.conflict("setup_already_done")
         mode = "fresh"
 
     audit.info(
         "setup.admin_created id=%s username=%s ip=%s mode=%s",
-        user.id, user.username, client_ip(request), mode,
+        user.id,
+        user.username,
+        client_ip(request),
+        mode,
     )
 
     # Direkt einloggen, damit die App nicht in den Login-Flow zurückfällt.
@@ -396,7 +422,8 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         # it does not enable username enumeration.
         audit.warning(
             "auth.login.failure username=%s ip=%s reason=unknown_user",
-            safe(username), ip,
+            safe(username),
+            ip,
         )
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
@@ -405,7 +432,10 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         # Während eines aktiven Lockouts wird gar nicht erst verifiziert.
         audit.warning(
             "auth.login.during_lockout user=%s id=%s ip=%s seconds=%s",
-            user.username, user.id, ip, locked,
+            user.username,
+            user.id,
+            ip,
+            locked,
         )
         return _lockout_response(response, locked)
 
@@ -414,12 +444,16 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         if lockout is not None:
             audit.warning(
                 "auth.login.lockout_triggered user=%s id=%s ip=%s seconds=%s",
-                user.username, user.id, ip, lockout,
+                user.username,
+                user.id,
+                ip,
+                lockout,
             )
             return _lockout_response(response, lockout)
         audit.warning(
             "auth.login.failure username=%s ip=%s reason=bad_password",
-            safe(username), ip,
+            safe(username),
+            ip,
         )
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
@@ -432,7 +466,10 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
     )
     audit.info(
         "auth.login.success user=%s id=%s ip=%s ua=%s",
-        user.username, user.id, ip, safe(user_agent or "unknown"),
+        user.username,
+        user.id,
+        ip,
+        safe(user_agent or "unknown"),
     )
     # Symmetric with /api/auth/me: run the recurring catch-up so the
     # "N transactions added automatically" banner also fires on the
@@ -445,7 +482,8 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         if materialized:
             audit.info(
                 "recurring.catchup id=%s count=%s trigger=login",
-                user.id, materialized,
+                user.id,
+                materialized,
             )
     return {
         "user": schemas.UserMe(
@@ -462,7 +500,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
 def _lockout_response(response: Response, seconds: int) -> Response:
     """429 + Retry-After. JSON-Body damit das Frontend einen
     sprechenden Hinweis zeigen kann."""
-    body = '{"detail":"too_many_attempts","retry_after":%d}' % seconds
+    body = f'{{"detail":"too_many_attempts","retry_after":{seconds}}}'
     r = Response(
         content=body,
         status_code=429,
@@ -508,7 +546,8 @@ def auth_me(request: Request, response: Response, db: DB, user: RawCurrentUser):
         if materialized:
             audit.info(
                 "recurring.catchup id=%s count=%s trigger=auth_me",
-                user.id, materialized,
+                user.id,
+                materialized,
             )
     return schemas.UserMe(
         id=user.id,
@@ -535,24 +574,20 @@ def change_password(
         ):
             # Kein Lockout-Trigger — der User ist authentifiziert, das ist
             # kein Login-Brute-Force. 400 reicht.
-            raise HTTPException(
-                status_code=400, detail="current_password_wrong"
-            )
+            raise HTTPException(status_code=400, detail="current_password_wrong")
         if payload.new_password == payload.current_password:
-            raise HTTPException(
-                status_code=400, detail="password_reused"
-            )
+            raise HTTPException(status_code=400, detail="password_reused")
     crud.set_user_password(db, user, payload.new_password, force_change=False)
     # Alle anderen Sessions des Users invalidieren — bei einer
     # Passwort-Änderung kann der Auslöser eine Kompromittierung
     # gewesen sein.
     current_session_id = getattr(request.state, "session_id", None)
-    revoked = auth.revoke_all_user_sessions(
-        db, user.id, except_id=current_session_id
-    )
+    revoked = auth.revoke_all_user_sessions(db, user.id, except_id=current_session_id)
     audit.info(
         "auth.password.change_self id=%s ip=%s revoked_count=%s",
-        user.id, client_ip(request), revoked,
+        user.id,
+        client_ip(request),
+        revoked,
     )
     return Response(status_code=204)
 
@@ -560,6 +595,7 @@ def change_password(
 # ---------------------------------------------------------------------
 # Admin-User-Endpoints
 # ---------------------------------------------------------------------
+
 
 def _user_to_admin_out(user: models.User) -> schemas.AdminUserOut:
     return schemas.AdminUserOut(
@@ -573,9 +609,7 @@ def _user_to_admin_out(user: models.User) -> schemas.AdminUserOut:
     )
 
 
-@app.get(
-    "/api/admin/users", response_model=list[schemas.AdminUserOut]
-)
+@app.get("/api/admin/users", response_model=list[schemas.AdminUserOut])
 def admin_list_users(db: DB, _admin: AdminUser):
     return [_user_to_admin_out(u) for u in crud.list_all_users(db)]
 
@@ -604,22 +638,15 @@ def admin_create_user(
             currency=admin_settings.currency,
         )
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="username_taken")
+        raise errors.conflict("username_taken")
     audit.info(
         "admin.user.create actor_admin_id=%s new_user_id=%s username=%s ip=%s",
-        _admin.id, user.id, user.username, client_ip(request),
+        _admin.id,
+        user.id,
+        user.username,
+        client_ip(request),
     )
     return _user_to_admin_out(user)
-
-
-def _resolve_admin_target(user_id: int, db: Session) -> models.User:
-    """Helper: lädt den Ziel-User für eine Admin-Aktion. Wirft 404 wenn
-    nicht gefunden. Self-Schutz-Regeln liegen in den Endpoints, weil sie
-    pro Aktion unterschiedlich sind."""
-    target = crud.get_user_by_id(db, user_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="user_not_found")
-    return target
 
 
 @app.post("/api/admin/users/{user_id}/reset-password", status_code=204)
@@ -630,71 +657,76 @@ def admin_reset_password(
     db: DB,
     admin: AdminUser,
 ):
-    target = _resolve_admin_target(user_id, db)
-    if target.id == admin.id:
-        # Würde den Admin in den Force-Change-View dumpen und alle eigenen
-        # Sessions wegwerfen — UX-Falle (sofortiger Self-Lockout). Wer
-        # sein Passwort ändern will, geht durch die Self-Service-View.
-        raise HTTPException(status_code=403, detail="cannot_modify_self")
+    # Self-reset would dump the admin into the force-change view and revoke
+    # all their own sessions — an instant self-lockout. Resetting another
+    # admin is allowed; only self is blocked (allow_admin_target=True).
+    target = crud.resolve_admin_target(
+        db, target_id=user_id, actor_id=admin.id, allow_admin_target=True
+    )
     crud.set_user_password(db, target, payload.new_password, force_change=True)
     # Sicherheit: alle Sessions des betroffenen Users wegwerfen, damit
     # ein bereits eingeloggter Tab nicht weiterläuft.
     revoked = auth.revoke_all_user_sessions(db, target.id)
     audit.info(
-        "auth.password.reset_admin actor_admin_id=%s target_id=%s ip=%s revoked_count=%s",
-        admin.id, target.id, client_ip(request), revoked,
+        "auth.password.reset_admin actor_admin_id=%s target_id=%s "
+        "ip=%s revoked_count=%s",
+        admin.id,
+        target.id,
+        client_ip(request),
+        revoked,
     )
     return Response(status_code=204)
 
 
 @app.post("/api/admin/users/{user_id}/deactivate", status_code=204)
 def admin_deactivate(user_id: int, request: Request, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db)
-    if target.id == admin.id:
-        raise HTTPException(status_code=403, detail="cannot_modify_self")
-    if target.is_admin:
-        # Admins dürfen nicht deaktiviert werden — sonst landet die App
-        # in einem Zustand mit null Admins.
-        raise HTTPException(status_code=403, detail="cannot_modify_admin")
+    # Neither self nor another admin: deactivating an admin could leave the
+    # instance with zero admins.
+    target = crud.resolve_admin_target(
+        db, target_id=user_id, actor_id=admin.id, allow_admin_target=False
+    )
     crud.deactivate_user(db, target)
     revoked = auth.revoke_all_user_sessions(db, target.id)
     audit.info(
         "admin.user.deactivate actor_admin_id=%s target_id=%s ip=%s revoked_count=%s",
-        admin.id, target.id, client_ip(request), revoked,
+        admin.id,
+        target.id,
+        client_ip(request),
+        revoked,
     )
     return Response(status_code=204)
 
 
 @app.post("/api/admin/users/{user_id}/activate", status_code=204)
 def admin_activate(user_id: int, request: Request, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db)
-    if target.id == admin.id:
-        # Self ist immer aktiv (sonst wäre admin oben gar nicht hier).
-        raise HTTPException(status_code=403, detail="cannot_modify_self")
+    # Self is always active (else this admin wouldn't be here); reactivating
+    # another admin is fine, so only self is blocked.
+    target = crud.resolve_admin_target(
+        db, target_id=user_id, actor_id=admin.id, allow_admin_target=True
+    )
     crud.activate_user(db, target)
     audit.info(
         "admin.user.activate actor_admin_id=%s target_id=%s ip=%s",
-        admin.id, target.id, client_ip(request),
+        admin.id,
+        target.id,
+        client_ip(request),
     )
     return Response(status_code=204)
 
 
 @app.delete("/api/admin/users/{user_id}", status_code=204)
 def admin_delete_user(user_id: int, request: Request, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db)
-    if target.id == admin.id:
-        raise HTTPException(status_code=403, detail="cannot_modify_self")
-    if target.is_admin:
-        # Symmetrisch zu deactivate: ein zweiter Admin (Testfixtures,
-        # zukünftige Mehr-Admin-Erweiterung) darf nicht per DELETE
-        # entfernt werden. Beim aktuellen Single-Admin-Modell kann das
-        # ohnehin nicht passieren, weil ``target.id == admin.id`` oben
-        # schon greift — aber die Regel macht das Modell konsistent.
-        raise HTTPException(status_code=403, detail="cannot_modify_admin")
+    # Symmetric with deactivate: neither self nor another admin may be
+    # deleted, keeping the admin-count invariant intact.
+    target = crud.resolve_admin_target(
+        db, target_id=user_id, actor_id=admin.id, allow_admin_target=False
+    )
     crud.delete_user(db, target)
     audit.info(
         "admin.user.delete actor_admin_id=%s target_id=%s ip=%s",
-        admin.id, target.id, client_ip(request),
+        admin.id,
+        target.id,
+        client_ip(request),
     )
     return Response(status_code=204)
 
@@ -703,19 +735,18 @@ def admin_delete_user(user_id: int, request: Request, db: DB, admin: AdminUser):
 # Categories
 # ---------------------------------------------------------------------
 
+
 @app.get("/api/categories", response_model=list[schemas.CategoryOut])
 def get_categories(user: CurrentUser, db: DB):
     return crud.list_categories(db, user.id)
 
 
-@app.post(
-    "/api/categories", response_model=schemas.CategoryOut, status_code=201
-)
+@app.post("/api/categories", response_model=schemas.CategoryOut, status_code=201)
 def post_category(payload: schemas.CategoryCreate, user: CurrentUser, db: DB):
     try:
         return crud.create_category(db, user.id, payload)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="category exists")
+        raise errors.conflict("category exists")
 
 
 @app.put("/api/categories/{category_id}", response_model=schemas.CategoryOut)
@@ -728,34 +759,26 @@ def put_category(
     try:
         cat = crud.update_category(db, user.id, category_id, payload)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="category exists")
+        raise errors.conflict("category exists")
     if cat is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return cat
 
 
 @app.delete("/api/categories/{category_id}", status_code=204)
 def remove_category(category_id: int, user: CurrentUser, db: DB):
-    try:
-        ok = crud.delete_category(db, user.id, category_id)
-    except ValueError as e:
-        if str(e) == "category_in_use":
-            raise HTTPException(status_code=409, detail="category in use")
-        if str(e) == "category_has_goal":
-            raise HTTPException(status_code=409, detail="category has goal")
-        if str(e) == "category_has_recurring_rule":
-            raise HTTPException(
-                status_code=409, detail="category has recurring rule"
-            )
-        raise
+    # In-use / has-goal / has-recurring-rule are raised as DomainErrors and
+    # mapped to 409 by the global handler.
+    ok = crud.delete_category(db, user.id, category_id)
     if not ok:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return Response(status_code=204)
 
 
 # ---------------------------------------------------------------------
 # Goals
 # ---------------------------------------------------------------------
+
 
 @app.get("/api/goals", response_model=list[schemas.GoalOut])
 def get_goals(user: CurrentUser, db: DB):
@@ -766,12 +789,8 @@ def get_goals(user: CurrentUser, db: DB):
 def post_goal(payload: schemas.GoalCreate, user: CurrentUser, db: DB):
     try:
         return crud.create_goal(db, user.id, payload)
-    except ValueError as e:
-        if str(e) == "category_not_found":
-            raise HTTPException(status_code=422, detail="category not found")
-        raise
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="goal exists for category")
+        raise errors.conflict("goal exists for category")
 
 
 @app.put("/api/goals/{goal_id}", response_model=schemas.GoalOut)
@@ -783,14 +802,10 @@ def put_goal(
 ):
     try:
         goal = crud.update_goal(db, user.id, goal_id, payload)
-    except ValueError as e:
-        if str(e) == "category_not_found":
-            raise HTTPException(status_code=422, detail="category not found")
-        raise
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="goal exists for category")
+        raise errors.conflict("goal exists for category")
     if goal is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return goal
 
 
@@ -798,7 +813,7 @@ def put_goal(
 def remove_goal(goal_id: int, user: CurrentUser, db: DB):
     ok = crud.delete_goal(db, user.id, goal_id)
     if not ok:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return Response(status_code=204)
 
 
@@ -809,9 +824,8 @@ def remove_goal(goal_id: int, user: CurrentUser, db: DB):
 # (app.recurring) materializes due occurrences on each /auth/me and
 # /transactions read; this CRUD only manages the templates.
 
-@app.get(
-    "/api/recurring", response_model=list[schemas.RecurringRuleOut]
-)
+
+@app.get("/api/recurring", response_model=list[schemas.RecurringRuleOut])
 def get_recurring(user: CurrentUser, db: DB):
     return crud.list_recurring_rules(db, user.id)
 
@@ -831,23 +845,15 @@ def post_recurring(
         rule, count = crud.create_recurring_rule(
             db, user.id, payload, today=date_type.today()
         )
-    except ValueError as e:
-        code = str(e)
-        if code == "category_not_found":
-            raise HTTPException(
-                status_code=422, detail="category not found"
-            )
-        if code == "backdate_too_far":
-            raise HTTPException(
-                status_code=422, detail="backdate too far"
-            )
-        raise
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="rule name exists")
+        raise errors.conflict("rule name exists")
     audit.info(
-        "recurring.create id=%s rule_id=%s freq=%s interval=%s "
-        "materialized=%s ip=%s",
-        user.id, rule.id, rule.frequency, rule.interval, count,
+        "recurring.create id=%s rule_id=%s freq=%s interval=%s materialized=%s ip=%s",
+        user.id,
+        rule.id,
+        rule.frequency,
+        rule.interval,
+        count,
         client_ip(request),
     )
     return schemas.RecurringRuleCreateResponse(
@@ -869,32 +875,28 @@ def put_recurring(
 ):
     try:
         rule = crud.update_recurring_rule(db, user.id, rule_id, payload)
-    except ValueError as e:
-        if str(e) == "category_not_found":
-            raise HTTPException(
-                status_code=422, detail="category not found"
-            )
-        raise
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="rule name exists")
+        raise errors.conflict("rule name exists")
     if rule is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     audit.info(
         "recurring.update id=%s rule_id=%s ip=%s",
-        user.id, rule_id, client_ip(request),
+        user.id,
+        rule_id,
+        client_ip(request),
     )
     return rule
 
 
 @app.delete("/api/recurring/{rule_id}", status_code=204)
-def remove_recurring(
-    rule_id: int, request: Request, user: CurrentUser, db: DB
-):
+def remove_recurring(rule_id: int, request: Request, user: CurrentUser, db: DB):
     if not crud.delete_recurring_rule(db, user.id, rule_id):
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     audit.info(
         "recurring.delete id=%s rule_id=%s ip=%s",
-        user.id, rule_id, client_ip(request),
+        user.id,
+        rule_id,
+        client_ip(request),
     )
     return Response(status_code=204)
 
@@ -903,36 +905,29 @@ def remove_recurring(
     "/api/recurring/{rule_id}/skip-next",
     response_model=schemas.RecurringSkipOut,
 )
-def post_recurring_skip_next(
-    rule_id: int, user: CurrentUser, db: DB
-):
+def post_recurring_skip_next(rule_id: int, user: CurrentUser, db: DB):
     result = crud.skip_next_occurrence(db, user.id, rule_id)
     if result is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     skipped, nxt = result
-    return schemas.RecurringSkipOut(
-        skipped_date=skipped, next_occurrence_date=nxt
-    )
+    return schemas.RecurringSkipOut(skipped_date=skipped, next_occurrence_date=nxt)
 
 
-@app.delete(
-    "/api/recurring/{rule_id}/skip/{skip_date}", status_code=204
-)
-def remove_recurring_skip(
-    rule_id: int, skip_date: str, user: CurrentUser, db: DB
-):
+@app.delete("/api/recurring/{rule_id}/skip/{skip_date}", status_code=204)
+def remove_recurring_skip(rule_id: int, skip_date: str, user: CurrentUser, db: DB):
     try:
         d = date_type.fromisoformat(skip_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="invalid date")
     if not crud.remove_skip(db, user.id, rule_id, d):
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return Response(status_code=204)
 
 
 # ---------------------------------------------------------------------
 # Transactions
 # ---------------------------------------------------------------------
+
 
 @app.get(
     "/api/transactions",
@@ -956,7 +951,8 @@ def get_transactions(
     if n:
         audit.info(
             "recurring.catchup id=%s count=%s trigger=transactions",
-            user.id, n,
+            user.id,
+            n,
         )
     if date_from is not None or date_to is not None:
         try:
@@ -979,10 +975,8 @@ def get_transactions(
     status_code=201,
 )
 def post_transaction(payload: schemas.TransactionCreate, user: CurrentUser, db: DB):
-    try:
-        return crud.create_transaction(db, user.id, payload)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # A foreign category raises UnknownCategoryError -> 400 (global handler).
+    return crud.create_transaction(db, user.id, payload)
 
 
 @app.put(
@@ -996,25 +990,23 @@ def put_transaction(
     user: CurrentUser,
     db: DB,
 ):
-    try:
-        tx = crud.update_transaction(db, user.id, tx_id, payload)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    tx = crud.update_transaction(db, user.id, tx_id, payload)
     if tx is None:
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return tx
 
 
 @app.delete("/api/transactions/{tx_id}", status_code=204)
 def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
     if not crud.delete_transaction(db, user.id, tx_id):
-        raise HTTPException(status_code=404, detail="not found")
+        raise errors.not_found()
     return Response(status_code=204)
 
 
 # ---------------------------------------------------------------------
 # Tags
 # ---------------------------------------------------------------------
+
 
 @app.get("/api/tags", response_model=list[schemas.TagOut])
 def get_tags(user: CurrentUser, db: DB):
@@ -1025,10 +1017,8 @@ def get_tags(user: CurrentUser, db: DB):
 def post_tag(payload: schemas.TagCreate, user: CurrentUser, db: DB):
     try:
         tag = crud.create_tag(db, user.id, payload.name)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="tag exists")
+        raise errors.conflict("tag exists")
     return {"name": tag.name}
 
 
@@ -1036,10 +1026,8 @@ def post_tag(payload: schemas.TagCreate, user: CurrentUser, db: DB):
 def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
     try:
         affected = crud.rename_tag(db, user.id, name, payload.new_name)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="tag exists")
+        raise errors.conflict("tag exists")
     return {"affected": affected}
 
 
@@ -1057,12 +1045,15 @@ def remove_tag(name: str, user: CurrentUser, db: DB):
 # /api/admin/* for backwards-compat with already-queued outbox entries
 # in the IndexedDB outbox — renaming would orphan those.
 
+
 @app.delete("/api/admin/transactions", status_code=204)
 def reset_transactions(request: Request, user: CurrentUser, db: DB):
     count = crud.delete_all_transactions(db, user.id)
     audit.info(
         "data.reset_transactions id=%s ip=%s deleted_count=%s",
-        user.id, client_ip(request), count,
+        user.id,
+        client_ip(request),
+        count,
     )
     return Response(status_code=204)
 
@@ -1072,7 +1063,8 @@ def reset_all_data(request: Request, user: CurrentUser, db: DB):
     crud.delete_all_user_data(db, user.id)
     audit.info(
         "data.reset_all_data id=%s ip=%s",
-        user.id, client_ip(request),
+        user.id,
+        client_ip(request),
     )
     return Response(status_code=204)
 
@@ -1084,6 +1076,7 @@ def reset_all_data(request: Request, user: CurrentUser, db: DB):
 # localStorage for an instant paint and reconciles with the server in the
 # background — this endpoint pair is the backup that survives iOS-side
 # localStorage eviction.
+
 
 @app.get("/api/settings", response_model=schemas.SettingsOut)
 def get_settings(user: CurrentUser, db: DB):
@@ -1099,14 +1092,11 @@ def put_settings(payload: schemas.SettingsUpdate, user: CurrentUser, db: DB):
 # CSV-Import
 # ---------------------------------------------------------------------
 
-MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5 MB
-MAX_IMPORT_ROWS = 10_000
-
 
 @app.post("/api/import/csv", response_model=schemas.ImportResult)
 async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
     raw = await file.read()
-    if len(raw) > MAX_IMPORT_BYTES:
+    if len(raw) > constants.MAX_IMPORT_BYTES:
         raise HTTPException(status_code=413, detail="file too large (>5MB)")
     if not raw:
         raise HTTPException(status_code=400, detail="empty file")
@@ -1118,22 +1108,17 @@ async def import_csv(file: UploadFile, user: CurrentUser, db: DB):
             text = raw.decode("cp1252")
         except UnicodeDecodeError:
             raise HTTPException(status_code=400, detail="encoding not utf-8/cp1252")
-    return crud.import_csv(db, user.id, text, max_rows=MAX_IMPORT_ROWS)
+    return crud.import_csv(db, user.id, text, max_rows=constants.MAX_IMPORT_ROWS)
 
 
 # ---------------------------------------------------------------------
 # CSV-Export
 # ---------------------------------------------------------------------
 
-# Excel, Numbers and LibreOffice evaluate cell contents that start with =, +,
-# -, @ or a leading tab/CR as a formula. A user-controlled field that begins
-# with one of those characters would execute when the file is re-opened. Prefix
-# a single quote so the cell is forced to text without losing information.
-_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-
 
 def _csv_safe(value: str) -> str:
-    if value and value[0] in _CSV_FORMULA_PREFIXES:
+    # CSV formula-injection guard; prefix set documented in app.constants.
+    if value and value[0] in constants.CSV_FORMULA_PREFIXES:
         return "'" + value
     return value
 

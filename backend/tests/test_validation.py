@@ -1,8 +1,8 @@
 """Input/output validation tests for the CSV pipeline and tag bounds."""
+
 from __future__ import annotations
 
 import pytest
-
 
 # ── Tag validation (M-1) ─────────────────────────────────────────────────
 
@@ -234,9 +234,10 @@ def _import_csv(client, body: str):
 
 def test_csv_import_rejects_beyond_row_cap(client, monkeypatch):
     # Lower the cap for the test so we don't have to build a 10k-row CSV.
-    from app import main as main_mod
+    # The endpoint reads the limit from app.constants at call time.
+    from app import constants
 
-    monkeypatch.setattr(main_mod, "MAX_IMPORT_ROWS", 5)
+    monkeypatch.setattr(constants, "MAX_IMPORT_ROWS", 5)
 
     rows = ["date;type;amount;description;category;tags"]
     for i in range(8):

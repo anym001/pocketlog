@@ -11,6 +11,7 @@ file, and the setup-mode tests wipe the users table with a raw bulk delete
 whose cascade trips ``transactions.category_id``'s ON DELETE RESTRICT if rows
 are left behind.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
