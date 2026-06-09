@@ -3511,14 +3511,13 @@ async function deleteGoalEdit() {
 // template + skip list. New rows pop into the regular
 // transactions list with a small clockwise badge.
 
-let recurringRules = [];
-let editingRecurringId = null;
+// Recurring rules list + edit-modal draft live in appState.recurring (state.js).
 
 async function loadRecurringRules() {
   try {
-    recurringRules = await api('GET', '/recurring');
+    appState.recurring.rules = await api('GET', '/recurring');
   } catch (e) {
-    recurringRules = [];
+    appState.recurring.rules = [];
   }
 }
 
@@ -3678,8 +3677,8 @@ function _refreshRecurringPreview() {
     : tr('recurring.nextRunNone');
   line.hidden = false;
   // Restore skip button to server-cursor state when toggling back to active.
-  if (btn && editingRecurringId) {
-    const cur = recurringRules.find((x) => x.id === editingRecurringId);
+  if (btn && appState.recurring.editingId) {
+    const cur = appState.recurring.rules.find((x) => x.id === appState.recurring.editingId);
     btn.disabled = !cur?.next_occurrence_date;
   }
 }
@@ -3687,11 +3686,11 @@ function _refreshRecurringPreview() {
 async function renderRecurringView() {
   const el = document.getElementById('recurringViewList');
   if (!el) return;
-  if (!recurringRules.length) {
+  if (!appState.recurring.rules.length) {
     el.innerHTML = `<div class="empty-state"><svg class="cat-glyph goals-empty-glyph" aria-hidden="true"><use href="#icon-arrows-clockwise"/></svg><p>${tr('recurring.emptyView')}<br>${tr('recurring.emptyViewHint')}</p></div>`;
     return;
   }
-  const sorted = [...recurringRules].sort((a, b) => {
+  const sorted = [...appState.recurring.rules].sort((a, b) => {
     if (a.active !== b.active) return a.active ? -1 : 1;
     return a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' });
   });
@@ -3766,9 +3765,8 @@ function populateRecurringCategorySelect(selectedId) {
 // keeps the .segmented tabs in sync. The save path maps the active
 // kind to a payload where end_date and max_occurrences are mutually
 // exclusive.
-let _recurringValidity = 'unlimited';
 function setRecurringValidity(kind) {
-  _recurringValidity = kind;
+  appState.recurring.validity = kind;
   document.querySelectorAll('#recValidityTabs button').forEach((b) => {
     const active = b.dataset.kind === kind;
     b.setAttribute('aria-selected', String(active));
@@ -3861,9 +3859,9 @@ function openRecurringModal(id) {
   const skipsGroup = document.getElementById('recEditSkipsGroup');
   const today = new Date();
   if (id) {
-    const r = recurringRules.find((x) => x.id === id);
+    const r = appState.recurring.rules.find((x) => x.id === id);
     if (!r) return;
-    editingRecurringId = r.id;
+    appState.recurring.editingId = r.id;
     document.getElementById('recEditName').value = r.name || '';
     document.getElementById('recEditType').value = r.type || 'out';
     document.getElementById('recEditAmount').value = _formatAmountInput(Number(r.amount));
@@ -3889,7 +3887,7 @@ function openRecurringModal(id) {
     _updateRecurringStatusHint(r);
     _renderRecurringSkipsList(r);
   } else {
-    editingRecurringId = null;
+    appState.recurring.editingId = null;
     document.getElementById('recEditName').value = '';
     document.getElementById('recEditType').value = 'out';
     document.getElementById('recEditAmount').value = '';
@@ -3922,7 +3920,7 @@ function openRecurringModal(id) {
 function closeRecurringModal() {
   document.getElementById('recurringModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingRecurringId = null;
+  appState.recurring.editingId = null;
   releaseFocusTrap('recurring');
   restoreModalFocus('recurring');
 }
@@ -3940,7 +3938,7 @@ function _recurringPayloadFromForm() {
   const frequency = document.getElementById('recEditFrequency').value;
   const interval = Math.max(1, parseInt(document.getElementById('recEditInterval').value, 10) || 1);
   const startDate = document.getElementById('recEditStartDate').value;
-  const validity = _recurringValidity;
+  const validity = appState.recurring.validity;
   const endDate =
     validity === 'date' ? document.getElementById('recEditEndDate').value || null : null;
   const maxRaw = document.getElementById('recEditMaxOccurrences').value;
@@ -4026,8 +4024,8 @@ async function saveRecurringEdit() {
     active: f.active,
   };
   try {
-    if (editingRecurringId) {
-      await api('PUT', `/recurring/${editingRecurringId}`, payload);
+    if (appState.recurring.editingId) {
+      await api('PUT', `/recurring/${appState.recurring.editingId}`, payload);
     } else {
       const created = await api('POST', '/recurring', payload);
       const count = created && created.materialized_count;
@@ -4063,7 +4061,7 @@ async function saveRecurringEdit() {
 }
 
 async function deleteRecurringEdit() {
-  if (!editingRecurringId) return;
+  if (!appState.recurring.editingId) return;
   const ok = await confirmAction({
     title: tr('recurring.deleteConfirm'),
     message: tr('recurring.deleteBody'),
@@ -4071,7 +4069,7 @@ async function deleteRecurringEdit() {
   });
   if (!ok) return;
   try {
-    await api('DELETE', `/recurring/${editingRecurringId}`);
+    await api('DELETE', `/recurring/${appState.recurring.editingId}`);
     closeRecurringModal();
     await loadRecurringRules();
     if (_activePanel === 'recurring') await renderRecurringView();
@@ -4082,14 +4080,14 @@ async function deleteRecurringEdit() {
 }
 
 async function skipNextRecurringOccurrence() {
-  if (!editingRecurringId) return;
+  if (!appState.recurring.editingId) return;
   try {
-    const res = await api('POST', `/recurring/${editingRecurringId}/skip-next`);
+    const res = await api('POST', `/recurring/${appState.recurring.editingId}/skip-next`);
     if (res && res.skipped_date) {
       toast(tr('recurring.skipNextDone', { date: _recurringFormatDate(res.skipped_date) }));
     }
     await loadRecurringRules();
-    const refreshed = recurringRules.find((x) => x.id === editingRecurringId);
+    const refreshed = appState.recurring.rules.find((x) => x.id === appState.recurring.editingId);
     _updateRecurringStatusHint(refreshed);
     _renderRecurringSkipsList(refreshed);
     if (_activePanel === 'recurring') await renderRecurringView();
@@ -4099,11 +4097,11 @@ async function skipNextRecurringOccurrence() {
 }
 
 async function unskipRecurringOccurrence(iso) {
-  if (!editingRecurringId || !iso) return;
+  if (!appState.recurring.editingId || !iso) return;
   try {
-    await api('DELETE', `/recurring/${editingRecurringId}/skip/${iso}`);
+    await api('DELETE', `/recurring/${appState.recurring.editingId}/skip/${iso}`);
     await loadRecurringRules();
-    const refreshed = recurringRules.find((x) => x.id === editingRecurringId);
+    const refreshed = appState.recurring.rules.find((x) => x.id === appState.recurring.editingId);
     _renderRecurringSkipsList(refreshed);
   } catch (e) {
     toast(tr('recurring.unskipFailed'), 'error');
