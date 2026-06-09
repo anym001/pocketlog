@@ -4770,9 +4770,7 @@ function renderApiKeys() {
 
 function openApiKeyModal() {
   document.getElementById('apiKeyName').value = '';
-  ['scopeImport', 'scopeRead', 'scopeWrite', 'scopeAdmin'].forEach((id) => {
-    document.getElementById(id).checked = false;
-  });
+  document.querySelectorAll('input[name="apiKeyScope"]').forEach((r) => (r.checked = false));
   document.getElementById('adminScopeWarning').hidden = true;
   document.getElementById('apiKeyFormError').hidden = true;
   document.getElementById('apiKeyFormOverlay').classList.add('open');
@@ -4798,10 +4796,8 @@ function toggleAdminScopeWarning() {
 
 async function submitApiKey() {
   const name = document.getElementById('apiKeyName').value.trim();
-  const scopeIds = ['scopeImport', 'scopeRead', 'scopeWrite', 'scopeAdmin'];
-  const scopes = scopeIds
-    .filter((id) => document.getElementById(id).checked)
-    .map((id) => document.getElementById(id).value);
+  const selectedScope = document.querySelector('input[name="apiKeyScope"]:checked');
+  const scopes = selectedScope ? [selectedScope.value] : [];
 
   const errEl = document.getElementById('apiKeyFormError');
   if (!name) {

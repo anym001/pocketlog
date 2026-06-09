@@ -1602,19 +1602,19 @@
             <label data-i18n="apiKeys.scopes">Berechtigungen</label>
             <div class="checkbox-group">
               <label class="checkbox-label">
-                <input type="checkbox" id="scopeImport" value="import" />
+                <input type="radio" name="apiKeyScope" id="scopeImport" value="import" onchange="toggleAdminScopeWarning()" />
                 <span data-i18n="apiKeys.scope.import">Importieren</span>
               </label>
               <label class="checkbox-label">
-                <input type="checkbox" id="scopeRead" value="read" />
+                <input type="radio" name="apiKeyScope" id="scopeRead" value="read" onchange="toggleAdminScopeWarning()" />
                 <span data-i18n="apiKeys.scope.read">Lesen &amp; Exportieren</span>
               </label>
               <label class="checkbox-label">
-                <input type="checkbox" id="scopeWrite" value="write" />
+                <input type="radio" name="apiKeyScope" id="scopeWrite" value="write" onchange="toggleAdminScopeWarning()" />
                 <span data-i18n="apiKeys.scope.write">Schreiben</span>
               </label>
               <label class="checkbox-label">
-                <input type="checkbox" id="scopeAdmin" value="admin" onchange="toggleAdminScopeWarning()" />
+                <input type="radio" name="apiKeyScope" id="scopeAdmin" value="admin" onchange="toggleAdminScopeWarning()" />
                 <span data-i18n="apiKeys.scope.admin">Admin-Zugriff</span>
               </label>
             </div>
