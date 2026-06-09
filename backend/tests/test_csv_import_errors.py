@@ -70,4 +70,4 @@ def test_missing_category_uses_locale_fallback_en(client):
     # setup-mode tests (FK RESTRICT on transactions.category_id) — even if the
     # assertion below were to fail.
     client.delete("/api/admin/transactions")
-    assert "Other" in names      # import fallback used the en bundle, not "Sonstiges"
+    assert "Other" in names  # import fallback used the en bundle, not "Sonstiges"

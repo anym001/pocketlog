@@ -12,6 +12,7 @@ declared. These tests guard the post-migration invariants:
   transaction, and the change is visible to all linked rows.
 - Tag uniqueness is per-user (Authentik usernames don't share tags).
 """
+
 from __future__ import annotations
 
 

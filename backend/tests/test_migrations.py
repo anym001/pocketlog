@@ -6,6 +6,7 @@ problems that SQLite-based integration tests can't (e.g. MariaDB rejecting
 ``VARCHAR(32)`` limit, which silently passes on SQLite where VARCHAR
 lengths are advisory).
 """
+
 from __future__ import annotations
 
 import ast
@@ -162,7 +163,8 @@ def test_revision_id_fits_alembic_version_column(path: Path) -> None:
     assert revision is not None, f"{path.name}: missing top-level `revision = '...'`"
     assert len(revision) <= ALEMBIC_VERSION_NUM_MAX, (
         f"{path.name}: revision id {revision!r} is {len(revision)} chars; "
-        f"alembic_version.version_num is VARCHAR({ALEMBIC_VERSION_NUM_MAX}) on MariaDB. "
+        f"alembic_version.version_num is "
+        f"VARCHAR({ALEMBIC_VERSION_NUM_MAX}) on MariaDB. "
         "Shorten the id or the container will crash-loop on deploy."
     )
     down = assignments.get("down_revision")

@@ -10,6 +10,7 @@ The test below downgrades back to 0007 (re-creating the JSON column),
 seeds a transaction with a known mixed-case tag set, then upgrades
 again and inspects the resulting tags + junction rows.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,9 +48,7 @@ def test_backfill_merges_legacy_json_casing(_cycle_migration):
     with engine.begin() as conn:
         # User + category + standalone tag (canonical name).
         conn.execute(
-            sa.text(
-                "INSERT INTO users (username) VALUES ('backfill-test-user')"
-            )
+            sa.text("INSERT INTO users (username) VALUES ('backfill-test-user')")
         )
         user_id = conn.execute(
             sa.text("SELECT id FROM users WHERE username='backfill-test-user'")
@@ -68,9 +67,7 @@ def test_backfill_merges_legacy_json_casing(_cycle_migration):
             {"uid": user_id},
         ).scalar_one()
         conn.execute(
-            sa.text(
-                "INSERT INTO tags (user_id, name) VALUES (:uid, 'Amazon')"
-            ),
+            sa.text("INSERT INTO tags (user_id, name) VALUES (:uid, 'Amazon')"),
             {"uid": user_id},
         )
 
@@ -141,14 +138,10 @@ def test_backfill_is_idempotent(_cycle_migration):
 
     with engine.begin() as conn:
         conn.execute(
-            sa.text(
-                "INSERT INTO users (username) VALUES ('backfill-idempotent')"
-            )
+            sa.text("INSERT INTO users (username) VALUES ('backfill-idempotent')")
         )
         uid = conn.execute(
-            sa.text(
-                "SELECT id FROM users WHERE username='backfill-idempotent'"
-            )
+            sa.text("SELECT id FROM users WHERE username='backfill-idempotent'")
         ).scalar_one()
         conn.execute(
             sa.text(

@@ -10,6 +10,7 @@ and let the real ``date.today()`` drive materialization. Tests that
 care about the exact number of materialized rows compute the expected
 count from the same anchor.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -70,6 +71,7 @@ def _rule_payload(category_id: int, **over) -> dict:
 
 # ---- CRUD roundtrip ----
 
+
 def test_recurring_crud_roundtrip(client):
     cat = _new_category(client)
     create = client.post("/api/recurring", json=_rule_payload(cat))
@@ -85,8 +87,12 @@ def test_recurring_crud_roundtrip(client):
 
     update = client.put(
         f"/api/recurring/{rule_id}",
-        json=_rule_payload(cat, name="Renamed", day_of_month=15,
-                           start_date=(date.today() + timedelta(days=60)).isoformat()),
+        json=_rule_payload(
+            cat,
+            name="Renamed",
+            day_of_month=15,
+            start_date=(date.today() + timedelta(days=60)).isoformat(),
+        ),
     )
     assert update.status_code == 200, update.text
     assert update.json()["name"] == "Renamed"
@@ -96,6 +102,7 @@ def test_recurring_crud_roundtrip(client):
 
 
 # ---- materialization on backdated create ----
+
 
 def test_create_rule_with_backdated_start_materializes(client):
     cat = _new_category(client)
@@ -109,7 +116,9 @@ def test_create_rule_with_backdated_start_materializes(client):
         first = start
     else:
         # next month, day 1
-        y, m = (start.year, start.month + 1) if start.month < 12 else (start.year + 1, 1)
+        y, m = (
+            (start.year, start.month + 1) if start.month < 12 else (start.year + 1, 1)
+        )
         first = date(y, m, 1)
     expected = 0
     cur = first
@@ -136,6 +145,7 @@ def test_create_rule_with_backdated_start_materializes(client):
 
 
 # ---- validation ----
+
 
 def test_backdate_too_far_returns_422(client):
     cat = _new_category(client)
@@ -188,6 +198,7 @@ def test_unique_rule_name_per_user_409(client):
 
 # ---- ownership / isolation ----
 
+
 def test_recurring_rules_are_user_scoped(app, client, db_session):
     cat = _new_category(client)
     mine = client.post("/api/recurring", json=_rule_payload(cat))
@@ -225,6 +236,7 @@ def test_recurring_post_requires_csrf(app, regular_user):
 
 # ---- delete keeps history ----
 
+
 def test_delete_rule_keeps_materialized_transactions(client):
     cat = _new_category(client)
     start = date.today() - timedelta(days=40)
@@ -234,7 +246,8 @@ def test_delete_rule_keeps_materialized_transactions(client):
     )
     rid = create.json()["rule"]["id"]
     booked_before = [
-        t for t in client.get("/api/transactions").json()
+        t
+        for t in client.get("/api/transactions").json()
         if t.get("source_rule_id") == rid
     ]
     assert booked_before, "expected backdated materialization"
@@ -243,7 +256,8 @@ def test_delete_rule_keeps_materialized_transactions(client):
 
     # Rows still there, but source_rule_id is null (ON DELETE SET NULL).
     remaining = [
-        t for t in client.get("/api/transactions").json()
+        t
+        for t in client.get("/api/transactions").json()
         if t["date"] in {b["date"] for b in booked_before}
     ]
     assert len(remaining) == len(booked_before)
@@ -251,6 +265,7 @@ def test_delete_rule_keeps_materialized_transactions(client):
 
 
 # ---- skip-next ----
+
 
 def test_skip_next_advances_cursor_and_records_skip(client):
     cat = _new_category(client)
@@ -288,7 +303,9 @@ def test_skip_next_prevents_materialization_on_that_date(client):
     create = client.post(
         "/api/recurring",
         json=_rule_payload(
-            cat, frequency="daily", day_of_month=None,
+            cat,
+            frequency="daily",
+            day_of_month=None,
             start_date=start.isoformat(),
         ),
     )
@@ -330,13 +347,16 @@ def test_remove_skip_endpoint(client):
 
 # ---- end conditions ----
 
+
 def test_max_occurrences_caps_materialization(client):
     cat = _new_category(client)
     start = date.today() - timedelta(days=60)
     create = client.post(
         "/api/recurring",
         json=_rule_payload(
-            cat, day_of_month=1, start_date=start.isoformat(),
+            cat,
+            day_of_month=1,
+            start_date=start.isoformat(),
             max_occurrences=2,
         ),
     )
@@ -355,13 +375,16 @@ def test_end_date_caps_materialization(client):
     create = client.post(
         "/api/recurring",
         json=_rule_payload(
-            cat, day_of_month=1, start_date=start.isoformat(),
+            cat,
+            day_of_month=1,
+            start_date=start.isoformat(),
             end_date=end.isoformat(),
         ),
     )
     rid = create.json()["rule"]["id"]
     booked = [
-        t for t in client.get("/api/transactions").json()
+        t
+        for t in client.get("/api/transactions").json()
         if t.get("source_rule_id") == rid
     ]
     assert booked, "expected at least one materialized row"
@@ -369,6 +392,7 @@ def test_end_date_caps_materialization(client):
 
 
 # ---- /auth/me banner count ----
+
 
 def test_auth_me_returns_materialized_count(client):
     cat = _new_category(client)
@@ -386,6 +410,7 @@ def test_auth_me_returns_materialized_count(client):
 
 # ---- category-delete guard ----
 
+
 def test_category_in_use_by_recurring_blocks_category_delete(client):
     cat = _new_category(client)
     create = client.post("/api/recurring", json=_rule_payload(cat))
@@ -397,19 +422,24 @@ def test_category_in_use_by_recurring_blocks_category_delete(client):
 
 # ---- tag handling ----
 
+
 def test_rule_with_tags_materializes_with_tags(client):
     cat = _new_category(client)
     start = date.today() - timedelta(days=10)
     create = client.post(
         "/api/recurring",
         json=_rule_payload(
-            cat, frequency="daily", day_of_month=None,
-            start_date=start.isoformat(), tags=["wohnen", "fix"],
+            cat,
+            frequency="daily",
+            day_of_month=None,
+            start_date=start.isoformat(),
+            tags=["wohnen", "fix"],
         ),
     )
     rid = create.json()["rule"]["id"]
     booked = [
-        t for t in client.get("/api/transactions").json()
+        t
+        for t in client.get("/api/transactions").json()
         if t.get("source_rule_id") == rid
     ]
     assert booked
@@ -419,13 +449,15 @@ def test_rule_with_tags_materializes_with_tags(client):
 
 # ---- update does not change history ----
 
+
 def test_update_rule_does_not_change_existing_transactions(client):
     cat = _new_category(client)
     start = date.today() - timedelta(days=40)
     create = client.post(
         "/api/recurring",
-        json=_rule_payload(cat, day_of_month=1, start_date=start.isoformat(),
-                           amount="100.00"),
+        json=_rule_payload(
+            cat, day_of_month=1, start_date=start.isoformat(), amount="100.00"
+        ),
     )
     rid = create.json()["rule"]["id"]
     before = [
@@ -438,8 +470,9 @@ def test_update_rule_does_not_change_existing_transactions(client):
     # Update amount; PUT must NOT touch existing rows.
     upd = client.put(
         f"/api/recurring/{rid}",
-        json=_rule_payload(cat, day_of_month=1, start_date=start.isoformat(),
-                           amount="999.00"),
+        json=_rule_payload(
+            cat, day_of_month=1, start_date=start.isoformat(), amount="999.00"
+        ),
     )
     assert upd.status_code == 200, upd.text
     after = [
@@ -452,13 +485,12 @@ def test_update_rule_does_not_change_existing_transactions(client):
 
 # ---- bulk-reset behaviour ----
 
+
 def test_reset_transactions_keeps_recurring_rules(client):
     cat = _new_category(client)
     create = client.post("/api/recurring", json=_rule_payload(cat))
     rid = create.json()["rule"]["id"]
-    rule_before = [
-        r for r in client.get("/api/recurring").json() if r["id"] == rid
-    ][0]
+    rule_before = [r for r in client.get("/api/recurring").json() if r["id"] == rid][0]
 
     assert client.delete("/api/admin/transactions").status_code == 204
 
@@ -482,6 +514,7 @@ def test_reset_all_data_wipes_recurring_rules(client):
 
 # ---- auth / cascade ----
 
+
 def test_recurring_requires_authentication(app):
     anon = TestClient(app)
     assert anon.get("/api/recurring").status_code == 401
@@ -490,6 +523,7 @@ def test_recurring_requires_authentication(app):
 
 def test_user_delete_cascades_recurring(db_session):
     from app import crud, models
+
     user = crud.create_user(
         db_session,
         username=f"casc-{uuid.uuid4().hex[:10]}",
@@ -499,8 +533,10 @@ def test_user_delete_cascades_recurring(db_session):
     )
     cat = crud.list_categories(db_session, user.id)[0]
     from app.schemas import RecurringRuleCreate
+
     crud.create_recurring_rule(
-        db_session, user.id,
+        db_session,
+        user.id,
         RecurringRuleCreate(
             name="Cascade",
             amount="10.00",
@@ -527,6 +563,7 @@ def test_user_delete_cascades_recurring(db_session):
 
 
 # ---- concurrency idempotency (sequential proxy) ----
+
 
 def test_update_rule_moves_cursor_to_new_future_start(client):
     """A rule whose start_date is bumped from today+10 to today+30 must
@@ -561,13 +598,15 @@ def test_update_rule_with_past_start_anchors_on_today_without_rematerialization(
     create = client.post(
         "/api/recurring",
         json=_rule_payload(
-            cat, day_of_month=future_start.day,
+            cat,
+            day_of_month=future_start.day,
             start_date=future_start.isoformat(),
         ),
     )
     rid = create.json()["rule"]["id"]
     txs_before = [
-        t for t in client.get("/api/transactions").json()
+        t
+        for t in client.get("/api/transactions").json()
         if t.get("source_rule_id") == rid
     ]
     assert txs_before == []
@@ -575,14 +614,13 @@ def test_update_rule_with_past_start_anchors_on_today_without_rematerialization(
     past = date.today() - timedelta(days=60)
     upd = client.put(
         f"/api/recurring/{rid}",
-        json=_rule_payload(
-            cat, day_of_month=past.day, start_date=past.isoformat()
-        ),
+        json=_rule_payload(cat, day_of_month=past.day, start_date=past.isoformat()),
     )
     assert upd.status_code == 200, upd.text
     # No backfill: still zero booked rows.
     txs_after = [
-        t for t in client.get("/api/transactions").json()
+        t
+        for t in client.get("/api/transactions").json()
         if t.get("source_rule_id") == rid
     ]
     assert txs_after == []
@@ -647,7 +685,9 @@ def test_double_catchup_is_idempotent(client):
     client.post(
         "/api/recurring",
         json=_rule_payload(
-            cat, frequency="daily", day_of_month=None,
+            cat,
+            frequency="daily",
+            day_of_month=None,
             start_date=start.isoformat(),
         ),
     )

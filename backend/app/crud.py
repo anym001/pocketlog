@@ -2,14 +2,15 @@ import csv
 import io
 import logging
 import os
-from datetime import date as date_type, datetime, timedelta
+from datetime import date as date_type
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import and_, case, delete, extract, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import auth, models, schemas
+from . import auth, constants, exceptions, models, schemas
 
 logger = logging.getLogger("pocketlog.crud")
 
@@ -49,6 +50,7 @@ DEFAULT_CATEGORY_NAMES: dict[str, dict[str, str]] = {
     },
 }
 
+
 # Deployment defaults: ENV overrides the built-in fallback, a per-user
 # DB setting overrides ENV. Lets an operator ship e.g. an en-GB instance
 # without touching code, while users still pick their own locale.
@@ -78,10 +80,9 @@ DEFAULT_CURRENCY = _resolve_default_currency()
 
 # ---------- Users ----------
 
+
 def get_user_by_username(db: Session, username: str) -> models.User | None:
-    return db.scalar(
-        select(models.User).where(models.User.username == username)
-    )
+    return db.scalar(select(models.User).where(models.User.username == username))
 
 
 def get_user_by_id(db: Session, user_id: int) -> models.User | None:
@@ -89,9 +90,7 @@ def get_user_by_id(db: Session, user_id: int) -> models.User | None:
 
 
 def list_all_users(db: Session) -> list[models.User]:
-    return list(
-        db.scalars(select(models.User).order_by(models.User.id))
-    )
+    return list(db.scalars(select(models.User).order_by(models.User.id)))
 
 
 def count_admins(db: Session) -> int:
@@ -106,15 +105,11 @@ def count_admins(db: Session) -> int:
 
 
 def count_users(db: Session) -> int:
-    return int(
-        db.scalar(select(func.count()).select_from(models.User)) or 0
-    )
+    return int(db.scalar(select(func.count()).select_from(models.User)) or 0)
 
 
 def get_oldest_user(db: Session) -> models.User | None:
-    return db.scalar(
-        select(models.User).order_by(models.User.id.asc()).limit(1)
-    )
+    return db.scalar(select(models.User).order_by(models.User.id.asc()).limit(1))
 
 
 def get_pending_admin(db: Session) -> models.User | None:
@@ -163,9 +158,7 @@ def create_user(
     # Categories + the initial settings row share one commit so a new user is
     # never left with categories but no settings (or vice versa).
     _seed_default_categories(db, user.id, locale, commit=False)
-    db.add(
-        models.UserSettings(user_id=user.id, locale=locale, currency=currency)
-    )
+    db.add(models.UserSettings(user_id=user.id, locale=locale, currency=currency))
     db.commit()
     return user
 
@@ -205,7 +198,36 @@ def delete_user(db: Session, user: models.User) -> None:
     db.commit()
 
 
+def resolve_admin_target(
+    db: Session,
+    *,
+    target_id: int,
+    actor_id: int,
+    allow_admin_target: bool,
+) -> models.User:
+    """Load the target user for an admin action and enforce the shared policy
+    guards, raising typed ``DomainError``s that ``main`` maps to HTTP:
+
+    - ``UserNotFoundError`` (404) — no such user.
+    - ``CannotModifySelfError`` (403) — the admin targets their own account.
+    - ``CannotModifyAdminError`` (403) — the admin targets another admin and
+      the action does not permit it (``allow_admin_target=False``).
+
+    The self-check runs before the admin-target check, matching the order the
+    endpoints used inline. Audit logging stays in the endpoint layer.
+    """
+    target = get_user_by_id(db, target_id)
+    if target is None:
+        raise exceptions.UserNotFoundError()
+    if target.id == actor_id:
+        raise exceptions.CannotModifySelfError()
+    if not allow_admin_target and target.is_admin:
+        raise exceptions.CannotModifyAdminError()
+    return target
+
+
 # ---------- Categories ----------
+
 
 def _seed_default_categories(
     db: Session, user_id: int, locale: str = DEFAULT_LOCALE, *, commit: bool = True
@@ -247,7 +269,9 @@ def get_or_create_category(db: Session, user_id: int, name: str) -> models.Categ
     )
     if cat is not None:
         return cat
-    cat = models.Category(user_id=user_id, name=name[:100], icon="package", color="#9e9b96")
+    cat = models.Category(
+        user_id=user_id, name=name[:100], icon="package", color="#9e9b96"
+    )
     db.add(cat)
     db.flush()
     return cat
@@ -306,39 +330,38 @@ def delete_category(db: Session, user_id: int, category_id: int) -> bool:
     if cat is None:
         return False
     in_use = db.scalar(
-        select(models.Transaction.id).where(
-            models.Transaction.category_id == category_id
-        ).limit(1)
+        select(models.Transaction.id)
+        .where(models.Transaction.category_id == category_id)
+        .limit(1)
     )
     if in_use is not None:
-        raise ValueError("category_in_use")
+        raise exceptions.CategoryInUseError()
     # A goal references exactly one category; deleting it out from under a
     # goal would orphan the tracker (CASCADE would silently drop the goal).
     # Block instead — symmetric with the transaction guard above; the user
     # must delete the goal first.
     has_goal = db.scalar(
-        select(models.Goal.id).where(
-            models.Goal.category_id == category_id
-        ).limit(1)
+        select(models.Goal.id).where(models.Goal.category_id == category_id).limit(1)
     )
     if has_goal is not None:
-        raise ValueError("category_has_goal")
+        raise exceptions.CategoryHasGoalError()
     # A recurring rule references a category with ON DELETE RESTRICT —
     # without this guard the FK would fail later with an opaque
     # IntegrityError. The user must delete the rule first.
     has_rule = db.scalar(
-        select(models.RecurringRule.id).where(
-            models.RecurringRule.category_id == category_id
-        ).limit(1)
+        select(models.RecurringRule.id)
+        .where(models.RecurringRule.category_id == category_id)
+        .limit(1)
     )
     if has_rule is not None:
-        raise ValueError("category_has_recurring_rule")
+        raise exceptions.CategoryHasRecurringRuleError()
     db.delete(cat)
     db.commit()
     return True
 
 
 # ---------- Goals ----------
+
 
 def list_goals(db: Session, user_id: int) -> list[models.Goal]:
     return list(
@@ -351,21 +374,24 @@ def list_goals(db: Session, user_id: int) -> list[models.Goal]:
 
 
 def _owned_category_exists(db: Session, user_id: int, category_id: int) -> bool:
-    return db.scalar(
-        select(models.Category.id).where(
-            and_(
-                models.Category.id == category_id,
-                models.Category.user_id == user_id,
+    return (
+        db.scalar(
+            select(models.Category.id)
+            .where(
+                and_(
+                    models.Category.id == category_id,
+                    models.Category.user_id == user_id,
+                )
             )
-        ).limit(1)
-    ) is not None
+            .limit(1)
+        )
+        is not None
+    )
 
 
-def create_goal(
-    db: Session, user_id: int, payload: schemas.GoalCreate
-) -> models.Goal:
+def create_goal(db: Session, user_id: int, payload: schemas.GoalCreate) -> models.Goal:
     if not _owned_category_exists(db, user_id, payload.category_id):
-        raise ValueError("category_not_found")
+        raise exceptions.CategoryNotFoundError()
     goal = models.Goal(user_id=user_id, **payload.model_dump())
     db.add(goal)
     try:
@@ -394,7 +420,7 @@ def update_goal(
     if goal is None:
         return None
     if not _owned_category_exists(db, user_id, payload.category_id):
-        raise ValueError("category_not_found")
+        raise exceptions.CategoryNotFoundError()
     for k, v in payload.model_dump().items():
         setattr(goal, k, v)
     try:
@@ -429,12 +455,14 @@ def delete_goal(db: Session, user_id: int, goal_id: int) -> bool:
 # touches the rule itself; backdating on create is handled by calling
 # into ``recurring.materialize_due`` from ``create_recurring_rule``.
 
+
 def _subtract_months(anchor: date_type, months: int) -> date_type:
     """Anchor minus N months, clamping the day-of-month so Feb 30
     becomes Feb 28/29. Used for the backdate-cap check only.
     Equivalent to ``dateutil.relativedelta(months=-N)`` for this
     one-shot use, without adding a new dependency."""
     import calendar as _cal
+
     total_months = anchor.year * 12 + (anchor.month - 1) - months
     new_year, new_month_idx = divmod(total_months, 12)
     new_month = new_month_idx + 1
@@ -455,9 +483,7 @@ def _load_rule(
     )
 
 
-def list_recurring_rules(
-    db: Session, user_id: int
-) -> list[models.RecurringRule]:
+def list_recurring_rules(db: Session, user_id: int) -> list[models.RecurringRule]:
     return list(
         db.scalars(
             select(models.RecurringRule)
@@ -519,12 +545,12 @@ def create_recurring_rule(
     # Local import to avoid a top-level cycle with app.recurring -> crud.
     from . import recurring as recurring_mod
 
-    if not _check_category_owned(db, user_id, payload.category_id):
-        raise ValueError("category_not_found")
+    if not _owned_category_exists(db, user_id, payload.category_id):
+        raise exceptions.CategoryNotFoundError()
 
     earliest = _subtract_months(today, recurring_mod.MAX_BACKDATE_MONTHS)
     if payload.start_date < earliest:
-        raise ValueError("backdate_too_far")
+        raise exceptions.BackdateTooFarError()
 
     rule = models.RecurringRule(user_id=user_id)
     _apply_rule_fields(rule, payload)
@@ -575,16 +601,14 @@ def update_recurring_rule(
     rule = _load_rule(db, user_id, rule_id)
     if rule is None:
         return None
-    if not _check_category_owned(db, user_id, payload.category_id):
-        raise ValueError("category_not_found")
+    if not _owned_category_exists(db, user_id, payload.category_id):
+        raise exceptions.CategoryNotFoundError()
 
     _apply_rule_fields(rule, payload)
     rule.tags = _resolve_tags(db, user_id, payload.tags)
     today = date_type.today()
     anchor = payload.start_date if payload.start_date > today else today
-    rule.next_occurrence_date = recurring_mod.first_occurrence_on_or_after(
-        rule, anchor
-    )
+    rule.next_occurrence_date = recurring_mod.first_occurrence_on_or_after(rule, anchor)
     # If the rule is paused, freeze the cursor at None so the catch-up
     # skips it cleanly regardless of dates.
     if not rule.active:
@@ -598,9 +622,7 @@ def update_recurring_rule(
     return rule
 
 
-def delete_recurring_rule(
-    db: Session, user_id: int, rule_id: int
-) -> bool:
+def delete_recurring_rule(db: Session, user_id: int, rule_id: int) -> bool:
     rule = _load_rule(db, user_id, rule_id)
     if rule is None:
         return False
@@ -645,12 +667,9 @@ def skip_next_occurrence(
     # Advance the cursor exactly as the catch-up would. End conditions
     # may terminate the rule here too.
     nxt = recurring_mod.next_occurrence(rule, target)
-    if (
-        nxt is None
-        or (
-            rule.max_occurrences is not None
-            and rule.occurrences_count >= rule.max_occurrences
-        )
+    if nxt is None or (
+        rule.max_occurrences is not None
+        and rule.occurrences_count >= rule.max_occurrences
     ):
         rule.next_occurrence_date = None
         rule.active = False
@@ -661,9 +680,7 @@ def skip_next_occurrence(
     return target, rule.next_occurrence_date
 
 
-def remove_skip(
-    db: Session, user_id: int, rule_id: int, skip_date: date_type
-) -> bool:
+def remove_skip(db: Session, user_id: int, rule_id: int, skip_date: date_type) -> bool:
     """Delete a single skip entry. The cursor is *not* rewound — a
     skipped past date stays gone, only the bookkeeping disappears."""
     rule = _load_rule(db, user_id, rule_id)
@@ -738,20 +755,6 @@ def list_transactions_by_range(
     return list(db.scalars(q))
 
 
-def _check_category_owned(db: Session, user_id: int, category_id: int) -> bool:
-    return (
-        db.scalar(
-            select(models.Category.id).where(
-                and_(
-                    models.Category.id == category_id,
-                    models.Category.user_id == user_id,
-                )
-            )
-        )
-        is not None
-    )
-
-
 def _build_tag_cache(db: Session, user_id: int) -> dict[str, models.Tag]:
     """One SELECT of every tag the user owns, keyed by case-fold name.
 
@@ -760,9 +763,7 @@ def _build_tag_cache(db: Session, user_id: int) -> dict[str, models.Tag]:
     crucial for CSV import where _resolve_tags runs per row."""
     return {
         tag.name.casefold(): tag
-        for tag in db.scalars(
-            select(models.Tag).where(models.Tag.user_id == user_id)
-        )
+        for tag in db.scalars(select(models.Tag).where(models.Tag.user_id == user_id))
     }
 
 
@@ -806,16 +807,14 @@ def _resolve_tags(
 ) -> list[models.Tag]:
     """One-shot resolver for single create/update calls. CSV import
     builds the cache once and uses _resolve_tags_cached directly."""
-    return _resolve_tags_cached(
-        db, user_id, names, _build_tag_cache(db, user_id)
-    )
+    return _resolve_tags_cached(db, user_id, names, _build_tag_cache(db, user_id))
 
 
 def create_transaction(
     db: Session, user_id: int, payload: schemas.TransactionCreate
 ) -> models.Transaction:
-    if not _check_category_owned(db, user_id, payload.category_id):
-        raise ValueError("unknown_category")
+    if not _owned_category_exists(db, user_id, payload.category_id):
+        raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
     tx = models.Transaction(user_id=user_id, **data)
@@ -839,8 +838,8 @@ def update_transaction(
     )
     if tx is None:
         return None
-    if not _check_category_owned(db, user_id, payload.category_id):
-        raise ValueError("unknown_category")
+    if not _owned_category_exists(db, user_id, payload.category_id):
+        raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
     for k, v in data.items():
@@ -864,9 +863,7 @@ def list_tags(db: Session, user_id: int) -> list[dict]:
     # the CASE ... date >= cutoff windows the count without filtering
     # out unused tags. Returned as a list of (name, count) pairs sorted
     # case-insensitively to match the alphabetical UI.
-    recent = case(
-        (models.Transaction.date >= cutoff, 1), else_=0
-    )
+    recent = case((models.Transaction.date >= cutoff, 1), else_=0)
     count_expr = func.coalesce(func.sum(recent), 0)
     rows = db.execute(
         select(models.Tag.name, count_expr)
@@ -888,17 +885,13 @@ def list_tags(db: Session, user_id: int) -> list[dict]:
     return [{"name": name, "count": int(count or 0)} for name, count in rows]
 
 
-def _find_tag_by_name(
-    db: Session, user_id: int, name: str
-) -> models.Tag | None:
+def _find_tag_by_name(db: Session, user_id: int, name: str) -> models.Tag | None:
     """Case-insensitive tag lookup. ``casefold`` runs Python-side
     because some MariaDB collations (utf8mb4_general_ci) treat
     ``ß ≠ ss``, which would let two tag rows coexist that the rest of
     the codebase considers identical."""
     folded = name.casefold()
-    for tag in db.scalars(
-        select(models.Tag).where(models.Tag.user_id == user_id)
-    ):
+    for tag in db.scalars(select(models.Tag).where(models.Tag.user_id == user_id)):
         if tag.name.casefold() == folded:
             return tag
     return None
@@ -907,7 +900,7 @@ def _find_tag_by_name(
 def create_tag(db: Session, user_id: int, name: str) -> models.Tag:
     name = (name or "").strip()
     if not name:
-        raise ValueError("empty_name")
+        raise exceptions.EmptyNameError()
     tag = models.Tag(user_id=user_id, name=name[:64])
     db.add(tag)
     try:
@@ -923,7 +916,7 @@ def rename_tag(db: Session, user_id: int, old_name: str, new_name: str) -> int:
     old_name = (old_name or "").strip()
     new_name = (new_name or "").strip()
     if not old_name or not new_name:
-        raise ValueError("empty_name")
+        raise exceptions.EmptyNameError()
 
     old_tag = _find_tag_by_name(db, user_id, old_name)
     if old_tag is None:
@@ -978,6 +971,7 @@ def delete_tag(db: Session, user_id: int, name: str) -> int:
 
 
 # ---------- User Settings ----------
+
 
 def get_or_create_settings(db: Session, user_id: int) -> models.UserSettings:
     s = db.scalar(
@@ -1035,9 +1029,7 @@ def delete_all_user_data(db: Session, user_id: int) -> None:
     # (recurring_rule_tags) and the skips table CASCADE on rule delete,
     # so a single DELETE here is enough.
     db.execute(
-        delete(models.RecurringRule).where(
-            models.RecurringRule.user_id == user_id
-        )
+        delete(models.RecurringRule).where(models.RecurringRule.user_id == user_id)
     )
     db.execute(delete(models.Goal).where(models.Goal.user_id == user_id))
     db.execute(delete(models.Tag).where(models.Tag.user_id == user_id))
@@ -1064,13 +1056,15 @@ def delete_transaction(db: Session, user_id: int, tx_id: int) -> bool:
 # ---------- CSV-Import ----------
 
 _TYPE_ALIASES = {
-    "in": "in", "out": "out",
-    "income": "in", "expense": "out",
-    "einnahme": "in", "ausgabe": "out",
-    "einnahmen": "in", "ausgaben": "out",
+    "in": "in",
+    "out": "out",
+    "income": "in",
+    "expense": "out",
+    "einnahme": "in",
+    "ausgabe": "out",
+    "einnahmen": "in",
+    "ausgaben": "out",
 }
-
-_DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%Y/%m/%d")
 
 
 def _norm_key(k: str | None) -> str:
@@ -1089,7 +1083,7 @@ class CsvRowError(ValueError):
 
 
 def _parse_date(s: str) -> date_type:
-    for fmt in _DATE_FORMATS:
+    for fmt in constants.DATE_FORMATS:
         try:
             return datetime.strptime(s, fmt).date()
         except ValueError:
@@ -1187,19 +1181,27 @@ def _build_transaction(
     return tx
 
 
-def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> dict:
+def import_csv(
+    db: Session, user_id: int, text: str, max_rows: int = constants.MAX_IMPORT_ROWS
+) -> dict:
     # Auto-detect delimiter (; , \t)
     sample = text[:4096]
     try:
         dialect = csv.Sniffer().sniff(sample, delimiters=";,\t|")
     except csv.Error:
+
         class _Fallback(csv.excel):
             delimiter = ";"
+
         dialect = _Fallback
 
     reader = csv.DictReader(io.StringIO(text), dialect=dialect)
     if not reader.fieldnames:
-        return {"imported": 0, "skipped": 0, "errors": [{"row": 1, "code": "header_missing", "params": {}}]}
+        return {
+            "imported": 0,
+            "skipped": 0,
+            "errors": [{"row": 1, "code": "header_missing", "params": {}}],
+        }
 
     imported = 0
     skipped = 0
@@ -1226,11 +1228,13 @@ def import_csv(db: Session, user_id: int, text: str, max_rows: int = 10_000) -> 
             # row, then surface the truncation as an error entry. The
             # 5 MB byte cap upstream protects RAM, the row cap protects
             # the worker process from minute-long parse loops.
-            errors.append({
-                "row": idx,
-                "code": "row_limit",
-                "params": {"max": max_rows},
-            })
+            errors.append(
+                {
+                    "row": idx,
+                    "code": "row_limit",
+                    "params": {"max": max_rows},
+                }
+            )
             break
         try:
             tx = _build_transaction(row, db, user_id, tag_cache, fallback_category)

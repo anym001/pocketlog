@@ -26,6 +26,7 @@ Output always goes to stderr (12-factor; `docker logs` keeps working), plus the
 optional file. ``propagate=False`` so records are not also emitted by uvicorn's
 root handler (no duplicate lines).
 """
+
 from __future__ import annotations
 
 import logging
@@ -129,7 +130,9 @@ def _attach_file_handler(level: int) -> None:
         _bootstrap.info("File logging enabled at %s", path)
     except OSError as exc:
         # Permissions, missing mount, read-only fs … log to stderr and move on.
-        _bootstrap.warning("Could not open LOG_FILE=%r (%s) — file logging off", path, exc)
+        _bootstrap.warning(
+            "Could not open LOG_FILE=%r (%s) — file logging off", path, exc
+        )
 
 
 def configure_logging() -> None:
@@ -142,59 +145,61 @@ def configure_logging() -> None:
     level = _resolve_level()
     fmt = _resolve_format()
 
-    logging.config.dictConfig({
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            # Future: add a "json" formatter here and select it via _resolve_format.
-            "text": {"format": _TEXT_FORMAT, "datefmt": _DATE_FORMAT},
-        },
-        "filters": {
-            # Shorten framework logger names (uvicorn.error → uvicorn, …).
-            "short_names": {"()": _ShortLoggerNameFilter},
-        },
-        "handlers": {
-            "pocketlog_stderr": {
-                "class": "logging.StreamHandler",
-                "stream": "ext://sys.stderr",
-                "formatter": fmt,
-                "filters": ["short_names"],
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                # Future: add a "json" formatter here and select it via _resolve_format.
+                "text": {"format": _TEXT_FORMAT, "datefmt": _DATE_FORMAT},
             },
-        },
-        "loggers": {
-            "pocketlog": {
-                "handlers": ["pocketlog_stderr"],
-                "level": level,
-                # Own handler only — don't also bubble to uvicorn/root.
-                "propagate": False,
+            "filters": {
+                # Shorten framework logger names (uvicorn.error → uvicorn, …).
+                "short_names": {"()": _ShortLoggerNameFilter},
             },
-            # Reformat uvicorn's own loggers to our format so docker logs are
-            # consistent (uvicorn defaults to "INFO:     msg" without timestamp;
-            # the access logger renders the request line via record args, which
-            # our %(message)s picks up). Our dictConfig runs at app import, i.e.
-            # after uvicorn set up its defaults, so ours wins. propagate=False
-            # keeps each line single-emitted.
-            "uvicorn": {
-                "handlers": ["pocketlog_stderr"],
-                "level": level,
-                "propagate": False,
+            "handlers": {
+                "pocketlog_stderr": {
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stderr",
+                    "formatter": fmt,
+                    "filters": ["short_names"],
+                },
             },
-            "uvicorn.error": {
-                "handlers": ["pocketlog_stderr"],
-                "level": level,
-                "propagate": False,
+            "loggers": {
+                "pocketlog": {
+                    "handlers": ["pocketlog_stderr"],
+                    "level": level,
+                    # Own handler only — don't also bubble to uvicorn/root.
+                    "propagate": False,
+                },
+                # Reformat uvicorn's own loggers to our format so docker logs are
+                # consistent (uvicorn defaults to "INFO:     msg" without timestamp;
+                # the access logger renders the request line via record args, which
+                # our %(message)s picks up). Our dictConfig runs at app import, i.e.
+                # after uvicorn set up its defaults, so ours wins. propagate=False
+                # keeps each line single-emitted.
+                "uvicorn": {
+                    "handlers": ["pocketlog_stderr"],
+                    "level": level,
+                    "propagate": False,
+                },
+                "uvicorn.error": {
+                    "handlers": ["pocketlog_stderr"],
+                    "level": level,
+                    "propagate": False,
+                },
+                # Access log pinned to WARNING: the per-request "GET /… 200" lines
+                # are noise that drowns out the audit events. Errors still surface
+                # via uvicorn.error and the app's own logs. (Independent of
+                # LOG_LEVEL on purpose — set this logger lower if you want them back.)
+                "uvicorn.access": {
+                    "handlers": ["pocketlog_stderr"],
+                    "level": logging.WARNING,
+                    "propagate": False,
+                },
             },
-            # Access log pinned to WARNING: the per-request "GET /… 200" lines
-            # are noise that drowns out the audit events. Errors still surface
-            # via uvicorn.error and the app's own logs. (Independent of
-            # LOG_LEVEL on purpose — set this logger lower if you want them back.)
-            "uvicorn.access": {
-                "handlers": ["pocketlog_stderr"],
-                "level": logging.WARNING,
-                "propagate": False,
-            },
-        },
-    })
+        }
+    )
     _attach_file_handler(level)
     _configured = True
 
