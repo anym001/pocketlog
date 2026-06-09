@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import date as date_type
 from datetime import datetime
@@ -477,7 +478,59 @@ class ImportRowError(BaseModel):
 class ImportResult(BaseModel):
     imported: int
     skipped: int
+    deduped: int = 0
     errors: list[ImportRowError]
+
+
+# -------- API Keys --------
+# Per-user bearer tokens with configurable scopes for programmatic access.
+# The raw key (plk_<base64url>) is returned once at creation (ApiKeyCreateResponse)
+# and never persisted — only the SHA-256 hash is stored.
+
+_VALID_SCOPES = {"import", "read", "write", "admin"}
+
+
+class ApiKeyCreate(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    scopes: list[Literal["import", "read", "write", "admin"]]
+
+    @field_validator("name")
+    @classmethod
+    def _strip_name(cls, v: str) -> str:
+        return v.strip()
+
+    @field_validator("scopes")
+    @classmethod
+    def _require_scopes(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("at least one scope required")
+        return list(dict.fromkeys(v))  # deduplicate, preserve order
+
+
+class ApiKeyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    scopes: list[str]
+    created_at: datetime
+    last_used_at: datetime | None
+    expires_at: datetime | None
+
+    @field_validator("scopes", mode="before")
+    @classmethod
+    def _parse_scopes(cls, v: object) -> list[str]:
+        if isinstance(v, str):
+            return json.loads(v)
+        return v  # type: ignore[return-value]
+
+
+class ApiKeyCreateResponse(BaseModel):
+    id: int
+    name: str
+    scopes: list[str]
+    created_at: datetime
+    key: str  # plaintext raw key, shown exactly once
 
 
 # -------- Auth --------

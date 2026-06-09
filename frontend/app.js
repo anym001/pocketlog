@@ -473,6 +473,7 @@ const _drawerSubs = [
   'dpCats',
   'dpTags',
   'dpImport',
+  'dpApiKeys',
   'dpDisplay',
   'dpAdmin',
   'dpInfo',
@@ -489,6 +490,7 @@ function drawerNav(panelId) {
   if (panelId === 'dpDisplay') syncDisplaySelects();
   if (panelId === 'dpInfo') renderInfoPanel();
   if (panelId === 'dpAdminUsers') loadAdminUsers();
+  if (panelId === 'dpApiKeys') loadApiKeys();
 }
 
 function drawerBack() {
@@ -4648,6 +4650,7 @@ async function importCSV(ev) {
     const errs = r.errors || [];
     const parts = [tr('importExport.imported', { n: r.imported })];
     if (r.skipped) parts.push(tr('importExport.skipped', { n: r.skipped }));
+    if (r.deduped) parts.push(tr('importExport.deduped', { n: r.deduped }));
     if (errs.length) parts.push(tr('importExport.errorRows', { n: errs.length }));
 
     status.className = 'status-msg ' + (r.imported > 0 ? 'ok' : 'err');
@@ -4685,6 +4688,181 @@ async function importCSV(ev) {
   } finally {
     ev.target.value = ''; // gleichen File-Reimport erlauben
   }
+}
+
+// ── API KEYS ──────────────────────────────────────────────────────────────────
+let _apiKeys = [];
+
+async function loadApiKeys() {
+  try {
+    _apiKeys = await api('GET', '/api-keys');
+    renderApiKeys();
+  } catch (_) {}
+}
+
+function renderApiKeys() {
+  const list = document.getElementById('apiKeyList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (!_apiKeys.length) {
+    const empty = document.createElement('p');
+    empty.className = 'api-key-card-empty';
+    empty.setAttribute('data-i18n', 'apiKeys.empty');
+    empty.textContent = tr('apiKeys.empty');
+    list.appendChild(empty);
+    return;
+  }
+
+  const scopeLabels = {
+    import: tr('apiKeys.scope.import'),
+    read: tr('apiKeys.scope.read'),
+    write: tr('apiKeys.scope.write'),
+    admin: tr('apiKeys.scope.admin'),
+  };
+
+  _apiKeys.forEach((key) => {
+    const card = document.createElement('div');
+    card.className = 'api-key-card';
+
+    const name = document.createElement('div');
+    name.className = 'api-key-card-name';
+    name.textContent = key.name;
+    card.appendChild(name);
+
+    const scopes = document.createElement('div');
+    scopes.className = 'api-key-card-scopes';
+    (key.scopes || []).forEach((s) => {
+      const chip = document.createElement('span');
+      chip.className = 'api-key-scope-chip' + (s === 'admin' ? ' admin' : '');
+      chip.textContent = scopeLabels[s] || s;
+      scopes.appendChild(chip);
+    });
+    card.appendChild(scopes);
+
+    const meta = document.createElement('div');
+    meta.className = 'api-key-card-meta';
+    const locale = I18N.getLocale();
+    const created = document.createElement('span');
+    created.textContent =
+      tr('apiKeys.createdAt') +
+      ': ' +
+      new Date(key.created_at).toLocaleDateString(locale);
+    meta.appendChild(created);
+    if (key.last_used_at) {
+      const used = document.createElement('span');
+      used.textContent =
+        tr('apiKeys.lastUsed') +
+        ': ' +
+        new Date(key.last_used_at).toLocaleDateString(locale);
+      meta.appendChild(used);
+    }
+    card.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'api-key-card-actions';
+    const revokeBtn = document.createElement('button');
+    revokeBtn.setAttribute('data-i18n', 'apiKeys.revoke');
+    revokeBtn.textContent = tr('apiKeys.revoke');
+    revokeBtn.onclick = () => revokeApiKey(key.id, key.name);
+    actions.appendChild(revokeBtn);
+    card.appendChild(actions);
+
+    list.appendChild(card);
+  });
+}
+
+function openApiKeyModal() {
+  document.getElementById('apiKeyName').value = '';
+  ['scopeImport', 'scopeRead', 'scopeWrite', 'scopeAdmin'].forEach((id) => {
+    document.getElementById(id).checked = false;
+  });
+  document.getElementById('adminScopeWarning').hidden = true;
+  document.getElementById('apiKeyFormError').hidden = true;
+  document.getElementById('apiKeyFormOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('apiKeyName').focus();
+}
+
+function closeApiKeyModal() {
+  document.getElementById('apiKeyFormOverlay').classList.remove('open');
+  if (!document.getElementById('drawer').classList.contains('open')) {
+    document.body.style.overflow = '';
+  }
+}
+
+function closeApiKeyModalOutside(e) {
+  if (e.target === document.getElementById('apiKeyFormOverlay')) closeApiKeyModal();
+}
+
+function toggleAdminScopeWarning() {
+  const checked = document.getElementById('scopeAdmin').checked;
+  document.getElementById('adminScopeWarning').hidden = !checked;
+}
+
+async function submitApiKey() {
+  const name = document.getElementById('apiKeyName').value.trim();
+  const scopeIds = ['scopeImport', 'scopeRead', 'scopeWrite', 'scopeAdmin'];
+  const scopes = scopeIds
+    .filter((id) => document.getElementById(id).checked)
+    .map((id) => document.getElementById(id).value);
+
+  const errEl = document.getElementById('apiKeyFormError');
+  if (!name) {
+    errEl.textContent = tr('apiKeys.errorName');
+    errEl.hidden = false;
+    return;
+  }
+  if (!scopes.length) {
+    errEl.textContent = tr('apiKeys.errorScopes');
+    errEl.hidden = false;
+    return;
+  }
+  errEl.hidden = true;
+
+  try {
+    const result = await api('POST', '/api-keys', { name, scopes });
+    closeApiKeyModal();
+    document.getElementById('apiKeyCreatedValue').textContent = result.key;
+    document.getElementById('apiKeyCreatedOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    await loadApiKeys();
+  } catch (e) {
+    errEl.textContent = tr('common.actionFailed');
+    errEl.hidden = false;
+  }
+}
+
+function closeApiKeyCreatedModal() {
+  document.getElementById('apiKeyCreatedOverlay').classList.remove('open');
+  if (!document.getElementById('drawer').classList.contains('open')) {
+    document.body.style.overflow = '';
+  }
+}
+
+function closeApiKeyCreatedModalOutside(e) {
+  if (e.target === document.getElementById('apiKeyCreatedOverlay')) closeApiKeyCreatedModal();
+}
+
+async function copyApiKey() {
+  const val = document.getElementById('apiKeyCreatedValue').textContent;
+  try {
+    await navigator.clipboard.writeText(val);
+  } catch (_) {
+    const el = document.getElementById('apiKeyCreatedValue');
+    const range = document.createRange();
+    range.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+  }
+}
+
+async function revokeApiKey(id, name) {
+  if (!confirm(tr('apiKeys.revokeConfirm', { name }))) return;
+  try {
+    await api('DELETE', '/api-keys/' + id);
+    await loadApiKeys();
+  } catch (_) {}
 }
 
 // ── ADMIN / DATA RESET ────────────────────────────────────────────────────────

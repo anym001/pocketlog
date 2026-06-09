@@ -88,6 +88,7 @@
     "categories": "Kategorien",
     "tags": "Tags",
     "importExport": "Import/Export",
+    "apiKeys": "API-Schlüssel",
     "display": "Allgemein",
     "admin": "Verwaltung",
     "users": "Benutzer",
@@ -384,6 +385,7 @@
     "importing": "Wird importiert",
     "imported": "{n} Buchungen importiert",
     "skipped": "{n} übersprungen",
+    "deduped": "{n} Duplikate",
     "errorRows": "{n} Zeilen übersprungen",
     "importFailed": "Import fehlgeschlagen – Verbindung prüfen",
     "rowLabel": "Zeile {row}: {msg}",
@@ -400,6 +402,27 @@
       "db_conflict": "Datenbankkonflikt beim Speichern. Bitte erneut versuchen.",
       "row_invalid": "Zeile konnte nicht verarbeitet werden"
     }
+  },
+  "apiKeys": {
+    "title": "API-Schlüssel",
+    "empty": "Noch keine Schlüssel erstellt.",
+    "create": "Neuen Schlüssel erstellen",
+    "name": "Name",
+    "scopes": "Berechtigungen",
+    "scope.import": "Importieren",
+    "scope.read": "Lesen & Exportieren",
+    "scope.write": "Schreiben",
+    "scope.admin": "Admin-Zugriff",
+    "scope.admin.warning": "Dieser Schlüssel erhält vollen Zugriff inkl. Nutzerverwaltung.",
+    "createdAt": "Erstellt",
+    "lastUsed": "Zuletzt verwendet",
+    "revoke": "Widerrufen",
+    "revokeConfirm": "Schlüssel „{name}“ wirklich widerrufen?",
+    "created.title": "Schlüssel erstellt",
+    "created.warning": "Dieser Schlüssel wird nur einmal angezeigt und kann danach nicht wiederhergestellt werden.",
+    "created.copy": "Kopieren",
+    "errorName": "Bitte gib einen Namen ein.",
+    "errorScopes": "Wähle mindestens eine Berechtigung."
   },
   "admin": {
     "cacheClear": "Cache leeren",

@@ -10,14 +10,26 @@ This is the *HTTP-layer* auth wiring (cookies, CSRF header check, the
 this module only adapts it to FastAPI request/response objects.
 """
 
+import hashlib
+import json
 import os
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
-from . import auth, models
+from . import auth, crud, models
 from .database import get_db
+
+# Sliding-window damper for api_key.last_used_at updates — avoids a DB
+# write on every authenticated request when the same key is used in rapid
+# succession (mirrors auth.REFRESH_GRACE_SECONDS for sessions).
+_API_KEY_LAST_USED_GRACE = 5 * 60  # seconds
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Cookie attributes. `Secure` is on by default; flip via
 # SESSION_COOKIE_SECURE=0 only for local HTTP dev where the cookie would
@@ -180,3 +192,76 @@ CurrentUser = Annotated[models.User, Depends(require_active_password)]
 AdminUser = Annotated[models.User, Depends(require_admin)]
 RawCurrentUser = Annotated[models.User, Depends(get_current_user)]
 DB = Annotated[Session, Depends(get_db)]
+
+
+# ---------------------------------------------------------------------
+# API-key auth
+# ---------------------------------------------------------------------
+
+
+def _validate_api_key_user(
+    raw_key: str, required_scope: str, db: Session
+) -> models.User:
+    """Validate a bearer API key and return the associated user.
+
+    Checks: key exists, not expired, has the required scope (or ``admin``),
+    user is active and not force-change-password. Updates ``last_used_at``
+    with a 5-min damper to avoid a DB write on every request.
+
+    Raises ``HTTPException`` 401/403 on any failure (same semantics as the
+    session-cookie path so callers treat both auth methods uniformly).
+    """
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    api_key = crud.get_api_key_by_hash(db, key_hash)
+    if api_key is None:
+        raise HTTPException(status_code=401, detail="invalid_api_key")
+
+    now = _utcnow()
+    if api_key.expires_at is not None and api_key.expires_at <= now:
+        raise HTTPException(status_code=401, detail="api_key_expired")
+
+    scopes: list[str] = json.loads(api_key.scopes or "[]")
+    if required_scope not in scopes and "admin" not in scopes:
+        raise HTTPException(status_code=403, detail="insufficient_scope")
+
+    user = db.get(models.User, api_key.user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=401, detail="user_inactive")
+    if user.force_change_password:
+        raise HTTPException(status_code=403, detail="password_change_required")
+
+    # Damped last_used_at write — avoids a commit on every API request.
+    if (
+        api_key.last_used_at is None
+        or (now - api_key.last_used_at).total_seconds() >= _API_KEY_LAST_USED_GRACE
+    ):
+        api_key.last_used_at = now
+        db.commit()
+
+    return user
+
+
+def get_import_user(
+    request: Request,
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+) -> models.User:
+    """Auth dependency for ``POST /api/import/csv``.
+
+    Accepts either:
+    - A valid session cookie + CSRF (standard browser / PWA path).
+    - An API key with ``import`` scope via ``Authorization: Bearer <token>``
+      (external automation, bridge tools, cron scripts).
+
+    The Bearer path bypasses CSRF because the ``Authorization`` header is
+    not sent automatically by browsers, so CSRF does not apply.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return _validate_api_key_user(auth_header[7:], "import", db)
+    # Fall back to session auth — raises 401/403 on missing/invalid session.
+    user = get_current_user(request, response, db)
+    return require_active_password(user)
+
+
+ImportUser = Annotated[models.User, Depends(get_import_user)]
