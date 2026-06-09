@@ -26,6 +26,7 @@ const SHELL = [
   '/styles.css',
   '/app.js',
   '/utils.js',
+  '/reportsData.js',
   '/i18n.js',
   '/manifest.webmanifest',
   '/db.js',
@@ -60,6 +61,7 @@ function isNetworkFirstShell(url) {
     url.pathname === '/styles.css' ||
     url.pathname === '/app.js' ||
     url.pathname === '/utils.js' ||
+    url.pathname === '/reportsData.js' ||
     url.pathname === '/i18n.js' ||
     url.pathname === '/db.js' ||
     url.pathname === '/manifest.webmanifest' ||
