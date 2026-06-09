@@ -6,11 +6,14 @@
 // categories / reportRange and the render functions reading them) drifting
 // out of sync.
 //
-// One test, one session: first-run setup, then every core view, then a real
-// transaction CRUD round-trip + report render. Staying in a single session
-// (no second login) keeps it deterministic — the setup path is the only one a
-// fresh CI container exercises. This behavioural net is what the pure-helper
-// Vitest suite deliberately does NOT cover.
+// One test, one session: first-run setup, then every core view, then the
+// state-mutating flows a `state.js` refactor would touch — category create,
+// transaction CRUD, report range switching, and a locale change that forces a
+// full i18n re-render. Staying in a single session (no second login) keeps it
+// deterministic — the setup path is the only one a fresh CI container
+// exercises. This behavioural net is what the pure-helper Vitest suite
+// deliberately does NOT cover; together they are the precondition for safely
+// encapsulating the module-global state.
 const { test, expect } = require('@playwright/test');
 
 const ADMIN_USER = 'smokeadmin';
@@ -20,14 +23,34 @@ const ADMIN_PASS = 'Smoke-Passw0rd-123';
 // A visible "<namespace>.<something>" string means a key fell through to its
 // raw form because the bundle lacked it — exactly the goals.* regression.
 const NAMESPACES = [
-  'app', 'common', 'menu', 'nav', 'header', 'summary', 'search', 'fab',
-  'auth', 'pwd', 'settings', 'display', 'catIcons', 'categories', 'goals',
-  'tags', 'tx', 'reports', 'forecast', 'importExport', 'admin', 'users',
-  'account', 'sync', 'date', 'info',
+  'app',
+  'common',
+  'menu',
+  'nav',
+  'header',
+  'summary',
+  'search',
+  'fab',
+  'auth',
+  'pwd',
+  'settings',
+  'display',
+  'catIcons',
+  'categories',
+  'goals',
+  'tags',
+  'tx',
+  'reports',
+  'forecast',
+  'importExport',
+  'admin',
+  'users',
+  'account',
+  'sync',
+  'date',
+  'info',
 ];
-const RAW_KEY_RE = new RegExp(
-  '\\b(' + NAMESPACES.join('|') + ')\\.[A-Za-z][A-Za-z0-9]+'
-);
+const RAW_KEY_RE = new RegExp('\\b(' + NAMESPACES.join('|') + ')\\.[A-Za-z][A-Za-z0-9]+');
 
 async function expectNoRawKeys(page, where) {
   const text = await page.locator('body').innerText();
@@ -93,6 +116,25 @@ test('first-run setup, core views, and a transaction CRUD round-trip', async ({ 
   await gotoPanel(page, 'goals');
   await expectNoRawKeys(page, 'goals view');
 
+  // --- Create a category (exercises the `categories` state mutation and the
+  //     re-render that follows: the categories panel, the booking modal's
+  //     dropdown, and the report grouping all read this list) ---
+  const catName = 'SmokeCat ' + Date.now();
+  // openCatModal()/saveCategoryEdit() are the functions the drawer's
+  // "Kategorie erstellen" button and the modal's save button call. Driving
+  // them directly avoids the animated drawer slide-in, which is flaky to
+  // click; the modal markup and the state path are identical either way.
+  await page.evaluate(() => window.openCatModal());
+  await expect(page.locator('#catModalOverlay')).toHaveClass(/open/);
+  await page.fill('#catEditName', catName);
+  // saveCategoryEdit is async (POST /categories → reload → re-render);
+  // evaluate awaits the returned promise so the assertions below are stable.
+  await page.evaluate(() => window.saveCategoryEdit());
+  await expect(page.locator('#catModalOverlay')).not.toHaveClass(/open/);
+  await gotoPanel(page, 'categories');
+  await expect(page.locator('#categoryViewList')).toContainText(catName);
+  await expectNoRawKeys(page, 'categories view');
+
   // --- Create a transaction via the booking modal ---
   await gotoPanel(page, 'transactions');
   const desc = 'Smoke ' + Date.now();
@@ -118,6 +160,20 @@ test('first-run setup, core views, and a transaction CRUD round-trip', async ({ 
   await expect(page.locator('#reportBody')).not.toBeEmpty();
   await expectNoRawKeys(page, 'report view');
 
+  // Switching the range kind re-points reportRange and re-aggregates. The
+  // segmented tabs are static buttons (no drawer animation), so a real click
+  // is safe here. Today's transaction falls inside month/quarter/year alike,
+  // so the body stays populated throughout.
+  for (const kind of ['quarter', 'year', 'month']) {
+    await page.click(`#rangeKindTabs button[data-kind="${kind}"]`);
+    await expect(page.locator(`#rangeKindTabs button[data-kind="${kind}"]`)).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  }
+  await expect(page.locator('#reportBody')).not.toBeEmpty();
+  await expectNoRawKeys(page, 'report view after range switch');
+
   // --- Edit modal opens, then delete the transaction ---
   await gotoPanel(page, 'transactions');
   const id = await row.getAttribute('data-id');
@@ -132,6 +188,20 @@ test('first-run setup, core views, and a transaction CRUD round-trip', async ({ 
 
   await expect(page.locator('#modalOverlay')).not.toHaveClass(/open/);
   await expect(page.locator('#transactionList .tx-row', { hasText: desc })).toHaveCount(0);
+
+  // --- Locale switch: a state cluster entirely separate from the ledger
+  //     (settings → I18N → i18n:changed → applyStatic re-translates every
+  //     data-i18n node). Driven through the same global the display <select>
+  //     calls. We force *both* directions and assert the concrete bundle
+  //     value each time, so the check exercises a real re-render regardless of
+  //     the locale this session happened to start in (a server that already
+  //     persisted en-GB must not make this a no-op). reports.overview is the
+  //     #reportTitle key: "Übersicht" (de) / "Overview" (en). ---
+  await page.evaluate(() => window.saveLocale('de-DE'));
+  await expect(page.locator('#reportTitle')).toHaveText('Übersicht');
+  await page.evaluate(() => window.saveLocale('en-GB'));
+  await expect(page.locator('#reportTitle')).toHaveText('Overview');
+  await expectNoRawKeys(page, 'after locale switch to English');
 
   expect(pageErrors, `Uncaught page errors: ${pageErrors.join(' | ')}`).toEqual([]);
 });
