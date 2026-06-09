@@ -102,9 +102,10 @@ function invalidateReportCache() {
 // so a click on a top list finds the real booking (not just the current
 // month's from the transactions view). Both default in state.js.
 
-let transactions = []; // wird per API geladen
-let categories = []; // wird per API geladen
-let availableTags = []; // distinkte Tags des Users (alphabetisch sortiert)
+// Core ledger data lives in appState.ledger (state.js): transactions (the
+// current view's slice, loaded per API), categories (loaded per API),
+// appState.ledger.availableTags (the user's distinct tags, alphabetical) and `all` (the full
+// pool used by search). `appState.ledger.all` below maps to appState.ledger.all.
 const tagCounts = new Map(); // tag-name (case-folded) → Anzahl Verwendungen
 
 // ── API HELPER ────────────────────────────────────────────────────────────────
@@ -408,13 +409,12 @@ function confirmAction({
 //   clears it in onSearch); tagFilterName (drill-down from the tag analysis,
 //   mutually exclusive with text search and category filter); infoPanelSeq;
 //   goalRelayoutTimer.
-let _allTransactions = null;
 
 function _resetSearch() {
   appState.nav.searchQuery = '';
   appState.nav.categoryFilterId = null;
   appState.nav.tagFilterName = null;
-  _allTransactions = null;
+  appState.ledger.all = null;
   appState.reports.searchExitTarget = null;
   document.body.classList.remove('searching');
   document.getElementById('searchInput').value = '';
@@ -666,18 +666,18 @@ async function loadAndRender() {
     `${appState.calendar.months[currentMonth]} ${currentYear}`;
   try {
     const raw = await api('GET', `/transactions?year=${currentYear}&month=${currentMonth + 1}`);
-    transactions = raw.map(normalizeTx);
+    appState.ledger.transactions = raw.map(normalizeTx);
   } catch (e) {
     console.error('Fehler beim Laden:', e);
-    transactions = [];
+    appState.ledger.transactions = [];
   }
   renderAll();
   if (appState.nav.searchQuery) {
     try {
       const all = await api('GET', '/transactions');
-      _allTransactions = all.map(normalizeTx);
+      appState.ledger.all = all.map(normalizeTx);
     } catch (e) {
-      _allTransactions = [];
+      appState.ledger.all = [];
     }
     applySearch();
   }
@@ -686,8 +686,12 @@ async function loadAndRender() {
 function renderAll() {
   document.getElementById('monthLabel').textContent =
     `${appState.calendar.months[currentMonth]} ${currentYear}`;
-  const out = transactions.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
-  const inc = transactions.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0);
+  const out = appState.ledger.transactions
+    .filter((t) => t.type === 'out')
+    .reduce((a, t) => a + t.amount, 0);
+  const inc = appState.ledger.transactions
+    .filter((t) => t.type === 'in')
+    .reduce((a, t) => a + t.amount, 0);
   // No +/− sign on the summary cards — the label and the
   // positive/negative color already convey direction, and dropping the
   // sign keeps long amounts from overflowing the card's right edge.
@@ -703,14 +707,14 @@ function applySearch() {
   const catFilter = appState.nav.categoryFilterId;
   const tagFilter = appState.nav.tagFilterName;
   if (!q && catFilter == null && tagFilter == null) {
-    renderTransactions(transactions);
+    renderTransactions(appState.ledger.transactions);
     return;
   }
-  // The drill-down from the monthly view leaves `_allTransactions` unset,
+  // The drill-down from the monthly view leaves `appState.ledger.all` unset,
   // so we naturally fall back to the month-scoped `transactions` pool.
-  // When the drill-down comes from a report, `_allTransactions` holds the
+  // When the drill-down comes from a report, `appState.ledger.all` holds the
   // report range — same logic, just a wider pool.
-  const pool = _allTransactions ?? transactions;
+  const pool = appState.ledger.all ?? appState.ledger.transactions;
   const filtered = pool.filter((t) => {
     if (catFilter != null) return t.category_id === catFilter;
     if (tagFilter != null) return Array.isArray(t.tags) && t.tags.includes(tagFilter);
@@ -735,17 +739,17 @@ async function _setSearchPanelActive(active) {
     fab.onclick = clearSearch;
     // Only load the global pool for text search — category drill-down
     // stays month-scoped via the already-loaded `transactions`.
-    if (appState.nav.searchQuery && !_allTransactions) {
+    if (appState.nav.searchQuery && !appState.ledger.all) {
       try {
         const raw = await api('GET', '/transactions');
-        _allTransactions = raw.map(normalizeTx);
+        appState.ledger.all = raw.map(normalizeTx);
       } catch (e) {
-        _allTransactions = [];
+        appState.ledger.all = [];
       }
     }
     applySearch();
   } else {
-    _allTransactions = null;
+    appState.ledger.all = null;
     document.body.classList.remove('searching');
     document.getElementById('panel-search').classList.remove('active');
     document.getElementById('panel-' + appState.nav.activePanel).classList.add('active');
@@ -782,7 +786,7 @@ function clearSearch() {
 
 function getCatById(id) {
   return (
-    categories.find((c) => c.id === Number(id)) || {
+    appState.ledger.categories.find((c) => c.id === Number(id)) || {
       name: tr('categories.fallbackName'),
       icon: 'package',
       color: '#9e9b96',
@@ -861,21 +865,21 @@ function renderCategoryView() {
   const el = document.getElementById('categoryViewList');
   if (!el) return;
 
-  if (!categories.length) {
+  if (!appState.ledger.categories.length) {
     el.innerHTML = `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>${tr('categories.emptyView')}<br>${tr('categories.emptyViewHint')}</p></div>`;
     return;
   }
 
   // Net amount per category from current month's transactions
   const totals = {};
-  transactions.forEach((t) => {
+  appState.ledger.transactions.forEach((t) => {
     const key = t.category_id ?? 0;
     if (!totals[key]) totals[key] = 0;
     totals[key] += t.type === 'out' ? -t.amount : t.amount;
   });
 
   // All categories, sorted alphabetically — zero if no transactions this month
-  const rows = categories
+  const rows = appState.ledger.categories
     .map((cat) => ({
       id: cat.id,
       name: cat.name,
@@ -1035,7 +1039,7 @@ function attachSwipeHandlers(container) {
         if (await _enqueueOfflineDelete(id)) {
           row.classList.remove('swiped');
           // Optimistisch entfernen, Sync übernimmt der SW
-          transactions = transactions.filter((t) => t.id !== id);
+          appState.ledger.transactions = appState.ledger.transactions.filter((t) => t.id !== id);
           renderAll();
           updateSyncBadge();
           return;
@@ -1586,7 +1590,7 @@ async function drillDownCategory(catId, fromIso, toIso) {
   appState.nav.categoryFilterId = catId;
   const from = fromIso || appState.reports.range.from;
   const to = toIso || appState.reports.range.to;
-  _allTransactions = await loadRangeTxs(from, to);
+  appState.ledger.all = await loadRangeTxs(from, to);
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);
   applySearch();
@@ -1697,7 +1701,7 @@ async function drillDownTag(name, fromIso, toIso) {
   appState.nav.tagFilterName = name;
   const from = fromIso || appState.reports.range.from;
   const to = toIso || appState.reports.range.to;
-  _allTransactions = await loadRangeTxs(from, to);
+  appState.ledger.all = await loadRangeTxs(from, to);
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);
   applySearch();
@@ -1797,7 +1801,7 @@ function _trendEntityFromId(id) {
   if (!id) return null;
   if (id.startsWith('cat:')) {
     const catId = parseInt(id.slice(4), 10);
-    const cat = categories.find((c) => c.id === catId);
+    const cat = appState.ledger.categories.find((c) => c.id === catId);
     if (!cat) return null;
     return { kind: 'category', id, catId, name: cat.name, color: cat.color };
   }
@@ -1811,7 +1815,7 @@ function _trendEntityFromId(id) {
 function _pickDefaultTrendEntity(txs, kind) {
   if (kind === 'category') {
     for (const r of _totalsByCategory(txs, 'out')) {
-      if (categories.find((c) => c.id === r.catId)) return `cat:${r.catId}`;
+      if (appState.ledger.categories.find((c) => c.id === r.catId)) return `cat:${r.catId}`;
     }
   } else {
     const top = _totalsByTag(txs, 'out')[0];
@@ -1855,12 +1859,12 @@ function _trendPickerOptions(txs, kind, selectedId, filter) {
     const ranked = _totalsByCategory(txs, 'out');
     const seen = new Set();
     for (const r of ranked) {
-      const cat = categories.find((c) => c.id === r.catId);
+      const cat = appState.ledger.categories.find((c) => c.id === r.catId);
       if (!cat) continue;
       seen.add(r.catId);
       options.push({ id: `cat:${r.catId}`, label: cat.name, color: cat.color });
     }
-    const rest = categories
+    const rest = appState.ledger.categories
       .filter((c) => !seen.has(c.id))
       .sort((a, b) => a.name.localeCompare(b.name, _locale()));
     for (const c of rest) {
@@ -2347,7 +2351,7 @@ function openModal(tx) {
   // Alphabetical de_DE sort — consistent with renderCategories()
   // and renderCategoryView() so the user sees the same order
   // wherever they look at categories.
-  catSel.innerHTML = [...categories]
+  catSel.innerHTML = [...appState.ledger.categories]
     .sort((a, b) => a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }))
     .map((c) => `<option value="${c.id}">${_escText(c.name)}</option>`)
     .join('');
@@ -2388,7 +2392,7 @@ function closeModalOutside(e) {
 }
 function editTransaction(id) {
   const num = Number(id);
-  const pools = [_allTransactions, appState.reports.txPool, transactions];
+  const pools = [appState.ledger.all, appState.reports.txPool, appState.ledger.transactions];
   for (const p of pools) {
     if (!p) continue;
     const t = p.find((t) => t.id === num);
@@ -2531,20 +2535,22 @@ async function addTransaction() {
 
 function mergeIntoAvailableTags(tags) {
   if (!Array.isArray(tags) || !tags.length) return;
-  const lower = new Set(availableTags.map((t) => t.toLowerCase()));
+  const lower = new Set(appState.ledger.availableTags.map((t) => t.toLowerCase()));
   let changed = false;
   for (const t of tags) {
     const v = (t || '').trim().toLowerCase();
     if (!v) continue;
     tagCounts.set(v, (tagCounts.get(v) || 0) + 1);
     if (!lower.has(v)) {
-      availableTags.push(v);
+      appState.ledger.availableTags.push(v);
       lower.add(v);
       changed = true;
     }
   }
   if (changed) {
-    availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    appState.ledger.availableTags.sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    );
     renderTagList();
   }
 }
@@ -2554,9 +2560,9 @@ const CAT_CREATE_COLORS = ['#D97757', '#6b7aa1', '#788C5D', '#c47ab0', '#e0a44a'
 
 async function loadCategories() {
   try {
-    categories = await api('GET', '/categories');
+    appState.ledger.categories = await api('GET', '/categories');
   } catch (e) {
-    categories = [];
+    appState.ledger.categories = [];
   }
 }
 
@@ -2564,14 +2570,14 @@ async function loadTags() {
   try {
     const tags = await api('GET', '/tags');
     const list = Array.isArray(tags) ? tags : [];
-    availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
+    appState.ledger.availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
     tagCounts.clear();
     for (const t of list) {
       if (typeof t === 'string') continue;
       tagCounts.set(t.name.toLowerCase(), Number(t.count) || 0);
     }
   } catch (e) {
-    availableTags = [];
+    appState.ledger.availableTags = [];
     tagCounts.clear();
   }
   renderTagList();
@@ -2581,7 +2587,7 @@ function renderTagSuggestions() {
   const box = document.getElementById('tagSuggestions');
   if (!box) return;
   const selected = new Set(currentTags.map((x) => x.toLowerCase()));
-  const remaining = availableTags.filter((t) => !selected.has(t.toLowerCase()));
+  const remaining = appState.ledger.availableTags.filter((t) => !selected.has(t.toLowerCase()));
   // Pick the 10 most-used (last 30 days), then render alphabetically
   // so users can scan the row without re-learning order each open.
   remaining.sort((a, b) => {
@@ -2691,7 +2697,9 @@ function renderTagPickerChips() {
   const box = document.getElementById('tagPickerChips');
   if (!box) return;
   const q = (document.getElementById('tagPickerFilter').value || '').trim().toLowerCase();
-  const filtered = q ? availableTags.filter((t) => t.toLowerCase().includes(q)) : availableTags;
+  const filtered = q
+    ? appState.ledger.availableTags.filter((t) => t.toLowerCase().includes(q))
+    : appState.ledger.availableTags;
   const selected = new Set(appState.tagPicker.selection.map((x) => x.toLowerCase()));
   box.innerHTML = filtered
     .map((t) => {
@@ -2720,11 +2728,13 @@ function addTagFromPicker() {
   const val = inp.value.trim();
   if (!val) return;
   const key = val.toLowerCase();
-  const existing = availableTags.find((t) => t.toLowerCase() === key);
+  const existing = appState.ledger.availableTags.find((t) => t.toLowerCase() === key);
   const name = existing || val;
   if (!existing) {
-    availableTags.push(name);
-    availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    appState.ledger.availableTags.push(name);
+    appState.ledger.availableTags.sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    );
   }
   if (!appState.tagPicker.selection.some((x) => x.toLowerCase() === key)) {
     appState.tagPicker.selection.push(name);
@@ -2736,11 +2746,11 @@ function addTagFromPicker() {
 function renderCategories() {
   const box = document.getElementById('catList');
   if (!box) return;
-  if (!categories.length) {
+  if (!appState.ledger.categories.length) {
     box.innerHTML = `<p class="empty-state-hint">${tr('categories.none')}</p>`;
     return;
   }
-  const sorted = [...categories].sort((a, b) =>
+  const sorted = [...appState.ledger.categories].sort((a, b) =>
     a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
   );
   box.innerHTML = '';
@@ -3029,7 +3039,7 @@ function openCatModal(id) {
   const deleteBtn = document.getElementById('catDeleteBtn');
   const title = document.getElementById('catModalTitle');
   if (id) {
-    const c = categories.find((x) => x.id === id);
+    const c = appState.ledger.categories.find((x) => x.id === id);
     if (!c) return;
     appState.catEdit.id = c.id;
     appState.catEdit.color = c.color || '#9e9b96';
@@ -3039,7 +3049,8 @@ function openCatModal(id) {
     deleteBtn.style.display = '';
   } else {
     appState.catEdit.id = null;
-    appState.catEdit.color = CAT_CREATE_COLORS[categories.length % CAT_CREATE_COLORS.length];
+    appState.catEdit.color =
+      CAT_CREATE_COLORS[appState.ledger.categories.length % CAT_CREATE_COLORS.length];
     appState.catEdit.icon = CAT_ICON_FALLBACK;
     document.getElementById('catEditName').value = '';
     title.textContent = tr('categories.newTitle');
@@ -3340,7 +3351,7 @@ function _goalAmountValue(id) {
 function populateGoalCategorySelect(selectedId) {
   const sel = document.getElementById('goalEditCategory');
   if (!sel) return;
-  const sorted = [...categories].sort((a, b) =>
+  const sorted = [...appState.ledger.categories].sort((a, b) =>
     a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
   );
   // Fall back to the alphabetically first option when no valid category
@@ -3393,7 +3404,7 @@ function pickGoalColor(c) {
 }
 
 function openGoalModal(id) {
-  if (!categories.length) {
+  if (!appState.ledger.categories.length) {
     toast(tr('goals.needCategory'), 'error');
     return;
   }
@@ -3744,7 +3755,7 @@ async function renderRecurringView() {
       // the direction, matching the ledger summary cards.
       const amount = fmtCurrency(Math.abs(r.amount));
       const inactiveCls = r.active ? '' : ' is-inactive';
-      const cat = categories.find((c) => c.id === r.category_id);
+      const cat = appState.ledger.categories.find((c) => c.id === r.category_id);
       const catColor = cat?.color || 'var(--accent)';
       return `<div class="recurring-card${inactiveCls}">
               <button type="button" class="recurring-card-main"
@@ -3768,7 +3779,7 @@ async function renderRecurringView() {
 function populateRecurringCategorySelect(selectedId) {
   const sel = document.getElementById('recEditCategory');
   if (!sel) return;
-  const sorted = [...categories].sort((a, b) =>
+  const sorted = [...appState.ledger.categories].sort((a, b) =>
     a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
   );
   const effectiveId = sorted.some((c) => c.id === selectedId)
@@ -3871,7 +3882,7 @@ function _updateRecurringStatusHint(rule) {
 }
 
 function openRecurringModal(id) {
-  if (!categories.length) {
+  if (!appState.ledger.categories.length) {
     toast(tr('recurring.needCategory'), 'error');
     return;
   }
@@ -4135,10 +4146,10 @@ function _invalidateLocalTxCache() {
   // The codebase uses different names in different builds; both
   // assignments are no-ops if the variable doesn't exist.
   try {
-    transactions = [];
+    appState.ledger.transactions = [];
   } catch (_) {}
   try {
-    _allTransactions = null;
+    appState.ledger.all = null;
   } catch (_) {}
   // Also clear the per-year report aggregate cache. api() does
   // this automatically on every non-GET, but the outbox replay
@@ -4156,11 +4167,11 @@ function _invalidateLocalTxCache() {
 function renderTagList() {
   const box = document.getElementById('tagList');
   if (!box) return;
-  if (!availableTags.length) {
+  if (!appState.ledger.availableTags.length) {
     box.innerHTML = `<p class="empty-state-hint">${tr('tags.none')}</p>`;
     return;
   }
-  box.innerHTML = availableTags
+  box.innerHTML = appState.ledger.availableTags
     .map(
       (t) => `<div class="tag-pill cat-pill-edit" data-tag="${_escAttr(t)}">${_escText(t)}</div>`,
     )
