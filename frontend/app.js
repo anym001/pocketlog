@@ -3196,15 +3196,13 @@ async function deleteCategoryEdit() {
 // category's transactions dated on/after start_date — the API stores
 // no aggregate. 'save_up' counts `in`-type up to target; 'pay_down'
 // counts `out`-type down from initial_amount toward target.
-let goals = [];
-let editingGoalId = null;
-let editingGoalColor = '#9e9b96';
+// Goals list + edit-modal draft live in appState.goals (state.js).
 
 async function loadGoals() {
   try {
-    goals = await api('GET', '/goals');
+    appState.goals.list = await api('GET', '/goals');
   } catch (e) {
-    goals = [];
+    appState.goals.list = [];
   }
 }
 
@@ -3213,16 +3211,16 @@ async function loadGoals() {
 async function renderGoalsView() {
   const el = document.getElementById('goalsViewList');
   if (!el) return;
-  if (!goals.length) {
+  if (!appState.goals.list.length) {
     el.innerHTML = `<div class="empty-state"><svg class="cat-glyph goals-empty-glyph" aria-hidden="true"><use href="#cat-piggy-bank"/></svg><p>${tr('goals.emptyView')}<br>${tr('goals.emptyViewHint')}</p></div>`;
     return;
   }
   // Progress spans each goal's whole life, not the current month, so we
   // fetch one combined range from the earliest start_date to today and
   // compute every goal off that single pool.
-  const minStart = goals.reduce(
+  const minStart = appState.goals.list.reduce(
     (m, g) => (g.start_date < m ? g.start_date : m),
-    goals[0].start_date,
+    appState.goals.list[0].start_date,
   );
   const now = new Date();
   const todayIso = _iso(now.getFullYear(), now.getMonth(), now.getDate());
@@ -3232,7 +3230,7 @@ async function renderGoalsView() {
   } catch (e) {
     pool = [];
   }
-  const sorted = [...goals].sort((a, b) =>
+  const sorted = [...appState.goals.list].sort((a, b) =>
     a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
   );
   el.innerHTML = sorted
@@ -3351,23 +3349,26 @@ function onGoalDirectionChange() {
 
 function renderGoalColorSwatches() {
   const presets = [...CAT_COLOR_PRESETS];
-  const hasCurrent = presets.some((p) => p.hex.toLowerCase() === editingGoalColor.toLowerCase());
-  if (!hasCurrent) presets.push({ hex: editingGoalColor, name: tr('categories.customColorName') });
+  const hasCurrent = presets.some(
+    (p) => p.hex.toLowerCase() === appState.goals.editingColor.toLowerCase(),
+  );
+  if (!hasCurrent)
+    presets.push({ hex: appState.goals.editingColor, name: tr('categories.customColorName') });
   const box = document.getElementById('goalEditColors');
   box.innerHTML =
     presets
       .map((p) => {
-        const isActive = p.hex.toLowerCase() === editingGoalColor.toLowerCase();
+        const isActive = p.hex.toLowerCase() === appState.goals.editingColor.toLowerCase();
         return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickGoalColor('${p.hex}')"></button>`;
       })
       .join('') +
     `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${editingGoalColor}" onchange="pickGoalColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
+     <input type="color" value="${appState.goals.editingColor}" onchange="pickGoalColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
    </label>`;
 }
 
 function pickGoalColor(c) {
-  editingGoalColor = c;
+  appState.goals.editingColor = c;
   renderGoalColorSwatches();
 }
 
@@ -3380,10 +3381,10 @@ function openGoalModal(id) {
   const deleteBtn = document.getElementById('goalDeleteBtn');
   const title = document.getElementById('goalModalTitle');
   if (id) {
-    const g = goals.find((x) => x.id === id);
+    const g = appState.goals.list.find((x) => x.id === id);
     if (!g) return;
-    editingGoalId = g.id;
-    editingGoalColor = g.color || '#9e9b96';
+    appState.goals.editingId = g.id;
+    appState.goals.editingColor = g.color || '#9e9b96';
     document.getElementById('goalEditName').value = g.name || '';
     document.getElementById('goalEditDirection').value = g.direction;
     populateGoalCategorySelect(g.category_id);
@@ -3393,8 +3394,9 @@ function openGoalModal(id) {
     title.textContent = tr('goals.editTitle');
     deleteBtn.style.display = '';
   } else {
-    editingGoalId = null;
-    editingGoalColor = CAT_CREATE_COLORS[goals.length % CAT_CREATE_COLORS.length];
+    appState.goals.editingId = null;
+    appState.goals.editingColor =
+      CAT_CREATE_COLORS[appState.goals.list.length % CAT_CREATE_COLORS.length];
     document.getElementById('goalEditName').value = '';
     document.getElementById('goalEditDirection').value = 'save_up';
     populateGoalCategorySelect(null); // defaults to the first sorted option
@@ -3420,7 +3422,7 @@ function openGoalModal(id) {
 function closeGoalModal() {
   document.getElementById('goalModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingGoalId = null;
+  appState.goals.editingId = null;
   releaseFocusTrap('goal');
   restoreModalFocus('goal');
 }
@@ -3465,11 +3467,11 @@ async function saveGoalEdit() {
     target_amount: target.toFixed(2),
     start_date: startDate,
     icon: direction === 'pay_down' ? 'hand-coins' : 'piggy-bank',
-    color: editingGoalColor,
+    color: appState.goals.editingColor,
   };
   try {
-    if (editingGoalId) {
-      await api('PUT', `/goals/${editingGoalId}`, payload);
+    if (appState.goals.editingId) {
+      await api('PUT', `/goals/${appState.goals.editingId}`, payload);
     } else {
       await api('POST', '/goals', payload);
     }
@@ -3488,14 +3490,14 @@ async function saveGoalEdit() {
 }
 
 async function deleteGoalEdit() {
-  if (!editingGoalId) return;
+  if (!appState.goals.editingId) return;
   const ok = await confirmAction({
     title: tr('goals.deleteConfirm'),
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
   try {
-    await api('DELETE', `/goals/${editingGoalId}`);
+    await api('DELETE', `/goals/${appState.goals.editingId}`);
     closeGoalModal();
     await loadGoals();
     if (_activePanel === 'goals') await renderGoalsView();
