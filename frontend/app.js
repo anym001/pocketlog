@@ -48,24 +48,15 @@ const REPORT_TITLE_KEYS = {
   top: 'reports.top',
 };
 const reportTitle = (id) => tr(REPORT_TITLE_KEYS[id] || 'reports.overview');
-let currentReport = (() => {
+// Reports state lives in appState.reports (state.js). `current` (the active
+// report) is restored from localStorage here, defaulting to 'overview'; the
+// `range` (period picker) and `rangeLock` (optional 'month'/'year' lock that
+// pins the picker for reports only meaningful at one granularity; null = free)
+// keep their identical defaults from state.js.
+appState.reports.current = (() => {
   const v = localStorage.getItem(REPORT_STORAGE_KEY);
   return REPORT_IDS.includes(v) ? v : 'overview';
 })();
-const _today = new Date();
-let reportRange = {
-  kind: 'month',
-  anchor: {
-    y: _today.getFullYear(),
-    m: _today.getMonth(),
-    q: Math.floor(_today.getMonth() / 3),
-  },
-  from: '',
-  to: '',
-};
-// Optionaler Lock: 'month' oder 'year' erzwingt den Picker-Modus für Reports,
-// die nur in dieser Granularität sinnvoll sind. null = frei wählbar.
-let _rangeLock = null;
 // Chart.js-Instanzen pro Report, getrennt damit destroy() keine fremde Instanz trifft.
 const chartInsts = { month: null, year: null, categories: null, tags: null, trend: null };
 
@@ -105,12 +96,11 @@ const _txCacheByYear = new Map();
 function invalidateReportCache() {
   _txCacheByYear.clear();
 }
-// Beim Drill-Down aus der Kategorienanalyse merken, wohin „Abbrechen" zurückspringt.
-let _searchExitTarget = null;
-// Letzte vom aktiven Report geladene Transaktionen — wird von editTransaction
-// konsultiert, damit ein Klick auf eine Top-Liste die echte Buchung findet
-// (nicht nur die des aktuellen Monats aus der Transaktions-View).
-let _reportTxPool = null;
+// appState.reports.searchExitTarget — drill-down from the category analysis
+// remembers where „Abbrechen" jumps back to. appState.reports.txPool — the
+// last transactions loaded by the active report, consulted by editTransaction
+// so a click on a top list finds the real booking (not just the current
+// month's from the transactions view). Both default in state.js.
 
 let transactions = []; // wird per API geladen
 let categories = []; // wird per API geladen
@@ -425,7 +415,7 @@ function _resetSearch() {
   appState.nav.categoryFilterId = null;
   appState.nav.tagFilterName = null;
   _allTransactions = null;
-  _searchExitTarget = null;
+  appState.reports.searchExitTarget = null;
   document.body.classList.remove('searching');
   document.getElementById('searchInput').value = '';
   const fab = document.querySelector('.fab');
@@ -448,7 +438,7 @@ function showPanel(id) {
   document.body.classList.toggle('in-report', id === 'charts');
   document.body.classList.toggle('on-goals', id === 'goals');
   document.body.classList.toggle('on-recurring', id === 'recurring');
-  if (id !== 'charts') _reportTxPool = null;
+  if (id !== 'charts') appState.reports.txPool = null;
   document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   document.querySelectorAll('.drawer-nav-item[data-panel]').forEach((btn) => {
@@ -467,12 +457,14 @@ function showPanel(id) {
 function openReport(id) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
   if (id === 'trend') appState.trend.pickerOpen = false;
-  currentReport = id;
+  appState.reports.current = id;
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
   } catch (e) {}
-  if (id === 'month' && reportRange.kind !== 'month') setRangeKind('month', { skipRender: true });
-  if (id === 'year' && reportRange.kind !== 'year') setRangeKind('year', { skipRender: true });
+  if (id === 'month' && appState.reports.range.kind !== 'month')
+    setRangeKind('month', { skipRender: true });
+  if (id === 'year' && appState.reports.range.kind !== 'year')
+    setRangeKind('year', { skipRender: true });
   showPanel('charts');
 }
 
@@ -781,8 +773,8 @@ function clearSearch() {
     !!appState.nav.searchQuery ||
     appState.nav.categoryFilterId != null ||
     appState.nav.tagFilterName != null;
-  const exitTo = _searchExitTarget;
-  _searchExitTarget = null;
+  const exitTo = appState.reports.searchExitTarget;
+  appState.reports.searchExitTarget = null;
   _resetSearch();
   if (wasActive) _setSearchPanelActive(false);
   if (exitTo) showPanel(exitTo);
@@ -1109,35 +1101,35 @@ function computeRange(kind, a) {
     return { from: _iso(a.y, 0, 1), to: _iso(a.y, 11, 31) };
   }
   // custom: from/to bleiben wie zuletzt eingegeben.
-  return { from: reportRange.from, to: reportRange.to };
+  return { from: appState.reports.range.from, to: appState.reports.range.to };
 }
 
 function applyRange(opts = {}) {
-  const r = computeRange(reportRange.kind, reportRange.anchor);
-  if (reportRange.kind !== 'custom') {
-    reportRange.from = r.from;
-    reportRange.to = r.to;
+  const r = computeRange(appState.reports.range.kind, appState.reports.range.anchor);
+  if (appState.reports.range.kind !== 'custom') {
+    appState.reports.range.from = r.from;
+    appState.reports.range.to = r.to;
   }
   updatePickerUI();
   if (!opts.skipRender && appState.nav.activePanel === 'charts') renderReport();
 }
 
 function setRangeKind(kind, opts = {}) {
-  if (_rangeLock && kind !== _rangeLock) return;
+  if (appState.reports.rangeLock && kind !== appState.reports.rangeLock) return;
   if (!['month', 'quarter', 'year', 'custom'].includes(kind)) return;
-  reportRange.kind = kind;
-  if (kind === 'custom' && (!reportRange.from || !reportRange.to)) {
+  appState.reports.range.kind = kind;
+  if (kind === 'custom' && (!appState.reports.range.from || !appState.reports.range.to)) {
     // Beim Wechsel auf „Eigen" mit den aktuellen Monatsgrenzen vorbelegen.
-    const r = computeRange('month', reportRange.anchor);
-    reportRange.from = r.from;
-    reportRange.to = r.to;
+    const r = computeRange('month', appState.reports.range.anchor);
+    appState.reports.range.from = r.from;
+    appState.reports.range.to = r.to;
   }
   applyRange(opts);
 }
 
 function shiftRange(delta) {
-  const a = reportRange.anchor;
-  if (reportRange.kind === 'month') {
+  const a = appState.reports.range.anchor;
+  if (appState.reports.range.kind === 'month') {
     let m = a.m + delta,
       y = a.y;
     while (m < 0) {
@@ -1151,7 +1143,7 @@ function shiftRange(delta) {
     a.m = m;
     a.y = y;
     a.q = Math.floor(m / 3);
-  } else if (reportRange.kind === 'quarter') {
+  } else if (appState.reports.range.kind === 'quarter') {
     let q = a.q + delta,
       y = a.y;
     while (q < 0) {
@@ -1165,7 +1157,7 @@ function shiftRange(delta) {
     a.q = q;
     a.y = y;
     a.m = q * 3;
-  } else if (reportRange.kind === 'year') {
+  } else if (appState.reports.range.kind === 'year') {
     a.y += delta;
   } else {
     return; // Custom hat keinen Stepper
@@ -1181,13 +1173,13 @@ function onCustomRangeChange() {
     toast(tr('reports.endAfterStart'));
     return;
   }
-  reportRange.from = from;
-  reportRange.to = to;
+  appState.reports.range.from = from;
+  appState.reports.range.to = to;
   renderReport();
 }
 
 function setRangeLock(kind) {
-  _rangeLock = kind;
+  appState.reports.rangeLock = kind;
   const tabs = document.querySelectorAll('#rangeKindTabs button');
   tabs.forEach((b) => {
     const allowed = !kind || b.dataset.kind === kind;
@@ -1197,38 +1189,38 @@ function setRangeLock(kind) {
 }
 
 function _rangeStepperLabel() {
-  const a = reportRange.anchor;
-  if (reportRange.kind === 'month') return `${appState.calendar.months[a.m]} ${a.y}`;
-  if (reportRange.kind === 'quarter') return `Q${a.q + 1} ${a.y}`;
-  if (reportRange.kind === 'year') return `${a.y}`;
+  const a = appState.reports.range.anchor;
+  if (appState.reports.range.kind === 'month') return `${appState.calendar.months[a.m]} ${a.y}`;
+  if (appState.reports.range.kind === 'quarter') return `Q${a.q + 1} ${a.y}`;
+  if (appState.reports.range.kind === 'year') return `${a.y}`;
   return '';
 }
 
 function _rangeSubtitle(txCount) {
   const noun = txCount === 1 ? tr('tx.countOne') : tr('tx.countOther');
-  if (reportRange.kind === 'custom') {
+  if (appState.reports.range.kind === 'custom') {
     const fmt = (iso) => {
       const [y, m, d] = iso.split('-');
       return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(_locale());
     };
-    return `${fmt(reportRange.from)} – ${fmt(reportRange.to)} · ${txCount} ${noun}`;
+    return `${fmt(appState.reports.range.from)} – ${fmt(appState.reports.range.to)} · ${txCount} ${noun}`;
   }
   return `${_rangeStepperLabel()} · ${txCount} ${noun}`;
 }
 
 function updatePickerUI() {
   document.querySelectorAll('#rangeKindTabs button').forEach((b) => {
-    const active = b.dataset.kind === reportRange.kind;
+    const active = b.dataset.kind === appState.reports.range.kind;
     b.setAttribute('aria-selected', String(active));
     b.classList.toggle('is-active', active);
   });
   const stepper = document.getElementById('rangeStepper');
   const custom = document.getElementById('rangeCustom');
-  if (reportRange.kind === 'custom') {
+  if (appState.reports.range.kind === 'custom') {
     stepper.hidden = true;
     custom.hidden = false;
-    document.getElementById('rangeFrom').value = reportRange.from || '';
-    document.getElementById('rangeTo').value = reportRange.to || '';
+    document.getElementById('rangeFrom').value = appState.reports.range.from || '';
+    document.getElementById('rangeTo').value = appState.reports.range.to || '';
   } else {
     stepper.hidden = false;
     custom.hidden = true;
@@ -1261,9 +1253,9 @@ async function loadRangeTxs(from, to) {
 
 // ── REPORTS — RENDER DISPATCH ─────────────────────────────────────────────────
 
-async function renderReport(id = currentReport) {
+async function renderReport(id = appState.reports.current) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
-  currentReport = id;
+  appState.reports.current = id;
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
   } catch (e) {}
@@ -1273,8 +1265,8 @@ async function renderReport(id = currentReport) {
   }
   const locks = { month: 'month', year: 'year' };
   setRangeLock(locks[id] || null);
-  if (_rangeLock && reportRange.kind !== _rangeLock) {
-    reportRange.kind = _rangeLock;
+  if (appState.reports.rangeLock && appState.reports.range.kind !== appState.reports.rangeLock) {
+    appState.reports.range.kind = appState.reports.rangeLock;
     applyRange({ skipRender: true });
   }
   updatePickerUI();
@@ -1290,11 +1282,12 @@ async function renderReport(id = currentReport) {
   const body = document.getElementById('reportBody');
   body.innerHTML = '';
 
-  // Trend uses its own private year range and never touches reportRange.
-  const rangeFrom = id === 'trend' ? `${appState.trend.yearFrom}-01-01` : reportRange.from;
-  const rangeTo = id === 'trend' ? `${appState.trend.yearTo}-12-31` : reportRange.to;
+  // Trend uses its own private year range and never touches appState.reports.range.
+  const rangeFrom =
+    id === 'trend' ? `${appState.trend.yearFrom}-01-01` : appState.reports.range.from;
+  const rangeTo = id === 'trend' ? `${appState.trend.yearTo}-12-31` : appState.reports.range.to;
   const txs = await loadRangeTxs(rangeFrom, rangeTo);
-  _reportTxPool = txs;
+  appState.reports.txPool = txs;
   document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
 
   if (id === 'overview') await renderReportOverview(body, txs);
@@ -1397,7 +1390,7 @@ async function renderReportOverview(body, txs) {
 // ── REPORTS — MONTH ───────────────────────────────────────────────────────────
 
 function renderReportMonth(body, txs) {
-  const a = reportRange.anchor;
+  const a = appState.reports.range.anchor;
   const days = _daysInMonth(a.y, a.m);
   const labels = Array.from({ length: days }, (_, i) => i + 1);
   const byDay = {};
@@ -1461,7 +1454,7 @@ function renderReportMonth(body, txs) {
 // ── REPORTS — YEAR ────────────────────────────────────────────────────────────
 
 async function renderReportYear(body, txs) {
-  const a = reportRange.anchor;
+  const a = appState.reports.range.anchor;
   const aggregate = (pool) =>
     Array.from({ length: 12 }, (_, m) => {
       const tx = pool.filter((t) => new Date(t.date).getMonth() === m);
@@ -1589,10 +1582,10 @@ function renderReportCategories(body, txs) {
 }
 
 async function drillDownCategory(catId, fromIso, toIso) {
-  _searchExitTarget = 'charts';
+  appState.reports.searchExitTarget = 'charts';
   appState.nav.categoryFilterId = catId;
-  const from = fromIso || reportRange.from;
-  const to = toIso || reportRange.to;
+  const from = fromIso || appState.reports.range.from;
+  const to = toIso || appState.reports.range.to;
   _allTransactions = await loadRangeTxs(from, to);
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);
@@ -1700,10 +1693,10 @@ function renderReportTags(body, txs) {
 }
 
 async function drillDownTag(name, fromIso, toIso) {
-  _searchExitTarget = 'charts';
+  appState.reports.searchExitTarget = 'charts';
   appState.nav.tagFilterName = name;
-  const from = fromIso || reportRange.from;
-  const to = toIso || reportRange.to;
+  const from = fromIso || appState.reports.range.from;
+  const to = toIso || appState.reports.range.to;
   _allTransactions = await loadRangeTxs(from, to);
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);
@@ -1962,7 +1955,12 @@ function filterTrendChips(value) {
   const container = document.getElementById('trendPickerChips');
   if (!container) return;
   const selectedId = appState.trend.selection[0] || null;
-  const options = _trendPickerOptions(_reportTxPool || [], appState.trend.kind, selectedId, value);
+  const options = _trendPickerOptions(
+    appState.reports.txPool || [],
+    appState.trend.kind,
+    selectedId,
+    value,
+  );
   container.innerHTML = options
     .map((o) => _trendChipMarkup(o.id, o.label, o.color, selectedId && o.id === selectedId))
     .join('');
@@ -2205,8 +2203,8 @@ async function renderReportForecast(body, rangeTxs) {
   const dailyAvg = histOut.reduce((s, t) => s + t.amount, 0) / histDays;
 
   // Gewählter Zeitraum aus dem Time-Picker.
-  const rangeFromIso = reportRange.from;
-  const rangeToIso = reportRange.to;
+  const rangeFromIso = appState.reports.range.from;
+  const rangeToIso = appState.reports.range.to;
   const rangeFromDate = new Date(rangeFromIso + 'T00:00:00');
   const rangeToDate = new Date(rangeToIso + 'T00:00:00');
   const daysTotal = Math.round((rangeToDate - rangeFromDate) / msDay) + 1;
@@ -2261,7 +2259,7 @@ async function renderReportForecast(body, rangeTxs) {
   };
 
   // Labels skalieren mit Time-Picker-Kind.
-  const kind = reportRange.kind;
+  const kind = appState.reports.range.kind;
   const cardLabel =
     kind === 'month'
       ? tr('forecast.projMonth')
@@ -2390,7 +2388,7 @@ function closeModalOutside(e) {
 }
 function editTransaction(id) {
   const num = Number(id);
-  const pools = [_allTransactions, _reportTxPool, transactions];
+  const pools = [_allTransactions, appState.reports.txPool, transactions];
   for (const p of pools) {
     if (!p) continue;
     const t = p.find((t) => t.id === num);
