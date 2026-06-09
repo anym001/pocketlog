@@ -2599,18 +2599,16 @@ function addTagFromSuggestion(t) {
 }
 
 // ── TAG PICKER MODAL ──────────────────────────────────────────────────────────
-// Staging state: changes apply to `currentTags` only on „Fertig".
-let pickerSelection = [];
-// Which modal opened the picker: 'transaction' | 'recurring'
-let _tagPickerContext = 'transaction';
-// Tags staged in the recurring rule editor
-let currentRecurringTags = [];
+// Tag-picker staging state lives in appState.tagPicker (state.js):
+//   selection     — staged tags; apply to appState.form.tags only on „Fertig"
+//   context       — which modal opened the picker: 'transaction' | 'recurring'
+//   recurringTags — tags staged in the recurring rule editor
 
 function renderRecurringTagPills() {
   const wrap = document.getElementById('recTagsWrap');
   const btn = document.getElementById('recTagPickerBtn');
   if (!wrap || !btn) return;
-  wrap.innerHTML = currentRecurringTags
+  wrap.innerHTML = appState.tagPicker.recurringTags
     .map(
       (t) =>
         `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-rec-tag="${_escAttr(t)}" aria-label="${_escAttr(tr('tags.removeAria', { name: t }))}">${ICON_SVG.close}</button></span>`,
@@ -2622,7 +2620,7 @@ function renderRecurringTagPills() {
   wrap.appendChild(btn);
 }
 function removeRecurringTag(t) {
-  currentRecurringTags = currentRecurringTags.filter((x) => x !== t);
+  appState.tagPicker.recurringTags = appState.tagPicker.recurringTags.filter((x) => x !== t);
   renderRecurringTagPills();
 }
 
@@ -2630,9 +2628,10 @@ function openTagPicker() {
   openTagPickerFor('transaction');
 }
 function openTagPickerFor(context) {
-  _tagPickerContext = context;
+  appState.tagPicker.context = context;
   rememberModalFocus('tagPicker');
-  pickerSelection = context === 'recurring' ? [...currentRecurringTags] : [...currentTags];
+  appState.tagPicker.selection =
+    context === 'recurring' ? [...appState.tagPicker.recurringTags] : [...currentTags];
   document.getElementById('tagPickerFilter').value = '';
   document.getElementById('tagPickerNew').value = '';
   const chips = document.getElementById('tagPickerChips');
@@ -2656,7 +2655,7 @@ function closeTagPicker() {
   if (!bookingOpen && !recurringOpen) {
     document.body.style.overflow = '';
   }
-  pickerSelection = [];
+  appState.tagPicker.selection = [];
   releaseFocusTrap('tagPicker');
   restoreModalFocus('tagPicker');
 }
@@ -2664,12 +2663,12 @@ function closeTagPickerOutside(e) {
   if (e.target === document.getElementById('tagPickerOverlay')) closeTagPicker();
 }
 function commitTagPicker() {
-  if (_tagPickerContext === 'recurring') {
-    currentRecurringTags = [...pickerSelection];
+  if (appState.tagPicker.context === 'recurring') {
+    appState.tagPicker.recurringTags = [...appState.tagPicker.selection];
     closeTagPicker();
     renderRecurringTagPills();
   } else {
-    currentTags = [...pickerSelection];
+    currentTags = [...appState.tagPicker.selection];
     closeTagPicker();
     renderTagPills();
     renderTagSuggestions();
@@ -2680,7 +2679,7 @@ function renderTagPickerChips() {
   if (!box) return;
   const q = (document.getElementById('tagPickerFilter').value || '').trim().toLowerCase();
   const filtered = q ? availableTags.filter((t) => t.toLowerCase().includes(q)) : availableTags;
-  const selected = new Set(pickerSelection.map((x) => x.toLowerCase()));
+  const selected = new Set(appState.tagPicker.selection.map((x) => x.toLowerCase()));
   box.innerHTML = filtered
     .map((t) => {
       const isSel = selected.has(t.toLowerCase());
@@ -2692,9 +2691,9 @@ function renderTagPickerChips() {
   });
 }
 function togglePickerTag(t) {
-  const i = pickerSelection.findIndex((x) => x.toLowerCase() === t.toLowerCase());
-  if (i >= 0) pickerSelection.splice(i, 1);
-  else pickerSelection.push(t);
+  const i = appState.tagPicker.selection.findIndex((x) => x.toLowerCase() === t.toLowerCase());
+  if (i >= 0) appState.tagPicker.selection.splice(i, 1);
+  else appState.tagPicker.selection.push(t);
   renderTagPickerChips();
 }
 function handleTagPickerNew(e) {
@@ -2714,8 +2713,8 @@ function addTagFromPicker() {
     availableTags.push(name);
     availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }
-  if (!pickerSelection.some((x) => x.toLowerCase() === key)) {
-    pickerSelection.push(name);
+  if (!appState.tagPicker.selection.some((x) => x.toLowerCase() === key)) {
+    appState.tagPicker.selection.push(name);
   }
   inp.value = '';
   renderTagPickerChips();
@@ -3890,7 +3889,7 @@ function openRecurringModal(id) {
     // on the next save.
     setRecurringValidity(r.max_occurrences != null ? 'count' : r.end_date ? 'date' : 'unlimited');
     document.getElementById('recEditActive').checked = r.active !== false;
-    currentRecurringTags = r.tags ? [...r.tags] : [];
+    appState.tagPicker.recurringTags = r.tags ? [...r.tags] : [];
     renderRecurringTagPills();
     title.textContent = tr('recurring.editTitle');
     deleteBtn.style.display = '';
@@ -3915,7 +3914,7 @@ function openRecurringModal(id) {
     document.getElementById('recEditMaxOccurrences').value = '';
     setRecurringValidity('unlimited');
     document.getElementById('recEditActive').checked = true;
-    currentRecurringTags = [];
+    appState.tagPicker.recurringTags = [];
     renderRecurringTagPills();
     _refreshRecurringPreview();
     title.textContent = tr('recurring.newTitle');
@@ -4024,7 +4023,7 @@ async function saveRecurringEdit() {
     amount: f.amount.toFixed(2),
     category_id: f.categoryId,
     desc: f.description,
-    tags: currentRecurringTags,
+    tags: appState.tagPicker.recurringTags,
     frequency: f.frequency,
     interval: f.interval,
     weekday: f.weekday,
