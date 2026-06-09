@@ -413,24 +413,20 @@ function confirmAction({
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
-let _activePanel = 'transactions';
-// Timestamp of the last booking-modal open; guards closeModalOutside
-// against the ghost click that trails a tap which opened it.
-let _bookingModalOpenedAt = 0;
-let _searchQuery = '';
+// Navigation / cross-cutting UI state lives in appState.nav (state.js):
+//   activePanel; bookingModalOpenedAt (timestamp of the last booking-modal
+//   open, guards closeModalOutside against the ghost click that trails the tap
+//   which opened it); searchQuery; categoryFilterId (set when the user taps the
+//   "more" icon on a category row — mutually exclusive with text search, which
+//   clears it in onSearch); tagFilterName (drill-down from the tag analysis,
+//   mutually exclusive with text search and category filter); infoPanelSeq;
+//   goalRelayoutTimer.
 let _allTransactions = null;
-// Exact category filter set when the user taps the "more" icon on a
-// category row. Mutually exclusive with text search — typing in the
-// search input clears it (`onSearch`).
-let _categoryFilterId = null;
-// Exact tag filter set when the user drills down from the tag analysis.
-// Mutually exclusive with text search and category filter.
-let _tagFilterName = null;
 
 function _resetSearch() {
-  _searchQuery = '';
-  _categoryFilterId = null;
-  _tagFilterName = null;
+  appState.nav.searchQuery = '';
+  appState.nav.categoryFilterId = null;
+  appState.nav.tagFilterName = null;
   _allTransactions = null;
   _searchExitTarget = null;
   document.body.classList.remove('searching');
@@ -445,8 +441,13 @@ function _resetSearch() {
 }
 
 function showPanel(id) {
-  if (_searchQuery || _categoryFilterId != null || _tagFilterName != null) _resetSearch();
-  _activePanel = id;
+  if (
+    appState.nav.searchQuery ||
+    appState.nav.categoryFilterId != null ||
+    appState.nav.tagFilterName != null
+  )
+    _resetSearch();
+  appState.nav.activePanel = id;
   document.body.classList.toggle('in-report', id === 'charts');
   document.body.classList.toggle('on-goals', id === 'goals');
   document.body.classList.toggle('on-recurring', id === 'recurring');
@@ -682,7 +683,7 @@ async function loadAndRender() {
     transactions = [];
   }
   renderAll();
-  if (_searchQuery) {
+  if (appState.nav.searchQuery) {
     try {
       const all = await api('GET', '/transactions');
       _allTransactions = all.map(normalizeTx);
@@ -705,13 +706,13 @@ function renderAll() {
   document.getElementById('totalOut').textContent = fmtCurrency(out);
   document.getElementById('totalIn').textContent = fmtCurrency(inc);
   applySearch();
-  if (_activePanel === 'categories') renderCategoryView();
+  if (appState.nav.activePanel === 'categories') renderCategoryView();
 }
 
 function applySearch() {
-  const q = _searchQuery;
-  const catFilter = _categoryFilterId;
-  const tagFilter = _tagFilterName;
+  const q = appState.nav.searchQuery;
+  const catFilter = appState.nav.categoryFilterId;
+  const tagFilter = appState.nav.tagFilterName;
   if (!q && catFilter == null && tagFilter == null) {
     renderTransactions(transactions);
     return;
@@ -745,7 +746,7 @@ async function _setSearchPanelActive(active) {
     fab.onclick = clearSearch;
     // Only load the global pool for text search — category drill-down
     // stays month-scoped via the already-loaded `transactions`.
-    if (_searchQuery && !_allTransactions) {
+    if (appState.nav.searchQuery && !_allTransactions) {
       try {
         const raw = await api('GET', '/transactions');
         _allTransactions = raw.map(normalizeTx);
@@ -758,7 +759,7 @@ async function _setSearchPanelActive(active) {
     _allTransactions = null;
     document.body.classList.remove('searching');
     document.getElementById('panel-search').classList.remove('active');
-    document.getElementById('panel-' + _activePanel).classList.add('active');
+    document.getElementById('panel-' + appState.nav.activePanel).classList.add('active');
     fab.innerHTML = ICON_SVG.plus;
     fab.classList.remove('search-exit');
     fab.setAttribute('aria-label', tr('fab.newTransaction'));
@@ -769,17 +770,20 @@ async function _setSearchPanelActive(active) {
 async function onSearch(val) {
   // Typing in the search input cancels any active drill-down filter
   // so the panel switches back to plain text-match behaviour.
-  if (_categoryFilterId != null) _categoryFilterId = null;
-  if (_tagFilterName != null) _tagFilterName = null;
-  const wasEmpty = !_searchQuery;
-  _searchQuery = val.trim().toLowerCase();
-  if (_searchQuery && wasEmpty) await _setSearchPanelActive(true);
-  else if (!_searchQuery && !wasEmpty) _setSearchPanelActive(false);
+  if (appState.nav.categoryFilterId != null) appState.nav.categoryFilterId = null;
+  if (appState.nav.tagFilterName != null) appState.nav.tagFilterName = null;
+  const wasEmpty = !appState.nav.searchQuery;
+  appState.nav.searchQuery = val.trim().toLowerCase();
+  if (appState.nav.searchQuery && wasEmpty) await _setSearchPanelActive(true);
+  else if (!appState.nav.searchQuery && !wasEmpty) _setSearchPanelActive(false);
   else applySearch();
 }
 
 function clearSearch() {
-  const wasActive = !!_searchQuery || _categoryFilterId != null || _tagFilterName != null;
+  const wasActive =
+    !!appState.nav.searchQuery ||
+    appState.nav.categoryFilterId != null ||
+    appState.nav.tagFilterName != null;
   const exitTo = _searchExitTarget;
   _searchExitTarget = null;
   _resetSearch();
@@ -799,8 +803,8 @@ function getCatById(id) {
 
 function renderTransactions(txs, el = document.getElementById('transactionList')) {
   if (!txs.length) {
-    el.innerHTML = _searchQuery
-      ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>${tr('tx.emptySearch', { query: _escText(_searchQuery) })}<br>${tr('tx.emptySearchHint')}</p></div>`
+    el.innerHTML = appState.nav.searchQuery
+      ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>${tr('tx.emptySearch', { query: _escText(appState.nav.searchQuery) })}<br>${tr('tx.emptySearchHint')}</p></div>`
       : `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-inbox-empty"/></svg><p>${tr('tx.emptyMonth')}<br>${tr('tx.emptyMonthHint')}</p></div>`;
     return;
   }
@@ -922,10 +926,10 @@ function openModalForCategory(catId) {
 async function showTransactionsForCategory(catId) {
   const cat = getCatById(catId);
   // Reuses the search-results panel as the host UI, but the actual
-  // filter is exact-by-id (applySearch checks _categoryFilterId
+  // filter is exact-by-id (applySearch checks appState.nav.categoryFilterId
   // before the substring search path).
-  _categoryFilterId = catId;
-  _searchQuery = '';
+  appState.nav.categoryFilterId = catId;
+  appState.nav.searchQuery = '';
   document.getElementById('searchInput').value = cat.name;
   await _setSearchPanelActive(true);
 }
@@ -1118,7 +1122,7 @@ function applyRange(opts = {}) {
     reportRange.to = r.to;
   }
   updatePickerUI();
-  if (!opts.skipRender && _activePanel === 'charts') renderReport();
+  if (!opts.skipRender && appState.nav.activePanel === 'charts') renderReport();
 }
 
 function setRangeKind(kind, opts = {}) {
@@ -1589,7 +1593,7 @@ function renderReportCategories(body, txs) {
 
 async function drillDownCategory(catId, fromIso, toIso) {
   _searchExitTarget = 'charts';
-  _categoryFilterId = catId;
+  appState.nav.categoryFilterId = catId;
   const from = fromIso || reportRange.from;
   const to = toIso || reportRange.to;
   _allTransactions = await loadRangeTxs(from, to);
@@ -1700,7 +1704,7 @@ function renderReportTags(body, txs) {
 
 async function drillDownTag(name, fromIso, toIso) {
   _searchExitTarget = 'charts';
-  _tagFilterName = name;
+  appState.nav.tagFilterName = name;
   const from = fromIso || reportRange.from;
   const to = toIso || reportRange.to;
   _allTransactions = await loadRangeTxs(from, to);
@@ -2352,7 +2356,7 @@ function openModal(tx) {
   document.getElementById('inputAmount').placeholder = _formatAmountInput(0);
   document.getElementById('deleteBtn').style.display = tx ? 'block' : 'none';
   document.getElementById('modalOverlay').classList.add('open');
-  _bookingModalOpenedAt = Date.now();
+  appState.nav.bookingModalOpenedAt = Date.now();
   document.body.style.overflow = 'hidden';
   setTimeout(() => document.getElementById('inputAmount').focus(), 300);
   document.getElementById('modalOverlay').dataset.editId = tx?.id || '';
@@ -2371,7 +2375,7 @@ function closeModal() {
 // tap works" bug). Ignore backdrop clicks for a brief window after
 // opening so only a deliberate later tap dismisses it.
 function closeModalOutside(e) {
-  if (Date.now() - _bookingModalOpenedAt < 400) return;
+  if (Date.now() - appState.nav.bookingModalOpenedAt < 400) return;
   if (e.target === document.getElementById('modalOverlay')) closeModal();
 }
 function editTransaction(id) {
@@ -3310,8 +3314,7 @@ async function renderGoalsView() {
 // Toggle `.is-wrapped` on each goal card's primary line depending on
 // whether its "· Ziel € X" suffix sits on a second line. Hiding the
 // separator only ever shortens that second line, so this can't feed back
-// into the wrap decision (no oscillation).
-let _goalRelayoutTimer = null;
+// into the wrap decision (no oscillation). Timer in appState.nav.goalRelayoutTimer.
 function _relayoutGoalTargets() {
   document.querySelectorAll('.goal-card-primary').forEach((primary) => {
     const target = primary.querySelector('.goal-primary-target');
@@ -3486,7 +3489,7 @@ async function saveGoalEdit() {
     }
     closeGoalModal();
     await loadGoals();
-    if (_activePanel === 'goals') await renderGoalsView();
+    if (appState.nav.activePanel === 'goals') await renderGoalsView();
   } catch (e) {
     if (e.message && e.message.includes('409')) {
       toast(tr('goals.categoryTaken'), 'error');
@@ -3509,7 +3512,7 @@ async function deleteGoalEdit() {
     await api('DELETE', `/goals/${appState.goals.editingId}`);
     closeGoalModal();
     await loadGoals();
-    if (_activePanel === 'goals') await renderGoalsView();
+    if (appState.nav.activePanel === 'goals') await renderGoalsView();
   } catch (e) {
     toast(tr('tx.deleteFailed') + e.message, 'error');
   }
@@ -4052,7 +4055,7 @@ async function saveRecurringEdit() {
     }
     closeRecurringModal();
     await loadRecurringRules();
-    if (_activePanel === 'recurring') await renderRecurringView();
+    if (appState.nav.activePanel === 'recurring') await renderRecurringView();
     // Re-fetch the ledger right away: a backdated create materializes
     // its past bookings server-side in the same request, and the GET
     // also runs the catch-up, so the new rows are visible immediately
@@ -4083,7 +4086,7 @@ async function deleteRecurringEdit() {
     await api('DELETE', `/recurring/${appState.recurring.editingId}`);
     closeRecurringModal();
     await loadRecurringRules();
-    if (_activePanel === 'recurring') await renderRecurringView();
+    if (appState.nav.activePanel === 'recurring') await renderRecurringView();
     _invalidateLocalTxCache();
   } catch (e) {
     toast(tr('tx.deleteFailed') + e.message, 'error');
@@ -4101,7 +4104,7 @@ async function skipNextRecurringOccurrence() {
     const refreshed = appState.recurring.rules.find((x) => x.id === appState.recurring.editingId);
     _updateRecurringStatusHint(refreshed);
     _renderRecurringSkipsList(refreshed);
-    if (_activePanel === 'recurring') await renderRecurringView();
+    if (appState.nav.activePanel === 'recurring') await renderRecurringView();
   } catch (e) {
     toast(tr('recurring.skipNextFailed'), 'error');
   }
@@ -4395,14 +4398,14 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
   const manual = localStorage.getItem(THEME_KEY);
   if (manual === 'dark' || manual === 'light') return;
   document.documentElement.setAttribute('data-dark', e.matches ? 'true' : 'false');
-  if (_activePanel === 'charts') renderReport();
+  if (appState.nav.activePanel === 'charts') renderReport();
 });
 
 function saveTheme(theme) {
   localStorage.setItem(THEME_KEY, theme);
   applyTheme(theme);
   pushSettings({ theme });
-  if (_activePanel === 'charts') renderReport();
+  if (appState.nav.activePanel === 'charts') renderReport();
 }
 
 function loadTheme() {
@@ -4845,13 +4848,12 @@ function _detectPointer() {
 // Antworten (Backend-Version, Health-Probe) überschreiben das DOM nur
 // dann, wenn sie noch zum aktuellen Durchgang gehören. Verhindert,
 // dass eine alte, langsame Antwort einen neueren Stand überschreibt,
-// wenn der User das Panel schnell zweimal öffnet.
-let _infoPanelSeq = 0;
+// wenn der User das Panel schnell zweimal öffnet. Seq in appState.nav.infoPanelSeq.
 
 async function renderInfoPanel() {
-  const mySeq = ++_infoPanelSeq;
+  const mySeq = ++appState.nav.infoPanelSeq;
   const set = (id, value) => {
-    if (mySeq !== _infoPanelSeq) return;
+    if (mySeq !== appState.nav.infoPanelSeq) return;
     const el = document.getElementById(id);
     if (el) el.textContent = value;
   };
@@ -5497,9 +5499,9 @@ function onI18nChanged() {
     if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
   }
   renderAll();
-  if (_activePanel === 'charts') renderReport();
-  if (_activePanel === 'goals') renderGoalsView();
-  if (_activePanel === 'recurring') renderRecurringView();
+  if (appState.nav.activePanel === 'charts') renderReport();
+  if (appState.nav.activePanel === 'goals') renderGoalsView();
+  if (appState.nav.activePanel === 'recurring') renderRecurringView();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -5515,9 +5517,9 @@ async function init() {
   document.addEventListener('i18n:changed', onI18nChanged);
   // Re-evaluate goal-card suffix wrapping on viewport/orientation change.
   window.addEventListener('resize', () => {
-    if (_activePanel !== 'goals') return;
-    clearTimeout(_goalRelayoutTimer);
-    _goalRelayoutTimer = setTimeout(_relayoutGoalTargets, 150);
+    if (appState.nav.activePanel !== 'goals') return;
+    clearTimeout(appState.nav.goalRelayoutTimer);
+    appState.nav.goalRelayoutTimer = setTimeout(_relayoutGoalTargets, 150);
   });
   applyTheme(loadTheme());
   syncDisplaySelects();
