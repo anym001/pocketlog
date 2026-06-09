@@ -25,10 +25,8 @@ try {
   localStorage.removeItem('pocketlog.apiBase');
 } catch (e) {}
 
-let currentMonth = new Date().getMonth();
-let currentYear = new Date().getFullYear();
-let currentType = 'out';
-let currentTags = [];
+// Currently displayed period (appState.view.{month,year}) and the booking-form
+// draft (appState.form.{type,tags}) live in state.js.
 
 // ── REPORTS-STATE ─────────────────────────────────────────────────────────────
 // Welche Auswertung gerade aktiv ist (Quelle der Wahrheit für panel-charts).
@@ -642,14 +640,14 @@ function releaseFocusTrap(key) {
 }
 
 function changeMonth(d) {
-  currentMonth += d;
-  if (currentMonth > 11) {
-    currentMonth = 0;
-    currentYear++;
+  appState.view.month += d;
+  if (appState.view.month > 11) {
+    appState.view.month = 0;
+    appState.view.year++;
   }
-  if (currentMonth < 0) {
-    currentMonth = 11;
-    currentYear--;
+  if (appState.view.month < 0) {
+    appState.view.month = 11;
+    appState.view.year--;
   }
   loadAndRender();
 }
@@ -663,9 +661,12 @@ function normalizeTx(t) {
 
 async function loadAndRender() {
   document.getElementById('monthLabel').textContent =
-    `${appState.calendar.months[currentMonth]} ${currentYear}`;
+    `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
   try {
-    const raw = await api('GET', `/transactions?year=${currentYear}&month=${currentMonth + 1}`);
+    const raw = await api(
+      'GET',
+      `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`,
+    );
     appState.ledger.transactions = raw.map(normalizeTx);
   } catch (e) {
     console.error('Fehler beim Laden:', e);
@@ -685,7 +686,7 @@ async function loadAndRender() {
 
 function renderAll() {
   document.getElementById('monthLabel').textContent =
-    `${appState.calendar.months[currentMonth]} ${currentYear}`;
+    `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
   const out = appState.ledger.transactions
     .filter((t) => t.type === 'out')
     .reduce((a, t) => a + t.amount, 0);
@@ -2342,7 +2343,7 @@ function renderReportTop(body, txs) {
 // ── MODAL ─────────────────────────────────────────────────────────────────────
 function openModal(tx) {
   rememberModalFocus('booking');
-  currentTags = tx?.tags ? tx.tags.slice() : [];
+  appState.form.tags = tx?.tags ? tx.tags.slice() : [];
   document.getElementById('inputAmount').value =
     tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
   document.getElementById('inputDesc').value = tx?.desc || '';
@@ -2433,7 +2434,7 @@ async function deleteCurrentTransaction() {
 }
 
 function setType(type, btn) {
-  currentType = type;
+  appState.form.type = type;
   document.querySelectorAll('.type-btn').forEach((b) => b.classList.remove('active'));
   document.querySelector('.type-btn.' + type).classList.add('active');
   document.getElementById('submitBtn').className = 'submit-btn' + (type === 'in' ? ' green' : '');
@@ -2477,14 +2478,14 @@ function normalizeAmountInput() {
 }
 
 function removeTag(t) {
-  currentTags = currentTags.filter((x) => x !== t);
+  appState.form.tags = appState.form.tags.filter((x) => x !== t);
   renderTagPills();
   renderTagSuggestions();
 }
 function renderTagPills() {
   const wrap = document.getElementById('tagsWrap');
   const btn = document.getElementById('tagPickerBtn');
-  wrap.innerHTML = currentTags
+  wrap.innerHTML = appState.form.tags
     .map(
       (t) =>
         `<span class="tag-pill">${_escText(t)}<button type="button" data-remove-tag="${_escAttr(t)}" aria-label="${_escAttr(tr('tags.removeAria', { name: t }))}">${ICON_SVG.close}</button></span>`,
@@ -2510,21 +2511,21 @@ async function addTransaction() {
     desc,
     category_id: cat || null,
     date,
-    type: currentType,
-    tags: currentTags,
+    type: appState.form.type,
+    tags: appState.form.tags,
   };
   const editId = document.getElementById('modalOverlay').dataset.editId;
   const method = editId ? 'PUT' : 'POST';
   const path = editId ? `/transactions/${editId}` : '/transactions';
   try {
     await api(method, path, body);
-    mergeIntoAvailableTags(currentTags);
+    mergeIntoAvailableTags(appState.form.tags);
     closeModal();
     await Promise.all([loadAndRender(), loadTags()]);
   } catch (e) {
     if (!navigator.onLine && window.PocketLogOutbox) {
       await window.PocketLogOutbox.enqueue({ method, path, body });
-      mergeIntoAvailableTags(currentTags);
+      mergeIntoAvailableTags(appState.form.tags);
       closeModal();
       updateSyncBadge();
       return;
@@ -2586,7 +2587,7 @@ async function loadTags() {
 function renderTagSuggestions() {
   const box = document.getElementById('tagSuggestions');
   if (!box) return;
-  const selected = new Set(currentTags.map((x) => x.toLowerCase()));
+  const selected = new Set(appState.form.tags.map((x) => x.toLowerCase()));
   const remaining = appState.ledger.availableTags.filter((t) => !selected.has(t.toLowerCase()));
   // Pick the 10 most-used (last 30 days), then render alphabetically
   // so users can scan the row without re-learning order each open.
@@ -2612,7 +2613,7 @@ function renderTagSuggestions() {
 function addTagFromSuggestion(t) {
   if (!t) return;
   const key = t.toLowerCase();
-  if (!currentTags.some((x) => x.toLowerCase() === key)) currentTags.push(t);
+  if (!appState.form.tags.some((x) => x.toLowerCase() === key)) appState.form.tags.push(t);
   renderTagPills();
   renderTagSuggestions();
 }
@@ -2650,7 +2651,7 @@ function openTagPickerFor(context) {
   appState.tagPicker.context = context;
   rememberModalFocus('tagPicker');
   appState.tagPicker.selection =
-    context === 'recurring' ? [...appState.tagPicker.recurringTags] : [...currentTags];
+    context === 'recurring' ? [...appState.tagPicker.recurringTags] : [...appState.form.tags];
   document.getElementById('tagPickerFilter').value = '';
   document.getElementById('tagPickerNew').value = '';
   const chips = document.getElementById('tagPickerChips');
@@ -2687,7 +2688,7 @@ function commitTagPicker() {
     closeTagPicker();
     renderRecurringTagPills();
   } else {
-    currentTags = [...appState.tagPicker.selection];
+    appState.form.tags = [...appState.tagPicker.selection];
     closeTagPicker();
     renderTagPills();
     renderTagSuggestions();
