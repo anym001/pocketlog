@@ -37,3 +37,7 @@ frontend/e2e/test-results/
 # Vitest unit tests (frontend helpers)
 frontend/unit/node_modules/
 frontend/unit/package-lock.json
+
+# Root JS tooling (Prettier + ESLint)
+/node_modules/
+/package-lock.json
