@@ -128,6 +128,7 @@ app.include_router(routers.settings.router)
 app.include_router(routers.recurring.router)
 app.include_router(routers.transactions.router)
 app.include_router(routers.imexport.router)
+app.include_router(routers.api_keys.router)
 app.include_router(routers.admin.router)
 
 
