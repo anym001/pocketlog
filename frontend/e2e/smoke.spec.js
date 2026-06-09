@@ -174,6 +174,15 @@ test('first-run setup, core views, and a transaction CRUD round-trip', async ({ 
   await expect(page.locator('#reportBody')).not.toBeEmpty();
   await expectNoRawKeys(page, 'report view after range switch');
 
+  // Render the spending-trend sub-view explicitly. It is not the default
+  // report tab, so without this the trend math (the _bucket*/_trend*
+  // calendar helpers in reportsData.js) would never execute in the browser
+  // and a regression there would slip past the smoke. Driven through the
+  // same renderReport entry point the report tab switch calls.
+  await page.evaluate(() => window.renderReport('trend'));
+  await expect(page.locator('#reportBody')).not.toBeEmpty();
+  await expectNoRawKeys(page, 'report trend view');
+
   // --- Edit modal opens, then delete the transaction ---
   await gotoPanel(page, 'transactions');
   const id = await row.getAttribute('data-id');
