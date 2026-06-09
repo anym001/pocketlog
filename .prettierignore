@@ -1,0 +1,17 @@
+# Prettier is scoped to the frontend's own JS source (see the package.json
+# scripts: "frontend/*.js"). This file is a defensive belt for ad-hoc runs.
+
+# Dependencies and vendored, integrity-pinned bundles (Chart.js) — never reformat.
+**/node_modules/**
+frontend/vendor/**
+
+# Binary / non-JS assets.
+frontend/fonts/**
+frontend/icons/**
+
+# Deferred to a separate review surface (HTML/CSS reformat is out of scope here).
+frontend/index.html
+frontend/styles.css
+
+# Minified output.
+**/*.min.js

@@ -1,0 +1,15 @@
+{
+  "name": "pocketlog-tooling",
+  "private": true,
+  "description": "Repo-root dev tooling: Prettier + ESLint for the frontend JS. Not part of the served app or the Docker image (the Dockerfile copies explicit files only).",
+  "scripts": {
+    "format:check": "prettier --check \"frontend/*.js\"",
+    "format:write": "prettier --write \"frontend/*.js\"",
+    "lint:js": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "9.17.0",
+    "eslint": "9.17.0",
+    "prettier": "3.4.2"
+  }
+}
