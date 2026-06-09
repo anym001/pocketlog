@@ -162,7 +162,9 @@ def _import_hash(tx: models.Transaction) -> str:
     The hash is per-user via the UNIQUE(user_id, import_hash) constraint,
     not embedded in the hash itself.
     """
-    payload = f"{tx.date.isoformat()}|{tx.amount}|{tx.description.lower().strip()}|{tx.type}"
+    payload = (
+        f"{tx.date.isoformat()}|{tx.amount}|{tx.description.lower().strip()}|{tx.type}"
+    )
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -281,4 +283,9 @@ def import_csv(
             "errors": [{"row": 0, "code": "db_conflict", "params": {}}],
         }
 
-    return {"imported": imported, "skipped": skipped, "deduped": deduped, "errors": errors}
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "deduped": deduped,
+        "errors": errors,
+    }
