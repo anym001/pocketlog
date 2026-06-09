@@ -7,10 +7,14 @@ dependencies from ``app.deps``.
 """
 
 from . import (  # noqa: F401  (re-exported for main.include_router)
+    admin,
     auth,
     categories,
     goals,
     health,
+    imexport,
+    recurring,
     settings,
     tags,
+    transactions,
 )
