@@ -26,6 +26,9 @@ PocketLog/
 │   ├── index.html          ← PWA shell (markup + inline theme bootstrap)
 │   ├── styles.css          ← complete CSS (tokens, layout, components)
 │   ├── app.js              ← complete app logic
+│   ├── state.js            ← central app state (grouped `appState` object)
+│   ├── utils.js            ← pure helpers (loaded before app.js)
+│   ├── reportsData.js      ← pure report/goal/trend aggregation (loaded before app.js)
 │   ├── i18n.js             ← i18n runtime (window.I18N, tr(), locale/currency)
 │   ├── i18n/               ← translation bundles (de.json, en.json)
 │   ├── sw.js               ← service worker (cache + outbox)
@@ -222,6 +225,11 @@ production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - Schema changes: generate an Alembic revision, never manual `ALTER TABLE`
 - Always register the `StaticFiles` mount last
 - **Money** (`DECIMAL(12,2)`) must never be aggregated via SQL `SUM()`/`func.sum` — SQLite has no native decimal type and would round through float. Compute sums in Python over ORM `Decimal` values (the frontend calculates totals itself anyway). Per-row the round-trip is exact; `tests/test_money_precision.py` pins this.
+
+**Frontend:**
+- **Classic scripts, no bundler** (CSP `script-src 'self'`). `utils.js`, `reportsData.js` and `state.js` load **before** `app.js` (see `index.html`); their top-level declarations share the global lexical scope, so `app.js` uses them directly. A `module.exports` guard at each file's bottom is a no-op in the browser but lets Vitest import the pure helpers. Any new frontend `.js` must be added in four places: `index.html` (script tag, before `app.js`), `sw.js` (SHELL precache **and** the network-first list), and the `Dockerfile` static `COPY`.
+- **App state lives in `state.js`** as one grouped `appState` object (`appState.ledger.transactions`, `appState.trend.kind`, …) — **no** loose module-global `let`s in `app.js`. Only safe literal defaults live in `state.js`; state restored from localStorage on boot (active report, trend selection) keeps its restore logic in `app.js` and assigns into `appState`. In-place-mutated `const` collections (`chartInsts`, `tagCounts`, `_txCacheByYear`) stay in `app.js`.
+- **Pure helpers** (`utils.js`, `reportsData.js`) take their data as arguments — no app state, no DOM, no I18N — and are unit-tested with Vitest (`frontend/unit/*.test.js`). Impure helpers that read `appState`/DOM/I18N stay in `app.js`.
 
 **Alembic migrations:**
 - Revision ID ≤ 24 characters (pytest guard in `test_migrations.py`)
