@@ -27,7 +27,7 @@ You are a security reviewer for PocketLog. Focus on real vulnerabilities — not
 
 **Injection**
 - All DB queries use SQLAlchemy ORM or parameterized statements — no string interpolation in SQL
-- File upload (`/api/import/csv`): size limit and charset are enforced, no path traversal — read `main.py` for current limit values
+- File upload (`/api/import/csv`): size limit and charset are enforced, no path traversal — see `app/routers/imexport.py` (limit values in `app/constants.py`)
 - No `eval()`, `exec()`, or `subprocess` with user-controlled input
 
 **Headers & secrets**
