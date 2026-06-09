@@ -4,10 +4,11 @@ Keys are stored as SHA-256 hashes (``key_hash``) so a DB leak cannot be
 replayed. The raw token (``plk_<base64url>``) is returned exactly once at
 creation time via ``create_api_key`` and never persisted.
 """
+
 import hashlib
 import json
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,7 +19,7 @@ _API_KEY_PREFIX = "plk_"
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def create_api_key(
@@ -70,6 +71,4 @@ def revoke_api_key(db: Session, user_id: int, key_id: int) -> bool:
 
 
 def get_api_key_by_hash(db: Session, key_hash: str) -> models.ApiKey | None:
-    return db.scalar(
-        select(models.ApiKey).where(models.ApiKey.key_hash == key_hash)
-    )
+    return db.scalar(select(models.ApiKey).where(models.ApiKey.key_hash == key_hash))
