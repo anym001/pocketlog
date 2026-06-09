@@ -72,21 +72,18 @@ const chartInsts = { month: null, year: null, categories: null, tags: null, tren
 // ── TREND-STATE ───────────────────────────────────────────────────────────────
 const TREND_STORAGE_KEY = 'pocketlog.trend';
 const TREND_RANGE_KEY = 'pocketlog.trend.range';
-let _trendKind = 'category'; // 'category' | 'tag'
-let _trendSelection = []; // ['cat:42'] heute, später bis zu 3
-let _trendPickerOpen = false;
-let _trendPickerFilter = '';
-let _earliestTxDate = null; // Session-Cache
-let _trendYearFrom = null; // integer, z.B. 2022
-let _trendYearTo = null; // integer, z.B. 2026
+// Trend chart state lives in appState.trend (state.js): kind ('category'|'tag'),
+// selection (['cat:42'], up to 3), pickerOpen, pickerFilter, earliestTxDate
+// (session cache), yearFrom / yearTo (integers). The IIFE below restores
+// kind/selection/year range from localStorage into appState.trend.
 (function _restoreTrendState() {
   try {
     const raw = localStorage.getItem(TREND_STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      if (s.kind === 'category' || s.kind === 'tag') _trendKind = s.kind;
+      if (s.kind === 'category' || s.kind === 'tag') appState.trend.kind = s.kind;
       if (Array.isArray(s.selection)) {
-        _trendSelection = s.selection
+        appState.trend.selection = s.selection
           .filter((e) => typeof e === 'string' && (e.startsWith('cat:') || e.startsWith('tag:')))
           .slice(0, 3);
       }
@@ -97,8 +94,8 @@ let _trendYearTo = null; // integer, z.B. 2026
     if (raw) {
       const r = JSON.parse(raw);
       if (r && Number.isInteger(r.yearFrom) && Number.isInteger(r.yearTo)) {
-        _trendYearFrom = r.yearFrom;
-        _trendYearTo = r.yearTo;
+        appState.trend.yearFrom = r.yearFrom;
+        appState.trend.yearTo = r.yearTo;
       }
     }
   } catch (e) {}
@@ -469,7 +466,7 @@ function showPanel(id) {
 // Charts-Panel.
 function openReport(id) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
-  if (id === 'trend') _trendPickerOpen = false;
+  if (id === 'trend') appState.trend.pickerOpen = false;
   currentReport = id;
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
@@ -1294,8 +1291,8 @@ async function renderReport(id = currentReport) {
   body.innerHTML = '';
 
   // Trend uses its own private year range and never touches reportRange.
-  const rangeFrom = id === 'trend' ? `${_trendYearFrom}-01-01` : reportRange.from;
-  const rangeTo = id === 'trend' ? `${_trendYearTo}-12-31` : reportRange.to;
+  const rangeFrom = id === 'trend' ? `${appState.trend.yearFrom}-01-01` : reportRange.from;
+  const rangeTo = id === 'trend' ? `${appState.trend.yearTo}-12-31` : reportRange.to;
   const txs = await loadRangeTxs(rangeFrom, rangeTo);
   _reportTxPool = txs;
   document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
@@ -1719,7 +1716,7 @@ function _persistTrendState() {
   try {
     localStorage.setItem(
       TREND_STORAGE_KEY,
-      JSON.stringify({ kind: _trendKind, selection: _trendSelection }),
+      JSON.stringify({ kind: appState.trend.kind, selection: appState.trend.selection }),
     );
   } catch (e) {}
 }
@@ -1728,13 +1725,13 @@ function _persistTrendRange() {
   try {
     localStorage.setItem(
       TREND_RANGE_KEY,
-      JSON.stringify({ yearFrom: _trendYearFrom, yearTo: _trendYearTo }),
+      JSON.stringify({ yearFrom: appState.trend.yearFrom, yearTo: appState.trend.yearTo }),
     );
   } catch (e) {}
 }
 
 async function _findEarliestTxDate() {
-  if (_earliestTxDate) return _earliestTxDate;
+  if (appState.trend.earliestTxDate) return appState.trend.earliestTxDate;
   const today = new Date();
   let year = today.getFullYear();
   let earliest = null;
@@ -1757,18 +1754,18 @@ async function _findEarliestTxDate() {
     const fallback = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
     earliest = _iso(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
   }
-  _earliestTxDate = earliest;
+  appState.trend.earliestTxDate = earliest;
   return earliest;
 }
 
 async function _ensureTrendDefaultRange() {
-  // _earliestTxDate immer auflösen — der Jahres-Picker im Render
+  // appState.trend.earliestTxDate immer auflösen — der Jahres-Picker im Render
   // braucht minYear, auch wenn die Range aus localStorage kommt.
   const earliest = await _findEarliestTxDate();
-  if (_trendYearFrom && _trendYearTo) return;
+  if (appState.trend.yearFrom && appState.trend.yearTo) return;
   const today = new Date();
-  _trendYearFrom = parseInt(earliest.slice(0, 4), 10);
-  _trendYearTo = today.getFullYear();
+  appState.trend.yearFrom = parseInt(earliest.slice(0, 4), 10);
+  appState.trend.yearTo = today.getFullYear();
   _persistTrendRange();
 }
 
@@ -1931,41 +1928,41 @@ function _trendStatsMarkup(stats) {
 
 function setTrendKind(kind) {
   if (kind !== 'category' && kind !== 'tag') return;
-  if (_trendKind === kind) return;
-  _trendKind = kind;
-  _trendSelection = [];
-  _trendPickerOpen = false;
-  _trendPickerFilter = '';
+  if (appState.trend.kind === kind) return;
+  appState.trend.kind = kind;
+  appState.trend.selection = [];
+  appState.trend.pickerOpen = false;
+  appState.trend.pickerFilter = '';
   _persistTrendState();
   renderReport();
 }
 
 function selectTrendEntity(id) {
-  _trendSelection = [id];
-  _trendPickerOpen = false;
-  _trendPickerFilter = '';
+  appState.trend.selection = [id];
+  appState.trend.pickerOpen = false;
+  appState.trend.pickerFilter = '';
   _persistTrendState();
   renderReport();
 }
 
 function toggleTrendPicker(open) {
-  _trendPickerOpen = open === undefined ? !_trendPickerOpen : !!open;
+  appState.trend.pickerOpen = open === undefined ? !appState.trend.pickerOpen : !!open;
   const activeRow = document.getElementById('trendActiveRow');
   const picker = document.getElementById('trendPickerOpen');
-  if (activeRow) activeRow.hidden = _trendPickerOpen;
-  if (picker) picker.hidden = !_trendPickerOpen;
-  if (_trendPickerOpen && picker) {
+  if (activeRow) activeRow.hidden = appState.trend.pickerOpen;
+  if (picker) picker.hidden = !appState.trend.pickerOpen;
+  if (appState.trend.pickerOpen && picker) {
     const input = picker.querySelector('input');
     if (input) input.focus();
   }
 }
 
 function filterTrendChips(value) {
-  _trendPickerFilter = value;
+  appState.trend.pickerFilter = value;
   const container = document.getElementById('trendPickerChips');
   if (!container) return;
-  const selectedId = _trendSelection[0] || null;
-  const options = _trendPickerOptions(_reportTxPool || [], _trendKind, selectedId, value);
+  const selectedId = appState.trend.selection[0] || null;
+  const options = _trendPickerOptions(_reportTxPool || [], appState.trend.kind, selectedId, value);
   container.innerHTML = options
     .map((o) => _trendChipMarkup(o.id, o.label, o.color, selectedId && o.id === selectedId))
     .join('');
@@ -1974,14 +1971,18 @@ function filterTrendChips(value) {
 
 async function setTrendYear(field, value) {
   const today = new Date().getFullYear();
-  const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+  const minYear = appState.trend.earliestTxDate
+    ? parseInt(appState.trend.earliestTxDate.slice(0, 4), 10)
+    : today - 20;
   value = Math.round(Math.max(minYear, Math.min(today, value)));
   if (field === 'from') {
-    _trendYearFrom = value;
-    if (_trendYearTo < _trendYearFrom) _trendYearTo = _trendYearFrom;
+    appState.trend.yearFrom = value;
+    if (appState.trend.yearTo < appState.trend.yearFrom)
+      appState.trend.yearTo = appState.trend.yearFrom;
   } else {
-    _trendYearTo = value;
-    if (_trendYearFrom > _trendYearTo) _trendYearFrom = _trendYearTo;
+    appState.trend.yearTo = value;
+    if (appState.trend.yearFrom > appState.trend.yearTo)
+      appState.trend.yearFrom = appState.trend.yearTo;
   }
   _persistTrendRange();
   await renderReport('trend');
@@ -1989,21 +1990,25 @@ async function setTrendYear(field, value) {
 
 async function renderReportTrend(body, txs) {
   // Beim ersten Öffnen oder nach Kategorie-Löschung: Selection neu setzen
-  let selected = _trendSelection[0] ? _trendEntityFromId(_trendSelection[0]) : null;
-  if (selected && selected.kind !== _trendKind) selected = null;
+  let selected = appState.trend.selection[0]
+    ? _trendEntityFromId(appState.trend.selection[0])
+    : null;
+  if (selected && selected.kind !== appState.trend.kind) selected = null;
   if (!selected) {
-    const def = _pickDefaultTrendEntity(txs, _trendKind);
+    const def = _pickDefaultTrendEntity(txs, appState.trend.kind);
     if (def) {
-      _trendSelection = [def];
+      appState.trend.selection = [def];
       _persistTrendState();
       selected = _trendEntityFromId(def);
     } else {
-      _trendSelection = [];
+      appState.trend.selection = [];
     }
   }
 
   const today = new Date().getFullYear();
-  const minYear = _earliestTxDate ? parseInt(_earliestTxDate.slice(0, 4), 10) : today - 20;
+  const minYear = appState.trend.earliestTxDate
+    ? parseInt(appState.trend.earliestTxDate.slice(0, 4), 10)
+    : today - 20;
   const yearOptions = (selectedYear) => {
     let html = '';
     for (let y = minYear; y <= today; y++) {
@@ -2015,28 +2020,33 @@ async function renderReportTrend(body, txs) {
   const yearPickerMarkup = `<div class="range-custom trend-year-picker">
             <label class="range-custom-field">
               <span>${tr('reports.rangeFrom')}</span>
-              <select aria-label="${_escAttr(tr('reports.fromYear'))}" onchange="setTrendYear('from', +this.value)">${yearOptions(_trendYearFrom || today)}</select>
+              <select aria-label="${_escAttr(tr('reports.fromYear'))}" onchange="setTrendYear('from', +this.value)">${yearOptions(appState.trend.yearFrom || today)}</select>
             </label>
             <label class="range-custom-field">
               <span>${tr('reports.rangeTo')}</span>
-              <select aria-label="${_escAttr(tr('reports.toYear'))}" onchange="setTrendYear('to', +this.value)">${yearOptions(_trendYearTo || today)}</select>
+              <select aria-label="${_escAttr(tr('reports.toYear'))}" onchange="setTrendYear('to', +this.value)">${yearOptions(appState.trend.yearTo || today)}</select>
             </label>
           </div>`;
 
-  const options = _trendPickerOptions(txs, _trendKind, selected && selected.id, _trendPickerFilter);
+  const options = _trendPickerOptions(
+    txs,
+    appState.trend.kind,
+    selected && selected.id,
+    appState.trend.pickerFilter,
+  );
   const chipsMarkup = options
     .map((o) => _trendChipMarkup(o.id, o.label, o.color, selected && o.id === selected.id))
     .join('');
   const searchPlaceholder =
-    _trendKind === 'category' ? tr('reports.searchCategory') : tr('reports.searchTag');
+    appState.trend.kind === 'category' ? tr('reports.searchCategory') : tr('reports.searchTag');
 
   const segmentedMarkup = `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.trendSelect'))}">
-            <button type="button" role="tab" aria-selected="${_trendKind === 'category'}" class="${_trendKind === 'category' ? 'is-active' : ''}" onclick="setTrendKind('category')">${tr('reports.kindCategories')}</button>
-            <button type="button" role="tab" aria-selected="${_trendKind === 'tag'}" class="${_trendKind === 'tag' ? 'is-active' : ''}" onclick="setTrendKind('tag')">${tr('reports.kindTags')}</button>
+            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'category'}" class="${appState.trend.kind === 'category' ? 'is-active' : ''}" onclick="setTrendKind('category')">${tr('reports.kindCategories')}</button>
+            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'tag'}" class="${appState.trend.kind === 'tag' ? 'is-active' : ''}" onclick="setTrendKind('tag')">${tr('reports.kindTags')}</button>
           </div>`;
 
   const activeMarkup = selected
-    ? `<div class="trend-active-row" id="trendActiveRow"${_trendPickerOpen ? ' hidden' : ''}>
+    ? `<div class="trend-active-row" id="trendActiveRow"${appState.trend.pickerOpen ? ' hidden' : ''}>
               <div class="trend-active-info">
                 <span class="trend-active-dot" style="background:${selected.color}"></span>
                 <div class="trend-active-text">
@@ -2048,10 +2058,10 @@ async function renderReportTrend(body, txs) {
             </div>`
     : '';
 
-  const pickerOpenMarkup = `<div class="trend-picker-open" id="trendPickerOpen"${_trendPickerOpen || !selected ? '' : ' hidden'}>
+  const pickerOpenMarkup = `<div class="trend-picker-open" id="trendPickerOpen"${appState.trend.pickerOpen || !selected ? '' : ' hidden'}>
             <div class="search-wrap">
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-search" /></svg>
-              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(_trendPickerFilter)}" oninput="filterTrendChips(this.value)" autocomplete="off" />
+              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(appState.trend.pickerFilter)}" oninput="filterTrendChips(this.value)" autocomplete="off" />
             </div>
             <div class="tag-picker-chips" id="trendPickerChips">${chipsMarkup}</div>
           </div>`;
@@ -2060,7 +2070,7 @@ async function renderReportTrend(body, txs) {
     body.innerHTML = `
             ${yearPickerMarkup}
             <div class="report-section">${segmentedMarkup}${pickerOpenMarkup}</div>
-            <div class="report-section">${_emptyState(_trendKind === 'category' ? tr('reports.noCategoriesInRange') : tr('reports.noTagsInRange'))}</div>
+            <div class="report-section">${_emptyState(appState.trend.kind === 'category' ? tr('reports.noCategoriesInRange') : tr('reports.noTagsInRange'))}</div>
           `;
     _bindTrendChipHandlers(body);
     return;
@@ -2073,8 +2083,8 @@ async function renderReportTrend(body, txs) {
   const granularity = 'month';
   const todayDate = new Date();
   const todayIso = _iso(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
-  const trendFromIso = `${_trendYearFrom}-01-01`;
-  const trendToIso = `${_trendYearTo}-12-31`;
+  const trendFromIso = `${appState.trend.yearFrom}-01-01`;
+  const trendToIso = `${appState.trend.yearTo}-12-31`;
   const effectiveTo = trendToIso > todayIso ? todayIso : trendToIso;
   const bucketKeys = _bucketAxis(trendFromIso, effectiveTo, granularity);
   const bucketLabels = bucketKeys.map((k) => _bucketLabel(k, granularity));
