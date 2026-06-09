@@ -302,20 +302,19 @@ const fmtCurrency = (n) =>
 // Month names are derived from the active locale via Intl rather than
 // hardcoded, so they follow the language setting. Rebuilt on startup
 // and on every i18n:changed (see registerI18nListener).
-let MONTHS = [];
-let MONTHS_SHORT = [];
+// Localised month names live in appState.calendar.{months,monthsShort} (state.js).
 function rebuildMonthNames() {
   const loc = _locale();
   const long = new Intl.DateTimeFormat(loc, { month: 'long' });
   const short = new Intl.DateTimeFormat(loc, { month: 'short' });
-  MONTHS = [];
-  MONTHS_SHORT = [];
+  appState.calendar.months = [];
+  appState.calendar.monthsShort = [];
   for (let m = 0; m < 12; m++) {
     const d = new Date(2021, m, 1);
-    MONTHS.push(long.format(d));
+    appState.calendar.months.push(long.format(d));
     // Some locales append a dot to the short month ("Jan."); drop it
     // for the compact chart axis labels.
-    MONTHS_SHORT.push(short.format(d).replace(/\.$/, ''));
+    appState.calendar.monthsShort.push(short.format(d).replace(/\.$/, ''));
   }
 }
 rebuildMonthNames();
@@ -673,7 +672,8 @@ function normalizeTx(t) {
 }
 
 async function loadAndRender() {
-  document.getElementById('monthLabel').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
+  document.getElementById('monthLabel').textContent =
+    `${appState.calendar.months[currentMonth]} ${currentYear}`;
   try {
     const raw = await api('GET', `/transactions?year=${currentYear}&month=${currentMonth + 1}`);
     transactions = raw.map(normalizeTx);
@@ -694,7 +694,8 @@ async function loadAndRender() {
 }
 
 function renderAll() {
-  document.getElementById('monthLabel').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
+  document.getElementById('monthLabel').textContent =
+    `${appState.calendar.months[currentMonth]} ${currentYear}`;
   const out = transactions.filter((t) => t.type === 'out').reduce((a, t) => a + t.amount, 0);
   const inc = transactions.filter((t) => t.type === 'in').reduce((a, t) => a + t.amount, 0);
   // No +/− sign on the summary cards — the label and the
@@ -1196,7 +1197,7 @@ function setRangeLock(kind) {
 
 function _rangeStepperLabel() {
   const a = reportRange.anchor;
-  if (reportRange.kind === 'month') return `${MONTHS[a.m]} ${a.y}`;
+  if (reportRange.kind === 'month') return `${appState.calendar.months[a.m]} ${a.y}`;
   if (reportRange.kind === 'quarter') return `Q${a.q + 1} ${a.y}`;
   if (reportRange.kind === 'year') return `${a.y}`;
   return '';
@@ -1411,7 +1412,7 @@ function renderReportMonth(body, txs) {
   body.innerHTML = `
           <div class="report-section">
             <div class="report-canvas-wrap"><canvas id="monthChart" role="img" aria-labelledby="reportTitle" aria-describedby="monthChartSummary"></canvas></div>
-            <p id="monthChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.monthSummary', { month: MONTHS[a.m], year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
+            <p id="monthChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.monthSummary', { month: appState.calendar.months[a.m], year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
           </div>
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
@@ -1521,7 +1522,7 @@ async function renderReportYear(body, txs) {
   }
   chartInsts.year = new Chart(document.getElementById('yearChart'), {
     type: 'line',
-    data: { labels: MONTHS_SHORT, datasets },
+    data: { labels: appState.calendar.monthsShort, datasets },
     options: {
       responsive: true,
       plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
@@ -1786,7 +1787,7 @@ function _autoGranularity(fromIso, toIso) {
 // _trendMatchesEntity, _monthlyTotals, _trendStats) lives in reportsData.js
 // (loaded before this file). The impure trend helpers that remain below —
 // _bucketLabel, _trendEntityFromId, _pickDefaultTrendEntity, _trendSeries —
-// read app globals (MONTHS_SHORT, categories) and so stay here.
+// read app globals (appState.calendar.monthsShort, categories) and so stay here.
 
 function _bucketLabel(key, granularity) {
   if (granularity === 'year') return key;
@@ -1795,7 +1796,7 @@ function _bucketLabel(key, granularity) {
     return `${q} ${y}`;
   }
   const [y, m] = key.split('-');
-  return `${MONTHS_SHORT[parseInt(m, 10) - 1]} ${y.slice(2)}`;
+  return `${appState.calendar.monthsShort[parseInt(m, 10) - 1]} ${y.slice(2)}`;
 }
 
 function _trendEntityFromId(id) {
@@ -1844,7 +1845,7 @@ function _trendSeries(txs, entityId, granularity, bucketKeys) {
 
 function _trendPeakLabel(key) {
   const [y, m] = key.split('-');
-  return `${MONTHS[parseInt(m, 10) - 1]} ${y}`;
+  return `${appState.calendar.months[parseInt(m, 10) - 1]} ${y}`;
 }
 
 function _trendChipMarkup(id, name, color, selected) {
