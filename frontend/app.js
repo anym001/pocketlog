@@ -1782,13 +1782,11 @@ function _autoGranularity(fromIso, toIso) {
   return 'year';
 }
 
-function _bucketKey(iso, granularity) {
-  const y = iso.slice(0, 4);
-  const m = parseInt(iso.slice(5, 7), 10);
-  if (granularity === 'year') return y;
-  if (granularity === 'quarter') return `${y}-Q${Math.floor((m - 1) / 3) + 1}`;
-  return `${y}-${String(m).padStart(2, '0')}`;
-}
+// Trend math (_bucketKey, _bucketAxis, _movingAverage, _tagLineColor,
+// _trendMatchesEntity, _monthlyTotals, _trendStats) lives in reportsData.js
+// (loaded before this file). The impure trend helpers that remain below —
+// _bucketLabel, _trendEntityFromId, _pickDefaultTrendEntity, _trendSeries —
+// read app globals (MONTHS_SHORT, categories) and so stay here.
 
 function _bucketLabel(key, granularity) {
   if (granularity === 'year') return key;
@@ -1798,67 +1796,6 @@ function _bucketLabel(key, granularity) {
   }
   const [y, m] = key.split('-');
   return `${MONTHS_SHORT[parseInt(m, 10) - 1]} ${y.slice(2)}`;
-}
-
-function _bucketAxis(fromIso, toIso, granularity) {
-  const fy = parseInt(fromIso.slice(0, 4), 10);
-  const fm = parseInt(fromIso.slice(5, 7), 10);
-  const ty = parseInt(toIso.slice(0, 4), 10);
-  const tm = parseInt(toIso.slice(5, 7), 10);
-  const keys = [];
-  if (granularity === 'year') {
-    for (let y = fy; y <= ty; y++) keys.push(String(y));
-    return keys;
-  }
-  if (granularity === 'quarter') {
-    let y = fy;
-    let q = Math.floor((fm - 1) / 3);
-    const endQ = Math.floor((tm - 1) / 3);
-    while (y < ty || (y === ty && q <= endQ)) {
-      keys.push(`${y}-Q${q + 1}`);
-      q++;
-      if (q > 3) {
-        q = 0;
-        y++;
-      }
-    }
-    return keys;
-  }
-  let y = fy;
-  let m = fm;
-  while (y < ty || (y === ty && m <= tm)) {
-    keys.push(`${y}-${String(m).padStart(2, '0')}`);
-    m++;
-    if (m > 12) {
-      m = 1;
-      y++;
-    }
-  }
-  return keys;
-}
-
-function _movingAverage(values, window) {
-  if (window <= 1) return values.slice();
-  const result = [];
-  const half = Math.floor(window / 2);
-  for (let i = 0; i < values.length; i++) {
-    const start = Math.max(0, i - half);
-    const end = Math.min(values.length - 1, i + half);
-    let sum = 0;
-    for (let j = start; j <= end; j++) sum += values[j];
-    result.push(sum / (end - start + 1));
-  }
-  return result;
-}
-
-// Stabile Hue wie _tagColor, aber mit klemmender Helligkeit, damit
-// Light- und Dark-Mode beide Kontrast zur Chart-Linie haben.
-function _tagLineColor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) {
-    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
-  }
-  return `hsl(${Math.abs(h) % 360}deg 55% 50%)`;
 }
 
 function _trendEntityFromId(id) {
@@ -1874,12 +1811,6 @@ function _trendEntityFromId(id) {
     return { kind: 'tag', id, name, color: _tagLineColor(name) };
   }
   return null;
-}
-
-function _trendMatchesEntity(t, entity) {
-  if (t.type !== 'out') return false;
-  if (entity.kind === 'category') return t.category_id === entity.catId;
-  return Array.isArray(t.tags) && t.tags.includes(entity.name);
 }
 
 function _pickDefaultTrendEntity(txs, kind) {
@@ -1909,52 +1840,6 @@ function _trendSeries(txs, entityId, granularity, bucketKeys) {
     color: entity.color,
     data: bucketKeys.map((k) => sums.get(k) || 0),
   };
-}
-
-function _monthlyTotals(txs, entity) {
-  const sums = new Map();
-  for (const t of txs) {
-    if (!_trendMatchesEntity(t, entity)) continue;
-    const key = t.date.slice(0, 7);
-    sums.set(key, (sums.get(key) || 0) + t.amount);
-  }
-  return sums;
-}
-
-function _trendStats(monthlyMap, fromIso, toIso) {
-  const months = _bucketAxis(fromIso, toIso, 'month');
-  if (!months.length) return null;
-  let total = 0;
-  let peak = null;
-  for (const k of months) {
-    const v = monthlyMap.get(k) || 0;
-    total += v;
-    if (peak === null || v > peak.value) peak = { key: k, value: v };
-  }
-  const mean = total / months.length;
-  const yearGroups = new Map();
-  for (const k of months) {
-    const y = k.slice(0, 4);
-    if (!yearGroups.has(y)) yearGroups.set(y, []);
-    yearGroups.get(y).push(monthlyMap.get(k) || 0);
-  }
-  // Schwelle bewusst niedrig (≥3 Monate), damit das laufende Jahr ab Q2
-  // sichtbar wird — der renderReportTrend-Callsite kappt toIso auf heute,
-  // also rechnet jeder Jahresmittelwert nur über tatsächlich verfügbare
-  // Monate (Projektion auf Monatsbasis statt Verwässerung durch Nullen).
-  const years = Array.from(yearGroups.entries()).filter(([, list]) => list.length >= 3);
-  let yoy = null;
-  if (years.length >= 2) {
-    const first = years[0];
-    const last = years[years.length - 1];
-    if (first[0] !== last[0]) {
-      const firstMean = first[1].reduce((s, v) => s + v, 0) / first[1].length;
-      const lastMean = last[1].reduce((s, v) => s + v, 0) / last[1].length;
-      const pct = firstMean > 0 ? ((lastMean - firstMean) / firstMean) * 100 : null;
-      yoy = { firstYear: first[0], lastYear: last[0], firstMean, lastMean, pct };
-    }
-  }
-  return { mean, peak, yoy, monthCount: months.length };
 }
 
 function _trendPeakLabel(key) {
