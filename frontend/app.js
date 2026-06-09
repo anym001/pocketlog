@@ -3008,9 +3008,9 @@ async function loadCategoryIconSprite() {
   }
 }
 
-let editingCatId = null;
-let editingCatColor = '#9e9b96';
-let editingCatIcon = CAT_ICON_FALLBACK;
+// Category create/edit modal draft lives in appState.catEdit (state.js);
+// seed the icon default from CAT_ICON_FALLBACK (defined above).
+appState.catEdit.icon = CAT_ICON_FALLBACK;
 
 function openCatModal(id) {
   rememberModalFocus('cat');
@@ -3019,16 +3019,16 @@ function openCatModal(id) {
   if (id) {
     const c = categories.find((x) => x.id === id);
     if (!c) return;
-    editingCatId = c.id;
-    editingCatColor = c.color || '#9e9b96';
-    editingCatIcon = CAT_ICON_VALID.has(c.icon) ? c.icon : CAT_ICON_FALLBACK;
+    appState.catEdit.id = c.id;
+    appState.catEdit.color = c.color || '#9e9b96';
+    appState.catEdit.icon = CAT_ICON_VALID.has(c.icon) ? c.icon : CAT_ICON_FALLBACK;
     document.getElementById('catEditName').value = c.name || '';
     title.textContent = tr('categories.editTitle');
     deleteBtn.style.display = '';
   } else {
-    editingCatId = null;
-    editingCatColor = CAT_CREATE_COLORS[categories.length % CAT_CREATE_COLORS.length];
-    editingCatIcon = CAT_ICON_FALLBACK;
+    appState.catEdit.id = null;
+    appState.catEdit.color = CAT_CREATE_COLORS[categories.length % CAT_CREATE_COLORS.length];
+    appState.catEdit.icon = CAT_ICON_FALLBACK;
     document.getElementById('catEditName').value = '';
     title.textContent = tr('categories.newTitle');
     deleteBtn.style.display = 'none';
@@ -3044,29 +3044,32 @@ function openCatModal(id) {
 function renderCatIconPreview() {
   const el = document.getElementById('catEditIconPreview');
   if (!el) return;
-  el.style.color = editingCatColor;
-  el.innerHTML = catIconSvg(editingCatIcon);
+  el.style.color = appState.catEdit.color;
+  el.innerHTML = catIconSvg(appState.catEdit.icon);
 }
 
 function renderCatColorSwatches() {
   const presets = [...CAT_COLOR_PRESETS];
-  const hasCurrent = presets.some((p) => p.hex.toLowerCase() === editingCatColor.toLowerCase());
-  if (!hasCurrent) presets.push({ hex: editingCatColor, name: tr('categories.customColorName') });
+  const hasCurrent = presets.some(
+    (p) => p.hex.toLowerCase() === appState.catEdit.color.toLowerCase(),
+  );
+  if (!hasCurrent)
+    presets.push({ hex: appState.catEdit.color, name: tr('categories.customColorName') });
   const box = document.getElementById('catEditColors');
   box.innerHTML =
     presets
       .map((p) => {
-        const isActive = p.hex.toLowerCase() === editingCatColor.toLowerCase();
+        const isActive = p.hex.toLowerCase() === appState.catEdit.color.toLowerCase();
         return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
       })
       .join('') +
     `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${editingCatColor}" onchange="pickCatColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
+     <input type="color" value="${appState.catEdit.color}" onchange="pickCatColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
    </label>`;
 }
 
 function pickCatColor(c) {
-  editingCatColor = c;
+  appState.catEdit.color = c;
   renderCatColorSwatches();
   renderCatIconPreview();
 }
@@ -3074,7 +3077,7 @@ function pickCatColor(c) {
 function closeCatModal() {
   document.getElementById('catModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingCatId = null;
+  appState.catEdit.id = null;
   releaseFocusTrap('cat');
   restoreModalFocus('cat');
 }
@@ -3110,7 +3113,7 @@ function renderIconPicker() {
   host.innerHTML = CAT_ICON_GROUPS.map((g) => {
     const cells = g.ids
       .map((id) => {
-        const active = id === editingCatIcon ? ' active' : '';
+        const active = id === appState.catEdit.icon ? ' active' : '';
         const pressed = active ? 'true' : 'false';
         return `<button type="button" class="icon-picker-cell${active}"
               aria-pressed="${pressed}" aria-label="${id}"
@@ -3125,27 +3128,33 @@ function renderIconPicker() {
 }
 
 function pickIcon(id) {
-  editingCatIcon = CAT_ICON_VALID.has(id) ? id : CAT_ICON_FALLBACK;
+  appState.catEdit.icon = CAT_ICON_VALID.has(id) ? id : CAT_ICON_FALLBACK;
   renderCatIconPreview();
   closeIconPicker();
 }
 
 async function saveCategoryEdit() {
   const name = document.getElementById('catEditName').value.trim();
-  const icon = CAT_ICON_VALID.has(editingCatIcon) ? editingCatIcon : CAT_ICON_FALLBACK;
+  const icon = CAT_ICON_VALID.has(appState.catEdit.icon)
+    ? appState.catEdit.icon
+    : CAT_ICON_FALLBACK;
   if (!name) {
     toast(tr('common.nameRequired'), 'error');
     return;
   }
-  if (!/^#[0-9a-fA-F]{6}$/.test(editingCatColor)) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(appState.catEdit.color)) {
     toast(tr('categories.invalidColor'), 'error');
     return;
   }
   try {
-    if (editingCatId) {
-      await api('PUT', `/categories/${editingCatId}`, { name, icon, color: editingCatColor });
+    if (appState.catEdit.id) {
+      await api('PUT', `/categories/${appState.catEdit.id}`, {
+        name,
+        icon,
+        color: appState.catEdit.color,
+      });
     } else {
-      await api('POST', '/categories', { name, icon, color: editingCatColor });
+      await api('POST', '/categories', { name, icon, color: appState.catEdit.color });
     }
     closeCatModal();
     await loadCategories();
@@ -3161,14 +3170,14 @@ async function saveCategoryEdit() {
 }
 
 async function deleteCategoryEdit() {
-  if (!editingCatId) return;
+  if (!appState.catEdit.id) return;
   const ok = await confirmAction({
     title: tr('categories.deleteConfirm'),
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
   try {
-    await api('DELETE', `/categories/${editingCatId}`);
+    await api('DELETE', `/categories/${appState.catEdit.id}`);
     closeCatModal();
     await loadCategories();
     renderCategories();
