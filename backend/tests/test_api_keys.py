@@ -13,14 +13,12 @@ from __future__ import annotations
 import csv
 import io
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app import crud, models
-
-from .conftest import TEST_PASSWORD, _login_client
+from app import crud
 
 AUDIT = "pocketlog.audit"
 
@@ -198,7 +196,7 @@ def test_import_csv_wrong_scope_returns_403(app, db_session, regular_user):
 def test_import_csv_expired_key_returns_401(app, db_session, regular_user):
     key, raw = crud.create_api_key(db_session, regular_user.id, "expired", ["import"])
     # Manually expire the key
-    key.expires_at = datetime(2000, 1, 1, tzinfo=timezone.utc).replace(tzinfo=None)
+    key.expires_at = datetime(2000, 1, 1, tzinfo=UTC).replace(tzinfo=None)
     db_session.commit()
 
     client = TestClient(app)
@@ -265,7 +263,12 @@ def test_import_dedup_within_same_file(app, db_session, regular_user):
     client = TestClient(app)
 
     # CSV with one duplicate row
-    row = {"date": "2024-04-01", "type": "out", "amount": "9.99", "desc": "intrafile-dup"}
+    row = {
+        "date": "2024-04-01",
+        "type": "out",
+        "amount": "9.99",
+        "desc": "intrafile-dup",
+    }
     csv_bytes = _make_csv([row, row])
     res = client.post(
         "/api/import/csv",
