@@ -13,7 +13,7 @@ this module only adapts it to FastAPI request/response objects.
 import hashlib
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -29,7 +29,8 @@ _API_KEY_LAST_USED_GRACE = 5 * 60  # seconds
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
+
 
 # Cookie attributes. `Secure` is on by default; flip via
 # SESSION_COOKIE_SECURE=0 only for local HTTP dev where the cookie would
