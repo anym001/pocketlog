@@ -5046,15 +5046,14 @@ async function submitChangePassword() {
 }
 
 // ── ADMIN: BENUTZERVERWALTUNG ─────────────────────────────────────────────────
-let _adminUsers = [];
-let _currentMe = null;
+// Admin user list + current "me" live in appState.admin (state.js).
 
 async function loadAdminUsers() {
   const list = document.getElementById('adminUserList');
   if (!list) return;
   list.textContent = tr('common.loading');
   try {
-    _adminUsers = await api('GET', '/admin/users');
+    appState.admin.users = await api('GET', '/admin/users');
   } catch (e) {
     list.textContent = tr('users.loadFailed');
     return;
@@ -5063,7 +5062,7 @@ async function loadAdminUsers() {
   // veraltet ist.
   try {
     const meRes = await fetch(API + '/auth/me', { credentials: 'same-origin' });
-    if (meRes.ok) _currentMe = await meRes.json();
+    if (meRes.ok) appState.admin.me = await meRes.json();
   } catch (_) {}
   renderAdminUserList();
 }
@@ -5071,20 +5070,20 @@ async function loadAdminUsers() {
 function renderAdminUserList() {
   const list = document.getElementById('adminUserList');
   if (!list) return;
-  if (!_adminUsers.length) {
+  if (!appState.admin.users.length) {
     list.textContent = tr('users.none');
     return;
   }
-  // _currentMe MUSS gesetzt sein, sonst kann die UI ihre Self-Schutz-
+  // appState.admin.me MUSS gesetzt sein, sonst kann die UI ihre Self-Schutz-
   // Regeln nicht durchsetzen (Buttons würden auf der eigenen Zeile
   // aktivierbar wirken, obwohl das Backend sie 400/403't). Lieber
   // einen Render-Fehler zeigen als eine UI-Lüge.
-  if (!_currentMe || _currentMe.id == null) {
+  if (!appState.admin.me || appState.admin.me.id == null) {
     list.textContent = tr('users.noIdentity');
     return;
   }
-  const meId = _currentMe.id;
-  list.innerHTML = _adminUsers
+  const meId = appState.admin.me.id;
+  list.innerHTML = appState.admin.users
     .map((u) => {
       const isSelf = u.id === meId;
       const tags = [];
@@ -5171,10 +5170,9 @@ async function submitAdminCreateUser() {
   }
 }
 
-let _resetPwTargetId = null;
 function openAdminResetPwModal(userId) {
-  _resetPwTargetId = userId;
-  const target = _adminUsers.find((u) => u.id === userId);
+  appState.admin.resetPwTargetId = userId;
+  const target = appState.admin.users.find((u) => u.id === userId);
   document.getElementById('adminResetPwIntro').textContent = target
     ? tr('users.resetIntro', { name: target.username })
     : '';
@@ -5195,7 +5193,7 @@ function closeAdminResetPwModalOutside(e) {
 }
 async function submitAdminResetPassword() {
   _setAuthError('adminResetPwError', '');
-  if (_resetPwTargetId == null) return;
+  if (appState.admin.resetPwTargetId == null) return;
   const pw = document.getElementById('adminResetPwInput').value;
   const pwErr = validateNewPassword(pw);
   if (pwErr) {
@@ -5203,9 +5201,13 @@ async function submitAdminResetPassword() {
     return;
   }
   try {
-    const res = await authFetch('POST', `/admin/users/${_resetPwTargetId}/reset-password`, {
-      new_password: pw,
-    });
+    const res = await authFetch(
+      'POST',
+      `/admin/users/${appState.admin.resetPwTargetId}/reset-password`,
+      {
+        new_password: pw,
+      },
+    );
     if (!res.ok) {
       const pe = _passwordErrorMessage(await res.json().catch(() => ({})));
       _setAuthError('adminResetPwError', pe || tr('users.resetFailed'));
@@ -5220,7 +5222,7 @@ async function submitAdminResetPassword() {
 }
 
 async function adminToggleActive(userId, activate) {
-  const target = _adminUsers.find((u) => u.id === userId);
+  const target = appState.admin.users.find((u) => u.id === userId);
   const name = target ? target.username : tr('users.fallbackName');
   const ok = await confirmAction({
     title: activate ? tr('users.reactivateTitle', { name }) : tr('users.deactivateTitle', { name }),
@@ -5248,7 +5250,7 @@ async function adminToggleActive(userId, activate) {
 }
 
 async function adminDeleteUserConfirm(userId) {
-  const target = _adminUsers.find((u) => u.id === userId);
+  const target = appState.admin.users.find((u) => u.id === userId);
   const name = target ? target.username : tr('users.fallbackName');
   const ok = await confirmAction({
     title: tr('users.deleteConfirm', { name }),
@@ -5436,7 +5438,7 @@ async function submitForcePassword() {
 }
 
 async function _afterAuthSuccess(me) {
-  _currentMe = me;
+  appState.admin.me = me;
   document.body.classList.toggle('is-admin', !!me.is_admin);
   const usernameLabel = document.getElementById('accountUsername');
   if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
@@ -5480,7 +5482,7 @@ async function _afterAuthSuccess(me) {
 function onI18nChanged() {
   rebuildMonthNames();
   syncDisplaySelects();
-  const me = _currentMe;
+  const me = appState.admin.me;
   if (me) {
     const usernameLabel = document.getElementById('accountUsername');
     if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
