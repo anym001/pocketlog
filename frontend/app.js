@@ -4131,7 +4131,7 @@ function _invalidateLocalTxCache() {
 }
 
 // ── TAGS (Einstellungen) ──────────────────────────────────────────────────────
-let editingTagName = null;
+// Tag rename modal draft lives in appState.tagEdit.name (state.js).
 
 function renderTagList() {
   const box = document.getElementById('tagList');
@@ -4155,12 +4155,12 @@ function openTagModal(name) {
   const deleteBtn = document.getElementById('tagDeleteBtn');
   const title = document.getElementById('tagModalTitle');
   if (name) {
-    editingTagName = name;
+    appState.tagEdit.name = name;
     document.getElementById('tagEditName').value = name;
     title.textContent = tr('tags.editTitle');
     deleteBtn.style.display = '';
   } else {
-    editingTagName = null;
+    appState.tagEdit.name = null;
     document.getElementById('tagEditName').value = '';
     title.textContent = tr('tags.newTitle');
     deleteBtn.style.display = 'none';
@@ -4174,7 +4174,7 @@ function openTagModal(name) {
 function closeTagModal() {
   document.getElementById('tagModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingTagName = null;
+  appState.tagEdit.name = null;
   releaseFocusTrap('tag');
   restoreModalFocus('tag');
 }
@@ -4188,13 +4188,13 @@ async function saveTagEdit() {
     toast(tr('common.nameRequired'), 'error');
     return;
   }
-  if (editingTagName && newName === editingTagName) {
+  if (appState.tagEdit.name && newName === appState.tagEdit.name) {
     closeTagModal();
     return;
   }
   try {
-    if (editingTagName) {
-      await api('PUT', `/tags/${encodeURIComponent(editingTagName)}`, { new_name: newName });
+    if (appState.tagEdit.name) {
+      await api('PUT', `/tags/${encodeURIComponent(appState.tagEdit.name)}`, { new_name: newName });
     } else {
       await api('POST', '/tags', { name: newName });
     }
@@ -4212,7 +4212,7 @@ async function saveTagEdit() {
 }
 
 async function deleteTagEdit() {
-  if (!editingTagName) return;
+  if (!appState.tagEdit.name) return;
   const ok = await confirmAction({
     title: tr('tags.deleteConfirm'),
     message: tr('tags.deleteRemoves'),
@@ -4220,7 +4220,7 @@ async function deleteTagEdit() {
   });
   if (!ok) return;
   try {
-    await api('DELETE', `/tags/${encodeURIComponent(editingTagName)}`);
+    await api('DELETE', `/tags/${encodeURIComponent(appState.tagEdit.name)}`);
     closeTagModal();
     await loadTags();
     renderTagList();
