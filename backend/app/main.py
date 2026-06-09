@@ -31,6 +31,7 @@ from .deps import (
     set_session_cookies,
 )
 from .logging_config import client_ip, configure_logging, safe
+from .routers import health
 
 # Configure the pocketlog logger namespace at import time, so it applies under
 # uvicorn (which imports app.main:app) as well as under pytest and the CLI.
@@ -139,20 +140,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-
-# ---------------------------------------------------------------------
-# Public endpoints
-# ---------------------------------------------------------------------
-
-
-@app.get("/api/health")
-def health() -> dict:
-    return {"status": "ok"}
-
-
-@app.get("/api/version")
-def version() -> dict:
-    return {"version": os.environ.get("APP_VERSION", "dev")}
+app.include_router(health.router)
 
 
 # ---------------------------------------------------------------------
