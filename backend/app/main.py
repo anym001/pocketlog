@@ -145,6 +145,10 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(routers.health.router)
 app.include_router(routers.auth.router)
+app.include_router(routers.categories.router)
+app.include_router(routers.goals.router)
+app.include_router(routers.tags.router)
+app.include_router(routers.settings.router)
 
 
 # ---------------------------------------------------------------------
@@ -283,92 +287,6 @@ def admin_delete_user(user_id: int, request: Request, db: DB, admin: AdminUser):
         target.id,
         client_ip(request),
     )
-    return Response(status_code=204)
-
-
-# ---------------------------------------------------------------------
-# Categories
-# ---------------------------------------------------------------------
-
-
-@app.get("/api/categories", response_model=list[schemas.CategoryOut])
-def get_categories(user: CurrentUser, db: DB):
-    return crud.list_categories(db, user.id)
-
-
-@app.post("/api/categories", response_model=schemas.CategoryOut, status_code=201)
-def post_category(payload: schemas.CategoryCreate, user: CurrentUser, db: DB):
-    try:
-        return crud.create_category(db, user.id, payload)
-    except IntegrityError:
-        raise errors.conflict("category exists")
-
-
-@app.put("/api/categories/{category_id}", response_model=schemas.CategoryOut)
-def put_category(
-    category_id: int,
-    payload: schemas.CategoryUpdate,
-    user: CurrentUser,
-    db: DB,
-):
-    try:
-        cat = crud.update_category(db, user.id, category_id, payload)
-    except IntegrityError:
-        raise errors.conflict("category exists")
-    if cat is None:
-        raise errors.not_found()
-    return cat
-
-
-@app.delete("/api/categories/{category_id}", status_code=204)
-def remove_category(category_id: int, user: CurrentUser, db: DB):
-    # In-use / has-goal / has-recurring-rule are raised as DomainErrors and
-    # mapped to 409 by the global handler.
-    ok = crud.delete_category(db, user.id, category_id)
-    if not ok:
-        raise errors.not_found()
-    return Response(status_code=204)
-
-
-# ---------------------------------------------------------------------
-# Goals
-# ---------------------------------------------------------------------
-
-
-@app.get("/api/goals", response_model=list[schemas.GoalOut])
-def get_goals(user: CurrentUser, db: DB):
-    return crud.list_goals(db, user.id)
-
-
-@app.post("/api/goals", response_model=schemas.GoalOut, status_code=201)
-def post_goal(payload: schemas.GoalCreate, user: CurrentUser, db: DB):
-    try:
-        return crud.create_goal(db, user.id, payload)
-    except IntegrityError:
-        raise errors.conflict("goal exists for category")
-
-
-@app.put("/api/goals/{goal_id}", response_model=schemas.GoalOut)
-def put_goal(
-    goal_id: int,
-    payload: schemas.GoalUpdate,
-    user: CurrentUser,
-    db: DB,
-):
-    try:
-        goal = crud.update_goal(db, user.id, goal_id, payload)
-    except IntegrityError:
-        raise errors.conflict("goal exists for category")
-    if goal is None:
-        raise errors.not_found()
-    return goal
-
-
-@app.delete("/api/goals/{goal_id}", status_code=204)
-def remove_goal(goal_id: int, user: CurrentUser, db: DB):
-    ok = crud.delete_goal(db, user.id, goal_id)
-    if not ok:
-        raise errors.not_found()
     return Response(status_code=204)
 
 
@@ -559,40 +477,6 @@ def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
 
 
 # ---------------------------------------------------------------------
-# Tags
-# ---------------------------------------------------------------------
-
-
-@app.get("/api/tags", response_model=list[schemas.TagOut])
-def get_tags(user: CurrentUser, db: DB):
-    return crud.list_tags(db, user.id)
-
-
-@app.post("/api/tags", status_code=201)
-def post_tag(payload: schemas.TagCreate, user: CurrentUser, db: DB):
-    try:
-        tag = crud.create_tag(db, user.id, payload.name)
-    except IntegrityError:
-        raise errors.conflict("tag exists")
-    return {"name": tag.name}
-
-
-@app.put("/api/tags/{name}")
-def put_tag(name: str, payload: schemas.TagRename, user: CurrentUser, db: DB):
-    try:
-        affected = crud.rename_tag(db, user.id, name, payload.new_name)
-    except IntegrityError:
-        raise errors.conflict("tag exists")
-    return {"affected": affected}
-
-
-@app.delete("/api/tags/{name}", status_code=204)
-def remove_tag(name: str, user: CurrentUser, db: DB):
-    crud.delete_tag(db, user.id, name)
-    return Response(status_code=204)
-
-
-# ---------------------------------------------------------------------
 # Admin / Data Management (user-self-service despite the path)
 # ---------------------------------------------------------------------
 # Bulk reset operations the user triggers from the Verwaltung drawer.
@@ -622,25 +506,6 @@ def reset_all_data(request: Request, user: CurrentUser, db: DB):
         client_ip(request),
     )
     return Response(status_code=204)
-
-
-# ---------------------------------------------------------------------
-# User Settings
-# ---------------------------------------------------------------------
-# Mirror of the UI preferences in localStorage. The frontend renders from
-# localStorage for an instant paint and reconciles with the server in the
-# background — this endpoint pair is the backup that survives iOS-side
-# localStorage eviction.
-
-
-@app.get("/api/settings", response_model=schemas.SettingsOut)
-def get_settings(user: CurrentUser, db: DB):
-    return crud.get_or_create_settings(db, user.id)
-
-
-@app.put("/api/settings", response_model=schemas.SettingsOut)
-def put_settings(payload: schemas.SettingsUpdate, user: CurrentUser, db: DB):
-    return crud.update_settings(db, user.id, payload)
 
 
 # ---------------------------------------------------------------------

@@ -6,4 +6,11 @@ module owns one slice of the ``/api`` surface and pulls the shared auth
 dependencies from ``app.deps``.
 """
 
-from . import auth, health  # noqa: F401  (re-exported for main.include_router)
+from . import (  # noqa: F401  (re-exported for main.include_router)
+    auth,
+    categories,
+    goals,
+    health,
+    settings,
+    tags,
+)
