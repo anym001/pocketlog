@@ -50,7 +50,10 @@ PocketLog/
 │       │                     settings, health); wired by main.include_router
 │       ├── models.py       ← SQLAlchemy ORM
 │       ├── schemas.py      ← Pydantic v2
-│       ├── crud.py         ← user_id-scoped queries
+│       ├── crud/           ← user_id-scoped queries, one module per domain
+│       │                     (users, categories, goals, tags, recurring,
+│       │                     transactions, settings, imexport, defaults);
+│       │                     __init__ re-exports the full crud.* surface
 │       ├── auth.py         ← session, CSRF, brute-force
 │       ├── recurring.py    ← catch-up / materialization engine
 │       ├── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
@@ -183,7 +186,7 @@ Central config in `app/logging_config.py` (`configure_logging()`, called on impo
 
 **Container permissions (PUID/PGID):** The image starts as root; the entrypoint (`backend/docker-entrypoint.sh`) chowns `/config` to `PUID:PGID` (default `1000:1000`, Unraid `99:100`) and drops privileges via `gosu` before `alembic`+`uvicorn` run. This allows the SQLite file on the mount to be written with the correct host permissions. **SQLite pragmas** (`database.py`): `foreign_keys=ON` (cascades), `journal_mode=WAL` (concurrent reads/writes for PWA sync), `busy_timeout=5000`.
 
-Audit events are logged **in the endpoint layer** (the per-domain `app/routers/*.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud.py`/`deps.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`, `recurring.create/update/delete`, `data.reset_all_data`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
+Audit events are logged **in the endpoint layer** (the per-domain `app/routers/*.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud/*`/`deps.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`, `recurring.create/update/delete`, `data.reset_all_data`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
 
 ## Offline / PWA
 `sw.js`: network-first for HTML shell + GET /api/\*, cache-first for vendor/fonts/icons. Offline outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache keys from `__APP_VERSION__` (Dockerfile substitutes at build time). Both i18n bundles (`i18n/de.json`, `i18n/en.json`) are in the SHELL precache so that language switching works offline.
@@ -227,15 +230,25 @@ production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 **Backend:**
 - CRUD functions always with `user_id: int`; pass `user.id` from `CurrentUser` in the endpoint
 - New endpoints: add to the matching `app/routers/<domain>.py` (one `APIRouter` per
-  domain, wired in `main.py` via `include_router`) + `schemas.py` + `crud.py`. A brand-new
-  domain needs a new router module (declare `router = APIRouter()`, re-export it in
-  `routers/__init__.py`, and `app.include_router(routers.<domain>.router)` in `main.py`).
+  domain, wired in `main.py` via `include_router`) + `schemas.py` + the matching
+  `app/crud/<domain>.py`. A brand-new domain needs a new router module (declare
+  `router = APIRouter()`, re-export it in `routers/__init__.py`, and
+  `app.include_router(routers.<domain>.router)` in `main.py`).
   Routers pull the shared auth dependencies (`CurrentUser`/`AdminUser`/`RawCurrentUser`/`DB`)
   and the cookie helpers from `app.deps` — never re-derive them. `main.py` itself holds only
   app-level wiring (the `DomainError` handler, the security-headers middleware, the router
   includes, the static mount); no endpoints live there.
+- **CRUD layout:** `app/crud/` is a package, one module per domain (`users`, `categories`,
+  `goals`, `tags`, `recurring`, `transactions`, `settings`, `imexport`) plus `defaults`
+  (seed categories + locale/currency defaults). `crud/__init__.py` re-exports the full
+  former surface, so every call site stays `crud.<function>` — never import a submodule
+  directly. A new crud function goes in its domain module and gets added to the `__init__`
+  re-export + `__all__`. Cross-domain helpers are shared one direction only: `categories`
+  and `tags` are leaf modules (no intra-crud imports); `users`/`goals`/`recurring`/
+  `transactions`/`imexport` import the shared helpers (`_owned_category_exists`,
+  `_seed_default_categories`, the tag resolvers) from them — keep it acyclic.
 - Audit events stay in the endpoint layer (the router), where `client_ip()` + DB facts are
-  available; `auth.py`/`crud.py`/`deps.py` remain audit-free.
+  available; `auth.py`/`crud/*`/`deps.py` remain audit-free.
 - `from_attributes=True` on output schemas; `populate_by_name=True` only with `Field(alias=…)`
 - Schema changes: generate an Alembic revision, never manual `ALTER TABLE`
 - Always register the `StaticFiles` mount last (it stays in `main.py`, after every router)
