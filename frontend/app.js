@@ -4745,16 +4745,12 @@ function renderApiKeys() {
     const locale = I18N.getLocale();
     const created = document.createElement('span');
     created.textContent =
-      tr('apiKeys.createdAt') +
-      ': ' +
-      new Date(key.created_at).toLocaleDateString(locale);
+      tr('apiKeys.createdAt') + ': ' + new Date(key.created_at).toLocaleDateString(locale);
     meta.appendChild(created);
     if (key.last_used_at) {
       const used = document.createElement('span');
       used.textContent =
-        tr('apiKeys.lastUsed') +
-        ': ' +
-        new Date(key.last_used_at).toLocaleDateString(locale);
+        tr('apiKeys.lastUsed') + ': ' + new Date(key.last_used_at).toLocaleDateString(locale);
       meta.appendChild(used);
     }
     card.appendChild(meta);
