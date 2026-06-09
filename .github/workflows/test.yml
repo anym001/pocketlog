@@ -26,6 +26,21 @@ jobs:
         run: ruff format --check .
         working-directory: backend
 
+  unit-frontend:
+    # Vitest unit tests for the frontend's pure helpers (frontend/utils.js).
+    # Fast, no browser — the full UI flow is covered by the Playwright smoke
+    # in the `smoke` job below.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+      - run: npm install
+        working-directory: frontend/unit
+      - run: npm test
+        working-directory: frontend/unit
+
   test-sqlite:
     # Full pytest suite on the default SQLite backend (also runs all
     # migrations against SQLite via the conftest session fixture).

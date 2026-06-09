@@ -33,3 +33,7 @@ frontend/e2e/node_modules/
 frontend/e2e/package-lock.json
 frontend/e2e/playwright-report/
 frontend/e2e/test-results/
+
+# Vitest unit tests (frontend helpers)
+frontend/unit/node_modules/
+frontend/unit/package-lock.json
