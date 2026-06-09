@@ -6,10 +6,13 @@
 // categories / reportRange and the render functions reading them) drifting
 // out of sync.
 //
-// One test, one session: first-run setup, then every core view, then the
-// state-mutating flows a `state.js` refactor would touch — category create,
-// transaction CRUD, report range switching, and a locale change that forces a
-// full i18n re-render. Staying in a single session (no second login) keeps it
+// One test, one session: first-run setup, every core view, then the
+// state-mutating flows a `state.js` refactor would touch — category, tag and
+// recurring-rule creation; transaction CRUD; full-text search; report range +
+// trend rendering; and the display settings (theme / currency / default view /
+// locale) that re-style or force a full i18n re-render. The aim is breadth
+// across the module-global clusters so a missed state read/write anywhere
+// surfaces here. Staying in a single session (no second login) keeps it
 // deterministic — the setup path is the only one a fresh CI container
 // exercises. This behavioural net is what the pure-helper Vitest suite
 // deliberately does NOT cover; together they are the precondition for safely
@@ -135,6 +138,33 @@ test('first-run setup, core views, and a transaction CRUD round-trip', async ({ 
   await expect(page.locator('#categoryViewList')).toContainText(catName);
   await expectNoRawKeys(page, 'categories view');
 
+  // --- Create a tag (the `tags` state list feeds the tag picker, the search
+  //     drill-down and the booking/recurring tag pills) ---
+  const tagName = 'smoketag' + Date.now();
+  await page.evaluate(() => window.openTagModal());
+  await expect(page.locator('#tagModalOverlay')).toHaveClass(/open/);
+  await page.fill('#tagEditName', tagName);
+  await page.evaluate(() => window.saveTagEdit());
+  await expect(page.locator('#tagModalOverlay')).not.toHaveClass(/open/);
+  // renderTagList() writes the chip into the (closed) drawer tag list; the
+  // node's text updates regardless of the drawer's visibility.
+  await expect(page.locator('#tagList')).toContainText(tagName);
+
+  // --- Create a recurring rule (the `recurringRules` list + its render, plus
+  //     the materialization that books the first occurrence). Only name and
+  //     amount need filling — openRecurringModal pre-selects type=out,
+  //     monthly, start=today, the first seeded category and validity=unlimited. ---
+  const recName = 'SmokeRule ' + Date.now();
+  await page.evaluate(() => window.openRecurringModal());
+  await expect(page.locator('#recurringModalOverlay')).toHaveClass(/open/);
+  await page.fill('#recEditName', recName);
+  await page.fill('#recEditAmount', '9,99');
+  await page.evaluate(() => window.saveRecurringEdit());
+  await expect(page.locator('#recurringModalOverlay')).not.toHaveClass(/open/);
+  await gotoPanel(page, 'recurring');
+  await expect(page.locator('#recurringViewList')).toContainText(recName);
+  await expectNoRawKeys(page, 'recurring view');
+
   // --- Create a transaction via the booking modal ---
   await gotoPanel(page, 'transactions');
   const desc = 'Smoke ' + Date.now();
@@ -153,6 +183,16 @@ test('first-run setup, core views, and a transaction CRUD round-trip', async ({ 
   const row = page.locator('#transactionList .tx-row', { hasText: desc });
   await expect(row).toBeVisible();
   await expectNoRawKeys(page, 'ledger after create');
+
+  // --- Search: a query flips to the search panel and filters by description
+  //     (exercises _searchQuery + the global _allTransactions pool and the
+  //     search render reading that state), then clears back out ---
+  await page.evaluate((q) => window.onSearch(q), desc);
+  await expect(page.locator('#panel-search')).toHaveClass(/active/);
+  await expect(page.locator('#searchResultsList')).toContainText(desc);
+  await expectNoRawKeys(page, 'search results');
+  await page.evaluate(() => window.clearSearch());
+  await expect(page.locator('#panel-search')).not.toHaveClass(/active/);
 
   // --- Report view renders with that data (exercises the report aggregation
   //     over reportRange + the freshly mutated transaction state) ---
@@ -183,8 +223,26 @@ test('first-run setup, core views, and a transaction CRUD round-trip', async ({ 
   await expect(page.locator('#reportBody')).not.toBeEmpty();
   await expectNoRawKeys(page, 'report trend view');
 
-  // --- Edit modal opens, then delete the transaction ---
+  // --- Settings cluster (theme / currency / default view): display
+  //     preferences that re-style or re-render live, separate from the ledger
+  //     data. Driven through the same globals the display <select>s call. ---
   await gotoPanel(page, 'transactions');
+  // Theme: applyTheme sets data-theme on <html> synchronously.
+  await page.evaluate(() => window.saveTheme('dark'));
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  // Currency: re-renders every formatted amount via i18n:changed. The row
+  // carries a formatted amount, so EUR→USD swaps its symbol; restore EUR so
+  // the rest of the run is unaffected.
+  await page.evaluate(() => window.saveCurrency('USD'));
+  await expect(row).toContainText('$');
+  await page.evaluate(() => window.saveCurrency('EUR'));
+  await expect(row).toContainText('€');
+  // Default view is a persisted preference with no immediate visual change;
+  // assert it reached localStorage (the path still runs through pushSettings).
+  await page.evaluate(() => window.saveDefaultView('charts'));
+  expect(await page.evaluate(() => localStorage.getItem('pocketlog.defaultView'))).toBe('charts');
+
+  // --- Edit modal opens, then delete the transaction ---
   const id = await row.getAttribute('data-id');
   // Open the edit modal through the same entry point the inline onclick uses
   // (avoids the swipe/tap gesture handler, which is flaky to drive).
