@@ -198,6 +198,34 @@ def delete_user(db: Session, user: models.User) -> None:
     db.commit()
 
 
+def resolve_admin_target(
+    db: Session,
+    *,
+    target_id: int,
+    actor_id: int,
+    allow_admin_target: bool,
+) -> models.User:
+    """Load the target user for an admin action and enforce the shared policy
+    guards, raising typed ``DomainError``s that ``main`` maps to HTTP:
+
+    - ``UserNotFoundError`` (404) — no such user.
+    - ``CannotModifySelfError`` (403) — the admin targets their own account.
+    - ``CannotModifyAdminError`` (403) — the admin targets another admin and
+      the action does not permit it (``allow_admin_target=False``).
+
+    The self-check runs before the admin-target check, matching the order the
+    endpoints used inline. Audit logging stays in the endpoint layer.
+    """
+    target = get_user_by_id(db, target_id)
+    if target is None:
+        raise exceptions.UserNotFoundError()
+    if target.id == actor_id:
+        raise exceptions.CannotModifySelfError()
+    if not allow_admin_target and target.is_admin:
+        raise exceptions.CannotModifyAdminError()
+    return target
+
+
 # ---------- Categories ----------
 
 

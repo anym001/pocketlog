@@ -648,16 +648,6 @@ def admin_create_user(
     return _user_to_admin_out(user)
 
 
-def _resolve_admin_target(user_id: int, db: Session) -> models.User:
-    """Helper: lädt den Ziel-User für eine Admin-Aktion. Wirft 404 wenn
-    nicht gefunden. Self-Schutz-Regeln liegen in den Endpoints, weil sie
-    pro Aktion unterschiedlich sind."""
-    target = crud.get_user_by_id(db, user_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="user_not_found")
-    return target
-
-
 @app.post("/api/admin/users/{user_id}/reset-password", status_code=204)
 def admin_reset_password(
     user_id: int,
@@ -666,12 +656,12 @@ def admin_reset_password(
     db: DB,
     admin: AdminUser,
 ):
-    target = _resolve_admin_target(user_id, db)
-    if target.id == admin.id:
-        # Würde den Admin in den Force-Change-View dumpen und alle eigenen
-        # Sessions wegwerfen — UX-Falle (sofortiger Self-Lockout). Wer
-        # sein Passwort ändern will, geht durch die Self-Service-View.
-        raise HTTPException(status_code=403, detail="cannot_modify_self")
+    # Self-reset would dump the admin into the force-change view and revoke
+    # all their own sessions — an instant self-lockout. Resetting another
+    # admin is allowed; only self is blocked (allow_admin_target=True).
+    target = crud.resolve_admin_target(
+        db, target_id=user_id, actor_id=admin.id, allow_admin_target=True
+    )
     crud.set_user_password(db, target, payload.new_password, force_change=True)
     # Sicherheit: alle Sessions des betroffenen Users wegwerfen, damit
     # ein bereits eingeloggter Tab nicht weiterläuft.
@@ -689,13 +679,11 @@ def admin_reset_password(
 
 @app.post("/api/admin/users/{user_id}/deactivate", status_code=204)
 def admin_deactivate(user_id: int, request: Request, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db)
-    if target.id == admin.id:
-        raise HTTPException(status_code=403, detail="cannot_modify_self")
-    if target.is_admin:
-        # Admins dürfen nicht deaktiviert werden — sonst landet die App
-        # in einem Zustand mit null Admins.
-        raise HTTPException(status_code=403, detail="cannot_modify_admin")
+    # Neither self nor another admin: deactivating an admin could leave the
+    # instance with zero admins.
+    target = crud.resolve_admin_target(
+        db, target_id=user_id, actor_id=admin.id, allow_admin_target=False
+    )
     crud.deactivate_user(db, target)
     revoked = auth.revoke_all_user_sessions(db, target.id)
     audit.info(
@@ -710,10 +698,11 @@ def admin_deactivate(user_id: int, request: Request, db: DB, admin: AdminUser):
 
 @app.post("/api/admin/users/{user_id}/activate", status_code=204)
 def admin_activate(user_id: int, request: Request, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db)
-    if target.id == admin.id:
-        # Self ist immer aktiv (sonst wäre admin oben gar nicht hier).
-        raise HTTPException(status_code=403, detail="cannot_modify_self")
+    # Self is always active (else this admin wouldn't be here); reactivating
+    # another admin is fine, so only self is blocked.
+    target = crud.resolve_admin_target(
+        db, target_id=user_id, actor_id=admin.id, allow_admin_target=True
+    )
     crud.activate_user(db, target)
     audit.info(
         "admin.user.activate actor_admin_id=%s target_id=%s ip=%s",
@@ -726,16 +715,11 @@ def admin_activate(user_id: int, request: Request, db: DB, admin: AdminUser):
 
 @app.delete("/api/admin/users/{user_id}", status_code=204)
 def admin_delete_user(user_id: int, request: Request, db: DB, admin: AdminUser):
-    target = _resolve_admin_target(user_id, db)
-    if target.id == admin.id:
-        raise HTTPException(status_code=403, detail="cannot_modify_self")
-    if target.is_admin:
-        # Symmetrisch zu deactivate: ein zweiter Admin (Testfixtures,
-        # zukünftige Mehr-Admin-Erweiterung) darf nicht per DELETE
-        # entfernt werden. Beim aktuellen Single-Admin-Modell kann das
-        # ohnehin nicht passieren, weil ``target.id == admin.id`` oben
-        # schon greift — aber die Regel macht das Modell konsistent.
-        raise HTTPException(status_code=403, detail="cannot_modify_admin")
+    # Symmetric with deactivate: neither self nor another admin may be
+    # deleted, keeping the admin-count invariant intact.
+    target = crud.resolve_admin_target(
+        db, target_id=user_id, actor_id=admin.id, allow_admin_target=False
+    )
     crud.delete_user(db, target)
     audit.info(
         "admin.user.delete actor_admin_id=%s target_id=%s ip=%s",

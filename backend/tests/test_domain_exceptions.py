@@ -29,6 +29,9 @@ DOMAIN_CONTRACT = [
     (exceptions.BackdateTooFarError, 422, "backdate too far"),
     (exceptions.UnknownCategoryError, 400, "unknown_category"),
     (exceptions.EmptyNameError, 400, "empty_name"),
+    (exceptions.UserNotFoundError, 404, "user_not_found"),
+    (exceptions.CannotModifySelfError, 403, "cannot_modify_self"),
+    (exceptions.CannotModifyAdminError, 403, "cannot_modify_admin"),
 ]
 
 

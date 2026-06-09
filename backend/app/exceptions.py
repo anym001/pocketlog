@@ -83,3 +83,32 @@ class EmptyNameError(DomainError):
 
     status_code = 400
     detail = "empty_name"
+
+
+# --- Admin user-management policy ---
+# Authorization guards shared by the admin user endpoints. They follow the
+# same status/detail contract as the business-rule errors above and map
+# through the same handler.
+
+
+class UserNotFoundError(DomainError):
+    """An admin action targets a user id that does not exist."""
+
+    status_code = 404
+    detail = "user_not_found"
+
+
+class CannotModifySelfError(DomainError):
+    """An admin targets their own account with a destructive user action
+    (reset-password / deactivate / activate / delete)."""
+
+    status_code = 403
+    detail = "cannot_modify_self"
+
+
+class CannotModifyAdminError(DomainError):
+    """An admin targets another admin account with deactivate/delete — blocked
+    so the instance can never end up with zero admins."""
+
+    status_code = 403
+    detail = "cannot_modify_admin"
