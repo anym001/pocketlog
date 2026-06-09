@@ -1082,13 +1082,8 @@
       }
 
       // ── REPORTS — RANGE & DATA ────────────────────────────────────────────────────
+      // _iso() and _daysInMonth() live in utils.js (loaded before this file).
 
-      function _iso(y, m, d) {
-        return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      }
-      function _daysInMonth(y, m) {
-        return new Date(y, m + 1, 0).getDate();
-      }
       function computeRange(kind, a) {
         if (kind === 'month') {
           const last = _daysInMonth(a.y, a.m);
@@ -1582,12 +1577,7 @@
           .sort((a, b) => b.amount - a.amount);
       }
 
-      function _escAttr(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      }
-      function _escText(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      }
+      // _escAttr() and _escText() live in utils.js (loaded before this file).
 
       function _tagRowMarkup(name, amount, max, opts = {}) {
         const color = _tagColor(name);
@@ -4967,12 +4957,6 @@
           if (meRes.ok) _currentMe = await meRes.json();
         } catch (_) {}
         renderAdminUserList();
-      }
-
-      function _escText(s) {
-        const tmp = document.createElement('div');
-        tmp.textContent = s == null ? '' : String(s);
-        return tmp.innerHTML;
       }
 
       function renderAdminUserList() {

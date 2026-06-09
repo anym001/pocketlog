@@ -111,6 +111,7 @@ _SHELL_NO_CACHE_PATHS = frozenset(
         "/",
         "/index.html",
         "/app.js",
+        "/utils.js",
         "/sw.js",
         "/db.js",
         "/styles.css",
