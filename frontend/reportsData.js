@@ -31,6 +31,33 @@ function _totalsByCategory(txs, type = 'out') {
     .sort((a, b) => b.amount - a.amount);
 }
 
+// Stable hue per tag — same name always maps to the same color. Avoids
+// a per-tag color setting while keeping the donut visually distinct.
+function _tagColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  return `hsl(${Math.abs(h) % 360}deg 58% 52%)`;
+}
+
+// Sum amounts per tag for the given type. A transaction with multiple
+// tags contributes its full amount to each tag (tags are categorical
+// labels, not splits) — mirrors how Top-Kategorien aggregates.
+function _totalsByTag(txs, type = 'out') {
+  const totals = {};
+  for (const t of txs) {
+    if (t.type !== type) continue;
+    if (!Array.isArray(t.tags) || !t.tags.length) continue;
+    for (const tag of t.tags) {
+      totals[tag] = (totals[tag] || 0) + t.amount;
+    }
+  }
+  return Object.entries(totals)
+    .map(([name, amount]) => ({ name, amount }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
 // Derived goal progress over a pool of transactions. Money is summed in
 // integer cents (Math.round) so the percentages and remaining/current
 // figures never drift through float — mirroring the backend's money rule.
@@ -84,6 +111,24 @@ function _goalProgress(goal, pool) {
 // isolation (frontend/unit/trends.test.js). The render function and the
 // impure helpers that read app globals (_trendEntityFromId, _bucketLabel,
 // _pickDefaultTrendEntity) stay in app.js and call these as globals.
+
+// Number of calendar months spanned by [fromIso, toIso] inclusive.
+function _monthSpan(fromIso, toIso) {
+  const fy = parseInt(fromIso.slice(0, 4), 10);
+  const fm = parseInt(fromIso.slice(5, 7), 10);
+  const ty = parseInt(toIso.slice(0, 4), 10);
+  const tm = parseInt(toIso.slice(5, 7), 10);
+  return (ty - fy) * 12 + (tm - fm) + 1;
+}
+
+// Pick the chart granularity from the span length: months under two years,
+// quarters up to five, years beyond.
+function _autoGranularity(fromIso, toIso) {
+  const months = _monthSpan(fromIso, toIso);
+  if (months < 24) return 'month';
+  if (months <= 60) return 'quarter';
+  return 'year';
+}
 
 // Calendar bucket key for a date at the given granularity: "2026" (year),
 // "2026-Q2" (quarter) or "2026-04" (month).
@@ -224,7 +269,11 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     _sumByType,
     _totalsByCategory,
+    _tagColor,
+    _totalsByTag,
     _goalProgress,
+    _monthSpan,
+    _autoGranularity,
     _bucketKey,
     _bucketAxis,
     _movingAverage,

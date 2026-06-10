@@ -1601,34 +1601,8 @@ async function drillDownCategory(catId, fromIso, toIso) {
 
 // ── REPORTS — TAGS ────────────────────────────────────────────────────────────
 
-// Stable hue per tag — same name always maps to the same color. Avoids
-// a per-tag color setting while keeping the donut visually distinct.
-function _tagColor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) {
-    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
-  }
-  return `hsl(${Math.abs(h) % 360}deg 58% 52%)`;
-}
-
-// Sum amounts per tag for the given type. A transaction with multiple
-// tags contributes its full amount to each tag (tags are categorical
-// labels, not splits) — mirrors how Top-Kategorien aggregates.
-function _totalsByTag(txs, type = 'out') {
-  const totals = {};
-  for (const t of txs) {
-    if (t.type !== type) continue;
-    if (!Array.isArray(t.tags) || !t.tags.length) continue;
-    for (const tag of t.tags) {
-      totals[tag] = (totals[tag] || 0) + t.amount;
-    }
-  }
-  return Object.entries(totals)
-    .map(([name, amount]) => ({ name, amount }))
-    .sort((a, b) => b.amount - a.amount);
-}
-
-// _escAttr() and _escText() live in utils.js (loaded before this file).
+// _tagColor() and _totalsByTag() live in reportsData.js, _escAttr() and
+// _escText() in utils.js (both loaded before this file).
 
 function _tagRowMarkup(name, amount, max, opts = {}) {
   const color = _tagColor(name);
@@ -1769,25 +1743,11 @@ async function _ensureTrendDefaultRange() {
   _persistTrendRange();
 }
 
-function _monthSpan(fromIso, toIso) {
-  const fy = parseInt(fromIso.slice(0, 4), 10);
-  const fm = parseInt(fromIso.slice(5, 7), 10);
-  const ty = parseInt(toIso.slice(0, 4), 10);
-  const tm = parseInt(toIso.slice(5, 7), 10);
-  return (ty - fy) * 12 + (tm - fm) + 1;
-}
-
-function _autoGranularity(fromIso, toIso) {
-  const months = _monthSpan(fromIso, toIso);
-  if (months < 24) return 'month';
-  if (months <= 60) return 'quarter';
-  return 'year';
-}
-
-// Trend math (_bucketKey, _bucketAxis, _movingAverage, _tagLineColor,
-// _trendMatchesEntity, _monthlyTotals, _trendStats) lives in reportsData.js
-// (loaded before this file). The impure trend helpers that remain below —
-// _bucketLabel, _trendEntityFromId, _pickDefaultTrendEntity, _trendSeries —
+// Trend math (_monthSpan, _autoGranularity, _bucketKey, _bucketAxis,
+// _movingAverage, _tagLineColor, _trendMatchesEntity, _monthlyTotals,
+// _trendStats) lives in reportsData.js (loaded before this file). The impure
+// trend helpers that remain below — _bucketLabel, _trendEntityFromId,
+// _pickDefaultTrendEntity, _trendSeries —
 // read app globals (appState.calendar.monthsShort, categories) and so stay here.
 
 function _bucketLabel(key, granularity) {
@@ -2444,33 +2404,17 @@ function setType(type, btn) {
     type === 'out' ? tr('tx.saveExpense') : tr('tx.saveIncome');
 }
 
-// The amount field is type="text" so iOS shows the decimal keypad.
-// Parsing is locale-aware: in a comma-decimal locale (de) dots are
-// thousands separators and the comma is the decimal point; in a
-// dot-decimal locale (en) it's the reverse. We also strip currency
-// symbols/spaces so a pasted "1.234,56 €" still parses.
+// The amount field is type="text" so iOS shows the decimal keypad. The
+// locale-aware parsing/formatting cores (_parseAmountWith/_formatAmountWith)
+// live in utils.js; these wrappers only supply the I18N decimal separator.
 function parseAmount(raw) {
-  if (raw == null) return NaN;
-  let s = String(raw)
-    .trim()
-    .replace(/[^\d.,-]/g, '');
-  const sep = window.I18N ? I18N.decimalSeparator() : ',';
-  if (sep === ',') {
-    s = s.replace(/\./g, '').replace(',', '.');
-  } else {
-    s = s.replace(/,/g, '');
-  }
-  return parseFloat(s);
+  return _parseAmountWith(raw, window.I18N ? I18N.decimalSeparator() : ',');
 }
 
 // Display the amount in the input with the locale decimal separator
 // so it matches the formatted output everywhere else (fmtCurrency).
-// No thousand separator — keeps round-tripping through parseAmount()
-// lossless.
 function _formatAmountInput(n) {
-  const s = n.toFixed(2);
-  const sep = window.I18N ? I18N.decimalSeparator() : ',';
-  return sep === ',' ? s.replace('.', ',') : s;
+  return _formatAmountWith(n, window.I18N ? I18N.decimalSeparator() : ',');
 }
 
 function normalizeAmountInput() {
@@ -3601,66 +3545,9 @@ function _recurringFormatDate(iso) {
 
 // ---- Live "next booking" preview (mirrors backend recurring.py) ----
 // Interval-independent, anchored at max(today, start_date) so it
-// matches the cursor the backend recomputes on save.
-function _recurringDaysInMonth(y, m) {
-  return new Date(y, m, 0).getDate(); // m is 1-based → day 0 of next month
-}
-function _recurringClampDay(y, m, dom) {
-  return Math.min(dom, _recurringDaysInMonth(y, m));
-}
-function _recurringAddMonths(y, m, months) {
-  const idx = m - 1 + months;
-  return [y + Math.floor(idx / 12), (idx % 12) + 1];
-}
-function _recurringMon0Weekday(y, m, d) {
-  // JS getDay() Sun=0..Sat=6 → backend Mon=0..Sun=6.
-  return (new Date(y, m - 1, d).getDay() + 6) % 7;
-}
-function _recurringCmp(a, b) {
-  return a.y * 10000 + a.m * 100 + a.d - (b.y * 10000 + b.m * 100 + b.d);
-}
-function _recurringMonthStep(frequency) {
-  return frequency === 'yearly' ? 12 : frequency === 'quarterly' ? 3 : 1;
-}
-// First occurrence on/after the START anchor (interval-independent),
-// mirroring recurring.first_occurrence_on_or_after.
-function _recurringFirstOnOrAfter(frequency, anchor, weekday, dom) {
-  if (frequency === 'daily') return { y: anchor.y, m: anchor.m, d: anchor.d };
-  if (frequency === 'weekly') {
-    const cur = _recurringMon0Weekday(anchor.y, anchor.m, anchor.d);
-    const target = weekday == null ? cur : weekday;
-    const ahead = (((target - cur) % 7) + 7) % 7;
-    const dt = new Date(anchor.y, anchor.m - 1, anchor.d + ahead);
-    return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
-  }
-  const day = dom || anchor.d;
-  let cand = { y: anchor.y, m: anchor.m, d: _recurringClampDay(anchor.y, anchor.m, day) };
-  if (_recurringCmp(cand, anchor) < 0) {
-    const [ny, nm] = _recurringAddMonths(anchor.y, anchor.m, _recurringMonthStep(frequency));
-    cand = { y: ny, m: nm, d: _recurringClampDay(ny, nm, day) };
-  }
-  return cand;
-}
-// Occurrence strictly after `after`, honouring interval, mirroring
-// recurring.next_occurrence.
-function _recurringNextOccurrence(frequency, interval, after, weekday, dom) {
-  const iv = Math.max(1, interval || 1);
-  if (frequency === 'daily') {
-    const dt = new Date(after.y, after.m - 1, after.d + iv);
-    return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
-  }
-  if (frequency === 'weekly') {
-    const cur = _recurringMon0Weekday(after.y, after.m, after.d);
-    const target = weekday == null ? cur : weekday;
-    let ahead = (((target - cur) % 7) + 7) % 7;
-    if (ahead === 0) ahead = 7;
-    const dt = new Date(after.y, after.m - 1, after.d + ahead + (iv - 1) * 7);
-    return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
-  }
-  const [ny, nm] = _recurringAddMonths(after.y, after.m, _recurringMonthStep(frequency) * iv);
-  const day = dom || after.d;
-  return { y: ny, m: nm, d: _recurringClampDay(ny, nm, day) };
-}
+// matches the cursor the backend recomputes on save. The pure schedule
+// math (_recurringFirstOnOrAfter, _recurringNextOccurrence, _recurringCmp
+// and friends) lives in utils.js (loaded before this file).
 // The next booking that will actually happen: walk the schedule from
 // the start date through its rhythm (interval-aware) until the first
 // occurrence after today — exactly what create + catch-up produce —
