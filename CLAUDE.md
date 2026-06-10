@@ -247,10 +247,12 @@ production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
   (seed categories + locale/currency defaults). `crud/__init__.py` re-exports the full
   former surface, so every call site stays `crud.<function>` — never import a submodule
   directly. A new crud function goes in its domain module and gets added to the `__init__`
-  re-export + `__all__`. Cross-domain helpers are shared one direction only: `categories`
-  and `tags` are leaf modules (no intra-crud imports); `users`/`goals`/`recurring`/
-  `transactions`/`imexport` import the shared helpers (`_owned_category_exists`,
-  `_seed_default_categories`, the tag resolvers) from them — keep it acyclic.
+  re-export + `__all__`. Cross-domain helpers are shared one direction only: `_shared`
+  is the lowest leaf (domain-agnostic helpers like `_get_owned`, the user-scoped
+  primary-key lookup; imports no sibling); `categories` and `tags` are leaf modules
+  above it; `users`/`goals`/`recurring`/`transactions`/`imexport` import the shared
+  helpers (`_owned_category_exists`, `_seed_default_categories`, the tag resolvers)
+  from them — keep it acyclic.
 - Audit events stay in the endpoint layer (the router), where `client_ip()` + DB facts are
   available; `auth.py`/`crud/*`/`deps.py` remain audit-free.
 - `from_attributes=True` on output schemas; `populate_by_name=True` only with `Field(alias=…)`
