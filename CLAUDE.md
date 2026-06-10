@@ -56,6 +56,7 @@ PocketLog/
 │       │                     __init__ re-exports the full crud.* surface
 │       ├── auth.py         ← session, CSRF, brute-force
 │       ├── recurring.py    ← catch-up / materialization engine
+│       ├── recurring_dates.py ← pure occurrence date math (no DB, cycle-free)
 │       ├── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
 │       ├── logging_config.py ← central logging setup (configure_logging())
 │       └── cli.py          ← operator CLI (reset-admin-password)
