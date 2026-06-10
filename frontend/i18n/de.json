@@ -406,7 +406,7 @@
   "apiKeys": {
     "title": "API-Schlüssel",
     "empty": "Noch keine Schlüssel erstellt.",
-    "create": "Neuen Schlüssel erstellen",
+    "create": "Neuer Schlüssel",
     "name": "Name",
     "scopes": "Berechtigungen",
     "scope.import": "Importieren",
