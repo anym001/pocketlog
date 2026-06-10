@@ -15,16 +15,8 @@ import uuid
 from fastapi.testclient import TestClient
 
 from .conftest import TEST_PASSWORD
-
-
-def _new_category(client, name: str | None = None) -> int:
-    name = name or f"Cat-{uuid.uuid4().hex[:8]}"
-    r = client.post(
-        "/api/categories",
-        json={"name": name, "icon": "house", "color": "#123456"},
-    )
-    assert r.status_code == 201, r.text
-    return r.json()["id"]
+from .conftest import new_category as _new_category
+from .conftest import other_client as _other_client
 
 
 def _savings_payload(category_id: int, **over) -> dict:
@@ -129,21 +121,7 @@ def test_debt_target_must_be_below_initial(client):
 
 def test_goal_on_foreign_category_rejected(app, client, db_session):
     """A goal may not reference another user's category."""
-    from app import crud
-
-    other = crud.create_user(
-        db_session,
-        username=f"other-{uuid.uuid4().hex[:10]}",
-        password=TEST_PASSWORD,
-        is_admin=False,
-        force_change_password=False,
-    )
-    other_client = TestClient(app)
-    res = other_client.post(
-        "/api/auth/login",
-        json={"username": other.username, "password": TEST_PASSWORD},
-    )
-    other_client.headers["X-CSRF-Token"] = res.json()["user"]["csrf_token"]
+    other_client = _other_client(app, db_session)
     foreign_cat = _new_category(other_client)
 
     r = client.post("/api/goals", json=_savings_payload(foreign_cat))
@@ -152,26 +130,12 @@ def test_goal_on_foreign_category_rejected(app, client, db_session):
 
 def test_goals_are_user_scoped(app, client, db_session):
     """User A's goals never appear in user B's list."""
-    from app import crud
-
     cat = _new_category(client)
     mine = client.post("/api/goals", json=_savings_payload(cat))
     assert mine.status_code == 201
     my_goal_id = mine.json()["id"]
 
-    other = crud.create_user(
-        db_session,
-        username=f"other-{uuid.uuid4().hex[:10]}",
-        password=TEST_PASSWORD,
-        is_admin=False,
-        force_change_password=False,
-    )
-    other_client = TestClient(app)
-    res = other_client.post(
-        "/api/auth/login",
-        json={"username": other.username, "password": TEST_PASSWORD},
-    )
-    other_client.headers["X-CSRF-Token"] = res.json()["user"]["csrf_token"]
+    other_client = _other_client(app, db_session)
 
     assert other_client.get("/api/goals").json() == []
     # Cross-user mutation is a 404, not someone else's row.
@@ -252,25 +216,11 @@ def test_delete_unknown_goal_is_404(client):
 
 def test_update_foreign_goal_is_404(app, client, db_session):
     """A user cannot update another user's goal (no cross-user write)."""
-    from app import crud
-
     cat = _new_category(client)
     mine = client.post("/api/goals", json=_savings_payload(cat))
     gid = mine.json()["id"]
 
-    other = crud.create_user(
-        db_session,
-        username=f"other-{uuid.uuid4().hex[:10]}",
-        password=TEST_PASSWORD,
-        is_admin=False,
-        force_change_password=False,
-    )
-    other_client = TestClient(app)
-    res = other_client.post(
-        "/api/auth/login",
-        json={"username": other.username, "password": TEST_PASSWORD},
-    )
-    other_client.headers["X-CSRF-Token"] = res.json()["user"]["csrf_token"]
+    other_client = _other_client(app, db_session)
     foreign_cat = _new_category(other_client)
     assert (
         other_client.put(
@@ -282,24 +232,10 @@ def test_update_foreign_goal_is_404(app, client, db_session):
 
 def test_update_to_foreign_category_rejected(app, client, db_session):
     """PUT validates category ownership too, not just POST."""
-    from app import crud
-
     cat = _new_category(client)
     gid = client.post("/api/goals", json=_savings_payload(cat)).json()["id"]
 
-    other = crud.create_user(
-        db_session,
-        username=f"other-{uuid.uuid4().hex[:10]}",
-        password=TEST_PASSWORD,
-        is_admin=False,
-        force_change_password=False,
-    )
-    other_client = TestClient(app)
-    res = other_client.post(
-        "/api/auth/login",
-        json={"username": other.username, "password": TEST_PASSWORD},
-    )
-    other_client.headers["X-CSRF-Token"] = res.json()["user"]["csrf_token"]
+    other_client = _other_client(app, db_session)
     foreign_cat = _new_category(other_client)
 
     r = client.put(f"/api/goals/{gid}", json=_savings_payload(foreign_cat))

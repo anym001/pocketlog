@@ -1601,34 +1601,8 @@ async function drillDownCategory(catId, fromIso, toIso) {
 
 // ── REPORTS — TAGS ────────────────────────────────────────────────────────────
 
-// Stable hue per tag — same name always maps to the same color. Avoids
-// a per-tag color setting while keeping the donut visually distinct.
-function _tagColor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) {
-    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
-  }
-  return `hsl(${Math.abs(h) % 360}deg 58% 52%)`;
-}
-
-// Sum amounts per tag for the given type. A transaction with multiple
-// tags contributes its full amount to each tag (tags are categorical
-// labels, not splits) — mirrors how Top-Kategorien aggregates.
-function _totalsByTag(txs, type = 'out') {
-  const totals = {};
-  for (const t of txs) {
-    if (t.type !== type) continue;
-    if (!Array.isArray(t.tags) || !t.tags.length) continue;
-    for (const tag of t.tags) {
-      totals[tag] = (totals[tag] || 0) + t.amount;
-    }
-  }
-  return Object.entries(totals)
-    .map(([name, amount]) => ({ name, amount }))
-    .sort((a, b) => b.amount - a.amount);
-}
-
-// _escAttr() and _escText() live in utils.js (loaded before this file).
+// _tagColor() and _totalsByTag() live in reportsData.js, _escAttr() and
+// _escText() in utils.js (both loaded before this file).
 
 function _tagRowMarkup(name, amount, max, opts = {}) {
   const color = _tagColor(name);
@@ -1769,25 +1743,11 @@ async function _ensureTrendDefaultRange() {
   _persistTrendRange();
 }
 
-function _monthSpan(fromIso, toIso) {
-  const fy = parseInt(fromIso.slice(0, 4), 10);
-  const fm = parseInt(fromIso.slice(5, 7), 10);
-  const ty = parseInt(toIso.slice(0, 4), 10);
-  const tm = parseInt(toIso.slice(5, 7), 10);
-  return (ty - fy) * 12 + (tm - fm) + 1;
-}
-
-function _autoGranularity(fromIso, toIso) {
-  const months = _monthSpan(fromIso, toIso);
-  if (months < 24) return 'month';
-  if (months <= 60) return 'quarter';
-  return 'year';
-}
-
-// Trend math (_bucketKey, _bucketAxis, _movingAverage, _tagLineColor,
-// _trendMatchesEntity, _monthlyTotals, _trendStats) lives in reportsData.js
-// (loaded before this file). The impure trend helpers that remain below —
-// _bucketLabel, _trendEntityFromId, _pickDefaultTrendEntity, _trendSeries —
+// Trend math (_monthSpan, _autoGranularity, _bucketKey, _bucketAxis,
+// _movingAverage, _tagLineColor, _trendMatchesEntity, _monthlyTotals,
+// _trendStats) lives in reportsData.js (loaded before this file). The impure
+// trend helpers that remain below — _bucketLabel, _trendEntityFromId,
+// _pickDefaultTrendEntity, _trendSeries —
 // read app globals (appState.calendar.monthsShort, categories) and so stay here.
 
 function _bucketLabel(key, granularity) {
@@ -2343,6 +2303,27 @@ function renderReportTop(body, txs) {
 }
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
+// Category <select> filler shared by the booking, goal and recurring editors.
+// Alphabetical locale sort — consistent with renderCategories() and
+// renderCategoryView() so the user sees the same order wherever they look at
+// categories. Falls back to the alphabetically first option when no valid
+// category is requested (e.g. creating), so the preselection matches the top
+// of the list rather than the unsorted seed order.
+function _populateCategorySelect(sel, selectedId) {
+  const sorted = [...appState.ledger.categories].sort((a, b) =>
+    a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
+  );
+  const effectiveId = sorted.some((c) => c.id === selectedId)
+    ? selectedId
+    : sorted[0] && sorted[0].id;
+  sel.innerHTML = sorted
+    .map(
+      (c) =>
+        `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`,
+    )
+    .join('');
+}
+
 function openModal(tx) {
   rememberModalFocus('booking');
   appState.form.tags = tx?.tags ? tx.tags.slice() : [];
@@ -2350,15 +2331,7 @@ function openModal(tx) {
     tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
   document.getElementById('inputDesc').value = tx?.desc || '';
   document.getElementById('inputDate').value = tx?.date || new Date().toISOString().split('T')[0];
-  const catSel = document.getElementById('inputCat');
-  // Alphabetical de_DE sort — consistent with renderCategories()
-  // and renderCategoryView() so the user sees the same order
-  // wherever they look at categories.
-  catSel.innerHTML = [...appState.ledger.categories]
-    .sort((a, b) => a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }))
-    .map((c) => `<option value="${c.id}">${_escText(c.name)}</option>`)
-    .join('');
-  if (tx) catSel.value = tx.category_id;
+  _populateCategorySelect(document.getElementById('inputCat'), tx ? tx.category_id : null);
   setType(tx?.type || 'out', document.querySelector('.type-btn.out'));
   renderTagPills();
   renderTagSuggestions();
@@ -2383,6 +2356,12 @@ function closeModal() {
   releaseFocusTrap('booking');
   restoreModalFocus('booking');
 }
+// Backdrop dismiss shared by every modal overlay: the overlay's inline
+// onclick passes its own event, so the click counts as "outside" exactly
+// when it landed on the overlay itself rather than the dialog inside it.
+function closeOnBackdrop(e, closeFn) {
+  if (e.target === e.currentTarget) closeFn();
+}
 // Ledger rows open this modal on `pointerup` (the swipe handler).
 // The browser then synthesizes a trailing `click` at the same spot,
 // which now lands on the freshly shown overlay backdrop and would
@@ -2391,7 +2370,7 @@ function closeModal() {
 // opening so only a deliberate later tap dismisses it.
 function closeModalOutside(e) {
   if (Date.now() - appState.nav.bookingModalOpenedAt < 400) return;
-  if (e.target === document.getElementById('modalOverlay')) closeModal();
+  closeOnBackdrop(e, closeModal);
 }
 function editTransaction(id) {
   const num = Number(id);
@@ -2444,33 +2423,17 @@ function setType(type, btn) {
     type === 'out' ? tr('tx.saveExpense') : tr('tx.saveIncome');
 }
 
-// The amount field is type="text" so iOS shows the decimal keypad.
-// Parsing is locale-aware: in a comma-decimal locale (de) dots are
-// thousands separators and the comma is the decimal point; in a
-// dot-decimal locale (en) it's the reverse. We also strip currency
-// symbols/spaces so a pasted "1.234,56 €" still parses.
+// The amount field is type="text" so iOS shows the decimal keypad. The
+// locale-aware parsing/formatting cores (_parseAmountWith/_formatAmountWith)
+// live in utils.js; these wrappers only supply the I18N decimal separator.
 function parseAmount(raw) {
-  if (raw == null) return NaN;
-  let s = String(raw)
-    .trim()
-    .replace(/[^\d.,-]/g, '');
-  const sep = window.I18N ? I18N.decimalSeparator() : ',';
-  if (sep === ',') {
-    s = s.replace(/\./g, '').replace(',', '.');
-  } else {
-    s = s.replace(/,/g, '');
-  }
-  return parseFloat(s);
+  return _parseAmountWith(raw, window.I18N ? I18N.decimalSeparator() : ',');
 }
 
 // Display the amount in the input with the locale decimal separator
 // so it matches the formatted output everywhere else (fmtCurrency).
-// No thousand separator — keeps round-tripping through parseAmount()
-// lossless.
 function _formatAmountInput(n) {
-  const s = n.toFixed(2);
-  const sep = window.I18N ? I18N.decimalSeparator() : ',';
-  return sep === ',' ? s.replace('.', ',') : s;
+  return _formatAmountWith(n, window.I18N ? I18N.decimalSeparator() : ',');
 }
 
 function normalizeAmountInput() {
@@ -3074,24 +3037,32 @@ function renderCatIconPreview() {
   el.innerHTML = catIconSvg(appState.catEdit.icon);
 }
 
-function renderCatColorSwatches() {
+// Swatch row shared by the category and goal editors: the preset palette
+// plus, when the current color isn't a preset, an extra swatch for it,
+// followed by the free color input. pickFnName is the global pick handler
+// wired through the inline onclick/onchange (re-renders on pick).
+function _colorSwatchesMarkup(currentColor, pickFnName) {
   const presets = [...CAT_COLOR_PRESETS];
-  const hasCurrent = presets.some(
-    (p) => p.hex.toLowerCase() === appState.catEdit.color.toLowerCase(),
-  );
-  if (!hasCurrent)
-    presets.push({ hex: appState.catEdit.color, name: tr('categories.customColorName') });
-  const box = document.getElementById('catEditColors');
-  box.innerHTML =
+  const hasCurrent = presets.some((p) => p.hex.toLowerCase() === currentColor.toLowerCase());
+  if (!hasCurrent) presets.push({ hex: currentColor, name: tr('categories.customColorName') });
+  return (
     presets
       .map((p) => {
-        const isActive = p.hex.toLowerCase() === appState.catEdit.color.toLowerCase();
-        return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
+        const isActive = p.hex.toLowerCase() === currentColor.toLowerCase();
+        return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="${pickFnName}('${p.hex}')"></button>`;
       })
       .join('') +
     `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${appState.catEdit.color}" onchange="pickCatColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
-   </label>`;
+     <input type="color" value="${currentColor}" onchange="${pickFnName}(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
+   </label>`
+  );
+}
+
+function renderCatColorSwatches() {
+  document.getElementById('catEditColors').innerHTML = _colorSwatchesMarkup(
+    appState.catEdit.color,
+    'pickCatColor',
+  );
 }
 
 function pickCatColor(c) {
@@ -3106,9 +3077,6 @@ function closeCatModal() {
   appState.catEdit.id = null;
   releaseFocusTrap('cat');
   restoreModalFocus('cat');
-}
-function closeCatModalOutside(e) {
-  if (e.target === document.getElementById('catModalOverlay')) closeCatModal();
 }
 
 // ── ICON PICKER ───────────────────────────────────────────────────────────────
@@ -3353,22 +3321,7 @@ function _goalAmountValue(id) {
 
 function populateGoalCategorySelect(selectedId) {
   const sel = document.getElementById('goalEditCategory');
-  if (!sel) return;
-  const sorted = [...appState.ledger.categories].sort((a, b) =>
-    a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
-  );
-  // Fall back to the alphabetically first option when no valid category
-  // is requested (e.g. creating a new goal), so the preselection matches
-  // the top of the list rather than the unsorted seed order.
-  const effectiveId = sorted.some((c) => c.id === selectedId)
-    ? selectedId
-    : sorted[0] && sorted[0].id;
-  sel.innerHTML = sorted
-    .map(
-      (c) =>
-        `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`,
-    )
-    .join('');
+  if (sel) _populateCategorySelect(sel, selectedId);
 }
 
 function onGoalDirectionChange() {
@@ -3382,23 +3335,10 @@ function onGoalDirectionChange() {
 }
 
 function renderGoalColorSwatches() {
-  const presets = [...CAT_COLOR_PRESETS];
-  const hasCurrent = presets.some(
-    (p) => p.hex.toLowerCase() === appState.goals.editingColor.toLowerCase(),
+  document.getElementById('goalEditColors').innerHTML = _colorSwatchesMarkup(
+    appState.goals.editingColor,
+    'pickGoalColor',
   );
-  if (!hasCurrent)
-    presets.push({ hex: appState.goals.editingColor, name: tr('categories.customColorName') });
-  const box = document.getElementById('goalEditColors');
-  box.innerHTML =
-    presets
-      .map((p) => {
-        const isActive = p.hex.toLowerCase() === appState.goals.editingColor.toLowerCase();
-        return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickGoalColor('${p.hex}')"></button>`;
-      })
-      .join('') +
-    `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${appState.goals.editingColor}" onchange="pickGoalColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
-   </label>`;
 }
 
 function pickGoalColor(c) {
@@ -3459,9 +3399,6 @@ function closeGoalModal() {
   appState.goals.editingId = null;
   releaseFocusTrap('goal');
   restoreModalFocus('goal');
-}
-function closeGoalModalOutside(e) {
-  if (e.target === document.getElementById('goalModalOverlay')) closeGoalModal();
 }
 
 async function saveGoalEdit() {
@@ -3601,66 +3538,9 @@ function _recurringFormatDate(iso) {
 
 // ---- Live "next booking" preview (mirrors backend recurring.py) ----
 // Interval-independent, anchored at max(today, start_date) so it
-// matches the cursor the backend recomputes on save.
-function _recurringDaysInMonth(y, m) {
-  return new Date(y, m, 0).getDate(); // m is 1-based → day 0 of next month
-}
-function _recurringClampDay(y, m, dom) {
-  return Math.min(dom, _recurringDaysInMonth(y, m));
-}
-function _recurringAddMonths(y, m, months) {
-  const idx = m - 1 + months;
-  return [y + Math.floor(idx / 12), (idx % 12) + 1];
-}
-function _recurringMon0Weekday(y, m, d) {
-  // JS getDay() Sun=0..Sat=6 → backend Mon=0..Sun=6.
-  return (new Date(y, m - 1, d).getDay() + 6) % 7;
-}
-function _recurringCmp(a, b) {
-  return a.y * 10000 + a.m * 100 + a.d - (b.y * 10000 + b.m * 100 + b.d);
-}
-function _recurringMonthStep(frequency) {
-  return frequency === 'yearly' ? 12 : frequency === 'quarterly' ? 3 : 1;
-}
-// First occurrence on/after the START anchor (interval-independent),
-// mirroring recurring.first_occurrence_on_or_after.
-function _recurringFirstOnOrAfter(frequency, anchor, weekday, dom) {
-  if (frequency === 'daily') return { y: anchor.y, m: anchor.m, d: anchor.d };
-  if (frequency === 'weekly') {
-    const cur = _recurringMon0Weekday(anchor.y, anchor.m, anchor.d);
-    const target = weekday == null ? cur : weekday;
-    const ahead = (((target - cur) % 7) + 7) % 7;
-    const dt = new Date(anchor.y, anchor.m - 1, anchor.d + ahead);
-    return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
-  }
-  const day = dom || anchor.d;
-  let cand = { y: anchor.y, m: anchor.m, d: _recurringClampDay(anchor.y, anchor.m, day) };
-  if (_recurringCmp(cand, anchor) < 0) {
-    const [ny, nm] = _recurringAddMonths(anchor.y, anchor.m, _recurringMonthStep(frequency));
-    cand = { y: ny, m: nm, d: _recurringClampDay(ny, nm, day) };
-  }
-  return cand;
-}
-// Occurrence strictly after `after`, honouring interval, mirroring
-// recurring.next_occurrence.
-function _recurringNextOccurrence(frequency, interval, after, weekday, dom) {
-  const iv = Math.max(1, interval || 1);
-  if (frequency === 'daily') {
-    const dt = new Date(after.y, after.m - 1, after.d + iv);
-    return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
-  }
-  if (frequency === 'weekly') {
-    const cur = _recurringMon0Weekday(after.y, after.m, after.d);
-    const target = weekday == null ? cur : weekday;
-    let ahead = (((target - cur) % 7) + 7) % 7;
-    if (ahead === 0) ahead = 7;
-    const dt = new Date(after.y, after.m - 1, after.d + ahead + (iv - 1) * 7);
-    return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate() };
-  }
-  const [ny, nm] = _recurringAddMonths(after.y, after.m, _recurringMonthStep(frequency) * iv);
-  const day = dom || after.d;
-  return { y: ny, m: nm, d: _recurringClampDay(ny, nm, day) };
-}
+// matches the cursor the backend recomputes on save. The pure schedule
+// math (_recurringFirstOnOrAfter, _recurringNextOccurrence, _recurringCmp
+// and friends) lives in utils.js (loaded before this file).
 // The next booking that will actually happen: walk the schedule from
 // the start date through its rhythm (interval-aware) until the first
 // occurrence after today — exactly what create + catch-up produce —
@@ -3781,19 +3661,7 @@ async function renderRecurringView() {
 
 function populateRecurringCategorySelect(selectedId) {
   const sel = document.getElementById('recEditCategory');
-  if (!sel) return;
-  const sorted = [...appState.ledger.categories].sort((a, b) =>
-    a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
-  );
-  const effectiveId = sorted.some((c) => c.id === selectedId)
-    ? selectedId
-    : sorted[0] && sorted[0].id;
-  sel.innerHTML = sorted
-    .map(
-      (c) =>
-        `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`,
-    )
-    .join('');
+  if (sel) _populateCategorySelect(sel, selectedId);
 }
 
 // Validity is a single choice (unlimited / date / count). Toggling
@@ -3959,10 +3827,6 @@ function closeRecurringModal() {
   appState.recurring.editingId = null;
   releaseFocusTrap('recurring');
   restoreModalFocus('recurring');
-}
-
-function closeRecurringModalOutside(e) {
-  if (e.target === document.getElementById('recurringModalOverlay')) closeRecurringModal();
 }
 
 function _recurringPayloadFromForm() {
@@ -4211,9 +4075,6 @@ function closeTagModal() {
   appState.tagEdit.name = null;
   releaseFocusTrap('tag');
   restoreModalFocus('tag');
-}
-function closeTagModalOutside(e) {
-  if (e.target === document.getElementById('tagModalOverlay')) closeTagModal();
 }
 
 async function saveTagEdit() {
@@ -4790,10 +4651,6 @@ function closeApiKeyModal() {
   }
 }
 
-function closeApiKeyModalOutside(e) {
-  if (e.target === document.getElementById('apiKeyFormOverlay')) closeApiKeyModal();
-}
-
 async function submitApiKey() {
   const name = document.getElementById('apiKeyName').value.trim();
   const scopes = [document.getElementById('apiKeyScope').value];
@@ -4831,10 +4688,6 @@ function closeApiKeyCreatedModal() {
   }
 }
 
-function closeApiKeyCreatedModalOutside(e) {
-  if (e.target === document.getElementById('apiKeyCreatedOverlay')) closeApiKeyCreatedModal();
-}
-
 async function copyApiKey() {
   const val = document.getElementById('apiKeyCreatedValue').textContent;
   try {
@@ -4867,9 +4720,6 @@ function closeResetModal() {
   if (!document.getElementById('drawer').classList.contains('open')) {
     document.body.style.overflow = '';
   }
-}
-function closeResetModalOutside(e) {
-  if (e.target === document.getElementById('resetModalOverlay')) closeResetModal();
 }
 
 async function _runReset(path, successMsg) {
@@ -4924,10 +4774,6 @@ function closeCacheModal() {
   if (!document.getElementById('drawer').classList.contains('open')) {
     document.body.style.overflow = '';
   }
-}
-
-function closeCacheModalOutside(e) {
-  if (e.target === document.getElementById('cacheModalOverlay')) closeCacheModal();
 }
 
 async function confirmClearAppCache() {
@@ -5194,9 +5040,6 @@ function closePwModal() {
     document.body.style.overflow = '';
   }
 }
-function closePwModalOutside(e) {
-  if (e.target === document.getElementById('pwModalOverlay')) closePwModal();
-}
 async function submitChangePassword() {
   _setAuthError('pwModalError', '');
   const current = document.getElementById('pwModalCurrent').value;
@@ -5339,9 +5182,6 @@ function closeAdminCreateUserModal() {
     document.body.style.overflow = '';
   }
 }
-function closeAdminCreateUserModalOutside(e) {
-  if (e.target === document.getElementById('adminCreateUserOverlay')) closeAdminCreateUserModal();
-}
 async function submitAdminCreateUser() {
   _setAuthError('adminCreateError', '');
   const username = document.getElementById('adminCreateUsername').value.trim();
@@ -5387,9 +5227,6 @@ function closeAdminResetPwModal() {
   if (!document.getElementById('drawer').classList.contains('open')) {
     document.body.style.overflow = '';
   }
-}
-function closeAdminResetPwModalOutside(e) {
-  if (e.target === document.getElementById('adminResetPwOverlay')) closeAdminResetPwModal();
 }
 async function submitAdminResetPassword() {
   _setAuthError('adminResetPwError', '');
