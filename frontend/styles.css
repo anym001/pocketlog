@@ -3720,22 +3720,18 @@
         padding: var(--space-14) var(--space-16);
         box-shadow: var(--shadow-soft);
       }
-      .api-key-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: var(--space-12);
-        margin-bottom: var(--space-8);
-      }
       .api-key-card-name {
         font-size: var(--fs-body);
         font-weight: 600;
         color: var(--text);
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        margin-bottom: var(--space-8);
+        overflow-wrap: anywhere;
+      }
+      .api-key-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--space-12);
       }
       .api-key-card-meta {
         font-size: var(--fs-caption);
