@@ -219,6 +219,10 @@
         <symbol id="icon-trend-down" viewBox="0 0 256 256" fill="currentColor">
           <path d="M240,128v64a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h44.69L136,107.31l-34.34,34.35a8,8,0,0,1-11.32,0l-72-72A8,8,0,0,1,29.66,58.34L96,124.69l34.34-34.35a8,8,0,0,1,11.32,0L224,172.69V128a8,8,0,0,1,16,0Z"/>
         </symbol>
+        <symbol id="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="12" height="12" rx="2" />
+          <path d="M5 15H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v1" />
+        </symbol>
       </defs>
     </svg>
 
@@ -456,6 +460,10 @@
               <span data-i18n="settings.importExport">Import/Export</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
             </button>
+            <button class="drawer-nav-item" onclick="drawerNav('dpApiKeys')">
+              <span data-i18n="settings.apiKeys">API-Schlüssel</span>
+              <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
+            </button>
             <button class="drawer-nav-item" onclick="drawerNav('dpAccount')">
               <span data-i18n="settings.account">Konto</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
@@ -555,7 +563,28 @@
           </div>
         </div>
 
-        <!-- Panel 2d: Allgemein -->
+        <!-- Panel 2d: API Keys -->
+        <div class="drawer-panel" id="dpApiKeys" data-state="right">
+          <div class="drawer-sub-head">
+            <button
+              class="drawer-back-btn"
+              onclick="drawerBack()"
+              aria-label="Zurück zu Einstellungen"
+              data-i18n-attr="aria-label:common.back"
+            >
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="drawer-sub-title" data-i18n="apiKeys.title">API-Schlüssel</span>
+          </div>
+          <div class="drawer-section">
+            <div class="settings-section">
+              <button class="save-btn" onclick="openApiKeyModal()" data-i18n="apiKeys.create">Neuen Schlüssel erstellen</button>
+              <div id="apiKeyList" class="api-key-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2e: Allgemein -->
         <div class="drawer-panel" id="dpDisplay" data-state="right">
           <div class="drawer-sub-head">
             <button
@@ -1548,7 +1577,78 @@
       </div>
     </div>
 
+    <!-- API KEY: ERSTELLEN -->
+    <div class="modal-overlay" id="apiKeyFormOverlay" onclick="closeApiKeyModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyFormTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeApiKeyModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="apiKeyFormTitle" data-i18n="apiKeys.create">Neuen Schlüssel erstellen</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="apiKeyName" data-i18n="apiKeys.name">Name</label>
+            <input
+              type="text"
+              id="apiKeyName"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              maxlength="100"
+            />
+          </div>
+          <div class="form-group">
+            <label for="apiKeyScope" data-i18n="apiKeys.scopes">Berechtigungen</label>
+            <select id="apiKeyScope">
+              <option value="import" data-i18n="apiKeys.scope.import">Importieren</option>
+              <option value="read" data-i18n="apiKeys.scope.read">Lesen &amp; Exportieren</option>
+              <option value="write" data-i18n="apiKeys.scope.write">Schreiben</option>
+            </select>
+            <p class="form-hint" data-i18n="apiKeys.scope.hint">
+              Schreiben schließt Importieren und Lesen ein.
+            </p>
+          </div>
+          <p class="auth-error" id="apiKeyFormError" hidden role="alert"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="submitApiKey()" data-i18n="common.save">Speichern</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API KEY: ANZEIGEN (einmalig) -->
+    <div class="modal-overlay" id="apiKeyCreatedOverlay" onclick="closeApiKeyCreatedModalOutside(event)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyCreatedTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeApiKeyCreatedModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="apiKeyCreatedTitle" data-i18n="apiKeys.created.title">Schlüssel erstellt</h2>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-msg" data-i18n="apiKeys.created.warning">
+            Dieser Schlüssel wird nur einmal angezeigt und kann danach nicht wiederhergestellt werden.
+          </p>
+          <div class="form-group">
+            <div class="api-key-display">
+              <code id="apiKeyCreatedValue" class="api-key-value"></code>
+              <button class="icon-btn" onclick="copyApiKey()" aria-label="Kopieren" data-i18n-attr="aria-label:apiKeys.created.copy">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-copy" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="closeApiKeyCreatedModal()" data-i18n="common.close">Schließen</button>
+        </div>
+      </div>
+    </div>
+
     <script src="/i18n.js" defer></script>
+    <script src="/utils.js" defer></script>
+    <script src="/reportsData.js" defer></script>
+    <script src="/state.js" defer></script>
     <script src="/app.js" defer></script>
   </body>
 </html>

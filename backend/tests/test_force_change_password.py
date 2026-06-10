@@ -1,8 +1,8 @@
 """Force-Change-Password-Pfad: blockt App-Endpoints, löst Flag nach
 erfolgreichem Change, invalidiert andere Sessions."""
+
 from __future__ import annotations
 
-from sqlalchemy import select as sa_select
 from fastapi.testclient import TestClient
 
 from .conftest import TEST_PASSWORD
@@ -70,7 +70,7 @@ def test_change_password_clears_flag_and_unlocks_api(app, db_session):
 def test_change_password_invalidates_other_sessions(app, db_session):
     """Ein parallel eingeloggter Tab (Session B) muss nach dem
     Password-Change in Session A einen 401 sehen."""
-    from app import auth, crud, models
+    from app import crud
 
     user = crud.create_user(
         db_session,
@@ -80,12 +80,16 @@ def test_change_password_invalidates_other_sessions(app, db_session):
     )
     # Session A
     a = TestClient(app)
-    a.post("/api/auth/login", json={"username": user.username, "password": TEST_PASSWORD})
+    a.post(
+        "/api/auth/login", json={"username": user.username, "password": TEST_PASSWORD}
+    )
     a.headers["X-CSRF-Token"] = a.cookies["pocketlog_csrf"]
 
     # Session B
     b = TestClient(app)
-    b.post("/api/auth/login", json={"username": user.username, "password": TEST_PASSWORD})
+    b.post(
+        "/api/auth/login", json={"username": user.username, "password": TEST_PASSWORD}
+    )
 
     # Beide klappen gerade noch
     assert a.get("/api/categories").status_code == 200
@@ -190,7 +194,8 @@ def test_change_password_no_current_password_when_hash_is_null(app, db_session):
     """Migration path: admin has force_change_password=True but password_hash
     IS NULL. Must be able to set a password without providing a current one."""
     import uuid
-    from app import crud, models
+
+    from app import crud
 
     # Simulate a migrated user: created without a password.
     user = crud.create_user(
@@ -205,6 +210,7 @@ def test_change_password_no_current_password_when_hash_is_null(app, db_session):
 
     # Login is impossible with NULL hash, so we create a session directly.
     from app import auth as auth_mod
+
     session, plain = auth_mod.create_session(
         db_session, user, remember_me=False, user_agent=None
     )

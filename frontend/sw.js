@@ -25,6 +25,9 @@ const SHELL = [
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/utils.js',
+  '/reportsData.js',
+  '/state.js',
   '/i18n.js',
   '/manifest.webmanifest',
   '/db.js',
@@ -58,6 +61,9 @@ function isNetworkFirstShell(url) {
     url.pathname === '/index.html' ||
     url.pathname === '/styles.css' ||
     url.pathname === '/app.js' ||
+    url.pathname === '/utils.js' ||
+    url.pathname === '/reportsData.js' ||
+    url.pathname === '/state.js' ||
     url.pathname === '/i18n.js' ||
     url.pathname === '/db.js' ||
     url.pathname === '/manifest.webmanifest' ||
@@ -81,24 +87,24 @@ self.addEventListener('install', (event) => {
       .open(CACHE)
       .then((c) =>
         Promise.all(
-          SHELL.map((url) =>
-            c.add(url).catch(() => undefined) // fehlende optionale Ressourcen ignorieren
-          )
-        )
+          SHELL.map(
+            (url) => c.add(url).catch(() => undefined), // fehlende optionale Ressourcen ignorieren
+          ),
+        ),
       )
-      .then(() => self.skipWaiting())
+      .then(() => self.skipWaiting()),
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k !== CACHE && k !== API_CACHE)
-          .map((k) => caches.delete(k))
-      )
-    )
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k !== CACHE && k !== API_CACHE).map((k) => caches.delete(k)),
+        ),
+      ),
   );
   self.clients.claim();
 });
@@ -220,25 +226,29 @@ async function handleWrite(request) {
     // IndexedDB, so we must NOT silently queue them with an empty body.
     // Surface a 503 so the caller sees the failure and can retry online.
     const contentType = request.headers.get('Content-Type') || '';
-    const isQueueable =
-      request.method === 'DELETE' ||
-      contentType.includes('application/json');
+    const isQueueable = request.method === 'DELETE' || contentType.includes('application/json');
     if (!isQueueable) {
       return new Response(JSON.stringify({ offline: true }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    const body = request.method === 'DELETE'
-      ? null
-      : await request.clone().json().catch(() => null);
+    const body =
+      request.method === 'DELETE'
+        ? null
+        : await request
+            .clone()
+            .json()
+            .catch(() => null);
     await self.PocketLogOutbox.enqueue({
       method: request.method,
       path: url.pathname.replace(/^\/api/, '') + url.search,
       body,
     });
     if ('sync' in self.registration) {
-      try { await self.registration.sync.register('pocketlog-outbox'); } catch (_) {}
+      try {
+        await self.registration.sync.register('pocketlog-outbox');
+      } catch (_) {}
     }
     return new Response(JSON.stringify({ queued: true }), {
       status: 202,
@@ -285,7 +295,7 @@ self.addEventListener('sync', (event) => {
             clients.forEach((c) => c.postMessage({ type: 'SYNC_DONE', ok, failed }));
           });
         }
-      })
+      }),
     );
   }
 });

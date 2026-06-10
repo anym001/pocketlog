@@ -1,4 +1,5 @@
 """Logout-Endpoint: löscht Session, clear-t Cookies, CSRF-Pflicht."""
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -8,6 +9,7 @@ from .conftest import TEST_PASSWORD
 
 def test_logout_removes_session_and_clears_cookies(app, regular_user, db_session):
     from sqlalchemy import select as sa_select
+
     from app import models
 
     client = TestClient(app)
@@ -18,9 +20,7 @@ def test_logout_removes_session_and_clears_cookies(app, regular_user, db_session
     csrf = login.json()["user"]["csrf_token"]
 
     session_row = db_session.scalar(
-        sa_select(models.Session).where(
-            models.Session.user_id == regular_user.id
-        )
+        sa_select(models.Session).where(models.Session.user_id == regular_user.id)
     )
     assert session_row is not None
 
@@ -30,9 +30,7 @@ def test_logout_removes_session_and_clears_cookies(app, regular_user, db_session
     # Session-Row in der DB ist weg.
     db_session.expire_all()
     after = db_session.scalar(
-        sa_select(models.Session).where(
-            models.Session.user_id == regular_user.id
-        )
+        sa_select(models.Session).where(models.Session.user_id == regular_user.id)
     )
     assert after is None
 

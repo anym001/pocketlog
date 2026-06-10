@@ -34,7 +34,9 @@
 
   // Translation bundle for a locale (primary subtag, fallback to first bundle).
   function bundleFor(locale) {
-    const sub = String(locale || '').split('-')[0].toLowerCase();
+    const sub = String(locale || '')
+      .split('-')[0]
+      .toLowerCase();
     return BUNDLES.indexOf(sub) !== -1 ? sub : BUNDLES[0];
   }
 
@@ -146,7 +148,7 @@
     applyStatic(document);
     if (opts.silent !== true) {
       document.dispatchEvent(
-        new CustomEvent('i18n:changed', { detail: { locale: _locale, currency: _currency } })
+        new CustomEvent('i18n:changed', { detail: { locale: _locale, currency: _currency } }),
       );
     }
     return _locale;
@@ -162,7 +164,7 @@
     }
     if (opts.silent !== true) {
       document.dispatchEvent(
-        new CustomEvent('i18n:changed', { detail: { locale: _locale, currency: _currency } })
+        new CustomEvent('i18n:changed', { detail: { locale: _locale, currency: _currency } }),
       );
     }
   }

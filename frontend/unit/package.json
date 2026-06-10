@@ -1,0 +1,13 @@
+{
+  "name": "pocketlog-unit",
+  "private": true,
+  "type": "module",
+  "description": "Vitest unit tests for the PocketLog frontend's pure helpers.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "jsdom": "25.0.1",
+    "vitest": "2.1.8"
+  }
+}

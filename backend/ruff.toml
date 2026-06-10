@@ -1,0 +1,22 @@
+# Ruff configuration for the PocketLog backend.
+#
+# Conservative rule set: catch real bugs and unused code (Pyflakes), keep
+# imports tidy and sorted (isort), and modernise obvious Python idioms
+# (pyupgrade) — without enforcing opinionated rules the code deliberately
+# breaks. `ruff format` owns layout, so the line-length below is the formatter
+# target, not a hard E501 gate.
+line-length = 88
+target-version = "py312"
+
+# Alembic migrations are generated and frozen once applied. Their import
+# order, `typing.Union` boilerplate and layout match the generator template,
+# so ruff leaves them untouched entirely (lint and format).
+extend-exclude = ["migrations"]
+
+[lint]
+# E/W: pycodestyle, F: Pyflakes, I: isort, UP: pyupgrade, B: flake8-bugbear.
+select = ["E", "W", "F", "I", "UP", "B"]
+# B904 (raise ... from) touches every except clause; the domain-exception
+# refactor reshapes that error handling on its own terms, so we don't force
+# the chaining annotation here.
+ignore = ["B904"]

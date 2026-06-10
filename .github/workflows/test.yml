@@ -9,6 +9,53 @@ on:
   workflow_call:
 
 jobs:
+  lint-backend:
+    # Static gate: ruff lint + format check on the backend. Catches style and
+    # import regressions before they reach review. No app boot, so it's fast.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.15.16
+      - name: ruff check
+        run: ruff check .
+        working-directory: backend
+      - name: ruff format --check
+        run: ruff format --check .
+        working-directory: backend
+
+  lint-frontend:
+    # Static gate for the frontend JS: Prettier format check + ESLint. Fast,
+    # no browser — the UI flow is covered by the Playwright `smoke` job.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+      - run: npm install
+      - name: prettier --check
+        run: npm run format:check
+      - name: eslint
+        run: npm run lint:js
+
+  unit-frontend:
+    # Vitest unit tests for the frontend's pure helpers (frontend/utils.js).
+    # Fast, no browser — the full UI flow is covered by the Playwright smoke
+    # in the `smoke` job below.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+      - run: npm install
+        working-directory: frontend/unit
+      - run: npm test
+        working-directory: frontend/unit
+
   test-sqlite:
     # Full pytest suite on the default SQLite backend (also runs all
     # migrations against SQLite via the conftest session fixture).
