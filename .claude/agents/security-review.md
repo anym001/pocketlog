@@ -16,6 +16,12 @@ You are a security reviewer for PocketLog. Focus on real vulnerabilities — not
 - The dependency chain has three levels: unauthenticated access → session-valid user → active-password user → admin; read `auth.py` for current names and which endpoints use which level
 - `X-Authentik-Username` and `X-Auth-Secret` are NOT used by the app — Authentik handles domain-level auth only; the app never reads proxy-injected identity headers
 
+**API keys / Bearer auth**
+- API keys are bearer tokens (`Authorization: Bearer plk_…`) for programmatic access — the raw key is returned **once** at creation and only its SHA256 hex is stored; the plain `plk_…` value must never appear in logs or responses (same rule as session tokens)
+- The Bearer path **bypasses CSRF by design** — browsers never send the `Authorization` header automatically, so CSRF does not apply. This is not a vulnerability; do not flag it. Cookie/session calls still require `X-CSRF-Token`
+- Scope enforcement: the validator checks the key has the required scope (or `admin`) → wrong scope must be `403`, expired/revoked/unknown key must be `401` — read `deps.py` (`_validate_api_key_user`, `get_import_user`) for the current chain
+- A key resolves to its owning user; every downstream query stays `user_id`-scoped — a key never crosses user boundaries
+
 **Multi-tenancy**
 - Every CRUD function has a `user_id: int` parameter — no query ever returns another user's data
 - Admin endpoints (`/api/admin/*`) require the admin dependency — read `auth.py` for current dependency names and stacking order
