@@ -4755,7 +4755,9 @@ function renderApiKeys() {
     used.textContent =
       tr('apiKeys.lastUsed') +
       ': ' +
-      (key.last_used_at ? new Date(key.last_used_at).toLocaleDateString(locale) : tr('apiKeys.never'));
+      (key.last_used_at
+        ? new Date(key.last_used_at).toLocaleDateString(locale)
+        : tr('apiKeys.never'));
     meta.appendChild(used);
     footer.appendChild(meta);
 
