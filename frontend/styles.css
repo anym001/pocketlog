@@ -3730,7 +3730,7 @@
       .api-key-card-footer {
         display: flex;
         justify-content: space-between;
-        align-items: flex-end;
+        align-items: stretch;
         gap: var(--space-12);
       }
       .api-key-card-meta {
