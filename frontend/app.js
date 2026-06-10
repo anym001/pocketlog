@@ -4726,10 +4726,22 @@ function renderApiKeys() {
     const card = document.createElement('div');
     card.className = 'api-key-card';
 
+    const header = document.createElement('div');
+    header.className = 'api-key-card-header';
+
     const name = document.createElement('div');
     name.className = 'api-key-card-name';
     name.textContent = key.name;
-    card.appendChild(name);
+    header.appendChild(name);
+
+    const revokeBtn = document.createElement('button');
+    revokeBtn.className = 'api-key-revoke-btn';
+    revokeBtn.setAttribute('data-i18n', 'apiKeys.revoke');
+    revokeBtn.textContent = tr('apiKeys.revoke');
+    revokeBtn.onclick = () => revokeApiKey(key.id, key.name);
+    header.appendChild(revokeBtn);
+
+    card.appendChild(header);
 
     const scopes = document.createElement('div');
     scopes.className = 'api-key-card-scopes';
@@ -4755,15 +4767,6 @@ function renderApiKeys() {
       meta.appendChild(used);
     }
     card.appendChild(meta);
-
-    const actions = document.createElement('div');
-    actions.className = 'api-key-card-actions';
-    const revokeBtn = document.createElement('button');
-    revokeBtn.setAttribute('data-i18n', 'apiKeys.revoke');
-    revokeBtn.textContent = tr('apiKeys.revoke');
-    revokeBtn.onclick = () => revokeApiKey(key.id, key.name);
-    actions.appendChild(revokeBtn);
-    card.appendChild(actions);
 
     list.appendChild(card);
   });
