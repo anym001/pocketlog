@@ -3813,40 +3813,6 @@
         outline: none;
         box-shadow: var(--focus-ring);
       }
-      /* Radio group (API key scope selector) */
-      .checkbox-group {
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-8);
-        margin-top: var(--space-8);
-      }
-      .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: var(--space-10);
-        font-size: var(--fs-body);
-        color: var(--text);
-        cursor: pointer;
-        padding: var(--space-12) var(--space-14);
-        border: 1.5px solid var(--surface-tint);
-        border-radius: var(--r-sm);
-        transition: border-color 0.15s, background 0.15s;
-      }
-      .checkbox-label:has(input:checked) {
-        border-color: var(--accent);
-        background: var(--accent-tint);
-        color: var(--accent);
-        font-weight: 500;
-      }
-      .checkbox-label input[type='radio'] {
-        width: var(--space-20);
-        height: var(--space-20);
-        min-height: 0;
-        flex-shrink: 0;
-        accent-color: var(--accent);
-        cursor: pointer;
-      }
-
       /* Reduced motion */
       @media (prefers-reduced-motion: reduce) {
         *,

@@ -12,7 +12,7 @@ from datetime import date as date_type
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from .. import crud, errors, recurring, schemas
-from ..deps import DB, CurrentUser
+from ..deps import DB, ReadUser, WriteUser
 
 audit = logging.getLogger("pocketlog.audit")
 
@@ -26,7 +26,7 @@ router = APIRouter()
 )
 def get_transactions(
     request: Request,
-    user: CurrentUser,
+    user: ReadUser,
     db: DB,
     year: int | None = Query(default=None, ge=1900, le=2999),
     month: int | None = Query(default=None, ge=1, le=12),
@@ -64,7 +64,7 @@ def get_transactions(
     response_model_by_alias=True,
     status_code=201,
 )
-def post_transaction(payload: schemas.TransactionCreate, user: CurrentUser, db: DB):
+def post_transaction(payload: schemas.TransactionCreate, user: WriteUser, db: DB):
     # A foreign category raises UnknownCategoryError -> 400 (global handler).
     return crud.create_transaction(db, user.id, payload)
 
@@ -77,7 +77,7 @@ def post_transaction(payload: schemas.TransactionCreate, user: CurrentUser, db: 
 def put_transaction(
     tx_id: int,
     payload: schemas.TransactionUpdate,
-    user: CurrentUser,
+    user: WriteUser,
     db: DB,
 ):
     tx = crud.update_transaction(db, user.id, tx_id, payload)
@@ -87,7 +87,7 @@ def put_transaction(
 
 
 @router.delete("/api/transactions/{tx_id}", status_code=204)
-def remove_transaction(tx_id: int, user: CurrentUser, db: DB):
+def remove_transaction(tx_id: int, user: WriteUser, db: DB):
     if not crud.delete_transaction(db, user.id, tx_id):
         raise errors.not_found()
     return Response(status_code=204)
