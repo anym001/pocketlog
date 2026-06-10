@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .. import exceptions, models, schemas
+from ._shared import _get_owned
 from .categories import _owned_category_exists
 from .tags import _resolve_tags
 
@@ -37,14 +38,7 @@ def _subtract_months(anchor: date_type, months: int) -> date_type:
 def _load_rule(
     db: Session, user_id: int, rule_id: int
 ) -> "models.RecurringRule | None":
-    return db.scalar(
-        select(models.RecurringRule).where(
-            and_(
-                models.RecurringRule.id == rule_id,
-                models.RecurringRule.user_id == user_id,
-            )
-        )
-    )
+    return _get_owned(db, models.RecurringRule, user_id, rule_id)
 
 
 def list_recurring_rules(db: Session, user_id: int) -> list[models.RecurringRule]:

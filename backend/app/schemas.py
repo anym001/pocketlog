@@ -43,22 +43,58 @@ def _strip_control_required(value: str) -> str:
     return cleaned
 
 
+def _normalise_tag_list(value: list[str] | None) -> list[str] | None:
+    """Shared between TransactionIn and RecurringRuleBase.
+
+    Strips control chars, deduplicates case-insensitively (casefold,
+    not lower — see ``crud._find_tag_by_name``) and enforces the
+    per-record cap. Returns ``None`` when the caller didn't provide
+    the field, ``[]`` when explicitly empty.
+    """
+    if value is None:
+        return None
+    if len(value) > MAX_TAGS_PER_TX:
+        raise ValueError(f"too many tags (max {MAX_TAGS_PER_TX})")
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in value:
+        if not isinstance(raw, str):
+            raise ValueError("tags must be strings")
+        tag = _TAG_CONTROL_CHARS.sub("", raw).strip()
+        if not tag:
+            raise ValueError("tag must not be empty")
+        if len(tag) > MAX_TAG_LENGTH:
+            raise ValueError(f"tag too long (max {MAX_TAG_LENGTH})")
+        key = tag.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(tag)
+    return cleaned
+
+
+# Reusable field types for the recurring normalisation patterns — the same
+# Annotated+AfterValidator idiom as Locale/Currency/NewPassword further down,
+# replacing per-class copies of the identical @field_validator.
+# A user-facing name: control chars stripped, must be non-empty afterwards.
+NameStr = Annotated[str, AfterValidator(_strip_control_required)]
+# Free text that may be empty (descriptions): control chars stripped silently.
+FreeText = Annotated[str, AfterValidator(_strip_control)]
+# A tags payload: stripped, case-insensitively deduplicated, capped.
+TagList = Annotated[list[str] | None, AfterValidator(_normalise_tag_list)]
+
+
 # -------- Categories --------
 
 
 class CategoryBase(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: NameStr = Field(min_length=1, max_length=100)
     # Icon ID from the bundled Phosphor sprite (frontend/icons/categories/
     # sprite.svg). Slug-form, no whitespace, no emoji — kept lax here so a
     # new sprite icon can ship in the frontend without a coupled backend
     # release. Unknown IDs render as the default `package` glyph client-side.
     icon: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$", default="package")
     color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", default="#9e9b96")
-
-    @field_validator("name", mode="after")
-    @classmethod
-    def _normalise_name(cls, value: str) -> str:
-        return _strip_control_required(value)
 
 
 class CategoryCreate(CategoryBase):
@@ -78,7 +114,7 @@ class CategoryOut(CategoryBase):
 
 
 class GoalBase(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: NameStr = Field(min_length=1, max_length=100)
     # 'save_up' counts contributions up to target_amount; 'pay_down'
     # counts repayments down from initial_amount toward target_amount.
     direction: Literal["save_up", "pay_down"]
@@ -97,11 +133,6 @@ class GoalBase(BaseModel):
     # fall back to the default glyph client-side.
     icon: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$", default="piggy-bank")
     color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", default="#9e9b96")
-
-    @field_validator("name", mode="after")
-    @classmethod
-    def _normalise_name(cls, value: str) -> str:
-        return _strip_control_required(value)
 
     @model_validator(mode="after")
     def _check_amounts(self) -> "GoalBase":
@@ -142,21 +173,11 @@ class GoalOut(GoalBase):
 
 
 class TagCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=64)
-
-    @field_validator("name", mode="after")
-    @classmethod
-    def _normalise_name(cls, value: str) -> str:
-        return _strip_control_required(value)
+    name: NameStr = Field(min_length=1, max_length=64)
 
 
 class TagRename(BaseModel):
-    new_name: str = Field(min_length=1, max_length=64)
-
-    @field_validator("new_name", mode="after")
-    @classmethod
-    def _normalise_new_name(cls, value: str) -> str:
-        return _strip_control_required(value)
+    new_name: NameStr = Field(min_length=1, max_length=64)
 
 
 class TagOut(BaseModel):
@@ -169,57 +190,17 @@ class TagOut(BaseModel):
 # (avoids reserved-word conflicts). The Pydantic alias accepts both.
 
 
-def _normalise_tag_list(value: list[str] | None) -> list[str] | None:
-    """Shared between TransactionIn and RecurringRuleBase.
-
-    Strips control chars, deduplicates case-insensitively (casefold,
-    not lower — see ``crud._find_tag_by_name``) and enforces the
-    per-record cap. Returns ``None`` when the caller didn't provide
-    the field, ``[]`` when explicitly empty.
-    """
-    if value is None:
-        return None
-    if len(value) > MAX_TAGS_PER_TX:
-        raise ValueError(f"too many tags (max {MAX_TAGS_PER_TX})")
-    cleaned: list[str] = []
-    seen: set[str] = set()
-    for raw in value:
-        if not isinstance(raw, str):
-            raise ValueError("tags must be strings")
-        tag = _TAG_CONTROL_CHARS.sub("", raw).strip()
-        if not tag:
-            raise ValueError("tag must not be empty")
-        if len(tag) > MAX_TAG_LENGTH:
-            raise ValueError(f"tag too long (max {MAX_TAG_LENGTH})")
-        key = tag.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        cleaned.append(tag)
-    return cleaned
-
-
 class TransactionIn(BaseModel):
     amount: Decimal = Field(gt=0, decimal_places=2, max_digits=12)
-    description: str = Field(default="", max_length=255, alias="desc")
+    # Description is allowed to be empty (default=""), so FreeText strips
+    # control chars silently without the not-empty check.
+    description: FreeText = Field(default="", max_length=255, alias="desc")
     category_id: int
     date: date_type
     type: Literal["in", "out"]
-    tags: list[str] | None = None
+    tags: TagList = None
 
     model_config = ConfigDict(populate_by_name=True)
-
-    @field_validator("description", mode="after")
-    @classmethod
-    def _normalise_description(cls, value: str) -> str:
-        # Description is allowed to be empty (default=""), so strip control
-        # chars silently without the not-empty check.
-        return _strip_control(value)
-
-    @field_validator("tags")
-    @classmethod
-    def _normalise_tags(cls, value: list[str] | None) -> list[str] | None:
-        return _normalise_tag_list(value)
 
 
 class TransactionCreate(TransactionIn):
@@ -276,12 +257,12 @@ class TransactionOut(BaseModel):
 
 
 class RecurringRuleBase(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: NameStr = Field(min_length=1, max_length=100)
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     type: Literal["in", "out"]
     category_id: int
-    description: str = Field(default="", max_length=255, alias="desc")
-    tags: list[str] | None = None
+    description: FreeText = Field(default="", max_length=255, alias="desc")
+    tags: TagList = None
     frequency: Literal["daily", "weekly", "monthly", "quarterly", "yearly"]
     interval: int = Field(default=1, ge=1, le=365)
     # 0=Mon, 6=Sun. Required iff weekly. Ignored otherwise (but stored
@@ -297,21 +278,6 @@ class RecurringRuleBase(BaseModel):
     active: bool = True
 
     model_config = ConfigDict(populate_by_name=True)
-
-    @field_validator("name", mode="after")
-    @classmethod
-    def _normalise_name(cls, value: str) -> str:
-        return _strip_control_required(value)
-
-    @field_validator("description", mode="after")
-    @classmethod
-    def _normalise_description(cls, value: str) -> str:
-        return _strip_control(value)
-
-    @field_validator("tags")
-    @classmethod
-    def _normalise_tags(cls, value: list[str] | None) -> list[str] | None:
-        return _normalise_tag_list(value)
 
     @model_validator(mode="after")
     def _check_cross_fields(self) -> "RecurringRuleBase":
