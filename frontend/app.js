@@ -4714,11 +4714,12 @@ function renderApiKeys() {
     return;
   }
 
+  // admin is no longer an offered scope; any legacy key still carrying it
+  // falls back to its raw scope name ("admin") via the `|| s` below.
   const scopeLabels = {
     import: tr('apiKeys.scope.import'),
     read: tr('apiKeys.scope.read'),
     write: tr('apiKeys.scope.write'),
-    admin: tr('apiKeys.scope.admin'),
   };
 
   _apiKeys.forEach((key) => {
@@ -4770,8 +4771,7 @@ function renderApiKeys() {
 
 function openApiKeyModal() {
   document.getElementById('apiKeyName').value = '';
-  document.querySelectorAll('input[name="apiKeyScope"]').forEach((r) => (r.checked = false));
-  document.getElementById('adminScopeWarning').hidden = true;
+  document.getElementById('apiKeyScope').value = 'import';
   document.getElementById('apiKeyFormError').hidden = true;
   document.getElementById('apiKeyFormOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -4789,15 +4789,9 @@ function closeApiKeyModalOutside(e) {
   if (e.target === document.getElementById('apiKeyFormOverlay')) closeApiKeyModal();
 }
 
-function toggleAdminScopeWarning() {
-  const checked = document.getElementById('scopeAdmin').checked;
-  document.getElementById('adminScopeWarning').hidden = !checked;
-}
-
 async function submitApiKey() {
   const name = document.getElementById('apiKeyName').value.trim();
-  const selectedScope = document.querySelector('input[name="apiKeyScope"]:checked');
-  const scopes = selectedScope ? [selectedScope.value] : [];
+  const scopes = [document.getElementById('apiKeyScope').value];
 
   const errEl = document.getElementById('apiKeyFormError');
   if (!name) {

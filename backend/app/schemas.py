@@ -486,13 +486,16 @@ class ImportResult(BaseModel):
 # Per-user bearer tokens with configurable scopes for programmatic access.
 # The raw key (plk_<base64url>) is returned once at creation (ApiKeyCreateResponse)
 # and never persisted — only the SHA-256 hash is stored.
-
-_VALID_SCOPES = {"import", "read", "write", "admin"}
+#
+# Three data scopes, hierarchical (write ⊇ import/read; see deps._SCOPE_GRANTS).
+# There is no admin *data* scope: user management, mass-delete and key
+# management stay session-only and are never reachable via a bearer token.
+_VALID_SCOPES = {"import", "read", "write"}
 
 
 class ApiKeyCreate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=100)]
-    scopes: list[Literal["import", "read", "write", "admin"]]
+    scopes: list[Literal["import", "read", "write"]]
 
     @field_validator("name")
     @classmethod
