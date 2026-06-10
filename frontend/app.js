@@ -4726,22 +4726,10 @@ function renderApiKeys() {
     const card = document.createElement('div');
     card.className = 'api-key-card';
 
-    const header = document.createElement('div');
-    header.className = 'api-key-card-header';
-
     const name = document.createElement('div');
     name.className = 'api-key-card-name';
     name.textContent = key.name;
-    header.appendChild(name);
-
-    const revokeBtn = document.createElement('button');
-    revokeBtn.className = 'api-key-revoke-btn';
-    revokeBtn.setAttribute('data-i18n', 'apiKeys.revoke');
-    revokeBtn.textContent = tr('apiKeys.revoke');
-    revokeBtn.onclick = () => revokeApiKey(key.id, key.name);
-    header.appendChild(revokeBtn);
-
-    card.appendChild(header);
+    card.appendChild(name);
 
     const scopes = document.createElement('div');
     scopes.className = 'api-key-card-scopes';
@@ -4752,6 +4740,9 @@ function renderApiKeys() {
       scopes.appendChild(chip);
     });
     card.appendChild(scopes);
+
+    const footer = document.createElement('div');
+    footer.className = 'api-key-card-footer';
 
     const meta = document.createElement('div');
     meta.className = 'api-key-card-meta';
@@ -4766,7 +4757,16 @@ function renderApiKeys() {
         tr('apiKeys.lastUsed') + ': ' + new Date(key.last_used_at).toLocaleDateString(locale);
       meta.appendChild(used);
     }
-    card.appendChild(meta);
+    footer.appendChild(meta);
+
+    const revokeBtn = document.createElement('button');
+    revokeBtn.className = 'api-key-revoke-btn';
+    revokeBtn.setAttribute('data-i18n', 'apiKeys.revoke');
+    revokeBtn.textContent = tr('apiKeys.revoke');
+    revokeBtn.onclick = () => revokeApiKey(key.id, key.name);
+    footer.appendChild(revokeBtn);
+
+    card.appendChild(footer);
 
     list.appendChild(card);
   });
