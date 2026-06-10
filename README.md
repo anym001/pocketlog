@@ -18,6 +18,7 @@ no tracking, no telemetry.
 - [Configuration](#configuration)
 - [Reverse Proxy](#reverse-proxy)
 - [Login & Security](#login--security)
+- [API Access](#api-access)
 - [Logging & Audit Trail](#logging--audit-trail)
 - [Emergency Recovery](#emergency-recovery)
 - [Image](#image)
@@ -45,7 +46,12 @@ no tracking, no telemetry.
   and forecast
 - **Search** — full-text, category, and tag filtering in the transaction list
 - **CSV Import / Export** — UTF-8 or CP1252, max. 5 MB; export all transactions as
-  semicolon-delimited CSV
+  semicolon-delimited CSV. Import is also available over the API for automated
+  workflows (see [API Access](#api-access)), with duplicate rows skipped on
+  re-import so overlapping bank exports don't double-book
+- **API access** — per-user **API keys** (bearer tokens) with scoped permissions
+  (import, read, write, admin) for programmatic access; lets external tools drive
+  the CSV import without a browser session (see [API Access](#api-access))
 - **Offline capability** — app works without a connection; changes sync automatically
   when back online
 - **Themes** — Light, Dark, System (saved in settings)
@@ -173,6 +179,66 @@ server {
   kicks in; admins can lift it via _Reset Password_
 - **Session**: active for 24 hours by default, 30 days with "Stay logged in";
   after an absolute maximum of 7 or 90 days a new login is required
+
+## API Access
+
+Beyond the browser, PocketLog exposes its API for programmatic access via
+**API keys** (bearer tokens). The primary use case is **automated CSV import** —
+for example a bridge tool that converts your bank's export and uploads it on a
+schedule — without needing an interactive browser session.
+
+### Creating a key
+
+Open _Settings → API keys_, enter a name, choose a scope, and create the key.
+The key (format `plk_…`) is **shown only once** — copy it right away; PocketLog
+stores only its hash and cannot recover the original. You can revoke a key at any
+time from the same screen.
+
+Each key carries a single scope:
+
+| Scope | Grants |
+|---|---|
+| `import` | CSV import (`POST /api/import/csv`) |
+| `read` | read endpoints (transactions, categories, tags, CSV export) |
+| `write` | create / update / delete transactions, categories, tags, … |
+| `admin` | full access, including user management |
+
+`admin` implies all other scopes. Keys are bound to the user who created them and
+respect the same per-user data isolation as the web UI.
+
+### Importing a CSV via the API
+
+Send the file as multipart form data with the key in the `Authorization` header:
+
+```bash
+curl -X POST https://pocketlog.example.com/api/import/csv \
+  -H "Authorization: Bearer plk_your_key_here" \
+  -F "file=@transactions.csv"
+```
+
+Response:
+
+```json
+{ "imported": 12, "skipped": 0, "deduped": 0, "errors": [] }
+```
+
+The CSV uses a header row with the columns `date`, `amount`, `type`,
+`description`, `category`, and `tags`; the delimiter (`;`, `,`, tab, or `|`) is
+auto-detected. A ready-made example is available under _Settings → CSV import_.
+
+**Deduplication:** every imported row gets a fingerprint derived from its date,
+amount, description, and type. Re-importing an overlapping export skips rows that
+are already present instead of booking them twice — those are counted under
+`deduped`:
+
+```json
+{ "imported": 0, "skipped": 0, "deduped": 12, "errors": [] }
+```
+
+Unlike browser requests, bearer-token calls do **not** require the CSRF header
+(a browser never sends the token automatically, so CSRF does not apply). All
+other security — per-user isolation, the 5 MB / row limits, and formula-injection
+guards — applies identically.
 
 ## Logging & Audit Trail
 
