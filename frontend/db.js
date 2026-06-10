@@ -1,5 +1,5 @@
-// IndexedDB-Outbox für Offline-Schreibvorgänge.
-// Verwendet von index.html und sw.js gleichermaßen.
+// IndexedDB outbox for offline write operations.
+// Used by index.html and sw.js alike.
 
 (function (global) {
   const DB_NAME = 'pocketlog';
@@ -106,21 +106,20 @@
     });
   }
 
-  // Spielt die Outbox ab. Liefert {ok, failed}:
-  //   ok     – Anzahl erfolgreich abgearbeiteter Einträge
-  //   failed – Anzahl Einträge, die der Server mit 4xx abgelehnt hat
-  //            (Validation, Not Found …). Diese landen im Failed-Store,
-  //            damit sie nicht stillschweigend verschwinden.
-  // 5xx- und Netzfehler brechen die Schleife ab — der Eintrag bleibt
-  // in der Outbox und wird beim nächsten Sync erneut versucht.
+  // Replays the outbox. Returns {ok, failed}:
+  //   ok     – number of entries processed successfully
+  //   failed – number of entries the server rejected with a 4xx
+  //            (validation, not found …). These land in the failed
+  //            store so they don't vanish silently.
+  // 5xx and network errors abort the loop — the entry stays in the
+  // outbox and is retried on the next sync.
   //
-  // 401 ist ein Sonderfall: bedeutet „Session abgelaufen / abgemeldet".
-  // Der Eintrag DARF NICHT als failed verworfen werden — der User muss
-  // sich erst neu einloggen, und dann läuft der Replay weiter. Wir
-  // brechen also wie bei 5xx ab, ohne den Eintrag zu konsumieren.
-  // Für state-changing Requests muss der Replay zudem den
-  // CSRF-Header mitschicken; das Token bekommen wir vom Client per
-  // setCsrfToken().
+  // 401 is a special case: it means "session expired / logged out".
+  // The entry MUST NOT be discarded as failed — the user has to log in
+  // again first, then the replay continues. So we abort like on a 5xx,
+  // without consuming the entry.
+  // For state-changing requests the replay must also send the CSRF
+  // header; we get the token from the client via setCsrfToken().
   let _csrfToken = '';
   function setCsrfToken(value) {
     _csrfToken = typeof value === 'string' ? value : '';
@@ -149,8 +148,8 @@
         await remove(item.id);
         ok++;
       } else if (res.status === 401) {
-        // Session weg — Replay erst nach erneutem Login möglich.
-        // Eintrag bleibt erhalten, Loop bricht ab.
+        // Session gone — replay only possible after a fresh login.
+        // The entry is kept, the loop aborts.
         break;
       } else if (res.status >= 400 && res.status < 500) {
         const detail = await res.text().catch(() => '');
@@ -164,7 +163,7 @@
         await remove(item.id);
         failed++;
       } else {
-        break; // 5xx: später erneut versuchen
+        break; // 5xx: retry later
       }
     }
     return { ok, failed };
