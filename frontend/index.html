@@ -1083,7 +1083,7 @@
     </div>
 
     <!-- TAG ADD/EDIT MODAL -->
-    <div class="modal-overlay" id="tagModalOverlay" onclick="closeTagModalOutside(event)">
+    <div class="modal-overlay" id="tagModalOverlay" onclick="closeOnBackdrop(event, closeTagModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tagModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeTagModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1175,7 +1175,7 @@
     </div>
 
     <!-- CATEGORY ADD/EDIT MODAL -->
-    <div class="modal-overlay" id="catModalOverlay" onclick="closeCatModalOutside(event)">
+    <div class="modal-overlay" id="catModalOverlay" onclick="closeOnBackdrop(event, closeCatModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeCatModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1222,7 +1222,7 @@
     </div>
 
     <!-- GOAL MODAL (create / edit savings or debt goal) -->
-    <div class="modal-overlay" id="goalModalOverlay" onclick="closeGoalModalOutside(event)">
+    <div class="modal-overlay" id="goalModalOverlay" onclick="closeOnBackdrop(event, closeGoalModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="goalModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeGoalModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1278,7 +1278,7 @@
     </div>
 
     <!-- RECURRING RULE MODAL (create / edit) -->
-    <div class="modal-overlay" id="recurringModalOverlay" onclick="closeRecurringModalOutside(event)">
+    <div class="modal-overlay" id="recurringModalOverlay" onclick="closeOnBackdrop(event, closeRecurringModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recurringModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeRecurringModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1402,7 +1402,7 @@
     </div>
 
     <!-- CACHE-CLEAR MODAL -->
-    <div class="modal-overlay" id="cacheModalOverlay" onclick="closeCacheModalOutside(event)">
+    <div class="modal-overlay" id="cacheModalOverlay" onclick="closeOnBackdrop(event, closeCacheModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cacheModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeCacheModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1423,7 +1423,7 @@
     </div>
 
     <!-- RESET / DATA-DELETE MODAL -->
-    <div class="modal-overlay" id="resetModalOverlay" onclick="closeResetModalOutside(event)">
+    <div class="modal-overlay" id="resetModalOverlay" onclick="closeOnBackdrop(event, closeResetModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeResetModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1458,7 +1458,7 @@
     </div>
 
     <!-- PASSWORD-CHANGE MODAL (Self-Service via Konto-Drawer) -->
-    <div class="modal-overlay" id="pwModalOverlay" onclick="closePwModalOutside(event)">
+    <div class="modal-overlay" id="pwModalOverlay" onclick="closeOnBackdrop(event, closePwModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pwModalTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closePwModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1504,7 +1504,7 @@
     </div>
 
     <!-- ADMIN: NEUEN BENUTZER ANLEGEN -->
-    <div class="modal-overlay" id="adminCreateUserOverlay" onclick="closeAdminCreateUserModalOutside(event)">
+    <div class="modal-overlay" id="adminCreateUserOverlay" onclick="closeOnBackdrop(event, closeAdminCreateUserModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminCreateUserTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeAdminCreateUserModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1546,7 +1546,7 @@
     </div>
 
     <!-- ADMIN: PASSWORT ZURÜCKSETZEN -->
-    <div class="modal-overlay" id="adminResetPwOverlay" onclick="closeAdminResetPwModalOutside(event)">
+    <div class="modal-overlay" id="adminResetPwOverlay" onclick="closeOnBackdrop(event, closeAdminResetPwModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminResetPwTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeAdminResetPwModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1578,7 +1578,7 @@
     </div>
 
     <!-- API KEY: ERSTELLEN -->
-    <div class="modal-overlay" id="apiKeyFormOverlay" onclick="closeApiKeyModalOutside(event)">
+    <div class="modal-overlay" id="apiKeyFormOverlay" onclick="closeOnBackdrop(event, closeApiKeyModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyFormTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeApiKeyModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
@@ -1618,7 +1618,7 @@
     </div>
 
     <!-- API KEY: ANZEIGEN (einmalig) -->
-    <div class="modal-overlay" id="apiKeyCreatedOverlay" onclick="closeApiKeyCreatedModalOutside(event)">
+    <div class="modal-overlay" id="apiKeyCreatedOverlay" onclick="closeOnBackdrop(event, closeApiKeyCreatedModal)">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyCreatedTitle">
         <div class="modal-header">
           <button class="modal-cancel-btn" onclick="closeApiKeyCreatedModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
