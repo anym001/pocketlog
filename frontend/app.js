@@ -4741,6 +4741,9 @@ function renderApiKeys() {
     });
     card.appendChild(scopes);
 
+    const footer = document.createElement('div');
+    footer.className = 'api-key-card-footer';
+
     const meta = document.createElement('div');
     meta.className = 'api-key-card-meta';
     const locale = I18N.getLocale();
@@ -4754,16 +4757,16 @@ function renderApiKeys() {
         tr('apiKeys.lastUsed') + ': ' + new Date(key.last_used_at).toLocaleDateString(locale);
       meta.appendChild(used);
     }
-    card.appendChild(meta);
+    footer.appendChild(meta);
 
-    const actions = document.createElement('div');
-    actions.className = 'api-key-card-actions';
     const revokeBtn = document.createElement('button');
+    revokeBtn.className = 'api-key-revoke-btn';
     revokeBtn.setAttribute('data-i18n', 'apiKeys.revoke');
     revokeBtn.textContent = tr('apiKeys.revoke');
     revokeBtn.onclick = () => revokeApiKey(key.id, key.name);
-    actions.appendChild(revokeBtn);
-    card.appendChild(actions);
+    footer.appendChild(revokeBtn);
+
+    card.appendChild(footer);
 
     list.appendChild(card);
   });
