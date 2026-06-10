@@ -4751,12 +4751,14 @@ function renderApiKeys() {
     created.textContent =
       tr('apiKeys.createdAt') + ': ' + new Date(key.created_at).toLocaleDateString(locale);
     meta.appendChild(created);
-    if (key.last_used_at) {
-      const used = document.createElement('span');
-      used.textContent =
-        tr('apiKeys.lastUsed') + ': ' + new Date(key.last_used_at).toLocaleDateString(locale);
-      meta.appendChild(used);
-    }
+    const used = document.createElement('span');
+    used.textContent =
+      tr('apiKeys.lastUsed') +
+      ': ' +
+      (key.last_used_at
+        ? new Date(key.last_used_at).toLocaleDateString(locale)
+        : tr('apiKeys.never'));
+    meta.appendChild(used);
     footer.appendChild(meta);
 
     const revokeBtn = document.createElement('button');
