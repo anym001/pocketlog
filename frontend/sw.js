@@ -25,6 +25,14 @@ const SHELL = [
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/core.js',
+  '/ledger.js',
+  '/reports.js',
+  '/booking.js',
+  '/categories.js',
+  '/goals.js',
+  '/recurring.js',
+  '/settings.js',
   '/utils.js',
   '/reportsData.js',
   '/state.js',
@@ -61,6 +69,14 @@ function isNetworkFirstShell(url) {
     url.pathname === '/index.html' ||
     url.pathname === '/styles.css' ||
     url.pathname === '/app.js' ||
+    url.pathname === '/core.js' ||
+    url.pathname === '/ledger.js' ||
+    url.pathname === '/reports.js' ||
+    url.pathname === '/booking.js' ||
+    url.pathname === '/categories.js' ||
+    url.pathname === '/goals.js' ||
+    url.pathname === '/recurring.js' ||
+    url.pathname === '/settings.js' ||
     url.pathname === '/utils.js' ||
     url.pathname === '/reportsData.js' ||
     url.pathname === '/state.js' ||
