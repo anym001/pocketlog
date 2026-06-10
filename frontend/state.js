@@ -1,17 +1,18 @@
 // Central app state for the PocketLog frontend.
 //
 // Like utils.js / reportsData.js, this is a classic script loaded *before*
-// app.js, so the top-level `const appState` lives in the shared global
-// lexical scope and app.js reads/writes it directly (`appState.ledger.categories`,
-// `appState.trend.kind`, …). Before this file existed these were ~45 loose
-// module-global `let` variables scattered across app.js; collecting them here
-// — grouped by the feature that owns them — gives a single, documented home
-// for "what mutable state does the app hold" without changing any behaviour.
+// the feature modules (core.js … app.js), so the top-level `const appState`
+// lives in the shared global lexical scope and the modules read/write it
+// directly (`appState.ledger.categories`, `appState.trend.kind`, …). Before
+// this file existed these were ~45 loose module-global `let` variables
+// scattered across the app code; collecting them here — grouped by the
+// feature that owns them — gives a single, documented home for "what mutable
+// state does the app hold" without changing any behaviour.
 //
 // Only safe literal defaults live here. State that is restored from
 // localStorage on boot (the active report, trend selection/range) keeps its
-// restore logic in app.js, where the relevant constants are defined; that
-// code simply assigns into `appState` once it runs (app.js loads after this).
+// restore logic in core.js, where the relevant constants are defined; that
+// code simply assigns into `appState` once it runs (core.js loads after this).
 //
 // The module.exports guard at the bottom is a no-op in the browser.
 
@@ -133,6 +134,11 @@ const appState = {
   // Tag rename modal draft. editingTagName.
   tagEdit: {
     name: null,
+  },
+
+  // API key management (settings drawer). _apiKeys.
+  apiKeys: {
+    list: [],
   },
 
   // Admin views (user list, current me, password-reset target). _adminUsers /

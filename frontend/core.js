@@ -540,7 +540,7 @@ function toggleSidebar() {
   } catch (e) {}
 }
 
-// app.js is loaded with `defer`, so the DOM is ready — sync the
+// This script is loaded with `defer`, so the DOM is ready — sync the
 // aria-pressed attribute with the class state set by the inline
 // head boot script.
 _syncSidebarTogglePressed(document.documentElement.classList.contains('sidebar-collapsed'));

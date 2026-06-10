@@ -527,11 +527,9 @@ async function importCSV(ev) {
 }
 
 // ── API KEYS ──────────────────────────────────────────────────────────────────
-let _apiKeys = [];
-
 async function loadApiKeys() {
   try {
-    _apiKeys = await api('GET', '/api-keys');
+    appState.apiKeys.list = await api('GET', '/api-keys');
     renderApiKeys();
   } catch (_) {}
 }
@@ -541,7 +539,7 @@ function renderApiKeys() {
   if (!list) return;
   list.innerHTML = '';
 
-  if (!_apiKeys.length) {
+  if (!appState.apiKeys.list.length) {
     const empty = document.createElement('p');
     empty.className = 'api-key-card-empty';
     empty.setAttribute('data-i18n', 'apiKeys.empty');
@@ -558,7 +556,7 @@ function renderApiKeys() {
     write: tr('apiKeys.scope.write'),
   };
 
-  _apiKeys.forEach((key) => {
+  appState.apiKeys.list.forEach((key) => {
     const card = document.createElement('div');
     card.className = 'api-key-card';
 
