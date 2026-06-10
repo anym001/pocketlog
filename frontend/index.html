@@ -1599,33 +1599,20 @@
             />
           </div>
           <div class="form-group">
-            <label data-i18n="apiKeys.scopes">Berechtigungen</label>
-            <div class="checkbox-group">
-              <label class="checkbox-label">
-                <input type="checkbox" id="scopeImport" value="import" />
-                <span data-i18n="apiKeys.scope.import">Importieren</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" id="scopeRead" value="read" />
-                <span data-i18n="apiKeys.scope.read">Lesen &amp; Exportieren</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" id="scopeWrite" value="write" />
-                <span data-i18n="apiKeys.scope.write">Schreiben</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" id="scopeAdmin" value="admin" onchange="toggleAdminScopeWarning()" />
-                <span data-i18n="apiKeys.scope.admin">Admin-Zugriff</span>
-              </label>
-            </div>
-            <p class="confirm-msg" id="adminScopeWarning" hidden data-i18n="apiKeys.scope.admin.warning">
-              Dieser Schlüssel erhält vollen Zugriff inkl. Nutzerverwaltung.
+            <label for="apiKeyScope" data-i18n="apiKeys.scopes">Berechtigungen</label>
+            <select id="apiKeyScope">
+              <option value="import" data-i18n="apiKeys.scope.import">Importieren</option>
+              <option value="read" data-i18n="apiKeys.scope.read">Lesen &amp; Exportieren</option>
+              <option value="write" data-i18n="apiKeys.scope.write">Schreiben</option>
+            </select>
+            <p class="form-hint" data-i18n="apiKeys.scope.hint">
+              Schreiben schließt Importieren und Lesen ein.
             </p>
           </div>
           <p class="auth-error" id="apiKeyFormError" hidden role="alert"></p>
         </div>
         <div class="modal-footer">
-          <button class="submit-btn" onclick="submitApiKey()" data-i18n="apiKeys.create">Erstellen</button>
+          <button class="submit-btn" onclick="submitApiKey()" data-i18n="common.save">Speichern</button>
         </div>
       </div>
     </div>

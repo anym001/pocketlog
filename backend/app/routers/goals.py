@@ -6,18 +6,18 @@ from fastapi import APIRouter, Response
 from sqlalchemy.exc import IntegrityError
 
 from .. import crud, errors, schemas
-from ..deps import DB, CurrentUser
+from ..deps import DB, ReadUser, WriteUser
 
 router = APIRouter()
 
 
 @router.get("/api/goals", response_model=list[schemas.GoalOut])
-def get_goals(user: CurrentUser, db: DB):
+def get_goals(user: ReadUser, db: DB):
     return crud.list_goals(db, user.id)
 
 
 @router.post("/api/goals", response_model=schemas.GoalOut, status_code=201)
-def post_goal(payload: schemas.GoalCreate, user: CurrentUser, db: DB):
+def post_goal(payload: schemas.GoalCreate, user: WriteUser, db: DB):
     try:
         return crud.create_goal(db, user.id, payload)
     except IntegrityError:
@@ -28,7 +28,7 @@ def post_goal(payload: schemas.GoalCreate, user: CurrentUser, db: DB):
 def put_goal(
     goal_id: int,
     payload: schemas.GoalUpdate,
-    user: CurrentUser,
+    user: WriteUser,
     db: DB,
 ):
     try:
@@ -41,7 +41,7 @@ def put_goal(
 
 
 @router.delete("/api/goals/{goal_id}", status_code=204)
-def remove_goal(goal_id: int, user: CurrentUser, db: DB):
+def remove_goal(goal_id: int, user: WriteUser, db: DB):
     ok = crud.delete_goal(db, user.id, goal_id)
     if not ok:
         raise errors.not_found()
