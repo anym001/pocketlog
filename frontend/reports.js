@@ -12,10 +12,10 @@ function getChartColors() {
   };
 }
 
-// Liest einen CSS-Custom-Property-Wert aus dem aktiven Theme. Wenn `alpha` < 1
-// wird der Hex-Wert nach rgba() konvertiert, damit Chart.js eine transparente
-// Variante zeichnen kann. Nur Hex-Tokens (#RRGGBB) werden unterstützt — alle
-// Reports-Akzente sind als Hex hinterlegt.
+// Reads a CSS custom-property value from the active theme. If `alpha` < 1
+// the hex value is converted to rgba() so Chart.js can draw a transparent
+// variant. Only hex tokens (#RRGGBB) are supported — all report accents
+// are stored as hex.
 function cssColor(name, alpha = 1) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   if (alpha >= 1 || !v.startsWith('#')) return v;
@@ -40,7 +40,7 @@ function computeRange(kind, a) {
   if (kind === 'year') {
     return { from: _iso(a.y, 0, 1), to: _iso(a.y, 11, 31) };
   }
-  // custom: from/to bleiben wie zuletzt eingegeben.
+  // custom: from/to stay as last entered.
   return { from: appState.reports.range.from, to: appState.reports.range.to };
 }
 
@@ -59,7 +59,7 @@ function setRangeKind(kind, opts = {}) {
   if (!['month', 'quarter', 'year', 'custom'].includes(kind)) return;
   appState.reports.range.kind = kind;
   if (kind === 'custom' && (!appState.reports.range.from || !appState.reports.range.to)) {
-    // Beim Wechsel auf „Eigen" mit den aktuellen Monatsgrenzen vorbelegen.
+    // When switching to "custom", prefill with the current month bounds.
     const r = computeRange('month', appState.reports.range.anchor);
     appState.reports.range.from = r.from;
     appState.reports.range.to = r.to;
@@ -657,7 +657,7 @@ async function _findEarliestTxDate() {
     year--;
   }
   if (!earliest) {
-    // Noch keine Buchung — default ein Jahr zurück, damit der Picker eine sinnvolle Range zeigt.
+    // No booking yet — default one year back so the picker shows a sensible range.
     const fallback = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
     earliest = _iso(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
   }
@@ -666,8 +666,8 @@ async function _findEarliestTxDate() {
 }
 
 async function _ensureTrendDefaultRange() {
-  // appState.trend.earliestTxDate immer auflösen — der Jahres-Picker im Render
-  // braucht minYear, auch wenn die Range aus localStorage kommt.
+  // Always resolve appState.trend.earliestTxDate — the year picker in the
+  // render needs minYear even when the range comes from localStorage.
   const earliest = await _findEarliestTxDate();
   if (appState.trend.yearFrom && appState.trend.yearTo) return;
   const today = new Date();
@@ -771,14 +771,14 @@ function _trendPickerOptions(txs, kind, selectedId, filter) {
       options.push({ id: `tag:${r.name}`, label: `#${r.name}`, color: _tagLineColor(r.name) });
     }
   }
-  // Mit Suchquery: alle Treffer aus dem vollen Set, kein Top-N-Cap.
+  // With a search query: all matches from the full set, no top-N cap.
   const q = (filter || '').trim().toLowerCase();
   if (q) {
     return options.filter((o) => o.label.toLowerCase().includes(q));
   }
-  // Ohne Query: Top 10 nach Summe. Wenn die aktive Auswahl außerhalb
-  // der Top 10 liegt, den letzten Slot durch sie ersetzen — sonst wäre
-  // die im active-row sichtbare Auswahl im aufgeklappten Picker nicht zu sehen.
+  // Without a query: top 10 by sum. If the active selection falls outside
+  // the top 10, replace the last slot with it — otherwise the selection
+  // visible in the active row wouldn't show up in the expanded picker.
   const TOP_N = 10;
   const limited = options.slice(0, TOP_N);
   if (selectedId && !limited.some((o) => o.id === selectedId)) {
@@ -887,7 +887,7 @@ async function setTrendYear(field, value) {
 }
 
 async function renderReportTrend(body, txs) {
-  // Beim ersten Öffnen oder nach Kategorie-Löschung: Selection neu setzen
+  // On first open or after a category deletion: re-seed the selection
   let selected = appState.trend.selection[0]
     ? _trendEntityFromId(appState.trend.selection[0])
     : null;
@@ -974,10 +974,10 @@ async function renderReportTrend(body, txs) {
     return;
   }
 
-  // Granularität fix Monat — Legende skaliert über autoSkip/maxTicksLimit.
-  // Bei toIso > heute auf den aktuellen Monat kappen, damit weder die
-  // Chart-Linie auf null abstürzt noch der laufende Jahres-Mittelwert
-  // durch zukünftige Nullmonate verwässert wird.
+  // Granularity fixed to month — the legend scales via autoSkip/maxTicksLimit.
+  // For toIso > today, cap at the current month so neither the chart line
+  // crashes to zero nor the running yearly average gets diluted by future
+  // zero months.
   const granularity = 'month';
   const todayDate = new Date();
   const todayIso = _iso(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
@@ -1014,8 +1014,8 @@ async function renderReportTrend(body, txs) {
       fill: false,
     },
   ];
-  // Glättungs-Fenster wächst mit dem Zeitraum, damit die zweite Linie
-  // auch über mehrere Jahre noch glättet statt 1:1 auf der Rohlinie zu liegen.
+  // The smoothing window grows with the time span so the second line still
+  // smooths across multiple years instead of sitting 1:1 on the raw line.
   const maWindow = bucketKeys.length > 60 ? 12 : bucketKeys.length > 24 ? 6 : 3;
   if (bucketKeys.length >= maWindow * 2) {
     const smoothed = _movingAverage(series.data, maWindow);
@@ -1083,10 +1083,10 @@ async function renderReportForecast(body, rangeTxs) {
   const todayM = today.getMonth();
   const msDay = 86400000;
 
-  // Historie: letzte 12 vollständige Monate vor dem aktuellen Monat.
-  // Anker bewusst „heute", nicht der Zielmonat — so basiert die
-  // Prognose auf den jüngsten echten Daten, auch wenn der User in
-  // die Zukunft schaut.
+  // History: the last 12 complete months before the current month.
+  // Anchor deliberately "today", not the target month — that way the
+  // forecast is based on the most recent real data even when the user
+  // looks into the future.
   const histEndDate = new Date(todayY, todayM, 0);
   const histStartDate = new Date(todayY, todayM - 12, 1);
   const histStartIso = _iso(histStartDate.getFullYear(), histStartDate.getMonth(), 1);
@@ -1102,7 +1102,7 @@ async function renderReportForecast(body, rangeTxs) {
   const histDays = Math.round((histEndDate - histStartDate) / msDay) + 1;
   const dailyAvg = histOut.reduce((s, t) => s + t.amount, 0) / histDays;
 
-  // Gewählter Zeitraum aus dem Time-Picker.
+  // Selected period from the time picker.
   const rangeFromIso = appState.reports.range.from;
   const rangeToIso = appState.reports.range.to;
   const rangeFromDate = new Date(rangeFromIso + 'T00:00:00');
@@ -1132,7 +1132,7 @@ async function renderReportForecast(body, rangeTxs) {
     projected = rangeSum + dailyAvg * (daysTotal - daysPassed);
   }
 
-  // Pro Kategorie: Ø skaliert auf Range-Länge, Status pace-bereinigt.
+  // Per category: average scaled to the range length, status pace-adjusted.
   const histByCat = {};
   for (const t of histOut) {
     histByCat[t.category_id] = (histByCat[t.category_id] || 0) + t.amount;
@@ -1158,7 +1158,7 @@ async function renderReportForecast(body, rangeTxs) {
     return { label: tr('forecast.statusOver'), cls: 'is-warn' };
   };
 
-  // Labels skalieren mit Time-Picker-Kind.
+  // Labels scale with the time-picker kind.
   const kind = appState.reports.range.kind;
   const cardLabel =
     kind === 'month'

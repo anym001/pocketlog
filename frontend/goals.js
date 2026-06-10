@@ -1,7 +1,7 @@
 // Goals: savings goals + debt trackers (progress derived in the frontend,
 // never affects ledger totals). Classic script — see index.html for load order.
 
-// ── GOALS (Ziele: Sparziele + Schulden-Tracker) ───────────────────────────────
+// ── GOALS (savings goals + debt trackers) ─────────────────────────────────────
 // A goal is a derived view: progress is computed from the linked
 // category's transactions dated on/after start_date — the API stores
 // no aggregate. 'save_up' counts `in`-type up to target; 'pay_down'

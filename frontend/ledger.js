@@ -283,8 +283,8 @@ async function showTransactionsForCategory(catId) {
 // delete-button width; this constant clamps the drag to the same value
 // so the rest position when the user releases matches their finger.
 const SWIPE_ACTION_WIDTH = 92;
-const SWIPE_OPEN_THRESHOLD = 40; // Pixel, ab denen die Action offen einrastet
-const TAP_TOLERANCE = 6; // Pixel-Slop, unter dem ein Pointer-Down als Tap zählt
+const SWIPE_OPEN_THRESHOLD = 40; // pixels beyond which the action snaps open
+const TAP_TOLERANCE = 6; // pixel slop below which a pointer-down counts as a tap
 
 function closeAllSwipes(except) {
   document.querySelectorAll('.tx-row.swiped').forEach((r) => {
@@ -349,7 +349,7 @@ function attachSwipeHandlers(container) {
       inner.style.transform = '';
 
       if (cancelled) {
-        // Wurde vom Browser abgebrochen (z.B. vertikaler Scroll): Status nicht ändern
+        // Cancelled by the browser (e.g. vertical scroll): leave the state alone
         return;
       }
 
@@ -389,7 +389,7 @@ function attachSwipeHandlers(container) {
       } catch (err) {
         if (await _enqueueOfflineDelete(id)) {
           row.classList.remove('swiped');
-          // Optimistisch entfernen, Sync übernimmt der SW
+          // Remove optimistically, the SW handles the sync
           appState.ledger.transactions = appState.ledger.transactions.filter((t) => t.id !== id);
           renderAll();
           updateSyncBadge();
@@ -407,8 +407,8 @@ function attachSwipeHandlers(container) {
   });
 }
 
-// Beim Tippen außerhalb einer offenen Zeile diese wieder schließen.
-// Einmaliger globaler Listener (nicht pro Render neu registrieren).
+// A tap outside an open row closes it again.
+// Single global listener (not re-registered per render).
 document.addEventListener(
   'pointerdown',
   (e) => {

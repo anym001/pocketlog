@@ -79,8 +79,8 @@ function editTransaction(id) {
     const t = p.find((t) => t.id === num);
     if (t) return openModal(t);
   }
-  // Falls die TX in keinem Pool liegt (etwa weil sie gerade per Sync entfernt
-  // wurde): kein stilles Öffnen der Neuanlage — Hinweis geben.
+  // If the TX is in no pool (e.g. it was just removed by a sync): don't
+  // silently open the create form — show a notice.
   toast(tr('tx.notFound'));
 }
 
