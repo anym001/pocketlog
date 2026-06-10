@@ -1,9 +1,10 @@
 // PocketLog Service Worker
 // Strategie:
-//   - Shell-HTML/CSS/JS → network-first (/, /index.html, /styles.css,
-//                          /app.js, /db.js, /manifest.webmanifest), damit
-//                          Updates ohne Doppel-Reload sichtbar werden;
-//                          Cache dient nur als Offline-Fallback.
+//   - Shell-HTML/CSS/JS → network-first (/, /index.html, /styles.css, every
+//                          app script from core.js to app.js plus db.js and
+//                          /manifest.webmanifest), damit Updates ohne
+//                          Doppel-Reload sichtbar werden; Cache dient nur
+//                          als Offline-Fallback.
 //   - Statische Shell-Assets (Icons, Fonts, Chart.js Vendor-Bundle) → cache-first.
 //   - GET /api/...   → network-first, Fallback auf Cache.
 //   - Write /api/... → online direkt durchreichen; offline in Outbox
@@ -20,7 +21,12 @@ const VERSION = '__APP_VERSION__';
 const CACHE = `pocketlog-shell-${VERSION}`;
 const API_CACHE = `pocketlog-api-${VERSION}`;
 
-const SHELL = [
+// Boot-critical shell: HTML, CSS, the full classic-script chain (a single
+// missing module aborts init() with a ReferenceError offline), the offline
+// outbox, Chart.js and both i18n bundles. A precache miss here must fail
+// the install so the browser retries — a partially cached shell is worse
+// than no new shell at all.
+const SHELL_CRITICAL = [
   '/',
   '/index.html',
   '/styles.css',
@@ -39,15 +45,22 @@ const SHELL = [
   '/i18n.js',
   '/manifest.webmanifest',
   '/db.js',
+  '/vendor/chart.umd.min.js',
   // Both language bundles are precached so switching language works
   // offline, not just the one that happened to be active first.
   '/i18n/de.json',
   '/i18n/en.json',
+];
+
+// Cosmetic assets: best-effort precache, a miss only degrades visuals or a
+// download nicety — never the boot.
+const SHELL_OPTIONAL = [
   // Per-language CSV import samples.
   '/example-import-de.csv',
   '/example-import-en.csv',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/icons/icon-maskable-192.png',
   '/icons/icon-maskable-512.png',
   '/icons/apple-touch-icon.png',
   '/icons/categories/sprite.svg',
@@ -55,13 +68,12 @@ const SHELL = [
   '/fonts/dm-sans-latin-ext.woff2',
   '/fonts/dm-serif-display-latin.woff2',
   '/fonts/dm-serif-display-latin-ext.woff2',
-  '/vendor/chart.umd.min.js',
 ];
 
-// HTML-Shell + App-Code (styles.css, app.js, db.js): bei jedem Online-Request
-// frisch holen, Cache nur falls offline. Icons, Fonts und der versionierte
-// Chart.js-Bundle unter /vendor/ ändern sich praktisch nie und bleiben
-// cache-first.
+// HTML-Shell + App-Code (styles.css, alle App-Skripte von core.js bis
+// app.js, db.js): bei jedem Online-Request frisch holen, Cache nur falls
+// offline. Icons, Fonts und der versionierte Chart.js-Bundle unter /vendor/
+// ändern sich praktisch nie und bleiben cache-first.
 function isNetworkFirstShell(url) {
   if (url.origin !== self.location.origin) return false;
   return (
@@ -96,18 +108,21 @@ function isNetworkFirstShell(url) {
 self.addEventListener('install', (event) => {
   // skipWaiting must run AFTER precaching settles. Calling it outside
   // waitUntil() races: the new SW could activate and start serving
-  // requests while the SHELL.map promises are still in flight, and
+  // requests while the precache promises are still in flight, and
   // a cache-first lookup that hits a not-yet-cached URL would 404.
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((c) =>
-        Promise.all(
-          SHELL.map(
+      .then(async (c) => {
+        // Critical first and without a catch: a miss rejects the install,
+        // the browser retries later and the previous SW keeps serving.
+        await c.addAll(SHELL_CRITICAL);
+        await Promise.all(
+          SHELL_OPTIONAL.map(
             (url) => c.add(url).catch(() => undefined), // fehlende optionale Ressourcen ignorieren
           ),
-        ),
-      )
+        );
+      })
       .then(() => self.skipWaiting()),
   );
 });
