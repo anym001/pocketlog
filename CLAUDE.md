@@ -25,7 +25,17 @@ PocketLog/
 ├── frontend/
 │   ├── index.html          ← PWA shell (markup + inline theme bootstrap)
 │   ├── styles.css          ← complete CSS (tokens, layout, components)
-│   ├── app.js              ← complete app logic
+│   ├── core.js             ← API/CSRF plumbing, formatting, toast/confirm,
+│   │                         navigation, modal focus management
+│   ├── ledger.js           ← transaction list view + swipe-to-delete
+│   ├── reports.js          ← Chart.js wiring + all report renderers
+│   ├── booking.js          ← create/edit transaction modal
+│   ├── categories.js       ← category management, tag picker, icon picker
+│   ├── goals.js            ← savings goals + debt trackers
+│   ├── recurring.js        ← recurring rules editor + next-booking preview
+│   ├── settings.js         ← settings drawer: tags, sync, theme, backup,
+│   │                         import/export, API keys, account, admin users
+│   ├── app.js              ← boot: auth bootstrap + init() (loads last)
 │   ├── state.js            ← central app state (grouped `appState` object)
 │   ├── utils.js            ← pure helpers (loaded before app.js)
 │   ├── reportsData.js      ← pure report/goal/trend aggregation (loaded before app.js)
@@ -75,7 +85,7 @@ All assets from own origin — no CDNs, no tracking.
 - JS lib → `frontend/vendor/<name>.js` (shasum, MIT/Apache/BSD, keep banner)
 - Font → `frontend/fonts/<name>.woff2` (latin + latin-ext)
 - UI icon → `<symbol id="icon-…">` into the inline sprite in `index.html`
-- Category icon → `<symbol id="cat-…">` in `sprite.svg` + `CAT_ICON_GROUPS` in `app.js`; Phosphor Regular (MIT) only
+- Category icon → `<symbol id="cat-…">` in `sprite.svg` + `CAT_ICON_GROUPS` in `categories.js`; Phosphor Regular (MIT) only
 
 ## API Endpoints (FastAPI)
 ```
@@ -262,9 +272,9 @@ production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - **Money** (`DECIMAL(12,2)`) must never be aggregated via SQL `SUM()`/`func.sum` — SQLite has no native decimal type and would round through float. Compute sums in Python over ORM `Decimal` values (the frontend calculates totals itself anyway). Per-row the round-trip is exact; `tests/test_money_precision.py` pins this.
 
 **Frontend:**
-- **Classic scripts, no bundler** (CSP `script-src 'self'`). `utils.js`, `reportsData.js` and `state.js` load **before** `app.js` (see `index.html`); their top-level declarations share the global lexical scope, so `app.js` uses them directly. A `module.exports` guard at each file's bottom is a no-op in the browser but lets Vitest import the pure helpers. Any new frontend `.js` must be added in four places: `index.html` (script tag, before `app.js`), `sw.js` (SHELL precache **and** the network-first list), and the `Dockerfile` static `COPY`.
-- **App state lives in `state.js`** as one grouped `appState` object (`appState.ledger.transactions`, `appState.trend.kind`, …) — **no** loose module-global `let`s in `app.js`. Only safe literal defaults live in `state.js`; state restored from localStorage on boot (active report, trend selection) keeps its restore logic in `app.js` and assigns into `appState`. In-place-mutated `const` collections (`chartInsts`, `tagCounts`, `_txCacheByYear`) stay in `app.js`.
-- **Pure helpers** (`utils.js`, `reportsData.js`) take their data as arguments — no app state, no DOM, no I18N — and are unit-tested with Vitest (`frontend/unit/*.test.js`). Impure helpers that read `appState`/DOM/I18N stay in `app.js`.
+- **Classic scripts, no bundler** (CSP `script-src 'self'`). Script order (see `index.html`): `i18n.js`, `utils.js`, `reportsData.js`, `state.js`, then the feature modules `core.js` → `ledger.js` → `reports.js` → `booking.js` → `categories.js` → `goals.js` → `recurring.js` → `settings.js`, and `app.js` (boot) last. Top-level declarations share the global lexical scope, so later scripts use earlier ones directly; inline `onclick` handlers in `index.html` reach any top-level function. **Top-level statements may only call functions defined in the same file or an earlier one** (function hoisting does not cross script boundaries); cross-file calls belong inside functions, which all run after every script is parsed. A `module.exports` guard at each file's bottom is a no-op in the browser but lets Vitest import the pure helpers. Any new frontend `.js` must be added in four places: `index.html` (script tag, before `app.js`), `sw.js` (SHELL precache **and** the network-first list), and the `Dockerfile` static `COPY`.
+- **App state lives in `state.js`** as one grouped `appState` object (`appState.ledger.transactions`, `appState.trend.kind`, …) — **no** loose module-global `let`s in the feature modules. Only safe literal defaults live in `state.js`; state restored from localStorage on boot (active report, trend selection) keeps its restore logic in `core.js` and assigns into `appState`. In-place-mutated `const` collections (`chartInsts`, `tagCounts`, `_txCacheByYear`) stay in `core.js`.
+- **Pure helpers** (`utils.js`, `reportsData.js`) take their data as arguments — no app state, no DOM, no I18N — and are unit-tested with Vitest (`frontend/unit/*.test.js`). Impure helpers that read `appState`/DOM/I18N stay in the feature module that owns them.
 
 **Alembic migrations:**
 - Revision ID ≤ 24 characters (pytest guard in `test_migrations.py`)
