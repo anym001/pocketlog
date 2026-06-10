@@ -50,8 +50,9 @@ no tracking, no telemetry.
   workflows (see [API Access](#api-access)), with duplicate rows skipped on
   re-import so overlapping bank exports don't double-book
 - **API access** — per-user **API keys** (bearer tokens) with scoped permissions
-  (import, read, write, admin) for programmatic access; lets external tools drive
-  the CSV import without a browser session (see [API Access](#api-access))
+  (read, import, write) for programmatic access; lets external tools drive the
+  CSV import — or full read/write sync — without a browser session
+  (see [API Access](#api-access))
 - **Offline capability** — app works without a connection; changes sync automatically
   when back online
 - **Themes** — Light, Dark, System (saved in settings)
@@ -194,17 +195,20 @@ The key (format `plk_…`) is **shown only once** — copy it right away; Pocket
 stores only its hash and cannot recover the original. You can revoke a key at any
 time from the same screen.
 
-Each key carries a single scope:
+Each key carries a single scope, in a hierarchy where the higher tier includes
+the lower ones:
 
 | Scope | Grants |
 |---|---|
-| `import` | CSV import (`POST /api/import/csv`) |
-| `read` | read endpoints (transactions, categories, tags, CSV export) |
-| `write` | create / update / delete transactions, categories, tags, … |
-| `admin` | full access, including user management |
+| `read` | all read endpoints (transactions, categories, tags, CSV export) |
+| `import` | CSV import only (`POST /api/import/csv`) |
+| `write` | full data access — every create / update / delete plus `import` and `read` |
 
-`admin` implies all other scopes. Keys are bound to the user who created them and
-respect the same per-user data isolation as the web UI.
+`write` is the top data tier; there is intentionally no `admin` API scope.
+**User management, the bulk-delete endpoints, and API-key management stay
+session-only** — they are never reachable with a bearer token, so a leaked key
+can never take over the instance or wipe all data. Keys are bound to the user
+who created them and respect the same per-user data isolation as the web UI.
 
 ### Importing a CSV via the API
 

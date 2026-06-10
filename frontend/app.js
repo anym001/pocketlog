@@ -4714,11 +4714,12 @@ function renderApiKeys() {
     return;
   }
 
+  // admin is no longer an offered scope; any legacy key still carrying it
+  // falls back to its raw scope name ("admin") via the `|| s` below.
   const scopeLabels = {
     import: tr('apiKeys.scope.import'),
     read: tr('apiKeys.scope.read'),
     write: tr('apiKeys.scope.write'),
-    admin: tr('apiKeys.scope.admin'),
   };
 
   _apiKeys.forEach((key) => {
@@ -4771,7 +4772,6 @@ function renderApiKeys() {
 function openApiKeyModal() {
   document.getElementById('apiKeyName').value = '';
   document.getElementById('apiKeyScope').value = 'import';
-  document.getElementById('adminScopeWarning').hidden = true;
   document.getElementById('apiKeyFormError').hidden = true;
   document.getElementById('apiKeyFormOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -4787,11 +4787,6 @@ function closeApiKeyModal() {
 
 function closeApiKeyModalOutside(e) {
   if (e.target === document.getElementById('apiKeyFormOverlay')) closeApiKeyModal();
-}
-
-function toggleAdminScopeWarning() {
-  const isAdmin = document.getElementById('apiKeyScope').value === 'admin';
-  document.getElementById('adminScopeWarning').hidden = !isAdmin;
 }
 
 async function submitApiKey() {
