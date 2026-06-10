@@ -4,6 +4,7 @@ Each test creates a fresh user via the auth-header fixture, exercises a
 slice of the API, and trusts the existing data-isolation in CRUD (every
 query is filtered by user_id) to keep tests independent.
 """
+
 from __future__ import annotations
 
 

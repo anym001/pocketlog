@@ -16,6 +16,8 @@ You are a database reviewer for PocketLog. SQLite is the default for all deploym
 - A category can have at most one goal (`uq_goals_user_category`); deleting a category with a linked goal must be blocked (409)
 - Money columns are `DECIMAL(12,2)` — never aggregate via SQL `SUM()`; compute in Python
 - Default categories are seeded only on first user creation, NOT on every `GET /api/categories`
+- `api_keys` stores only the SHA256 hash (`key_hash CHAR(64) UNIQUE`), never the raw key; `user_id` FK is ON DELETE CASCADE
+- `transactions.import_hash VARCHAR(64) NULL` carries the dedup fingerprint; `UNIQUE(user_id, import_hash)` must keep NULLs non-conflicting (manual entries have no hash) — verify on both dialects
 
 ## What to check
 

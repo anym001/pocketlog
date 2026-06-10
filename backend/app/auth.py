@@ -14,20 +14,22 @@ Threat-Model siehe ``CLAUDE.md`` und ``docs/SETUP.md``. Kurzfassung:
   HttpOnly, JS liest es aus dem Cookie und schickt es als
   ``X-CSRF-Token``-Header bei jedem non-GET zurück.
 """
+
 from __future__ import annotations
 
 import hashlib
 import hmac
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHash, VerifyMismatchError, VerificationError
+from argon2.exceptions import InvalidHash, VerificationError, VerifyMismatchError
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 
 from . import models
+from .constants import LOCKOUT_MAX_SECONDS, LOCKOUT_THRESHOLD
 
 # ---------------------------------------------------------------------
 # Passwort-Hashing
@@ -79,6 +81,7 @@ def verify_password_dummy() -> None:
 # Session-Tokens
 # ---------------------------------------------------------------------
 
+
 def generate_session_token() -> tuple[str, str]:
     """Erzeugt ein Session-Token. Gibt ``(plain, sha256_hex)`` zurück.
 
@@ -107,6 +110,7 @@ def constant_time_eq(a: str, b: str) -> bool:
 # Session-Lifetimes
 # ---------------------------------------------------------------------
 
+
 def _env_int(name: str, default: int) -> int:
     raw = os.environ.get(name, "").strip()
     if not raw:
@@ -130,7 +134,7 @@ REFRESH_GRACE_SECONDS = 5 * 60
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _sliding_lifetime(remember_me: bool) -> timedelta:
@@ -177,9 +181,7 @@ def create_session(
     return session, plain
 
 
-def get_session_by_token(
-    db: DbSession, plain_token: str
-) -> models.Session | None:
+def get_session_by_token(db: DbSession, plain_token: str) -> models.Session | None:
     """Lookup nach Cookie-Wert. Liefert nur gültige (nicht-abgelaufene)
     Sessions; abgelaufene werden gleich beim Lookup verworfen, damit
     sich die ``sessions``-Tabelle nicht stillschweigend aufbläht."""
@@ -243,9 +245,7 @@ def revoke_all_user_sessions(
 def cleanup_expired_sessions(db: DbSession) -> int:
     """Entfernt abgelaufene Sessions. Best-Effort, fehlerlos."""
     now = _utcnow()
-    result = db.execute(
-        delete(models.Session).where(models.Session.expires_at <= now)
-    )
+    result = db.execute(delete(models.Session).where(models.Session.expires_at <= now))
     db.commit()
     return result.rowcount or 0
 
@@ -254,14 +254,8 @@ def cleanup_expired_sessions(db: DbSession) -> int:
 # Brute-Force-Backoff
 # ---------------------------------------------------------------------
 
-# Erst ab dem N-ten Fehlversuch greift das Backoff. Vorher zählt die
-# App nur — damit der gelegentliche „Vertippt"-Fall keinen Lockout
-# auslöst.
-LOCKOUT_THRESHOLD = 5
-# Caps: Backoff verdoppelt sich, bis maximal 60s. Schmal genug um
-# legitime User nicht zu blockieren, breit genug um automatisierte
-# Probing-Tools auszubremsen.
-LOCKOUT_MAX_SECONDS = 60
+# Brute-force backoff knobs (LOCKOUT_THRESHOLD / LOCKOUT_MAX_SECONDS) live in
+# app.constants and are imported at the top of this module.
 
 
 def current_lockout_seconds(user: models.User) -> int | None:

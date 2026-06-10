@@ -26,6 +26,9 @@ PocketLog/
 │   ├── index.html          ← PWA shell (markup + inline theme bootstrap)
 │   ├── styles.css          ← complete CSS (tokens, layout, components)
 │   ├── app.js              ← complete app logic
+│   ├── state.js            ← central app state (grouped `appState` object)
+│   ├── utils.js            ← pure helpers (loaded before app.js)
+│   ├── reportsData.js      ← pure report/goal/trend aggregation (loaded before app.js)
 │   ├── i18n.js             ← i18n runtime (window.I18N, tr(), locale/currency)
 │   ├── i18n/               ← translation bundles (de.json, en.json)
 │   ├── sw.js               ← service worker (cache + outbox)
@@ -38,10 +41,19 @@ PocketLog/
 │   ├── Dockerfile
 │   ├── migrations/
 │   └── app/
-│       ├── main.py         ← FastAPI endpoints + StaticFiles mount
+│       ├── main.py         ← app setup: DomainError handler, security-headers
+│       │                     middleware, include_router wiring, StaticFiles mount
+│       ├── deps.py         ← shared auth plumbing: session/CSRF cookie I/O +
+│       │                     the dependency chain (CurrentUser/AdminUser/DB)
+│       ├── routers/        ← one APIRouter per domain (auth, categories, goals,
+│       │                     tags, recurring, transactions, imexport, admin,
+│       │                     settings, health); wired by main.include_router
 │       ├── models.py       ← SQLAlchemy ORM
 │       ├── schemas.py      ← Pydantic v2
-│       ├── crud.py         ← user_id-scoped queries
+│       ├── crud/           ← user_id-scoped queries, one module per domain
+│       │                     (users, categories, goals, tags, recurring,
+│       │                     transactions, settings, imexport, defaults);
+│       │                     __init__ re-exports the full crud.* surface
 │       ├── auth.py         ← session, CSRF, brute-force
 │       ├── recurring.py    ← catch-up / materialization engine
 │       ├── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
@@ -85,8 +97,10 @@ PUT|DELETE /api/goals/{id}       ← 1:1 to category; 409 if category already ha
 GET|POST /api/tags
 PUT|DELETE /api/tags/{name}      ← PUT renames across all transactions
 GET|PUT  /api/settings
-POST   /api/import/csv           ← max. 5 MB, UTF-8 or CP1252
+POST   /api/import/csv           ← max. 5 MB, UTF-8 or CP1252; ImportUser (session OR Bearer w/ import scope)
 GET    /api/export/csv
+GET|POST /api/api-keys           ← session-only (CurrentUser); POST returns the raw plk_ key once
+DELETE /api/api-keys/{id}        ← session-only; revoke
 GET|POST /api/recurring
 PUT|DELETE /api/recurring/{id}   ← DELETE leaves existing transactions intact (source_rule_id → NULL)
 POST   /api/recurring/{id}/skip-next   ← skips the next occurrence, returns new cursor
@@ -167,6 +181,8 @@ Dependencies: `CurrentUser` = `require_active_password` (blocks on `force_change
 
 Brute-force protection: from the 5th failed attempt, exponential lockout (1 s → 60 s cap). Unknown users run through `verify_password_dummy()` (timing protection).
 
+**API keys (Bearer tokens, `deps.py`):** `Authorization: Bearer plk_…` for programmatic access. The raw key is shown **once** on creation (`POST /api/api-keys`); only its SHA256 hex is stored (`api_keys.key_hash`). Three hierarchical **data** scopes — `read` < `import` < `write` (`write` ⊇ `import`/`read`, `_SCOPE_GRANTS`). `require_scope(scope)` builds a dependency that accepts **either** a session (CSRF as usual; any logged-in user passes — scopes constrain API keys only) **or** a sufficiently-scoped Bearer key (**CSRF bypassed** — browsers never auto-send the header). Routers use `ReadUser` (GETs) / `WriteUser` (mutations) / `ImportUser` (import). Wrong scope → 403, expired/revoked/unknown key → 401, `last_used_at` updated with a 5-min damper. **No `admin` data scope:** user management, the bulk-delete endpoints and API-key management stay session-only (`CurrentUser`/`AdminUser`) and are never token-reachable — a Bearer request there falls through to the cookie path and gets 401. A legacy key stored with `admin` keeps full data access (wildcard) but likewise never reaches those session-only paths.
+
 ## Logging & Audit
 Central config in `app/logging_config.py` (`configure_logging()`, called on import of `main.py`). Logger namespace `pocketlog` with its own stderr handler + `propagate=False`; modules use `pocketlog.api`/`pocketlog.crud`, **security events** use `pocketlog.audit`. **Uniform format** `%(asctime)s %(levelname)s %(name)s %(message)s` with `datefmt %Y-%m-%d %H:%M:%S` (second precision, **no** milliseconds): the `dictConfig` also redirects the `uvicorn`/`uvicorn.error`/`uvicorn.access` loggers to it (runs on app import after uvicorn's default, so it wins), and `alembic.ini` (separate migrations process) mirrors format + datefmt. This keeps Docker logs consistently formatted throughout. `uvicorn.access` is intentionally pinned to `WARNING` (per-request lines are noise; errors still come through `uvicorn.error` + app logs). **Short logger names:** a handler filter (`_ShortLoggerNameFilter`) trims framework names to the top-level package (`uvicorn.error`/`uvicorn.access`→`uvicorn`, `alembic.runtime.migration`→`alembic`) — severity is in the level, not the name; `pocketlog.*` remains intact (audit/api/crud are semantically significant). The migrations process configures logging separately via `alembic.ini`, so `migrations/env.py` attaches the same filter via `install_short_logger_names()`. ENV `LOG_LEVEL` (default INFO) and `LOG_FORMAT` (default `text`; `json` reserved, falls back to `text` until implemented — enabling it would be a pure dictConfig switch with no call-site changes). Optional `LOG_FILE` (+ `LOG_FILE_MAX_BYTES`/`LOG_FILE_BACKUPS`): an additional `RotatingFileHandler`, attached programmatically after the dictConfig and wrapped in try/except — an unwritable file only warns and lets the app continue on stderr (never crashes). Persistence is an operations concern (volume mount or Docker log driver), see README.
 
@@ -174,7 +190,7 @@ Central config in `app/logging_config.py` (`configure_logging()`, called on impo
 
 **Container permissions (PUID/PGID):** The image starts as root; the entrypoint (`backend/docker-entrypoint.sh`) chowns `/config` to `PUID:PGID` (default `1000:1000`, Unraid `99:100`) and drops privileges via `gosu` before `alembic`+`uvicorn` run. This allows the SQLite file on the mount to be written with the correct host permissions. **SQLite pragmas** (`database.py`): `foreign_keys=ON` (cascades), `journal_mode=WAL` (concurrent reads/writes for PWA sync), `busy_timeout=5000`.
 
-Audit events are logged **in the endpoint layer** (`main.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`, `recurring.create/update/delete`, `data.reset_all_data`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
+Audit events are logged **in the endpoint layer** (the per-domain `app/routers/*.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud/*`/`deps.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`, `recurring.create/update/delete`, `data.reset_all_data`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
 
 ## Offline / PWA
 `sw.js`: network-first for HTML shell + GET /api/\*, cache-first for vendor/fonts/icons. Offline outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache keys from `__APP_VERSION__` (Dockerfile substitutes at build time). Both i18n bundles (`i18n/de.json`, `i18n/en.json`) are in the SHELL precache so that language switching works offline.
@@ -217,11 +233,35 @@ production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 **Backend:**
 - CRUD functions always with `user_id: int`; pass `user.id` from `CurrentUser` in the endpoint
-- New endpoints: `main.py` + `schemas.py` + `crud.py`
+- New endpoints: add to the matching `app/routers/<domain>.py` (one `APIRouter` per
+  domain, wired in `main.py` via `include_router`) + `schemas.py` + the matching
+  `app/crud/<domain>.py`. A brand-new domain needs a new router module (declare
+  `router = APIRouter()`, re-export it in `routers/__init__.py`, and
+  `app.include_router(routers.<domain>.router)` in `main.py`).
+  Routers pull the shared auth dependencies (`CurrentUser`/`AdminUser`/`RawCurrentUser`/`DB`)
+  and the cookie helpers from `app.deps` — never re-derive them. `main.py` itself holds only
+  app-level wiring (the `DomainError` handler, the security-headers middleware, the router
+  includes, the static mount); no endpoints live there.
+- **CRUD layout:** `app/crud/` is a package, one module per domain (`users`, `categories`,
+  `goals`, `tags`, `recurring`, `transactions`, `settings`, `imexport`) plus `defaults`
+  (seed categories + locale/currency defaults). `crud/__init__.py` re-exports the full
+  former surface, so every call site stays `crud.<function>` — never import a submodule
+  directly. A new crud function goes in its domain module and gets added to the `__init__`
+  re-export + `__all__`. Cross-domain helpers are shared one direction only: `categories`
+  and `tags` are leaf modules (no intra-crud imports); `users`/`goals`/`recurring`/
+  `transactions`/`imexport` import the shared helpers (`_owned_category_exists`,
+  `_seed_default_categories`, the tag resolvers) from them — keep it acyclic.
+- Audit events stay in the endpoint layer (the router), where `client_ip()` + DB facts are
+  available; `auth.py`/`crud/*`/`deps.py` remain audit-free.
 - `from_attributes=True` on output schemas; `populate_by_name=True` only with `Field(alias=…)`
 - Schema changes: generate an Alembic revision, never manual `ALTER TABLE`
-- Always register the `StaticFiles` mount last
+- Always register the `StaticFiles` mount last (it stays in `main.py`, after every router)
 - **Money** (`DECIMAL(12,2)`) must never be aggregated via SQL `SUM()`/`func.sum` — SQLite has no native decimal type and would round through float. Compute sums in Python over ORM `Decimal` values (the frontend calculates totals itself anyway). Per-row the round-trip is exact; `tests/test_money_precision.py` pins this.
+
+**Frontend:**
+- **Classic scripts, no bundler** (CSP `script-src 'self'`). `utils.js`, `reportsData.js` and `state.js` load **before** `app.js` (see `index.html`); their top-level declarations share the global lexical scope, so `app.js` uses them directly. A `module.exports` guard at each file's bottom is a no-op in the browser but lets Vitest import the pure helpers. Any new frontend `.js` must be added in four places: `index.html` (script tag, before `app.js`), `sw.js` (SHELL precache **and** the network-first list), and the `Dockerfile` static `COPY`.
+- **App state lives in `state.js`** as one grouped `appState` object (`appState.ledger.transactions`, `appState.trend.kind`, …) — **no** loose module-global `let`s in `app.js`. Only safe literal defaults live in `state.js`; state restored from localStorage on boot (active report, trend selection) keeps its restore logic in `app.js` and assigns into `appState`. In-place-mutated `const` collections (`chartInsts`, `tagCounts`, `_txCacheByYear`) stay in `app.js`.
+- **Pure helpers** (`utils.js`, `reportsData.js`) take their data as arguments — no app state, no DOM, no I18N — and are unit-tested with Vitest (`frontend/unit/*.test.js`). Impure helpers that read `appState`/DOM/I18N stay in `app.js`.
 
 **Alembic migrations:**
 - Revision ID ≤ 24 characters (pytest guard in `test_migrations.py`)

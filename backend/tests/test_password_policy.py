@@ -2,6 +2,7 @@
 Sonderzeichen. Greift auf jedem „neuen" Passwort (Setup, Self-Change,
 Admin-Create, Admin-Reset) — Login-Passwort bleibt absichtlich ungeprüft,
 damit das Backend keinen Hinweis leakt, was am Input formal falsch war."""
+
 from __future__ import annotations
 
 import uuid
@@ -15,17 +16,16 @@ from app import schemas
 
 from .conftest import TEST_PASSWORD
 
-
 # ── Reine Validator-Funktion ──────────────────────────────────────────────
 
 
 @pytest.mark.parametrize(
     "value",
     [
-        "Valid-password-2026",        # Standard-Happy-Case
-        "MixedCase123!",              # genau die vier Klassen
-        "Pässwörter-für-2026",        # Umlaute zählen als Buchstaben, ß auch
-        "AaaaaaaaaaaaaaaA1!",         # exakt 12+ inkl. doppelter Buchstabenklassen
+        "Valid-password-2026",  # Standard-Happy-Case
+        "MixedCase123!",  # genau die vier Klassen
+        "Pässwörter-für-2026",  # Umlaute zählen als Buchstaben, ß auch
+        "AaaaaaaaaaaaaaaA1!",  # exakt 12+ inkl. doppelter Buchstabenklassen
     ],
 )
 def test_validate_password_complexity_accepts_valid(value):
@@ -92,9 +92,7 @@ def test_change_password_request_enforces_policy_on_new_password():
 
 def test_admin_user_create_enforces_policy():
     with pytest.raises(ValidationError):
-        schemas.AdminUserCreate(
-            username="newone", password="too-simple-pw-1234"
-        )
+        schemas.AdminUserCreate(username="newone", password="too-simple-pw-1234")
 
 
 def test_admin_password_reset_enforces_policy():

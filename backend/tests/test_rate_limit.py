@@ -1,5 +1,6 @@
 """Brute-Force-Backoff: 5 Fehler → 1s, Verdopplung bis 60s-Cap,
 Reset bei Erfolg, generische Antwort gegen Username-Leak."""
+
 from __future__ import annotations
 
 from datetime import timedelta

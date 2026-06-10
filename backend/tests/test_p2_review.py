@@ -15,10 +15,10 @@ The original P2-17 (AUTH_SECRET placeholder guard) was removed when
 the app moved to its own session-based auth — the X-Auth-Secret header
 no longer exists. See migration 0009_auth_local.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import UniqueConstraint
-
 
 # ── P2-10 ────────────────────────────────────────────────────────────────────
 
@@ -32,11 +32,7 @@ def test_user_unique_constraint_is_named_in_table_args():
     """
     from app.models import User
 
-    names = [
-        c.name
-        for c in User.__table_args__
-        if isinstance(c, UniqueConstraint)
-    ]
+    names = [c.name for c in User.__table_args__ if isinstance(c, UniqueConstraint)]
     assert "uq_users_username" in names, (
         "User.__table_args__ must declare UniqueConstraint('username', "
         "name='uq_users_username') so alembic-autogenerate is stable."

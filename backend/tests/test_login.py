@@ -1,7 +1,7 @@
 """Login-Endpoint: Erfolg, Fehler, Lockout, Cookies, Sliding-Refresh."""
+
 from __future__ import annotations
 
-import time
 from datetime import timedelta
 
 from fastapi.testclient import TestClient
@@ -90,11 +90,10 @@ def test_login_remember_me_sets_longer_cookie(app, regular_user):
     assert res.status_code == 200
 
     cookies = res.headers.get_list("set-cookie")
-    session_cookie = next(
-        c for c in cookies if c.startswith("pocketlog_session=")
-    )
+    session_cookie = next(c for c in cookies if c.startswith("pocketlog_session="))
     # Max-Age sollte > 24h sein (≥ 30 Tage default).
     import re
+
     m = re.search(r"max-age=(\d+)", session_cookie.lower())
     assert m is not None, session_cookie
     assert int(m.group(1)) > 24 * 3600
@@ -202,17 +201,20 @@ def test_session_absolute_expiry_kills_session(app, regular_user, db_session):
     )
     assert res.status_code == 200
 
-    session = db_session.scalars(
-        models.Session.__table__.select().where(
-            models.Session.user_id == regular_user.id
-        )
-    ).first() if False else None
+    session = (
+        db_session.scalars(
+            models.Session.__table__.select().where(
+                models.Session.user_id == regular_user.id
+            )
+        ).first()
+        if False
+        else None
+    )
     # SQLAlchemy 2.0 API
     from sqlalchemy import select as sa_select
+
     session = db_session.scalar(
-        sa_select(models.Session).where(
-            models.Session.user_id == regular_user.id
-        )
+        sa_select(models.Session).where(models.Session.user_id == regular_user.id)
     )
     assert session is not None
     # Absolute Frist auf gerade-eben gesetzt → nächster Request scheitert.
@@ -223,9 +225,7 @@ def test_session_absolute_expiry_kills_session(app, regular_user, db_session):
     assert res.status_code == 401
 
 
-def test_session_sliding_refresh_extends_expires_at(
-    app, regular_user, db_session
-):
+def test_session_sliding_refresh_extends_expires_at(app, regular_user, db_session):
     """Nach einem authentifizierten Request, der jenseits des
     Refresh-Damper-Fensters liegt, wandert ``expires_at`` nach vorne."""
     from sqlalchemy import select as sa_select
@@ -238,9 +238,7 @@ def test_session_sliding_refresh_extends_expires_at(
         json={"username": regular_user.username, "password": TEST_PASSWORD},
     )
     session = db_session.scalar(
-        sa_select(models.Session).where(
-            models.Session.user_id == regular_user.id
-        )
+        sa_select(models.Session).where(models.Session.user_id == regular_user.id)
     )
     assert session is not None
     original_expires = session.expires_at
