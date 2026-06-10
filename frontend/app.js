@@ -2303,6 +2303,27 @@ function renderReportTop(body, txs) {
 }
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
+// Category <select> filler shared by the booking, goal and recurring editors.
+// Alphabetical locale sort — consistent with renderCategories() and
+// renderCategoryView() so the user sees the same order wherever they look at
+// categories. Falls back to the alphabetically first option when no valid
+// category is requested (e.g. creating), so the preselection matches the top
+// of the list rather than the unsorted seed order.
+function _populateCategorySelect(sel, selectedId) {
+  const sorted = [...appState.ledger.categories].sort((a, b) =>
+    a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
+  );
+  const effectiveId = sorted.some((c) => c.id === selectedId)
+    ? selectedId
+    : sorted[0] && sorted[0].id;
+  sel.innerHTML = sorted
+    .map(
+      (c) =>
+        `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`,
+    )
+    .join('');
+}
+
 function openModal(tx) {
   rememberModalFocus('booking');
   appState.form.tags = tx?.tags ? tx.tags.slice() : [];
@@ -2310,15 +2331,7 @@ function openModal(tx) {
     tx?.amount != null ? _formatAmountInput(Number(tx.amount)) : '';
   document.getElementById('inputDesc').value = tx?.desc || '';
   document.getElementById('inputDate').value = tx?.date || new Date().toISOString().split('T')[0];
-  const catSel = document.getElementById('inputCat');
-  // Alphabetical de_DE sort — consistent with renderCategories()
-  // and renderCategoryView() so the user sees the same order
-  // wherever they look at categories.
-  catSel.innerHTML = [...appState.ledger.categories]
-    .sort((a, b) => a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }))
-    .map((c) => `<option value="${c.id}">${_escText(c.name)}</option>`)
-    .join('');
-  if (tx) catSel.value = tx.category_id;
+  _populateCategorySelect(document.getElementById('inputCat'), tx ? tx.category_id : null);
   setType(tx?.type || 'out', document.querySelector('.type-btn.out'));
   renderTagPills();
   renderTagSuggestions();
@@ -2343,6 +2356,12 @@ function closeModal() {
   releaseFocusTrap('booking');
   restoreModalFocus('booking');
 }
+// Backdrop dismiss shared by every modal overlay: the overlay's inline
+// onclick passes its own event, so the click counts as "outside" exactly
+// when it landed on the overlay itself rather than the dialog inside it.
+function closeOnBackdrop(e, closeFn) {
+  if (e.target === e.currentTarget) closeFn();
+}
 // Ledger rows open this modal on `pointerup` (the swipe handler).
 // The browser then synthesizes a trailing `click` at the same spot,
 // which now lands on the freshly shown overlay backdrop and would
@@ -2351,7 +2370,7 @@ function closeModal() {
 // opening so only a deliberate later tap dismisses it.
 function closeModalOutside(e) {
   if (Date.now() - appState.nav.bookingModalOpenedAt < 400) return;
-  if (e.target === document.getElementById('modalOverlay')) closeModal();
+  closeOnBackdrop(e, closeModal);
 }
 function editTransaction(id) {
   const num = Number(id);
@@ -3018,24 +3037,32 @@ function renderCatIconPreview() {
   el.innerHTML = catIconSvg(appState.catEdit.icon);
 }
 
-function renderCatColorSwatches() {
+// Swatch row shared by the category and goal editors: the preset palette
+// plus, when the current color isn't a preset, an extra swatch for it,
+// followed by the free color input. pickFnName is the global pick handler
+// wired through the inline onclick/onchange (re-renders on pick).
+function _colorSwatchesMarkup(currentColor, pickFnName) {
   const presets = [...CAT_COLOR_PRESETS];
-  const hasCurrent = presets.some(
-    (p) => p.hex.toLowerCase() === appState.catEdit.color.toLowerCase(),
-  );
-  if (!hasCurrent)
-    presets.push({ hex: appState.catEdit.color, name: tr('categories.customColorName') });
-  const box = document.getElementById('catEditColors');
-  box.innerHTML =
+  const hasCurrent = presets.some((p) => p.hex.toLowerCase() === currentColor.toLowerCase());
+  if (!hasCurrent) presets.push({ hex: currentColor, name: tr('categories.customColorName') });
+  return (
     presets
       .map((p) => {
-        const isActive = p.hex.toLowerCase() === appState.catEdit.color.toLowerCase();
-        return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickCatColor('${p.hex}')"></button>`;
+        const isActive = p.hex.toLowerCase() === currentColor.toLowerCase();
+        return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="${pickFnName}('${p.hex}')"></button>`;
       })
       .join('') +
     `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${appState.catEdit.color}" onchange="pickCatColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
-   </label>`;
+     <input type="color" value="${currentColor}" onchange="${pickFnName}(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
+   </label>`
+  );
+}
+
+function renderCatColorSwatches() {
+  document.getElementById('catEditColors').innerHTML = _colorSwatchesMarkup(
+    appState.catEdit.color,
+    'pickCatColor',
+  );
 }
 
 function pickCatColor(c) {
@@ -3050,9 +3077,6 @@ function closeCatModal() {
   appState.catEdit.id = null;
   releaseFocusTrap('cat');
   restoreModalFocus('cat');
-}
-function closeCatModalOutside(e) {
-  if (e.target === document.getElementById('catModalOverlay')) closeCatModal();
 }
 
 // ── ICON PICKER ───────────────────────────────────────────────────────────────
@@ -3297,22 +3321,7 @@ function _goalAmountValue(id) {
 
 function populateGoalCategorySelect(selectedId) {
   const sel = document.getElementById('goalEditCategory');
-  if (!sel) return;
-  const sorted = [...appState.ledger.categories].sort((a, b) =>
-    a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
-  );
-  // Fall back to the alphabetically first option when no valid category
-  // is requested (e.g. creating a new goal), so the preselection matches
-  // the top of the list rather than the unsorted seed order.
-  const effectiveId = sorted.some((c) => c.id === selectedId)
-    ? selectedId
-    : sorted[0] && sorted[0].id;
-  sel.innerHTML = sorted
-    .map(
-      (c) =>
-        `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`,
-    )
-    .join('');
+  if (sel) _populateCategorySelect(sel, selectedId);
 }
 
 function onGoalDirectionChange() {
@@ -3326,23 +3335,10 @@ function onGoalDirectionChange() {
 }
 
 function renderGoalColorSwatches() {
-  const presets = [...CAT_COLOR_PRESETS];
-  const hasCurrent = presets.some(
-    (p) => p.hex.toLowerCase() === appState.goals.editingColor.toLowerCase(),
+  document.getElementById('goalEditColors').innerHTML = _colorSwatchesMarkup(
+    appState.goals.editingColor,
+    'pickGoalColor',
   );
-  if (!hasCurrent)
-    presets.push({ hex: appState.goals.editingColor, name: tr('categories.customColorName') });
-  const box = document.getElementById('goalEditColors');
-  box.innerHTML =
-    presets
-      .map((p) => {
-        const isActive = p.hex.toLowerCase() === appState.goals.editingColor.toLowerCase();
-        return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="pickGoalColor('${p.hex}')"></button>`;
-      })
-      .join('') +
-    `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${appState.goals.editingColor}" onchange="pickGoalColor(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
-   </label>`;
 }
 
 function pickGoalColor(c) {
@@ -3403,9 +3399,6 @@ function closeGoalModal() {
   appState.goals.editingId = null;
   releaseFocusTrap('goal');
   restoreModalFocus('goal');
-}
-function closeGoalModalOutside(e) {
-  if (e.target === document.getElementById('goalModalOverlay')) closeGoalModal();
 }
 
 async function saveGoalEdit() {
@@ -3668,19 +3661,7 @@ async function renderRecurringView() {
 
 function populateRecurringCategorySelect(selectedId) {
   const sel = document.getElementById('recEditCategory');
-  if (!sel) return;
-  const sorted = [...appState.ledger.categories].sort((a, b) =>
-    a.name.localeCompare(b.name, _locale(), { sensitivity: 'base' }),
-  );
-  const effectiveId = sorted.some((c) => c.id === selectedId)
-    ? selectedId
-    : sorted[0] && sorted[0].id;
-  sel.innerHTML = sorted
-    .map(
-      (c) =>
-        `<option value="${c.id}"${c.id === effectiveId ? ' selected' : ''}>${_escText(c.name)}</option>`,
-    )
-    .join('');
+  if (sel) _populateCategorySelect(sel, selectedId);
 }
 
 // Validity is a single choice (unlimited / date / count). Toggling
@@ -3846,10 +3827,6 @@ function closeRecurringModal() {
   appState.recurring.editingId = null;
   releaseFocusTrap('recurring');
   restoreModalFocus('recurring');
-}
-
-function closeRecurringModalOutside(e) {
-  if (e.target === document.getElementById('recurringModalOverlay')) closeRecurringModal();
 }
 
 function _recurringPayloadFromForm() {
@@ -4098,9 +4075,6 @@ function closeTagModal() {
   appState.tagEdit.name = null;
   releaseFocusTrap('tag');
   restoreModalFocus('tag');
-}
-function closeTagModalOutside(e) {
-  if (e.target === document.getElementById('tagModalOverlay')) closeTagModal();
 }
 
 async function saveTagEdit() {
@@ -4677,10 +4651,6 @@ function closeApiKeyModal() {
   }
 }
 
-function closeApiKeyModalOutside(e) {
-  if (e.target === document.getElementById('apiKeyFormOverlay')) closeApiKeyModal();
-}
-
 async function submitApiKey() {
   const name = document.getElementById('apiKeyName').value.trim();
   const scopes = [document.getElementById('apiKeyScope').value];
@@ -4718,10 +4688,6 @@ function closeApiKeyCreatedModal() {
   }
 }
 
-function closeApiKeyCreatedModalOutside(e) {
-  if (e.target === document.getElementById('apiKeyCreatedOverlay')) closeApiKeyCreatedModal();
-}
-
 async function copyApiKey() {
   const val = document.getElementById('apiKeyCreatedValue').textContent;
   try {
@@ -4754,9 +4720,6 @@ function closeResetModal() {
   if (!document.getElementById('drawer').classList.contains('open')) {
     document.body.style.overflow = '';
   }
-}
-function closeResetModalOutside(e) {
-  if (e.target === document.getElementById('resetModalOverlay')) closeResetModal();
 }
 
 async function _runReset(path, successMsg) {
@@ -4811,10 +4774,6 @@ function closeCacheModal() {
   if (!document.getElementById('drawer').classList.contains('open')) {
     document.body.style.overflow = '';
   }
-}
-
-function closeCacheModalOutside(e) {
-  if (e.target === document.getElementById('cacheModalOverlay')) closeCacheModal();
 }
 
 async function confirmClearAppCache() {
@@ -5081,9 +5040,6 @@ function closePwModal() {
     document.body.style.overflow = '';
   }
 }
-function closePwModalOutside(e) {
-  if (e.target === document.getElementById('pwModalOverlay')) closePwModal();
-}
 async function submitChangePassword() {
   _setAuthError('pwModalError', '');
   const current = document.getElementById('pwModalCurrent').value;
@@ -5226,9 +5182,6 @@ function closeAdminCreateUserModal() {
     document.body.style.overflow = '';
   }
 }
-function closeAdminCreateUserModalOutside(e) {
-  if (e.target === document.getElementById('adminCreateUserOverlay')) closeAdminCreateUserModal();
-}
 async function submitAdminCreateUser() {
   _setAuthError('adminCreateError', '');
   const username = document.getElementById('adminCreateUsername').value.trim();
@@ -5274,9 +5227,6 @@ function closeAdminResetPwModal() {
   if (!document.getElementById('drawer').classList.contains('open')) {
     document.body.style.overflow = '';
   }
-}
-function closeAdminResetPwModalOutside(e) {
-  if (e.target === document.getElementById('adminResetPwOverlay')) closeAdminResetPwModal();
 }
 async function submitAdminResetPassword() {
   _setAuthError('adminResetPwError', '');
