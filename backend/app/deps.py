@@ -199,6 +199,28 @@ DB = Annotated[Session, Depends(get_db)]
 # API-key auth
 # ---------------------------------------------------------------------
 
+# Scope hierarchy: holding a scope grants it plus every narrower one.
+# ``write`` is the top *data* tier — it covers ``import`` and ``read`` — so a
+# single key can drive a full sync client without stacking scopes. There is
+# deliberately no ``admin`` *data* scope: user management, the mass-delete
+# endpoints and API-key management stay session-only and are never reachable
+# via a bearer token. A legacy key still stored with ``admin`` keeps full data
+# access (wildcard below) but likewise never reaches those session-only paths.
+_SCOPE_GRANTS: dict[str, set[str]] = {
+    "read": {"read"},
+    "import": {"import"},
+    "write": {"write", "import", "read"},
+    "admin": {"admin", "write", "import", "read"},
+}
+
+
+def _scope_satisfies(held: list[str], required: str) -> bool:
+    """True if any scope the key holds grants *required* per the hierarchy."""
+    granted: set[str] = set()
+    for scope in held:
+        granted |= _SCOPE_GRANTS.get(scope, {scope})
+    return required in granted
+
 
 def _validate_api_key_user(
     raw_key: str, required_scope: str, db: Session
@@ -222,7 +244,7 @@ def _validate_api_key_user(
         raise HTTPException(status_code=401, detail="api_key_expired")
 
     scopes: list[str] = json.loads(api_key.scopes or "[]")
-    if required_scope not in scopes and "admin" not in scopes:
+    if not _scope_satisfies(scopes, required_scope):
         raise HTTPException(status_code=403, detail="insufficient_scope")
 
     user = db.get(models.User, api_key.user_id)
@@ -242,27 +264,39 @@ def _validate_api_key_user(
     return user
 
 
-def get_import_user(
-    request: Request,
-    response: Response,
-    db: Annotated[Session, Depends(get_db)],
-) -> models.User:
-    """Auth dependency for ``POST /api/import/csv``.
+def require_scope(scope: str):
+    """Build an auth dependency that gates an endpoint on *scope*.
 
-    Accepts either:
-    - A valid session cookie + CSRF (standard browser / PWA path).
-    - An API key with ``import`` scope via ``Authorization: Bearer <token>``
-      (external automation, bridge tools, cron scripts).
+    The endpoint then accepts EITHER:
+    - A valid session cookie + CSRF (standard browser / PWA path). Any
+      logged-in user passes — scopes constrain API keys only, never the UI.
+    - An ``Authorization: Bearer <token>`` whose key scope satisfies *scope*
+      per the hierarchy (``write`` ⊇ ``import``/``read``). Used by external
+      automation, bridge tools and cron scripts.
 
-    The Bearer path bypasses CSRF because the ``Authorization`` header is
-    not sent automatically by browsers, so CSRF does not apply.
+    The Bearer path bypasses CSRF because the ``Authorization`` header is not
+    sent automatically by browsers, so CSRF does not apply there.
     """
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        return _validate_api_key_user(auth_header[7:], "import", db)
-    # Fall back to session auth — raises 401/403 on missing/invalid session.
-    user = get_current_user(request, response, db)
-    return require_active_password(user)
+
+    def _dep(
+        request: Request,
+        response: Response,
+        db: Annotated[Session, Depends(get_db)],
+    ) -> models.User:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            return _validate_api_key_user(auth_header[7:], scope, db)
+        # Fall back to session auth — raises 401/403 on missing/invalid session.
+        user = get_current_user(request, response, db)
+        return require_active_password(user)
+
+    return _dep
 
 
+# ``get_import_user`` kept as a named export for back-compat with existing
+# imports/tests; the read/write variants gate the rest of the API surface.
+get_import_user = require_scope("import")
+
+ReadUser = Annotated[models.User, Depends(require_scope("read"))]
+WriteUser = Annotated[models.User, Depends(require_scope("write"))]
 ImportUser = Annotated[models.User, Depends(get_import_user)]

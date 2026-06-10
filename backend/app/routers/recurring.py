@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from sqlalchemy.exc import IntegrityError
 
 from .. import crud, errors, schemas
-from ..deps import DB, CurrentUser
+from ..deps import DB, ReadUser, WriteUser
 from ..logging_config import client_ip
 
 audit = logging.getLogger("pocketlog.audit")
@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/api/recurring", response_model=list[schemas.RecurringRuleOut])
-def get_recurring(user: CurrentUser, db: DB):
+def get_recurring(user: ReadUser, db: DB):
     return crud.list_recurring_rules(db, user.id)
 
 
@@ -33,7 +33,7 @@ def get_recurring(user: CurrentUser, db: DB):
 def post_recurring(
     payload: schemas.RecurringRuleCreate,
     request: Request,
-    user: CurrentUser,
+    user: WriteUser,
     db: DB,
 ):
     try:
@@ -65,7 +65,7 @@ def put_recurring(
     rule_id: int,
     payload: schemas.RecurringRuleUpdate,
     request: Request,
-    user: CurrentUser,
+    user: WriteUser,
     db: DB,
 ):
     try:
@@ -84,7 +84,7 @@ def put_recurring(
 
 
 @router.delete("/api/recurring/{rule_id}", status_code=204)
-def remove_recurring(rule_id: int, request: Request, user: CurrentUser, db: DB):
+def remove_recurring(rule_id: int, request: Request, user: WriteUser, db: DB):
     if not crud.delete_recurring_rule(db, user.id, rule_id):
         raise errors.not_found()
     audit.info(
@@ -100,7 +100,7 @@ def remove_recurring(rule_id: int, request: Request, user: CurrentUser, db: DB):
     "/api/recurring/{rule_id}/skip-next",
     response_model=schemas.RecurringSkipOut,
 )
-def post_recurring_skip_next(rule_id: int, user: CurrentUser, db: DB):
+def post_recurring_skip_next(rule_id: int, user: WriteUser, db: DB):
     result = crud.skip_next_occurrence(db, user.id, rule_id)
     if result is None:
         raise errors.not_found()
@@ -109,7 +109,7 @@ def post_recurring_skip_next(rule_id: int, user: CurrentUser, db: DB):
 
 
 @router.delete("/api/recurring/{rule_id}/skip/{skip_date}", status_code=204)
-def remove_recurring_skip(rule_id: int, skip_date: str, user: CurrentUser, db: DB):
+def remove_recurring_skip(rule_id: int, skip_date: str, user: WriteUser, db: DB):
     try:
         d = date_type.fromisoformat(skip_date)
     except ValueError:

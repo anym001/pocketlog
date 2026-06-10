@@ -5,18 +5,18 @@ from fastapi import APIRouter, Response
 from sqlalchemy.exc import IntegrityError
 
 from .. import crud, errors, schemas
-from ..deps import DB, CurrentUser
+from ..deps import DB, ReadUser, WriteUser
 
 router = APIRouter()
 
 
 @router.get("/api/categories", response_model=list[schemas.CategoryOut])
-def get_categories(user: CurrentUser, db: DB):
+def get_categories(user: ReadUser, db: DB):
     return crud.list_categories(db, user.id)
 
 
 @router.post("/api/categories", response_model=schemas.CategoryOut, status_code=201)
-def post_category(payload: schemas.CategoryCreate, user: CurrentUser, db: DB):
+def post_category(payload: schemas.CategoryCreate, user: WriteUser, db: DB):
     try:
         return crud.create_category(db, user.id, payload)
     except IntegrityError:
@@ -27,7 +27,7 @@ def post_category(payload: schemas.CategoryCreate, user: CurrentUser, db: DB):
 def put_category(
     category_id: int,
     payload: schemas.CategoryUpdate,
-    user: CurrentUser,
+    user: WriteUser,
     db: DB,
 ):
     try:
@@ -40,7 +40,7 @@ def put_category(
 
 
 @router.delete("/api/categories/{category_id}", status_code=204)
-def remove_category(category_id: int, user: CurrentUser, db: DB):
+def remove_category(category_id: int, user: WriteUser, db: DB):
     # In-use / has-goal / has-recurring-rule are raised as DomainErrors and
     # mapped to 409 by the global handler.
     ok = crud.delete_category(db, user.id, category_id)

@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from .. import constants, crud, schemas
-from ..deps import DB, CurrentUser, ImportUser
+from ..deps import DB, ImportUser, ReadUser
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ def _csv_safe(value: str) -> str:
 
 
 @router.get("/api/export/csv")
-def export_csv(user: CurrentUser, db: DB):
+def export_csv(user: ReadUser, db: DB):
     txs = crud.list_all_transactions(db, user.id)
     categories = {c.id: c.name for c in crud.list_categories(db, user.id)}
 
