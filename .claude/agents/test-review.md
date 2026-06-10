@@ -45,6 +45,8 @@ These areas have had coverage gaps in the past — verify current state by readi
 - Explicit cross-user 404 assertions: most suites rely on fixture isolation rather than testing the boundary explicitly
 - CSV import at the 5 MB file-size limit
 - Session `absolute_expires_at` expiry (the hard cap, not just the sliding refresh)
+- API-key auth: wrong scope → 403, expired/revoked/unknown key → 401, Bearer path skips CSRF, and a key only reaches its own user's data
+- Import deduplication: re-importing an overlapping CSV returns `deduped > 0` with `imported = 0` for the repeated rows, and a within-file duplicate is caught
 
 ## Output format
 

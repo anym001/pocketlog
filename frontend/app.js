@@ -4714,11 +4714,12 @@ function renderApiKeys() {
     return;
   }
 
+  // admin is no longer an offered scope; any legacy key still carrying it
+  // falls back to its raw scope name ("admin") via the `|| s` below.
   const scopeLabels = {
     import: tr('apiKeys.scope.import'),
     read: tr('apiKeys.scope.read'),
     write: tr('apiKeys.scope.write'),
-    admin: tr('apiKeys.scope.admin'),
   };
 
   _apiKeys.forEach((key) => {
@@ -4740,6 +4741,9 @@ function renderApiKeys() {
     });
     card.appendChild(scopes);
 
+    const footer = document.createElement('div');
+    footer.className = 'api-key-card-footer';
+
     const meta = document.createElement('div');
     meta.className = 'api-key-card-meta';
     const locale = I18N.getLocale();
@@ -4747,22 +4751,24 @@ function renderApiKeys() {
     created.textContent =
       tr('apiKeys.createdAt') + ': ' + new Date(key.created_at).toLocaleDateString(locale);
     meta.appendChild(created);
-    if (key.last_used_at) {
-      const used = document.createElement('span');
-      used.textContent =
-        tr('apiKeys.lastUsed') + ': ' + new Date(key.last_used_at).toLocaleDateString(locale);
-      meta.appendChild(used);
-    }
-    card.appendChild(meta);
+    const used = document.createElement('span');
+    used.textContent =
+      tr('apiKeys.lastUsed') +
+      ': ' +
+      (key.last_used_at
+        ? new Date(key.last_used_at).toLocaleDateString(locale)
+        : tr('apiKeys.never'));
+    meta.appendChild(used);
+    footer.appendChild(meta);
 
-    const actions = document.createElement('div');
-    actions.className = 'api-key-card-actions';
     const revokeBtn = document.createElement('button');
+    revokeBtn.className = 'api-key-revoke-btn';
     revokeBtn.setAttribute('data-i18n', 'apiKeys.revoke');
     revokeBtn.textContent = tr('apiKeys.revoke');
     revokeBtn.onclick = () => revokeApiKey(key.id, key.name);
-    actions.appendChild(revokeBtn);
-    card.appendChild(actions);
+    footer.appendChild(revokeBtn);
+
+    card.appendChild(footer);
 
     list.appendChild(card);
   });
@@ -4770,10 +4776,7 @@ function renderApiKeys() {
 
 function openApiKeyModal() {
   document.getElementById('apiKeyName').value = '';
-  ['scopeImport', 'scopeRead', 'scopeWrite', 'scopeAdmin'].forEach((id) => {
-    document.getElementById(id).checked = false;
-  });
-  document.getElementById('adminScopeWarning').hidden = true;
+  document.getElementById('apiKeyScope').value = 'import';
   document.getElementById('apiKeyFormError').hidden = true;
   document.getElementById('apiKeyFormOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -4791,17 +4794,9 @@ function closeApiKeyModalOutside(e) {
   if (e.target === document.getElementById('apiKeyFormOverlay')) closeApiKeyModal();
 }
 
-function toggleAdminScopeWarning() {
-  const checked = document.getElementById('scopeAdmin').checked;
-  document.getElementById('adminScopeWarning').hidden = !checked;
-}
-
 async function submitApiKey() {
   const name = document.getElementById('apiKeyName').value.trim();
-  const scopeIds = ['scopeImport', 'scopeRead', 'scopeWrite', 'scopeAdmin'];
-  const scopes = scopeIds
-    .filter((id) => document.getElementById(id).checked)
-    .map((id) => document.getElementById(id).value);
+  const scopes = [document.getElementById('apiKeyScope').value];
 
   const errEl = document.getElementById('apiKeyFormError');
   if (!name) {

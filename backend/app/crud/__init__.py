@@ -17,6 +17,12 @@ Submodules:
 - ``api_keys``      API key management (create, list, revoke)
 """
 
+from .api_keys import (
+    create_api_key,
+    get_api_key_by_hash,
+    list_api_keys,
+    revoke_api_key,
+)
 from .categories import (
     _owned_category_exists,
     _seed_default_categories,

@@ -6,6 +6,7 @@ never stored — subsequent requests use the SHA-256 hash stored in ``api_keys``
 
 Audit events are emitted for creation and revocation.
 """
+
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -22,7 +23,9 @@ def list_api_keys(user: CurrentUser, db: DB) -> list:
     return crud.list_api_keys(db, user.id)
 
 
-@router.post("/api/api-keys", response_model=schemas.ApiKeyCreateResponse, status_code=201)
+@router.post(
+    "/api/api-keys", response_model=schemas.ApiKeyCreateResponse, status_code=201
+)
 def create_api_key(
     payload: schemas.ApiKeyCreate, user: CurrentUser, db: DB
 ) -> schemas.ApiKeyCreateResponse:

@@ -138,16 +138,12 @@ def test_revoke_nonexistent_returns_404(authed_client):
 
 
 def test_create_key_requires_at_least_one_scope(authed_client):
-    res = authed_client.post(
-        "/api/api-keys", json={"name": "no-scope", "scopes": []}
-    )
+    res = authed_client.post("/api/api-keys", json={"name": "no-scope", "scopes": []})
     assert res.status_code == 422
 
 
 def test_create_key_requires_name(authed_client):
-    res = authed_client.post(
-        "/api/api-keys", json={"name": "", "scopes": ["import"]}
-    )
+    res = authed_client.post("/api/api-keys", json={"name": "", "scopes": ["import"]})
     assert res.status_code == 422
 
 
@@ -278,6 +274,85 @@ def test_import_dedup_within_same_file(app, db_session, regular_user):
     assert res.status_code == 200
     assert res.json()["imported"] == 1
     assert res.json()["deduped"] == 1
+
+
+# ── Scope enforcement (read / write / import hierarchy) ───────────────────────
+
+
+def _bearer(app, db_session, user, scopes):
+    """Create a key with *scopes* and return (client, auth-header dict)."""
+    _, raw = crud.create_api_key(db_session, user.id, f"k-{scopes[0]}", scopes)
+    return TestClient(app), {"Authorization": f"Bearer {raw}"}
+
+
+def test_read_scope_can_get(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["read"])
+    assert client.get("/api/categories", headers=headers).status_code == 200
+
+
+def test_read_scope_can_export(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["read"])
+    assert client.get("/api/export/csv", headers=headers).status_code == 200
+
+
+def test_read_scope_cannot_write(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["read"])
+    res = client.post("/api/tags", json={"name": "read-denied"}, headers=headers)
+    assert res.status_code == 403
+
+
+def test_write_scope_can_create(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["write"])
+    res = client.post("/api/tags", json={"name": "write-ok"}, headers=headers)
+    assert res.status_code == 201
+
+
+def test_write_scope_can_read(app, db_session, regular_user):
+    # write ⊇ read per the scope hierarchy
+    client, headers = _bearer(app, db_session, regular_user, ["write"])
+    assert client.get("/api/tags", headers=headers).status_code == 200
+
+
+def test_write_scope_can_import(app, db_session, regular_user):
+    # write ⊇ import per the scope hierarchy
+    client, headers = _bearer(app, db_session, regular_user, ["write"])
+    csv_bytes = _make_csv([_SAMPLE_ROW])
+    res = client.post(
+        "/api/import/csv",
+        files={"file": ("test.csv", csv_bytes, "text/csv")},
+        headers=headers,
+    )
+    assert res.status_code == 200
+
+
+def test_import_scope_cannot_read(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["import"])
+    assert client.get("/api/transactions", headers=headers).status_code == 403
+
+
+def test_import_scope_cannot_write(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["import"])
+    res = client.post("/api/tags", json={"name": "import-denied"}, headers=headers)
+    assert res.status_code == 403
+
+
+# Session-only endpoints must never be reachable via a bearer token, not even
+# with the broadest data scope — they fall through to the cookie path and 401.
+
+
+def test_write_key_cannot_mass_delete(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["write"])
+    assert client.delete("/api/admin/all-data", headers=headers).status_code == 401
+
+
+def test_write_key_cannot_manage_users(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["write"])
+    assert client.get("/api/admin/users", headers=headers).status_code == 401
+
+
+def test_write_key_cannot_manage_api_keys(app, db_session, regular_user):
+    client, headers = _bearer(app, db_session, regular_user, ["write"])
+    assert client.get("/api/api-keys", headers=headers).status_code == 401
 
 
 # ── Audit logging ─────────────────────────────────────────────────────────────
