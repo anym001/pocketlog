@@ -1,19 +1,19 @@
 // PocketLog Service Worker
-// Strategie:
-//   - Shell-HTML/CSS/JS → network-first (/, /index.html, /styles.css, every
+// Strategy:
+//   - Shell HTML/CSS/JS → network-first (/, /index.html, /styles.css, every
 //                          app script from core.js to app.js plus db.js and
-//                          /manifest.webmanifest), damit Updates ohne
-//                          Doppel-Reload sichtbar werden; Cache dient nur
-//                          als Offline-Fallback.
-//   - Statische Shell-Assets (Icons, Fonts, Chart.js Vendor-Bundle) → cache-first.
-//   - GET /api/...   → network-first, Fallback auf Cache.
-//   - Write /api/... → online direkt durchreichen; offline in Outbox
-//                       (frontend/db.js) ablegen und 202 zurückgeben.
-//   - Background-Sync → bei wieder hergestelltem Netz Outbox flushen.
+//                          /manifest.webmanifest), so updates become visible
+//                          without a double reload; the cache only serves as
+//                          the offline fallback.
+//   - Static shell assets (icons, fonts, Chart.js vendor bundle) → cache-first.
+//   - GET /api/...   → network-first, falling back to the cache.
+//   - Write /api/... → pass through directly while online; offline, store in
+//                       the outbox (frontend/db.js) and return 202.
+//   - Background sync → flush the outbox once the network is back.
 //
-// __APP_VERSION__ wird im Dockerfile aus der ENV APP_VERSION ersetzt.
-// Jede Release bekommt damit neue Cache-Keys; alte Caches räumt der
-// activate-Hook ab.
+// __APP_VERSION__ is substituted in the Dockerfile from the APP_VERSION env.
+// Every release thereby gets new cache keys; the activate hook clears old
+// caches.
 
 importScripts('/db.js');
 
@@ -70,10 +70,10 @@ const SHELL_OPTIONAL = [
   '/fonts/dm-serif-display-latin-ext.woff2',
 ];
 
-// HTML-Shell + App-Code (styles.css, alle App-Skripte von core.js bis
-// app.js, db.js): bei jedem Online-Request frisch holen, Cache nur falls
-// offline. Icons, Fonts und der versionierte Chart.js-Bundle unter /vendor/
-// ändern sich praktisch nie und bleiben cache-first.
+// HTML shell + app code (styles.css, every app script from core.js to
+// app.js, db.js): fetched fresh on every online request, cache only when
+// offline. Icons, fonts and the versioned Chart.js bundle under /vendor/
+// practically never change and stay cache-first.
 function isNetworkFirstShell(url) {
   if (url.origin !== self.location.origin) return false;
   return (
@@ -119,7 +119,7 @@ self.addEventListener('install', (event) => {
         await c.addAll(SHELL_CRITICAL);
         await Promise.all(
           SHELL_OPTIONAL.map(
-            (url) => c.add(url).catch(() => undefined), // fehlende optionale Ressourcen ignorieren
+            (url) => c.add(url).catch(() => undefined), // ignore missing optional resources
           ),
         );
       })
@@ -144,11 +144,11 @@ function isApi(url) {
   return url.pathname.startsWith('/api/');
 }
 
-// Auth- und Health-Endpoints dürfen NIE aus dem Cache kommen. Ihre
-// Antworten bestimmen den Auth-State des Frontends (Login-, Setup- oder
-// Force-Change-View) — eine stale Cache-Response würde den User in einer
-// View festsetzen, zu der sein realer Session-State gar nicht mehr passt.
-// Health ist Online-Probe.
+// Auth and health endpoints must NEVER come from the cache. Their
+// responses determine the frontend's auth state (login, setup or
+// force-change view) — a stale cached response would pin the user in a
+// view their real session state no longer matches. Health is the online
+// probe.
 const NEVER_CACHE_PATHS = new Set([
   '/api/health',
   '/api/auth/me',
@@ -229,11 +229,10 @@ async function cacheFirst(request) {
   }
 }
 
-// Endpunkte, die NIE in die Outbox dürfen. Auth-Operationen ergeben
-// offline keinen Sinn — ein Login-Versuch beim nächsten Reconnect mit
-// gestauten Credentials wäre eine kapitale Sicherheits-Lücke, und ein
-// Logout-Replay würde die frische Session des Users sofort wieder
-// abreißen.
+// Endpoints that must NEVER enter the outbox. Auth operations make no
+// sense offline — a login attempt replayed on the next reconnect with
+// queued credentials would be a capital security hole, and a logout
+// replay would immediately tear down the user's fresh session.
 const NEVER_QUEUE_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/logout',
@@ -293,9 +292,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
 
   if (isApi(url)) {
-    // Auth- und Health-Endpoints: niemals aus dem Cache — der State
-    // muss live vom Server kommen, sonst landet der User in einer View,
-    // die nicht zu seiner echten Session passt.
+    // Auth and health endpoints: never from the cache — the state must
+    // come live from the server, otherwise the user lands in a view that
+    // doesn't match their real session.
     if (req.method === 'GET' && NEVER_CACHE_PATHS.has(url.pathname)) {
       event.respondWith(fetch(req));
       return;
@@ -331,14 +330,13 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// Eingehende Messages vom Frontend.
-// - SET_CSRF: aktueller CSRF-Token, den die Outbox beim Replay
-//             mitschicken muss. Wird bei jedem Login und bei
-//             init() gesetzt.
-// - CLEAR_API_CACHE: nach Logout oder 401-Reload — API-Cache und
-//             der vom SW gehaltene CSRF-Token müssen weg, damit
-//             beim nächsten Login keine alten Daten oder ein
-//             stale Token in die Outbox-Replays landen.
+// Incoming messages from the frontend.
+// - SET_CSRF: the current CSRF token the outbox must send along on
+//             replay. Set on every login and in init().
+// - CLEAR_API_CACHE: after logout or a 401 reload — the API cache and
+//             the CSRF token held by the SW must go, so the next login
+//             doesn't leak old data or a stale token into outbox
+//             replays.
 self.addEventListener('message', (event) => {
   const msg = event.data;
   if (!msg || typeof msg !== 'object') return;

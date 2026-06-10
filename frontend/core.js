@@ -4,8 +4,8 @@
 // Classic script — loaded after state.js, before the feature modules (see index.html).
 
 // ── ICON-MARKUP ───────────────────────────────────────────────────────────────
-// Für Glyphen, die dynamisch via JS getauscht werden (FAB-Toggle Plus/✕,
-// Tag-Pill-Remove). Statische Glyphen sitzen direkt im HTML-Markup.
+// For glyphs swapped dynamically via JS (FAB toggle plus/✕, tag pill
+// remove). Static glyphs live directly in the HTML markup.
 const ICON_SVG = {
   plus: '<svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"/></svg>',
   close: '<svg class="ui-icon" aria-hidden="true"><use href="#icon-close"/></svg>',
@@ -18,7 +18,7 @@ const ICON_SVG = {
 // back to the key when the runtime isn't ready (keeps render safe).
 const tr = (key, params) => (window.I18N ? I18N.t(key, params) : key);
 
-// ── API-BASIS ─────────────────────────────────────────────────────────────────
+// ── API BASE ───────────────────────────────────────────────────────────────────
 // Same-origin. The PWA and the FastAPI backend live behind the same
 // SWAG vhost — there is no supported deployment where they sit on
 // different origins, and CSP `connect-src 'self'` would block such
@@ -34,8 +34,8 @@ try {
 // draft (appState.form.{type,tags}) live in state.js.
 
 // ── REPORTS-STATE ─────────────────────────────────────────────────────────────
-// Welche Auswertung gerade aktiv ist (Quelle der Wahrheit für panel-charts).
-// Persistiert in localStorage, damit ein Reload den letzten Stand zeigt.
+// Which report is currently active (source of truth for panel-charts).
+// Persisted in localStorage so a reload shows the last state.
 const REPORT_STORAGE_KEY = 'pocketlog.report';
 const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'tags', 'trend', 'forecast', 'top'];
 // Report id → i18n key. Resolved through t() at render time so the
@@ -60,7 +60,7 @@ appState.reports.current = (() => {
   const v = localStorage.getItem(REPORT_STORAGE_KEY);
   return REPORT_IDS.includes(v) ? v : 'overview';
 })();
-// Chart.js-Instanzen pro Report, getrennt damit destroy() keine fremde Instanz trifft.
+// Chart.js instances per report, kept separate so destroy() never hits a foreign instance.
 const chartInsts = { month: null, year: null, categories: null, tags: null, trend: null };
 
 // ── TREND-STATE ───────────────────────────────────────────────────────────────
@@ -94,13 +94,13 @@ const TREND_RANGE_KEY = 'pocketlog.trend.range';
     }
   } catch (e) {}
 })();
-// Pro-Jahr-Cache der Transaktionen. Bei jedem write geleert.
+// Per-year transaction cache. Cleared on every write.
 const _txCacheByYear = new Map();
 function invalidateReportCache() {
   _txCacheByYear.clear();
 }
 // appState.reports.searchExitTarget — drill-down from the category analysis
-// remembers where „Abbrechen" jumps back to. appState.reports.txPool — the
+// remembers where "Cancel" jumps back to. appState.reports.txPool — the
 // last transactions loaded by the active report, consulted by editTransaction
 // so a click on a top list finds the real booking (not just the current
 // month's from the transactions view). Both default in state.js.
@@ -109,20 +109,20 @@ function invalidateReportCache() {
 // current view's slice, loaded per API), categories (loaded per API),
 // appState.ledger.availableTags (the user's distinct tags, alphabetical) and `all` (the full
 // pool used by search). `appState.ledger.all` below maps to appState.ledger.all.
-const tagCounts = new Map(); // tag-name (case-folded) → Anzahl Verwendungen
+const tagCounts = new Map(); // tag name (case-folded) → number of uses
 
 // ── API HELPER ────────────────────────────────────────────────────────────────
-// Same-origin Cookie-Session. CSRF-Token wird beim Login / Bootstrap
-// eingesammelt und in window._csrfToken gehalten. Bei 401 reload-en
-// wir hart, damit init() sauber auf die Login-View landet — kein
-// veralteter App-State bleibt im DOM.
+// Same-origin cookie session. The CSRF token is collected on login /
+// bootstrap and kept in window._csrfToken. On a 401 we reload hard so
+// init() lands cleanly on the login view — no stale app state stays
+// in the DOM.
 window._csrfToken = '';
 
-// Auth-Boundary-Cleanup: vor jedem 401-induzierten Reload den
-// API-Cache und den im SW gehaltenen CSRF-Token wegwerfen. Sonst
-// würde der nächste Page-Load auf eine gecachte me-Response treffen
-// (Force-Change-View ohne Session), oder die Outbox einen stale
-// CSRF-Token mitschicken (403 beim Replay → silent Datenverlust).
+// Auth-boundary cleanup: before every 401-induced reload, throw away
+// the API cache and the CSRF token held by the SW. Otherwise the next
+// page load would hit a cached me response (force-change view without
+// a session), or the outbox would send a stale CSRF token along
+// (403 on replay → silent data loss).
 function _resetAuthClientState() {
   try {
     if (navigator.serviceWorker?.controller) {
@@ -132,14 +132,13 @@ function _resetAuthClientState() {
   window._csrfToken = '';
 }
 
-// Nuklearer Reset: SW unregistrieren UND alle Caches platt machen.
-// Wird vom Force-Change-Pfad als Escape-Hatch genutzt, wenn die
-// Server-Antwort beweist, dass die gerade gerenderte View zum echten
-// Session-State nicht passt — typisch ein alter SW oder ein
-// iOS-„Frozen-Page-Cache", der noch die alte 200/me-Response
-// festhält, obwohl „Verlauf und Websitedaten löschen" schon
-// durchgelaufen ist. localStorage bleibt drin, damit Theme +
-// Default-View überleben.
+// Nuclear reset: unregister the SW AND wipe every cache. Used by the
+// force-change path as an escape hatch when the server response proves
+// that the view currently rendered doesn't match the real session
+// state — typically a stale SW or an iOS "frozen page cache" still
+// holding the old 200/me response even though "clear history and
+// website data" already ran. localStorage stays, so theme +
+// default view survive.
 async function _hardResetClientState() {
   try {
     if ('serviceWorker' in navigator) {
@@ -154,8 +153,8 @@ async function _hardResetClientState() {
     }
   } catch (_) {}
   window._csrfToken = '';
-  // Mit cache-busting-Param laden, damit Safari den BFCache nicht
-  // einfach wieder hinrendert. Reicht für iOS Safari-Eigenheiten.
+  // Load with a cache-busting param so Safari doesn't simply re-render
+  // the BFCache. Sufficient for iOS Safari quirks.
   location.replace('/?reset=' + Date.now());
 }
 
@@ -195,12 +194,11 @@ async function api(method, path, body) {
   return res.json();
 }
 
-// Auth-Endpoints umgehen api() — bei 401/429 wollen wir die Antwort
-// selbst behandeln, ohne in den location.reload()-Pfad zu fallen.
-// ABER: wenn der Caller ``opts.reloadOn401 !== false`` lässt und
-// eine 401 kommt, machen wir trotzdem den harten Reload — sonst
-// bleibt der User in einer View hängen, zu der sein Session-State
-// nicht mehr passt.
+// Auth endpoints bypass api() — on 401/429 we want to handle the
+// response ourselves without falling into the location.reload() path.
+// BUT: if the caller leaves ``opts.reloadOn401 !== false`` and a 401
+// arrives, we still do the hard reload — otherwise the user is stuck
+// in a view their session state no longer matches.
 async function authFetch(method, path, body, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (opts.csrf !== false && method !== 'GET' && window._csrfToken) {
@@ -227,11 +225,11 @@ function _broadcastCsrfToSw(token) {
   } catch (_) {}
 }
 
-// Passwort-Policy: 12 Zeichen + 4 Zeichenklassen. Spiegelt die
-// Server-seitige Regel in schemas.validate_password_complexity —
-// beide Stellen müssen synchron bleiben. Unicode-property-Regex,
-// damit „Ä", „ß", „é" wie auf dem Server als Buchstaben zählen
-// (und nicht als Sonderzeichen).
+// Password policy: 12 chars + 4 character classes. Mirrors the
+// server-side rule in schemas.validate_password_complexity — both
+// places must stay in sync. Unicode-property regex so "Ä", "ß", "é"
+// count as letters like on the server (and not as special
+// characters).
 const PWD_MIN_LENGTH = 12;
 function validateNewPassword(pw) {
   if (pw.length < PWD_MIN_LENGTH) {
@@ -454,9 +452,9 @@ function showPanel(id) {
   closeDrawer();
 }
 
-// Wird aus dem Drawer-Subpanel „Auswertungen" aufgerufen. Setzt den aktiven
-// Report (inkl. Lock-Mode bei Monat-/Jahresverlauf) und schaltet auf das
-// Charts-Panel.
+// Called from the "Reports" drawer subpanel. Sets the active report
+// (incl. lock mode for the month/year trend) and switches to the
+// charts panel.
 function openReport(id) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
   if (id === 'trend') appState.trend.pickerOpen = false;

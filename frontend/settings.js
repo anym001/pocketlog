@@ -3,7 +3,7 @@
 // account (logout, password change) and admin user management.
 // Classic script — see index.html for load order.
 
-// ── TAGS (Einstellungen) ──────────────────────────────────────────────────────
+// ── TAGS (settings) ───────────────────────────────────────────────────────────
 // Tag rename modal draft lives in appState.tagEdit.name (state.js).
 
 function renderTagList() {
@@ -100,10 +100,10 @@ async function deleteTagEdit() {
   }
 }
 
-// ── SYNC (Service-Worker-Outbox) ──────────────────────────────────────────────
-// Online-Schreibvorgänge laufen direkt; offline landen sie in der IndexedDB-
-// Outbox (frontend/db.js) und werden bei wieder hergestellter Verbindung
-// vom Service Worker bzw. diesem Aufruf nachgespielt.
+// ── SYNC (service worker outbox) ──────────────────────────────────────────────
+// Online writes go through directly; offline they land in the IndexedDB
+// outbox (frontend/db.js) and are replayed by the service worker or by
+// this call once the connection is back.
 function setSyncBadge(n) {
   const badge = document.getElementById('syncBadge');
   if (!badge) return;
@@ -145,7 +145,7 @@ async function syncNow() {
       failed = r.failed;
     } catch (e) {
       networkErr = true;
-      console.error('Sync (drain) fehlgeschlagen:', e);
+      console.error('Sync (drain) failed:', e);
     }
   }
 
@@ -155,7 +155,7 @@ async function syncNow() {
       if (!r.ok) throw new Error('HTTP ' + r.status);
     } catch (e) {
       networkErr = true;
-      console.error('Sync (health) fehlgeschlagen:', e);
+      console.error('Sync (health) failed:', e);
     }
   }
 
@@ -220,7 +220,7 @@ function saveCurrency(cur) {
   if (window.I18N) I18N.setCurrency(cur); // persists + dispatches i18n:changed
 }
 
-// Mirror the persisted preferences into the four "Allgemein" selects.
+// Mirror the persisted preferences into the four "General" selects.
 // Called when the panel opens and after a server reconcile.
 function syncDisplaySelects() {
   const set = (id, val) => {
@@ -270,10 +270,10 @@ function loadTheme() {
   return localStorage.getItem(THEME_KEY) || 'system';
 }
 
-// ── SETTINGS-BACKUP (Server) ──────────────────────────────────────────────────
-// localStorage rendert sofort — diese Helpers gleichen das mit der DB ab,
-// damit das Theme + die Startansicht eine iOS-localStorage-Eviction überleben.
-// PUT geht durchs api()-Helper, im Offline-Fall fängt der SW-Outbox alles ab.
+// ── SETTINGS BACKUP (server) ──────────────────────────────────────────────────
+// localStorage renders immediately — these helpers reconcile it with the
+// DB so theme + default view survive an iOS localStorage eviction.
+// PUT goes through the api() helper; offline, the SW outbox catches it all.
 function pushSettings(patch) {
   api('PUT', '/settings', patch).catch(() => {});
 }
@@ -283,7 +283,7 @@ async function reconcileSettingsFromServer() {
   try {
     s = await api('GET', '/settings');
   } catch (_) {
-    return; // offline / nicht erreichbar → localStorage gilt
+    return; // offline / unreachable → localStorage wins
   }
   if (!s || s.offline) return;
   if (s.theme && s.theme !== loadTheme()) {
@@ -291,8 +291,8 @@ async function reconcileSettingsFromServer() {
     applyTheme(s.theme);
   }
   if (s.default_view && s.default_view !== loadDefaultView()) {
-    // Panel-Switch mitten in der Session wäre disruptiv — nur die
-    // Persistenz nachziehen, beim nächsten Start greift der Wert.
+    // A panel switch mid-session would be disruptive — only update the
+    // persistence; the value takes effect on the next start.
     localStorage.setItem('pocketlog.defaultView', s.default_view);
   }
   // Language/currency: the server is the source of truth across
@@ -522,7 +522,7 @@ async function importCSV(ev) {
     status.textContent = tr('importExport.importFailed');
     status.className = 'status-msg err';
   } finally {
-    ev.target.value = ''; // gleichen File-Reimport erlauben
+    ev.target.value = ''; // allow re-importing the same file
   }
 }
 
@@ -772,23 +772,23 @@ async function confirmClearAppCache() {
 }
 
 // ── INFO PANEL ────────────────────────────────────────────────────────────────
-// Beste-Aufwand-Erkennung. UA-Strings sind notorisch unzuverlässig —
-// diese Werte sind ausschließlich für Debug-Anzeige gedacht, niemals
-// als Logik-Schalter.
+// Best-effort detection. UA strings are notoriously unreliable — these
+// values are meant exclusively for the debug display, never as logic
+// switches.
 function _detectPlatform() {
   const ua = navigator.userAgent || '';
   const touch = navigator.maxTouchPoints || 0;
   const fmt = (a, b, c) => `${a}.${b}${c ? '.' + c : ''}`;
   let m;
-  // Apple deckelt OS-Versionen mittlerweile in allen Browser-UAs ein
-  // (macOS auf 10_15_7 seit Safari 14, iPadOS gibt im Desktop-Spoof
-  // gar nichts mehr aus, und seit iOS 26 friert auch der iPhone-UA
-  // auf „18_x" ein). Daher überall nur den Plattformnamen.
+  // Apple now caps OS versions in all browser UAs (macOS at 10_15_7
+  // since Safari 14, iPadOS exposes nothing at all in its desktop
+  // spoof, and since iOS 26 the iPhone UA freezes at "18_x" too). So:
+  // platform name only, everywhere.
   if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) return 'iPad';
   if (/iPhone/.test(ua)) return 'iPhone';
   if (/Android/.test(ua)) {
     const v = ua.match(/Android (\d+(?:\.\d+)*)/);
-    // Modell steht hinter dem zweiten Semikolon und vor ' Build/' bzw. ')'.
+    // The model sits after the second semicolon and before ' Build/' or ')'.
     const mm =
       ua.match(/Android[^;]*;[^;]*;\s*([^;)]+?)(?:\s+Build|\))/) ||
       ua.match(/;\s*([^;)]+)\s+Build\//);
@@ -809,8 +809,8 @@ function _detectPlatform() {
 function _detectBrowser() {
   const ua = navigator.userAgent || '';
   let m;
-  // iOS-Alternativbrowser sind alle WebKit, lassen sich aber am
-  // herstellerspezifischen Token erkennen — wichtig vor dem Safari-Match.
+  // Alternative iOS browsers are all WebKit but can be identified by
+  // their vendor-specific token — important before the Safari match.
   if ((m = ua.match(/CriOS\/(\d+(?:\.\d+)?)/))) return 'Chrome iOS ' + m[1];
   if ((m = ua.match(/FxiOS\/(\d+(?:\.\d+)?)/))) return 'Firefox iOS ' + m[1];
   if ((m = ua.match(/EdgiOS\/(\d+(?:\.\d+)?)/))) return 'Edge iOS ' + m[1];
@@ -831,8 +831,8 @@ function _detectDisplayMode() {
   if (window.matchMedia('(display-mode: standalone)').matches) return 'PWA (standalone)';
   if (window.matchMedia('(display-mode: minimal-ui)').matches) return 'PWA (minimal-ui)';
   if (window.matchMedia('(display-mode: fullscreen)').matches) return tr('info.displayFullscreen');
-  // iOS-Safari nutzt die nicht-standardisierte navigator.standalone-Flag
-  // statt display-mode, bis heute.
+  // iOS Safari uses the non-standard navigator.standalone flag instead
+  // of display-mode, to this day.
   if (navigator.standalone === true) return tr('info.displayHomescreen');
   return tr('info.displayBrowserTab');
 }
@@ -852,11 +852,11 @@ function _detectPointer() {
   return parts.join(' · ');
 }
 
-// Jede renderInfoPanel-Invocation bekommt eine Sequenznummer; async
-// Antworten (Backend-Version, Health-Probe) überschreiben das DOM nur
-// dann, wenn sie noch zum aktuellen Durchgang gehören. Verhindert,
-// dass eine alte, langsame Antwort einen neueren Stand überschreibt,
-// wenn der User das Panel schnell zweimal öffnet. Seq in appState.nav.infoPanelSeq.
+// Every renderInfoPanel invocation gets a sequence number; async
+// responses (backend version, health probe) only overwrite the DOM if
+// they still belong to the current pass. Prevents an old, slow response
+// from overwriting a newer state when the user opens the panel twice in
+// quick succession. Seq lives in appState.nav.infoPanelSeq.
 
 async function renderInfoPanel() {
   const mySeq = ++appState.nav.infoPanelSeq;
@@ -871,9 +871,9 @@ async function renderInfoPanel() {
   const vh = window.innerHeight;
   const sw = window.screen ? window.screen.width : 0;
   const sh = window.screen ? window.screen.height : 0;
-  // Browser-Zoom näherungsweise aus outerWidth/innerWidth. Auf macOS
-  // Safari/Firefox zählt das Fenster-Chrome minimal mit, daher runden.
-  // visualViewport.scale fängt Pinch-Zoom auf Touch-Geräten ein.
+  // Approximate browser zoom from outerWidth/innerWidth. On macOS
+  // Safari/Firefox the window chrome counts in slightly, hence rounding.
+  // visualViewport.scale captures pinch zoom on touch devices.
   const zoomRatio = window.outerWidth && vw ? window.outerWidth / vw : 1;
   const zoomPct = Math.round(zoomRatio * 100);
   const pinch = window.visualViewport ? window.visualViewport.scale : 1;
@@ -931,10 +931,10 @@ async function renderInfoPanel() {
     set('infoOutbox', '–');
   }
 
-  // Backend-Health-Probe – ehrlicher als navigator.onLine, das nur
-  // sagt, ob irgendein Netzwerk-Interface da ist. Läuft nur beim
-  // Öffnen des Panels (kein Polling) und nur wenn der Browser
-  // überhaupt online meldet — sonst wäre der Fetch sicher umsonst.
+  // Backend health probe — more honest than navigator.onLine, which only
+  // says whether some network interface exists. Runs only when the panel
+  // opens (no polling) and only if the browser reports online at all —
+  // otherwise the fetch would certainly be wasted.
   if (navigator.onLine) {
     try {
       const res = await fetch(API + '/health', { cache: 'no-store' });
@@ -947,9 +947,9 @@ async function renderInfoPanel() {
     }
   }
 
-  // Backend-Version – ohne api()-Helper, da /api/version öffentlich ist
-  // und keinen Auth-Header braucht. Direkter Fetch vermeidet außerdem,
-  // dass die SW-Outbox bei Offline-Zustand eine Schreib-Operation queued.
+  // Backend version — without the api() helper since /api/version is
+  // public and needs no auth header. A direct fetch also avoids the SW
+  // outbox queueing a write operation while offline.
   try {
     const res = await fetch(API + '/version', { headers: { Accept: 'application/json' } });
     if (res.ok) {
@@ -963,7 +963,7 @@ async function renderInfoPanel() {
   }
 }
 
-// ── LOGOUT + KONTO ────────────────────────────────────────────────────────────
+// ── LOGOUT + ACCOUNT ──────────────────────────────────────────────────────────
 async function logoutWithConfirm() {
   let pending = 0;
   try {
@@ -997,7 +997,7 @@ async function logoutWithConfirm() {
   location.reload();
 }
 
-// ── PASSWORT ÄNDERN (Self-Service) ────────────────────────────────────────────
+// ── CHANGE PASSWORD (self-service) ────────────────────────────────────────────
 function openChangePasswordModal() {
   document.getElementById('pwModalCurrent').value = '';
   document.getElementById('pwModalNew').value = '';
@@ -1053,15 +1053,15 @@ async function submitChangePassword() {
       return;
     }
     closePwModal();
-    // Andere Sessions sind serverseitig gekillt — diese hier
-    // bleibt aktiv. Toast nur zur Bestätigung.
+    // Other sessions are killed server-side — this one stays active.
+    // Toast is confirmation only.
     toast(tr('pwd.changed'), 'ok');
   } catch (e) {
     _setAuthError('pwModalError', tr('common.connectionFailed'));
   }
 }
 
-// ── ADMIN: BENUTZERVERWALTUNG ─────────────────────────────────────────────────
+// ── ADMIN: USER MANAGEMENT ────────────────────────────────────────────────────
 // Admin user list + current "me" live in appState.admin (state.js).
 
 async function loadAdminUsers() {
@@ -1074,8 +1074,7 @@ async function loadAdminUsers() {
     list.textContent = tr('users.loadFailed');
     return;
   }
-  // Aktuelle Identität nochmal frisch ziehen, falls das Body-Flag
-  // veraltet ist.
+  // Re-fetch the current identity in case the body flag is stale.
   try {
     const meRes = await fetch(API + '/auth/me', { credentials: 'same-origin' });
     if (meRes.ok) appState.admin.me = await meRes.json();
@@ -1090,10 +1089,10 @@ function renderAdminUserList() {
     list.textContent = tr('users.none');
     return;
   }
-  // appState.admin.me MUSS gesetzt sein, sonst kann die UI ihre Self-Schutz-
-  // Regeln nicht durchsetzen (Buttons würden auf der eigenen Zeile
-  // aktivierbar wirken, obwohl das Backend sie 400/403't). Lieber
-  // einen Render-Fehler zeigen als eine UI-Lüge.
+  // appState.admin.me MUST be set, otherwise the UI cannot enforce its
+  // self-protection rules (buttons would look actionable on the user's
+  // own row even though the backend 400/403s them). Better to show a
+  // render error than a UI lie.
   if (!appState.admin.me || appState.admin.me.id == null) {
     list.textContent = tr('users.noIdentity');
     return;

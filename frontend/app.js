@@ -130,15 +130,14 @@ async function submitForcePassword() {
     return;
   }
   try {
-    // Im Force-Change-Zustand ignoriert das Backend ``current_password``
-    // bewusst — wir lassen das Feld in der Payload trotzdem als
-    // ``null`` zurück, damit das Schema-Default greift.
-    // reloadOn401:false, weil wir den 401-Fall selbst handhaben:
-    // ein 401 hier bedeutet, dass die gerade gerenderte
-    // Force-Change-View zu keiner echten Session passt (alter
-    // SW-Cache, frozen-page-state) — sauberer ist Hard-Reset
-    // als der normale Reload, der dasselbe Symptom reproduzieren
-    // würde.
+    // In the force-change state the backend deliberately ignores
+    // ``current_password`` — we still leave the field as ``null`` in
+    // the payload so the schema default kicks in.
+    // reloadOn401:false because we handle the 401 case ourselves:
+    // a 401 here means the force-change view currently rendered
+    // matches no real session (stale SW cache, frozen-page state) —
+    // a hard reset is cleaner than the normal reload, which would
+    // reproduce the same symptom.
     const res = await authFetch(
       'POST',
       '/auth/change-password',
@@ -150,9 +149,9 @@ async function submitForcePassword() {
       return;
     }
     if (res.status === 400) {
-      // Backend sagt: Force-Change ist gar nicht aktiv. View ist
-      // also gegenüber dem Server-State veraltet — gleiche Ursache
-      // wie 401, gleicher Ausweg.
+      // Backend says force-change isn't active at all. The view is
+      // stale relative to the server state — same cause as the 401,
+      // same way out.
       await _hardResetClientState();
       return;
     }
@@ -173,10 +172,10 @@ async function _afterAuthSuccess(me) {
   const usernameLabel = document.getElementById('accountUsername');
   if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
   if (me.force_change_password) {
-    // Im Force-Change-Zustand ist das alte Passwort administrativ
-    // (Admin-Reset oder CLI) — die Backend-Verifikation ist
-    // ausgeschaltet, das Feld wäre eine UI-Lüge. Der User vergibt
-    // nur ein neues Passwort plus Wiederholung.
+    // In the force-change state the old password is administrative
+    // (admin reset or CLI) — backend verification is switched off,
+    // the field would be a UI lie. The user only sets a new password
+    // plus its confirmation.
     _showAuthView('forcePw');
     setTimeout(() => document.getElementById('forcePwNew')?.focus(), 50);
     return;
@@ -251,7 +250,7 @@ async function init() {
     }
   }
 
-  // 1) Setup-Status: braucht die DB einen ersten Admin?
+  // 1) Setup status: does the DB need its first admin?
   let needsSetup = false;
   let suggested = null;
   let defaultLocale = null;
@@ -266,8 +265,8 @@ async function init() {
       defaultLocale = data.default_locale || null;
     }
   } catch (e) {
-    // Backend nicht erreichbar — Login-View zeigen, der User
-    // sieht beim Submit den Verbindungsfehler.
+    // Backend unreachable — show the login view; the user sees the
+    // connection error on submit.
   }
   if (needsSetup) {
     if (suggested) {

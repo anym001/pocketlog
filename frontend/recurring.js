@@ -1,7 +1,7 @@
 // Recurring rules editor incl. the live next-booking preview (mirrors
 // backend recurring date math). Classic script — see index.html for load order.
 
-// ── RECURRING (Wiederkehrende Buchungen) ──────────────────────────────────────
+// ── RECURRING (recurring bookings) ────────────────────────────────────────────
 // Rules are templates; the backend auto-materializes due
 // occurrences into the transactions table on every /auth/me
 // and /transactions read. The view here only manages the

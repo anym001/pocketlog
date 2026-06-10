@@ -196,8 +196,8 @@ function _movingAverage(values, window) {
   return result;
 }
 
-// Stabile Hue wie _tagColor, aber mit klemmender Helligkeit, damit
-// Light- und Dark-Mode beide Kontrast zur Chart-Linie haben.
+// Stable hue like _tagColor, but with clamped lightness so both light
+// and dark mode keep contrast against the chart line.
 function _tagLineColor(name) {
   let h = 0;
   for (let i = 0; i < name.length; i++) {
@@ -245,10 +245,10 @@ function _trendStats(monthlyMap, fromIso, toIso) {
     if (!yearGroups.has(y)) yearGroups.set(y, []);
     yearGroups.get(y).push(monthlyMap.get(k) || 0);
   }
-  // Schwelle bewusst niedrig (≥3 Monate), damit das laufende Jahr ab Q2
-  // sichtbar wird — der renderReportTrend-Callsite kappt toIso auf heute,
-  // also rechnet jeder Jahresmittelwert nur über tatsächlich verfügbare
-  // Monate (Projektion auf Monatsbasis statt Verwässerung durch Nullen).
+  // Threshold deliberately low (≥3 months) so the running year shows up
+  // from Q2 on — the renderReportTrend call site caps toIso at today, so
+  // every yearly average is computed only over months that actually have
+  // data (per-month projection instead of dilution by zeros).
   const years = Array.from(yearGroups.entries()).filter(([, list]) => list.length >= 3);
   let yoy = null;
   if (years.length >= 2) {
