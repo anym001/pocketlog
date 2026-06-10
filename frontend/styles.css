@@ -3726,7 +3726,7 @@
         font-size: var(--fs-body);
         font-weight: 600;
         color: var(--text);
-        margin-bottom: var(--space-8);
+        margin-bottom: var(--space-12);
         overflow-wrap: anywhere;
       }
       .api-key-card-footer {
