@@ -415,6 +415,7 @@
     "scope.hint": "Write includes Import and Read.",
     "createdAt": "Created",
     "lastUsed": "Last used",
+    "never": "Never",
     "revoke": "Revoke",
     "revokeConfirm": "Really revoke key \"{name}\"?",
     "created.title": "Key created",
