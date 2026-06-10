@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import exceptions, models, schemas
+from ._shared import _get_owned
 from .defaults import DEFAULT_CATEGORIES, DEFAULT_CATEGORY_NAMES, DEFAULT_LOCALE
 
 
@@ -83,14 +84,7 @@ def update_category(
     category_id: int,
     payload: schemas.CategoryUpdate,
 ) -> models.Category | None:
-    cat = db.scalar(
-        select(models.Category).where(
-            and_(
-                models.Category.id == category_id,
-                models.Category.user_id == user_id,
-            )
-        )
-    )
+    cat = _get_owned(db, models.Category, user_id, category_id)
     if cat is None:
         return None
     for k, v in payload.model_dump().items():
@@ -105,14 +99,7 @@ def update_category(
 
 
 def delete_category(db: Session, user_id: int, category_id: int) -> bool:
-    cat = db.scalar(
-        select(models.Category).where(
-            and_(
-                models.Category.id == category_id,
-                models.Category.user_id == user_id,
-            )
-        )
-    )
+    cat = _get_owned(db, models.Category, user_id, category_id)
     if cat is None:
         return False
     in_use = db.scalar(

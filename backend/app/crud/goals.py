@@ -3,11 +3,12 @@ the ownership of the linked category is validated through the shared
 ``categories._owned_category_exists`` helper.
 """
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import exceptions, models, schemas
+from ._shared import _get_owned
 from .categories import _owned_category_exists
 
 
@@ -41,14 +42,7 @@ def update_goal(
     goal_id: int,
     payload: schemas.GoalUpdate,
 ) -> models.Goal | None:
-    goal = db.scalar(
-        select(models.Goal).where(
-            and_(
-                models.Goal.id == goal_id,
-                models.Goal.user_id == user_id,
-            )
-        )
-    )
+    goal = _get_owned(db, models.Goal, user_id, goal_id)
     if goal is None:
         return None
     if not _owned_category_exists(db, user_id, payload.category_id):
@@ -65,14 +59,7 @@ def update_goal(
 
 
 def delete_goal(db: Session, user_id: int, goal_id: int) -> bool:
-    goal = db.scalar(
-        select(models.Goal).where(
-            and_(
-                models.Goal.id == goal_id,
-                models.Goal.user_id == user_id,
-            )
-        )
-    )
+    goal = _get_owned(db, models.Goal, user_id, goal_id)
     if goal is None:
         return False
     db.delete(goal)

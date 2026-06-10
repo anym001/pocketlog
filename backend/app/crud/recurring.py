@@ -5,8 +5,9 @@ A rule is a *template* for transactions. The catch-up engine
 and inserts real rows into ``transactions``. CRUD here only touches the rule
 itself; backdating on create is handled by calling into
 ``recurring.materialize_due`` from ``create_recurring_rule``. ``app.recurring``
-is imported lazily inside the functions to avoid a top-level cycle
-(``app.recurring`` imports this package).
+is imported lazily inside that function to avoid a top-level cycle
+(``app.recurring`` imports this package); the pure date math comes from
+``app.recurring_dates``, which is cycle-free and imported normally.
 """
 
 from datetime import date as date_type
@@ -16,6 +17,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .. import exceptions, models, schemas
+from ..recurring_dates import first_occurrence_on_or_after, next_occurrence
+from ._shared import _get_owned
 from .categories import _owned_category_exists
 from .tags import _resolve_tags
 
@@ -37,14 +40,7 @@ def _subtract_months(anchor: date_type, months: int) -> date_type:
 def _load_rule(
     db: Session, user_id: int, rule_id: int
 ) -> "models.RecurringRule | None":
-    return db.scalar(
-        select(models.RecurringRule).where(
-            and_(
-                models.RecurringRule.id == rule_id,
-                models.RecurringRule.user_id == user_id,
-            )
-        )
-    )
+    return _get_owned(db, models.RecurringRule, user_id, rule_id)
 
 
 def list_recurring_rules(db: Session, user_id: int) -> list[models.RecurringRule]:
@@ -118,9 +114,7 @@ def create_recurring_rule(
 
     rule = models.RecurringRule(user_id=user_id)
     _apply_rule_fields(rule, payload)
-    rule.next_occurrence_date = recurring_mod.first_occurrence_on_or_after(
-        rule, payload.start_date
-    )
+    rule.next_occurrence_date = first_occurrence_on_or_after(rule, payload.start_date)
     rule.tags = _resolve_tags(db, user_id, payload.tags)
     db.add(rule)
     try:
@@ -160,8 +154,6 @@ def update_recurring_rule(
     so a backdated start date on edit does NOT trigger re-materialization
     of past occurrences — edits only affect the future.
     """
-    from .. import recurring as recurring_mod
-
     rule = _load_rule(db, user_id, rule_id)
     if rule is None:
         return None
@@ -172,7 +164,7 @@ def update_recurring_rule(
     rule.tags = _resolve_tags(db, user_id, payload.tags)
     today = date_type.today()
     anchor = payload.start_date if payload.start_date > today else today
-    rule.next_occurrence_date = recurring_mod.first_occurrence_on_or_after(rule, anchor)
+    rule.next_occurrence_date = first_occurrence_on_or_after(rule, anchor)
     # If the rule is paused, freeze the cursor at None so the catch-up
     # skips it cleanly regardless of dates.
     if not rule.active:
@@ -208,8 +200,6 @@ def skip_next_occurrence(
     is ``None`` when the rule has already terminated — in that case
     the call is a no-op (204).
     """
-    from .. import recurring as recurring_mod
-
     rule = _load_rule(db, user_id, rule_id)
     if rule is None:
         return None
@@ -230,7 +220,7 @@ def skip_next_occurrence(
 
     # Advance the cursor exactly as the catch-up would. End conditions
     # may terminate the rule here too.
-    nxt = recurring_mod.next_occurrence(rule, target)
+    nxt = next_occurrence(rule, target)
     if nxt is None or (
         rule.max_occurrences is not None
         and rule.occurrences_count >= rule.max_occurrences

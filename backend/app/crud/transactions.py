@@ -10,6 +10,7 @@ from sqlalchemy import and_, extract, select
 from sqlalchemy.orm import Session, selectinload
 
 from .. import exceptions, models, schemas
+from ._shared import _get_owned
 from .categories import _owned_category_exists
 from .tags import _resolve_tags
 
@@ -83,14 +84,7 @@ def create_transaction(
 def update_transaction(
     db: Session, user_id: int, tx_id: int, payload: schemas.TransactionUpdate
 ) -> models.Transaction | None:
-    tx = db.scalar(
-        select(models.Transaction).where(
-            and_(
-                models.Transaction.id == tx_id,
-                models.Transaction.user_id == user_id,
-            )
-        )
-    )
+    tx = _get_owned(db, models.Transaction, user_id, tx_id)
     if tx is None:
         return None
     if not _owned_category_exists(db, user_id, payload.category_id):
@@ -108,14 +102,7 @@ def update_transaction(
 
 
 def delete_transaction(db: Session, user_id: int, tx_id: int) -> bool:
-    tx = db.scalar(
-        select(models.Transaction).where(
-            and_(
-                models.Transaction.id == tx_id,
-                models.Transaction.user_id == user_id,
-            )
-        )
-    )
+    tx = _get_owned(db, models.Transaction, user_id, tx_id)
     if tx is None:
         return False
     db.delete(tx)

@@ -9,9 +9,9 @@ Audit events are emitted for creation and revocation.
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
-from .. import crud, schemas
+from .. import crud, errors, schemas
 from ..deps import DB, CurrentUser
 
 router = APIRouter()
@@ -50,5 +50,5 @@ def create_api_key(
 def revoke_api_key(key_id: int, user: CurrentUser, db: DB) -> None:
     deleted = crud.revoke_api_key(db, user.id, key_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="api_key_not_found")
+        raise errors.not_found("api_key_not_found")
     audit.info("api_key.revoke user_id=%s key_id=%s", user.id, key_id)
