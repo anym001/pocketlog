@@ -8,14 +8,19 @@ on:
   pull_request:
   workflow_call:
 
+# Least privilege: every job only reads the repo. Callers (build.yml/dev.yml)
+# grant their own write scopes on their own jobs, never through this file.
+permissions:
+  contents: read
+
 jobs:
   lint-backend:
     # Static gate: ruff lint + format check on the backend. Catches style and
     # import regressions before they reach review. No app boot, so it's fast.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.12"
       - run: pip install ruff==0.15.16
@@ -31,8 +36,8 @@ jobs:
     # no browser — the UI flow is covered by the Playwright `smoke` job.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "20"
       - run: npm install
@@ -47,8 +52,8 @@ jobs:
     # in the `smoke` job below.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "20"
       - run: npm install
@@ -61,8 +66,8 @@ jobs:
     # migrations against SQLite via the conftest session fixture).
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.12"
       - run: pip install -r backend/requirements-dev.txt
@@ -96,8 +101,8 @@ jobs:
     env:
       DATABASE_URL: mysql+pymysql://pocketlog:pocketlog@127.0.0.1:3306/pocketlog?charset=utf8mb4
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.12"
       - run: pip install -r backend/requirements.txt
@@ -112,7 +117,7 @@ jobs:
     # the DB file owned by the requested user.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Build image
         run: docker build -f backend/Dockerfile -t pocketlog:ci .
       - name: Run container (SQLite default, PUID/PGID 99:100)
@@ -139,7 +144,7 @@ jobs:
       # health ping above never render the frontend, so a broken view or an
       # untranslated i18n key (the goals.* regression) would pass unnoticed.
       - name: Set up Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "20"
       - name: Install Playwright
@@ -154,7 +159,7 @@ jobs:
         run: npx playwright test
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: playwright-report
           path: frontend/e2e/playwright-report
@@ -162,4 +167,3 @@ jobs:
       - name: Cleanup
         if: always()
         run: docker rm -f pl || true
-
