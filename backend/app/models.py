@@ -499,7 +499,7 @@ class RecurringRule(Base):
     # Required iff frequency=weekly; 0=Mon (ISO weekday). NULL otherwise.
     weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Required iff monthly/quarterly/yearly; 31 means "last day of
-    # shorter months" (Outlook semantics, see app.recurring._clamp_day).
+    # shorter months" (Outlook semantics, see app.recurring_dates._clamp_day).
     day_of_month: Mapped[int | None] = mapped_column(Integer, nullable=True)
     start_date: Mapped[date_type] = mapped_column(Date, nullable=False)
     end_date: Mapped[date_type | None] = mapped_column(Date, nullable=True)
