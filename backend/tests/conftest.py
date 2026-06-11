@@ -140,6 +140,33 @@ def _login_client(app, user, *, password=TEST_PASSWORD, remember_me=False):
     return client
 
 
+def new_category(client, name: str | None = None) -> int:
+    """Create a category through the API and return its id (unique name
+    per call so tests never trip the per-user UNIQUE constraint)."""
+    name = name or f"Cat-{uuid.uuid4().hex[:8]}"
+    r = client.post(
+        "/api/categories",
+        json={"name": name, "icon": "house", "color": "#123456"},
+    )
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
+def other_client(app, db_session):
+    """A TestClient logged in as a freshly created second user — the
+    counterpart for cross-user isolation tests."""
+    from app import crud
+
+    other = crud.create_user(
+        db_session,
+        username=f"other-{uuid.uuid4().hex[:10]}",
+        password=TEST_PASSWORD,
+        is_admin=False,
+        force_change_password=False,
+    )
+    return _login_client(app, other)
+
+
 @pytest.fixture
 def authed_client(app, regular_user):
     """TestClient pre-authenticated as a normal user."""

@@ -3,7 +3,64 @@
 import { describe, expect, it } from 'vitest';
 import reportsData from '../reportsData.js';
 
-const { _sumByType, _totalsByCategory, _goalProgress } = reportsData;
+const {
+  _sumByType,
+  _totalsByCategory,
+  _tagColor,
+  _totalsByTag,
+  _goalProgress,
+  _monthSpan,
+  _autoGranularity,
+} = reportsData;
+
+describe('_tagColor', () => {
+  it('is deterministic — same name, same color', () => {
+    expect(_tagColor('abo')).toBe(_tagColor('abo'));
+  });
+
+  it('returns a valid hsl() string with hue 0–359', () => {
+    const m = _tagColor('urlaub').match(/^hsl\((\d+)deg 58% 52%\)$/);
+    expect(m).not.toBeNull();
+    expect(parseInt(m[1], 10)).toBeLessThan(360);
+  });
+});
+
+describe('_totalsByTag', () => {
+  it('sums per tag, sorted by amount desc, full amount per tag', () => {
+    const txs = [
+      { type: 'out', amount: 10, tags: ['a', 'b'] },
+      { type: 'out', amount: 5, tags: ['a'] },
+      { type: 'in', amount: 99, tags: ['a'] }, // wrong type, ignored
+      { type: 'out', amount: 7, tags: [] }, // untagged, ignored
+      { type: 'out', amount: 3 }, // no tags field, ignored
+    ];
+    expect(_totalsByTag(txs, 'out')).toEqual([
+      { name: 'a', amount: 15 },
+      { name: 'b', amount: 10 },
+    ]);
+  });
+
+  it('returns an empty list when nothing matches', () => {
+    expect(_totalsByTag([{ type: 'in', amount: 1, tags: ['x'] }], 'out')).toEqual([]);
+  });
+});
+
+describe('_monthSpan', () => {
+  it('counts calendar months inclusively', () => {
+    expect(_monthSpan('2026-01-01', '2026-01-31')).toBe(1);
+    expect(_monthSpan('2026-01-15', '2026-12-01')).toBe(12);
+    expect(_monthSpan('2025-11-01', '2026-02-28')).toBe(4);
+  });
+});
+
+describe('_autoGranularity', () => {
+  it('picks month under 24 months, quarter up to 60, year beyond', () => {
+    expect(_autoGranularity('2025-01-01', '2026-11-30')).toBe('month'); // 23
+    expect(_autoGranularity('2025-01-01', '2026-12-31')).toBe('quarter'); // 24
+    expect(_autoGranularity('2022-01-01', '2026-12-31')).toBe('quarter'); // 60
+    expect(_autoGranularity('2022-01-01', '2027-01-31')).toBe('year'); // 61
+  });
+});
 
 describe('_sumByType', () => {
   it('splits totals by in/out', () => {

@@ -19,36 +19,8 @@ from datetime import date, timedelta
 from fastapi.testclient import TestClient
 
 from .conftest import TEST_PASSWORD
-
-
-def _new_category(client, name: str | None = None) -> int:
-    name = name or f"Cat-{uuid.uuid4().hex[:8]}"
-    r = client.post(
-        "/api/categories",
-        json={"name": name, "icon": "house", "color": "#123456"},
-    )
-    assert r.status_code == 201, r.text
-    return r.json()["id"]
-
-
-def _other_client(app, db_session):
-    """Return a TestClient logged in as a freshly created second user."""
-    from app import crud
-
-    other = crud.create_user(
-        db_session,
-        username=f"other-{uuid.uuid4().hex[:10]}",
-        password=TEST_PASSWORD,
-        is_admin=False,
-        force_change_password=False,
-    )
-    c = TestClient(app)
-    res = c.post(
-        "/api/auth/login",
-        json={"username": other.username, "password": TEST_PASSWORD},
-    )
-    c.headers["X-CSRF-Token"] = res.json()["user"]["csrf_token"]
-    return c
+from .conftest import new_category as _new_category
+from .conftest import other_client as _other_client
 
 
 def _rule_payload(category_id: int, **over) -> dict:
