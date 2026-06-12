@@ -133,6 +133,75 @@ function _recurringNextOccurrence(frequency, interval, after, weekday, dom) {
   return { y: ny, m: nm, d: _recurringClampDay(ny, nm, day) };
 }
 
+// --- Search / drill-down filtering -----------------------------------------
+
+// Filter a transaction pool by an active drill-down (category or tag) or a
+// pre-lowercased text query (description, category name, tags). Mirrors the
+// search panel's behaviour: a drill-down filter short-circuits the text
+// match. `catNameById` supplies the category display name (including the
+// localized fallback for a missing category) — passed in as a function so
+// this stays free of app state and I18N.
+function _filterTransactions(pool, { query, categoryFilterId, tagFilterName }, catNameById) {
+  return pool.filter((t) => {
+    if (categoryFilterId != null) return t.category_id === categoryFilterId;
+    if (tagFilterName != null) return Array.isArray(t.tags) && t.tags.includes(tagFilterName);
+    if ((t.desc || '').toLowerCase().includes(query)) return true;
+    if (catNameById(t.category_id).toLowerCase().includes(query)) return true;
+    if (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(query))) return true;
+    return false;
+  });
+}
+
+// --- Backend error codes → i18n keys ---------------------------------------
+
+// Map a backend 422 (Pydantic) password error onto an i18n key + params.
+// Pure core of core.js's _passwordErrorMessage — the wrapper translates.
+// Returns null when no password error is present.
+function _passwordErrorKey(data) {
+  const det = data && data.detail;
+  if (!Array.isArray(det)) return null;
+  const e = det.find((d) => Array.isArray(d.loc) && d.loc.some((x) => /password/i.test(String(x))));
+  if (!e) return null;
+  const ctx = e.ctx || {};
+  if (e.type === 'string_too_short')
+    return { key: 'pwd.tooShort', params: { n: ctx.min_length != null ? ctx.min_length : 12 } };
+  if (e.type === 'string_too_long')
+    return { key: 'pwd.tooLong', params: { n: ctx.max_length != null ? ctx.max_length : 128 } };
+  if (e.type === 'password_complexity') {
+    const miss = String(ctx.missing || '')
+      .split(/[,\s]+/)
+      .filter(Boolean);
+    const map = {
+      upper: 'pwd.needUpper',
+      lower: 'pwd.needLower',
+      digit: 'pwd.needDigit',
+      special: 'pwd.needSpecial',
+    };
+    if (miss[0] && map[miss[0]]) return { key: map[miss[0]], params: {} };
+  }
+  return null;
+}
+
+// Shape a CSV import API result into renderable, still-untranslated pieces:
+// the summary line entries, the capped per-row error list and the overflow
+// count. settings.js turns each {key, params} into text via tr(). The cap
+// keeps a mostly-broken file from rendering thousands of error rows.
+function _importReport(result, cap = 10) {
+  const errs = result.errors || [];
+  const summary = [{ key: 'importExport.imported', params: { n: result.imported } }];
+  if (result.skipped) summary.push({ key: 'importExport.skipped', params: { n: result.skipped } });
+  if (result.deduped) summary.push({ key: 'importExport.deduped', params: { n: result.deduped } });
+  if (errs.length) summary.push({ key: 'importExport.errorRows', params: { n: errs.length } });
+  return {
+    ok: result.imported > 0,
+    summary,
+    rowErrors: errs
+      .slice(0, cap)
+      .map((e) => ({ row: e.row, code: e.code, params: e.params || {} })),
+    moreErrors: errs.length > cap ? errs.length - cap : 0,
+  };
+}
+
 // Node/Vitest only — the browser classic-script load skips this (module is
 // undefined there) and relies on the global function declarations above.
 if (typeof module !== 'undefined' && module.exports) {
@@ -143,6 +212,9 @@ if (typeof module !== 'undefined' && module.exports) {
     _escText,
     _parseAmountWith,
     _formatAmountWith,
+    _filterTransactions,
+    _passwordErrorKey,
+    _importReport,
     _recurringDaysInMonth,
     _recurringClampDay,
     _recurringAddMonths,
