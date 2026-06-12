@@ -70,6 +70,22 @@ async function expectNoRawKeys(page, where) {
   expect(match ? match[0] : null, `Untranslated i18n key visible in ${where}`).toBeNull();
 }
 
+// Boot the app as a logged-in user and wait until it is actually ready for
+// writes. The FAB reports visible even behind the auth overlay (toBeVisible
+// ignores occlusion), so it proves nothing; and window._csrfToken is only
+// populated once /api/auth/me returns — a non-GET fired before that goes out
+// without the CSRF header and gets a 403.
+async function bootIntoApp(page) {
+  await page.goto('/');
+  await expect(page.locator('#setupView')).toBeHidden();
+  await expect(page.locator('#loginView')).toBeHidden();
+  // Polled via evaluate + toPass: waitForFunction needs eval, which the
+  // app's CSP (script-src 'self') forbids.
+  await expect(async () => {
+    expect(await page.evaluate(() => window._csrfToken)).toBeTruthy();
+  }).toPass({ timeout: 15000, intervals: [100, 250, 500] });
+}
+
 // Drive the app's own navigation directly rather than clicking the nav item:
 // the drawer's open animation makes a real click flaky, and the post-login
 // init runs showPanel(loadDefaultView()) after the data loads, which can land
@@ -82,4 +98,4 @@ async function gotoPanel(page, id) {
   }).toPass({ timeout: 15000, intervals: [200, 500, 1000] });
 }
 
-module.exports = { ADMIN_USER, ADMIN_PASS, loginViaApi, expectNoRawKeys, gotoPanel };
+module.exports = { ADMIN_USER, ADMIN_PASS, loginViaApi, bootIntoApp, expectNoRawKeys, gotoPanel };

@@ -8,7 +8,7 @@
 // asserted through the session API — the UI's exportCSV() detours into
 // navigator.share where available, which device emulation makes flaky.
 const { test, expect } = require('@playwright/test');
-const { loginViaApi, expectNoRawKeys } = require('./helpers');
+const { loginViaApi, bootIntoApp, expectNoRawKeys } = require('./helpers');
 
 // Unique, run-scoped names: re-running against a reused container never
 // collides with earlier data, and the dedup assertions only see this run's
@@ -43,9 +43,14 @@ async function importCsv(page, csv, name) {
 }
 
 async function exportedCsv(page) {
-  const res = await page.context().request.get('/api/export/csv');
-  expect(res.ok()).toBeTruthy();
-  return res.text();
+  // Fetched through the browser, not context.request: the session cookie is
+  // Secure, and Playwright's Node-side jar won't attach it over plain http —
+  // Chromium, by contrast, treats 127.0.0.1 as a trustworthy origin.
+  return page.evaluate(async () => {
+    const res = await fetch('/api/export/csv');
+    if (!res.ok) throw new Error('export failed: HTTP ' + res.status);
+    return res.text();
+  });
 }
 
 test('import lands in app state, re-import dedups, broken rows render translated', async ({
@@ -55,8 +60,7 @@ test('import lands in app state, re-import dedups, broken rows render translated
   page.on('pageerror', (e) => pageErrors.push(e.message));
 
   await loginViaApi(page.context());
-  await page.goto('/');
-  await expect(page.locator('.fab')).toBeVisible();
+  await bootIntoApp(page);
 
   // --- Happy path: status goes ok, the new category/tag exist as app state,
   //     and the imported row is findable through the search panel ---
