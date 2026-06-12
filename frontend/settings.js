@@ -477,7 +477,16 @@ async function importCSV(ev) {
   const fd = new FormData();
   fd.append('file', file);
   try {
-    const res = await fetch(API + '/import/csv', { method: 'POST', body: fd });
+    // FormData must set its own multipart boundary, so this request cannot go
+    // through api() (which forces a JSON Content-Type) — but the CSRF
+    // double-submit header is still required on every non-GET session
+    // request; without it the backend answers 403 csrf_mismatch.
+    const res = await fetch(API + '/import/csv', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin',
+      headers: window._csrfToken ? { 'X-CSRF-Token': window._csrfToken } : {},
+    });
     if (!res.ok) {
       const txt = await res.text();
       throw new Error('HTTP ' + res.status + ' – ' + txt.slice(0, 200));
