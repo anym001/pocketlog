@@ -10,8 +10,25 @@ external MariaDB. The app runs in your own container. All assets (fonts, icons,
 JS libraries) are served from your own server — no CDN calls, no external connections,
 no tracking, no telemetry.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/ledger.png" alt="Transaction ledger" width="18%">
+  <img src="docs/screenshots/categories.png" alt="Category management" width="18%">
+  <img src="docs/screenshots/recurring.png" alt="Recurring rules" width="18%">
+  <img src="docs/screenshots/reports.png" alt="Category analysis report" width="18%">
+  <img src="docs/screenshots/goals.png" alt="Savings goals" width="18%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/desktop.png" alt="PocketLog on desktop, dark theme" width="84%">
+</p>
+
+<p align="center"><em>Mobile — the app's primary form factor: ledger, categories, recurring rules, category analysis, savings goals. Below: the desktop sidebar layout in dark theme.</em></p>
+
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
