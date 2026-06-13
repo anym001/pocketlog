@@ -43,5 +43,5 @@ npm run capture                    # writes ../../docs/screenshots/*.png
 ```
 
 Renders five views at the Pixel 5 mobile viewport (the app's primary form
-factor) in light theme — ledger, category report, goals, categories,
-recurring — plus a wide desktop hero (sidebar layout, dark theme).
+factor) in light theme — ledger, categories, category report, recurring,
+goals — plus a wide desktop shot (sidebar layout, dark theme).
