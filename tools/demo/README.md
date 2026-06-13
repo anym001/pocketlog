@@ -42,6 +42,6 @@ npm install
 npm run capture                    # writes ../../docs/screenshots/*.png
 ```
 
-Renders the ledger, the category report and the goals view at the Pixel 5
-mobile viewport (the app's primary form factor) in light theme, plus one
-dark-theme ledger shot.
+Renders five views at the Pixel 5 mobile viewport (the app's primary form
+factor) in light theme — ledger, category report, goals, categories,
+recurring — plus a wide desktop hero (sidebar layout, dark theme).

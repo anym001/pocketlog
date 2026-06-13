@@ -13,13 +13,18 @@ no tracking, no telemetry.
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/ledger.png" alt="Transaction ledger" width="22%">
-  <img src="docs/screenshots/reports.png" alt="Category analysis report" width="22%">
-  <img src="docs/screenshots/goals.png" alt="Savings goals" width="22%">
-  <img src="docs/screenshots/ledger-dark.png" alt="Ledger in dark theme" width="22%">
+  <img src="docs/screenshots/desktop.png" alt="PocketLog on desktop, dark theme" width="84%">
 </p>
 
-<p align="center"><em>Ledger · category analysis · savings goals · dark theme — shown at the mobile viewport the app is designed for.</em></p>
+<p align="center">
+  <img src="docs/screenshots/ledger.png" alt="Transaction ledger" width="18%">
+  <img src="docs/screenshots/reports.png" alt="Category analysis report" width="18%">
+  <img src="docs/screenshots/goals.png" alt="Savings goals" width="18%">
+  <img src="docs/screenshots/categories.png" alt="Category management" width="18%">
+  <img src="docs/screenshots/recurring.png" alt="Recurring rules" width="18%">
+</p>
+
+<p align="center"><em>Desktop with the sidebar layout in dark theme — and on mobile (the app's primary form factor): ledger, category analysis, savings goals, categories, recurring rules.</em></p>
 
 ## Contents
 

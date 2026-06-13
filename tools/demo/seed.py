@@ -98,20 +98,57 @@ GOALS = [
     },
 ]
 
-RECURRING = {
-    "name": "Gym membership",
-    "amount": "29.90",
-    "type": "out",
-    "category": "Leisure",
-    "desc": "Monthly membership",
-    "frequency": "monthly",
-    "interval": 1,
-    "day_of_month": 1,
-    # Future start → shows in the list as an upcoming booking without
-    # materializing into the demo month.
-    "start_date": "2026-07-01",
-    "tags": ["fixed"],
-}
+# All start in the (near) future so they populate the recurring view as
+# upcoming bookings without materializing into the demo month.
+RECURRING_RULES = [
+    {
+        "name": "Salary",
+        "amount": "3200.00",
+        "type": "in",
+        "category": "Salary",
+        "desc": "Monthly salary",
+        "frequency": "monthly",
+        "interval": 1,
+        "day_of_month": 1,
+        "start_date": "2026-07-01",
+    },
+    {
+        "name": "Rent",
+        "amount": "1100.00",
+        "type": "out",
+        "category": "Housing",
+        "desc": "Monthly rent",
+        "frequency": "monthly",
+        "interval": 1,
+        "day_of_month": 1,
+        "start_date": "2026-07-01",
+        "tags": ["fixed"],
+    },
+    {
+        "name": "Music streaming",
+        "amount": "14.99",
+        "type": "out",
+        "category": "Subscriptions",
+        "desc": "Monthly subscription",
+        "frequency": "monthly",
+        "interval": 1,
+        "day_of_month": 5,
+        "start_date": "2026-07-05",
+        "tags": ["fixed"],
+    },
+    {
+        "name": "Gym membership",
+        "amount": "29.90",
+        "type": "out",
+        "category": "Leisure",
+        "desc": "Monthly membership",
+        "frequency": "monthly",
+        "interval": 1,
+        "day_of_month": 1,
+        "start_date": "2026-07-01",
+        "tags": ["fixed"],
+    },
+]
 
 
 class Seeder:
@@ -181,15 +218,16 @@ class Seeder:
             r.raise_for_status()
 
     def create_recurring(self, ids: dict[str, int]) -> None:
-        cid = ids.get(RECURRING["category"])
-        if cid is None:
-            return
-        payload = {k: v for k, v in RECURRING.items() if k != "category"}
-        payload["category_id"] = cid
-        r = self._c.post("/api/recurring", json=payload, headers=self._headers())
-        if r.status_code in (409, 422):
-            return  # duplicate name (idempotent) or already present
-        r.raise_for_status()
+        for rule in RECURRING_RULES:
+            cid = ids.get(rule["category"])
+            if cid is None:
+                continue
+            payload = {k: v for k, v in rule.items() if k != "category"}
+            payload["category_id"] = cid
+            r = self._c.post("/api/recurring", json=payload, headers=self._headers())
+            if r.status_code in (409, 422):
+                continue  # duplicate name (idempotent) or already present
+            r.raise_for_status()
 
 
 def main() -> int:

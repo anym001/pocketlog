@@ -1,10 +1,10 @@
 // Capture the README screenshots from a seeded PocketLog instance.
 //
 // Prerequisite: a running instance already seeded by seed.py (same demo
-// account). Renders the key views in the app's primary form factor (Pixel 5,
-// the mobile-first viewport the UI is designed for) and writes PNGs to
-// docs/screenshots/. Light theme throughout, plus one dark-theme shot to show
-// theming.
+// account). Produces a two-tier gallery:
+//   - a wide desktop hero (sidebar layout, dark theme)
+//   - a row of mobile views (Pixel 5, the app's primary form factor, light):
+//     ledger, category report, goals, categories, recurring
 //
 // Env: BASE_URL (default http://127.0.0.1:8000),
 //      ADMIN_USERNAME / ADMIN_PASSWORD (must match seed.py),
@@ -19,7 +19,7 @@ const USERNAME = process.env.ADMIN_USERNAME || 'demo';
 const PASSWORD = process.env.ADMIN_PASSWORD || 'Demo-Account-2026!';
 const OUT_DIR = process.env.OUT_DIR || resolve(HERE, '../../docs/screenshots');
 
-async function boot(context) {
+async function boot(context, theme) {
   const login = await context.request.post('/api/auth/login', {
     data: { username: USERNAME, password: PASSWORD },
   });
@@ -33,6 +33,7 @@ async function boot(context) {
     if (await page.evaluate(() => window._csrfToken)) break;
     await page.waitForTimeout(150);
   }
+  await page.evaluate((t) => window.saveTheme(t), theme);
   return page;
 }
 
@@ -42,38 +43,63 @@ async function showPanel(page, id) {
   await page.waitForTimeout(600); // let charts/render settle
 }
 
+async function categoryReport(page) {
+  await page.evaluate(() => window.showPanel('charts'));
+  await page.evaluate(() => window.renderReport('categories'));
+  await page.locator('#reportBody').waitFor({ timeout: 10000 });
+  await page.waitForTimeout(800);
+}
+
 async function shot(page, name) {
   await page.screenshot({ path: resolve(OUT_DIR, `${name}.png`) });
   console.log(`wrote ${name}.png`);
 }
 
-async function main() {
-  const browser = await chromium.launch();
+async function captureMobile(browser) {
   const context = await browser.newContext({
     ...devices['Pixel 5'],
     baseURL: BASE_URL,
     colorScheme: 'light',
   });
-  const page = await boot(context);
-  await page.evaluate(() => window.saveTheme('light'));
+  const page = await boot(context, 'light');
 
   await showPanel(page, 'transactions');
   await shot(page, 'ledger');
 
-  await page.evaluate(() => window.showPanel('charts'));
-  await page.evaluate(() => window.renderReport('categories'));
-  await page.locator('#reportBody').waitFor({ timeout: 10000 });
-  await page.waitForTimeout(800);
+  await categoryReport(page);
   await shot(page, 'reports');
 
   await showPanel(page, 'goals');
   await shot(page, 'goals');
 
-  // Dark-theme variant of the ledger to showcase theming.
-  await page.evaluate(() => window.saveTheme('dark'));
-  await showPanel(page, 'transactions');
-  await shot(page, 'ledger-dark');
+  await showPanel(page, 'categories');
+  await shot(page, 'categories');
 
+  await showPanel(page, 'recurring');
+  await shot(page, 'recurring');
+
+  await context.close();
+}
+
+async function captureDesktop(browser) {
+  // The wide README hero: the persistent sidebar layout (≥768px) in dark
+  // theme, showing the ledger — the app's primary view.
+  const context = await browser.newContext({
+    baseURL: BASE_URL,
+    colorScheme: 'dark',
+    viewport: { width: 1280, height: 832 },
+    deviceScaleFactor: 2,
+  });
+  const page = await boot(context, 'dark');
+  await showPanel(page, 'transactions');
+  await shot(page, 'desktop');
+  await context.close();
+}
+
+async function main() {
+  const browser = await chromium.launch();
+  await captureMobile(browser);
+  await captureDesktop(browser);
   await browser.close();
 }
 
