@@ -10,8 +10,20 @@ external MariaDB. The app runs in your own container. All assets (fonts, icons,
 JS libraries) are served from your own server — no CDN calls, no external connections,
 no tracking, no telemetry.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/ledger.png" alt="Transaction ledger" width="22%">
+  <img src="docs/screenshots/reports.png" alt="Category analysis report" width="22%">
+  <img src="docs/screenshots/goals.png" alt="Savings goals" width="22%">
+  <img src="docs/screenshots/ledger-dark.png" alt="Ledger in dark theme" width="22%">
+</p>
+
+<p align="center"><em>Ledger · category analysis · savings goals · dark theme — shown at the mobile viewport the app is designed for.</em></p>
+
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
