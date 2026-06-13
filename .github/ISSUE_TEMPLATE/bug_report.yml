@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a problem with PocketLog
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. Please fill out the
+        sections below. Never include real financial data — redact secrets
+        (API keys, tokens, cookies) before pasting logs.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in the app, or the image tag you run.
+      placeholder: "e.g. v0.4.1 / :latest"
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Database backend
+      options:
+        - SQLite (default)
+        - MariaDB
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Deployment (Compose / Unraid / …), reverse proxy, and — for UI issues — browser / OS / installed-as-PWA.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste relevant backend/container log output. Redact secrets.
+      render: shell
