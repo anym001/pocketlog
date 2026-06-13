@@ -140,7 +140,7 @@ docker run -d \
 | `DATABASE_URL` | – | Advanced: full database connection URL; overrides `DB_*`/SQLite (e.g. for SSL, socket, custom driver) |
 | `TZ` | `UTC` | Container timezone |
 | `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit events (logins, lockouts, admin actions) are at `INFO`/`WARNING`. |
-| `LOG_FORMAT` | `text` | Log format (`text` for human-readable output). |
+| `LOG_FORMAT` | `text` | Log format: `text` (human-readable line) or `json` (one structured JSON object per line, for aggregators like Loki/ELK). Applies to both `docker logs` and `LOG_FILE`. |
 | `LOG_FILE` | – | Writes logs **in addition** to `docker logs` into this file (rotating). Recommended: `/config/logs/audit.log` with a mounted `/config` directory, to retain logs across container updates (see [Logging & Audit Trail](#logging--audit-trail)). |
 | `LOG_FILE_MAX_BYTES` | `10485760` | Log file rotation size in bytes (default 10 MB). |
 | `LOG_FILE_BACKUPS` | `5` | Number of rotated log files to retain. |
