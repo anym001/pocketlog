@@ -15,8 +15,8 @@ no tracking, no telemetry.
 <p align="center">
   <img src="docs/screenshots/ledger.png" alt="Transaction ledger" width="18%">
   <img src="docs/screenshots/categories.png" alt="Category management" width="18%">
-  <img src="docs/screenshots/reports.png" alt="Category analysis report" width="18%">
   <img src="docs/screenshots/recurring.png" alt="Recurring rules" width="18%">
+  <img src="docs/screenshots/reports.png" alt="Category analysis report" width="18%">
   <img src="docs/screenshots/goals.png" alt="Savings goals" width="18%">
 </p>
 
@@ -24,7 +24,7 @@ no tracking, no telemetry.
   <img src="docs/screenshots/desktop.png" alt="PocketLog on desktop, dark theme" width="84%">
 </p>
 
-<p align="center"><em>Mobile — the app's primary form factor: ledger, categories, category analysis, recurring rules, savings goals. Below: the desktop sidebar layout in dark theme.</em></p>
+<p align="center"><em>Mobile — the app's primary form factor: ledger, categories, recurring rules, category analysis, savings goals. Below: the desktop sidebar layout in dark theme.</em></p>
 
 ## Contents
 
