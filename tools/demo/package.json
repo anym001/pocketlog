@@ -1,0 +1,12 @@
+{
+  "name": "pocketlog-demo-screenshots",
+  "private": true,
+  "type": "module",
+  "description": "Capture the README screenshots from a seeded PocketLog instance.",
+  "scripts": {
+    "capture": "node capture.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}
