@@ -477,40 +477,45 @@ async function importCSV(ev) {
   const fd = new FormData();
   fd.append('file', file);
   try {
-    const res = await fetch(API + '/import/csv', { method: 'POST', body: fd });
+    // FormData must set its own multipart boundary, so this request cannot go
+    // through api() (which forces a JSON Content-Type) — but the CSRF
+    // double-submit header is still required on every non-GET session
+    // request; without it the backend answers 403 csrf_mismatch.
+    const res = await fetch(API + '/import/csv', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin',
+      headers: window._csrfToken ? { 'X-CSRF-Token': window._csrfToken } : {},
+    });
     if (!res.ok) {
       const txt = await res.text();
       throw new Error('HTTP ' + res.status + ' – ' + txt.slice(0, 200));
     }
     const r = await res.json();
-    const errs = r.errors || [];
-    const parts = [tr('importExport.imported', { n: r.imported })];
-    if (r.skipped) parts.push(tr('importExport.skipped', { n: r.skipped }));
-    if (r.deduped) parts.push(tr('importExport.deduped', { n: r.deduped }));
-    if (errs.length) parts.push(tr('importExport.errorRows', { n: errs.length }));
+    // Result shaping (summary entries, row-error cap) lives in utils.js
+    // (_importReport, unit-tested); this block only translates and renders.
+    const report = _importReport(r);
 
-    status.className = 'status-msg ' + (r.imported > 0 ? 'ok' : 'err');
+    status.className = 'status-msg ' + (report.ok ? 'ok' : 'err');
     status.innerHTML = '';
     const summary = document.createElement('div');
-    summary.textContent = parts.join(' · ');
+    summary.textContent = report.summary.map((s) => tr(s.key, s.params)).join(' · ');
     status.appendChild(summary);
 
-    // Per-row errors, translated from the backend codes. Capped so a
-    // mostly-broken file can't render thousands of rows. textContent
+    // Per-row errors, translated from the backend codes. textContent
     // throughout — error params may echo raw CSV cell content.
-    if (errs.length) {
-      const CAP = 10;
+    if (report.rowErrors.length) {
       const list = document.createElement('ul');
       list.className = 'import-error-list';
-      errs.slice(0, CAP).forEach((e) => {
+      report.rowErrors.forEach((e) => {
         const li = document.createElement('li');
-        const msg = tr('importExport.error.' + e.code, e.params || {});
+        const msg = tr('importExport.error.' + e.code, e.params);
         li.textContent = tr('importExport.rowLabel', { row: e.row, msg });
         list.appendChild(li);
       });
-      if (errs.length > CAP) {
+      if (report.moreErrors) {
         const li = document.createElement('li');
-        li.textContent = tr('importExport.moreErrors', { n: errs.length - CAP });
+        li.textContent = tr('importExport.moreErrors', { n: report.moreErrors });
         list.appendChild(li);
       }
       status.appendChild(list);

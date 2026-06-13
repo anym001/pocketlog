@@ -9,6 +9,9 @@ const {
   _escText,
   _parseAmountWith,
   _formatAmountWith,
+  _filterTransactions,
+  _passwordErrorKey,
+  _importReport,
   _recurringDaysInMonth,
   _recurringClampDay,
   _recurringAddMonths,
@@ -234,5 +237,155 @@ describe('recurring schedule math', () => {
         d: 1,
       });
     });
+  });
+});
+
+describe('_filterTransactions', () => {
+  const catNames = { 1: 'Wohnen', 2: 'Freizeit' };
+  const lookup = (id) => catNames[id] || 'Sonstiges';
+  const txs = [
+    { category_id: 1, desc: 'Miete Juni', tags: ['fixkosten'] },
+    { category_id: 2, desc: 'Kino', tags: ['ausgehen', 'film'] },
+    { category_id: 9, desc: 'Unbekannt', tags: null },
+  ];
+
+  it('drill-down by category ignores the text query', () => {
+    const out = _filterTransactions(
+      txs,
+      { query: 'kino', categoryFilterId: 1, tagFilterName: null },
+      lookup,
+    );
+    expect(out).toEqual([txs[0]]);
+  });
+
+  it('drill-down by tag requires array membership', () => {
+    const out = _filterTransactions(
+      txs,
+      { query: '', categoryFilterId: null, tagFilterName: 'film' },
+      lookup,
+    );
+    expect(out).toEqual([txs[1]]);
+    // tags: null must not throw and must not match.
+    const none = _filterTransactions(
+      txs,
+      { query: '', categoryFilterId: null, tagFilterName: 'nope' },
+      lookup,
+    );
+    expect(none).toEqual([]);
+  });
+
+  it('text query matches description, category name and tags', () => {
+    const byDesc = _filterTransactions(
+      txs,
+      { query: 'miete', categoryFilterId: null, tagFilterName: null },
+      lookup,
+    );
+    expect(byDesc).toEqual([txs[0]]);
+    const byCat = _filterTransactions(
+      txs,
+      { query: 'freizeit', categoryFilterId: null, tagFilterName: null },
+      lookup,
+    );
+    expect(byCat).toEqual([txs[1]]);
+    const byTag = _filterTransactions(
+      txs,
+      { query: 'fixkosten', categoryFilterId: null, tagFilterName: null },
+      lookup,
+    );
+    expect(byTag).toEqual([txs[0]]);
+  });
+
+  it('matches the localized fallback name for a missing category', () => {
+    const out = _filterTransactions(
+      txs,
+      { query: 'sonstiges', categoryFilterId: null, tagFilterName: null },
+      lookup,
+    );
+    expect(out).toEqual([txs[2]]);
+  });
+
+  it('handles a missing description safely', () => {
+    const out = _filterTransactions(
+      [{ category_id: 1, tags: [] }],
+      { query: 'x', categoryFilterId: null, tagFilterName: null },
+      lookup,
+    );
+    expect(out).toEqual([]);
+  });
+});
+
+describe('_passwordErrorKey', () => {
+  const err = (type, ctx) => ({
+    detail: [{ loc: ['body', 'password'], type, ctx }],
+  });
+
+  it('returns null for non-422 shapes and non-password errors', () => {
+    expect(_passwordErrorKey(null)).toBeNull();
+    expect(_passwordErrorKey({ detail: 'nope' })).toBeNull();
+    expect(
+      _passwordErrorKey({ detail: [{ loc: ['body', 'username'], type: 'string_too_short' }] }),
+    ).toBeNull();
+  });
+
+  it('maps length errors with ctx bounds and falls back to the policy defaults', () => {
+    expect(_passwordErrorKey(err('string_too_short', { min_length: 12 }))).toEqual({
+      key: 'pwd.tooShort',
+      params: { n: 12 },
+    });
+    expect(_passwordErrorKey(err('string_too_short', {}))).toEqual({
+      key: 'pwd.tooShort',
+      params: { n: 12 },
+    });
+    expect(_passwordErrorKey(err('string_too_long', { max_length: 128 }))).toEqual({
+      key: 'pwd.tooLong',
+      params: { n: 128 },
+    });
+  });
+
+  it('maps the first missing complexity class', () => {
+    expect(_passwordErrorKey(err('password_complexity', { missing: 'upper, digit' }))).toEqual({
+      key: 'pwd.needUpper',
+      params: {},
+    });
+    expect(_passwordErrorKey(err('password_complexity', { missing: 'special' }))).toEqual({
+      key: 'pwd.needSpecial',
+      params: {},
+    });
+  });
+
+  it('returns null for unknown types or unknown classes', () => {
+    expect(_passwordErrorKey(err('value_error', {}))).toBeNull();
+    expect(_passwordErrorKey(err('password_complexity', { missing: 'emoji' }))).toBeNull();
+  });
+});
+
+describe('_importReport', () => {
+  it('builds the summary in a fixed order and skips zero counts', () => {
+    const r = _importReport({ imported: 3, skipped: 0, deduped: 2, errors: [] });
+    expect(r.ok).toBe(true);
+    expect(r.summary).toEqual([
+      { key: 'importExport.imported', params: { n: 3 } },
+      { key: 'importExport.deduped', params: { n: 2 } },
+    ]);
+    expect(r.rowErrors).toEqual([]);
+    expect(r.moreErrors).toBe(0);
+  });
+
+  it('reports not-ok when nothing was imported', () => {
+    const r = _importReport({ imported: 0, skipped: 1, deduped: 0, errors: [] });
+    expect(r.ok).toBe(false);
+    expect(r.summary.map((s) => s.key)).toEqual([
+      'importExport.imported',
+      'importExport.skipped',
+    ]);
+  });
+
+  it('caps the row errors and counts the overflow', () => {
+    const errors = Array.from({ length: 12 }, (_, i) => ({ row: i + 2, code: 'row_invalid' }));
+    const r = _importReport({ imported: 0, skipped: 12, deduped: 0, errors });
+    expect(r.summary.map((s) => s.key)).toContain('importExport.errorRows');
+    expect(r.rowErrors).toHaveLength(10);
+    expect(r.rowErrors[0]).toEqual({ row: 2, code: 'row_invalid', params: {} });
+    expect(r.moreErrors).toBe(2);
   });
 });

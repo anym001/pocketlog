@@ -254,29 +254,11 @@ function validateNewPassword(pw) {
 // The frontend pre-validates, so this only fires if a weak password
 // somehow reaches the API — keeps the coded backend response (no German)
 // translatable end-to-end. Returns null if no password error is present.
+// The code→key mapping lives in utils.js (_passwordErrorKey, unit-tested);
+// this wrapper only supplies the translation.
 function _passwordErrorMessage(data) {
-  const det = data && data.detail;
-  if (!Array.isArray(det)) return null;
-  const e = det.find((d) => Array.isArray(d.loc) && d.loc.some((x) => /password/i.test(String(x))));
-  if (!e) return null;
-  const ctx = e.ctx || {};
-  if (e.type === 'string_too_short')
-    return tr('pwd.tooShort', { n: ctx.min_length != null ? ctx.min_length : 12 });
-  if (e.type === 'string_too_long')
-    return tr('pwd.tooLong', { n: ctx.max_length != null ? ctx.max_length : 128 });
-  if (e.type === 'password_complexity') {
-    const miss = String(ctx.missing || '')
-      .split(/[,\s]+/)
-      .filter(Boolean);
-    const map = {
-      upper: 'pwd.needUpper',
-      lower: 'pwd.needLower',
-      digit: 'pwd.needDigit',
-      special: 'pwd.needSpecial',
-    };
-    if (miss[0] && map[miss[0]]) return tr(map[miss[0]]);
-  }
-  return null;
+  const mapped = _passwordErrorKey(data);
+  return mapped ? tr(mapped.key, mapped.params) : null;
 }
 
 // ── FORMATTING ────────────────────────────────────────────────────────────────

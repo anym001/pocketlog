@@ -12,8 +12,9 @@ Namespaces:
 
 Env:
     LOG_LEVEL   default INFO   (any logging level name; invalid → INFO)
-    LOG_FORMAT  default text   (text = human-readable key=value; json is reserved
-                                for a future structured formatter — see below)
+    LOG_FORMAT  default text   (text = human-readable line; json = one structured
+                                JSON object per line for log aggregators — see
+                                _JsonFormatter; invalid → text)
     LOG_FILE              unset → file logging off. A path → ALSO write logs
                           there (in addition to stderr), via a rotating handler.
                           Mount a volume at its directory to persist logs across
@@ -29,6 +30,7 @@ root handler (no duplicate lines).
 
 from __future__ import annotations
 
+import json
 import logging
 import logging.config
 import logging.handlers
@@ -45,6 +47,38 @@ _configured = False
 # Second precision only — no milliseconds (kept out of alembic.ini too).
 _TEXT_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+class _JsonFormatter(logging.Formatter):
+    """One structured JSON object per line (``LOG_FORMAT=json``).
+
+    Dependency-free — emits the handful of fields a log aggregator (Loki, ELK,
+    …) needs, named conventionally so ingestion needs no remapping:
+
+        {"time", "level", "logger", "message"[, "exc_info"][, "stack_info"]}
+
+    The timestamp matches text mode exactly (``_DATE_FORMAT``, second
+    precision). The short-name filter has already mutated ``record.name``, so
+    framework loggers read ``uvicorn``/``alembic`` here too, while our own
+    ``pocketlog.*`` namespaces stay intact (audit remains filterable on
+    ``logger == "pocketlog.audit"``). ``ensure_ascii=False`` keeps unicode
+    audit fields (e.g. a username with umlauts) readable; control characters
+    are still JSON-escaped, and audit call sites additionally run client input
+    through ``safe()``.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "time": self.formatTime(record, _DATE_FORMAT),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        if record.stack_info:
+            payload["stack_info"] = self.formatStack(record.stack_info)
+        return json.dumps(payload, ensure_ascii=False)
 
 
 class _ShortLoggerNameFilter(logging.Filter):
@@ -81,18 +115,24 @@ def _resolve_level() -> int:
 
 
 def _resolve_format() -> str:
-    """Pick the formatter name. ``json`` is reserved for a future structured
-    formatter (would need a dependency such as python-json-logger); it is not
-    implemented yet, so we warn and fall back to text. Wiring it in later is a
-    pure dictConfig change — no audit call-site is affected."""
+    """Pick the formatter name: ``text`` (default) or ``json``. An unknown
+    value warns and falls back to text. The choice drives both the stderr
+    handler (via dictConfig) and the optional file handler — no call site is
+    affected, audit events log the same message either way."""
     raw = (os.environ.get("LOG_FORMAT") or "text").strip().lower()
-    if raw == "text":
-        return "text"
-    if raw == "json":
-        _bootstrap.warning("LOG_FORMAT=json is not implemented yet — using text")
-        return "text"
+    if raw in ("text", "json"):
+        return raw
     _bootstrap.warning("Invalid LOG_FORMAT=%r — using text", raw)
     return "text"
+
+
+def _build_formatter(fmt: str) -> logging.Formatter:
+    """The Formatter instance for the chosen format, used for handlers built
+    programmatically (the file handler). The stderr handler is built by
+    dictConfig from the matching named formatter."""
+    if fmt == "json":
+        return _JsonFormatter()
+    return logging.Formatter(_TEXT_FORMAT, datefmt=_DATE_FORMAT)
 
 
 def _resolve_int(name: str, default: int) -> int:
@@ -108,10 +148,11 @@ def _resolve_int(name: str, default: int) -> int:
     return default
 
 
-def _attach_file_handler(level: int) -> None:
-    """If LOG_FILE is set, ALSO write to a rotating file. Best-effort: a bad
-    path / permissions must never crash the app — we warn and keep stderr.
-    Done programmatically (not in dictConfig) so a file open error is catchable."""
+def _attach_file_handler(level: int, fmt: str = "text") -> None:
+    """If LOG_FILE is set, ALSO write to a rotating file in the chosen format.
+    Best-effort: a bad path / permissions must never crash the app — we warn
+    and keep stderr. Done programmatically (not in dictConfig) so a file open
+    error is catchable."""
     path = (os.environ.get("LOG_FILE") or "").strip()
     if not path:
         return
@@ -125,7 +166,7 @@ def _attach_file_handler(level: int) -> None:
             backupCount=_resolve_int("LOG_FILE_BACKUPS", 5),
             encoding="utf-8",
         )
-        handler.setFormatter(logging.Formatter(_TEXT_FORMAT, datefmt=_DATE_FORMAT))
+        handler.setFormatter(_build_formatter(fmt))
         logging.getLogger("pocketlog").addHandler(handler)
         _bootstrap.info("File logging enabled at %s", path)
     except OSError as exc:
@@ -150,8 +191,9 @@ def configure_logging() -> None:
             "version": 1,
             "disable_existing_loggers": False,
             "formatters": {
-                # Future: add a "json" formatter here and select it via _resolve_format.
                 "text": {"format": _TEXT_FORMAT, "datefmt": _DATE_FORMAT},
+                # Structured one-object-per-line output; selected by LOG_FORMAT=json.
+                "json": {"()": _JsonFormatter},
             },
             "filters": {
                 # Shorten framework logger names (uvicorn.error → uvicorn, …).
@@ -200,7 +242,7 @@ def configure_logging() -> None:
             },
         }
     )
-    _attach_file_handler(level)
+    _attach_file_handler(level, fmt)
     _configured = True
 
 

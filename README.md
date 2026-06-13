@@ -10,8 +10,25 @@ external MariaDB. The app runs in your own container. All assets (fonts, icons,
 JS libraries) are served from your own server — no CDN calls, no external connections,
 no tracking, no telemetry.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/ledger.png" alt="Transaction ledger" width="18%">
+  <img src="docs/screenshots/categories.png" alt="Category management" width="18%">
+  <img src="docs/screenshots/recurring.png" alt="Recurring rules" width="18%">
+  <img src="docs/screenshots/reports.png" alt="Category analysis report" width="18%">
+  <img src="docs/screenshots/goals.png" alt="Savings goals" width="18%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/desktop.png" alt="PocketLog on desktop, dark theme" width="84%">
+</p>
+
+<p align="center"><em>Mobile — the app's primary form factor: ledger, categories, recurring rules, category analysis, savings goals. Below: the desktop sidebar layout in dark theme.</em></p>
+
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
@@ -140,7 +157,7 @@ docker run -d \
 | `DATABASE_URL` | – | Advanced: full database connection URL; overrides `DB_*`/SQLite (e.g. for SSL, socket, custom driver) |
 | `TZ` | `UTC` | Container timezone |
 | `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Audit events (logins, lockouts, admin actions) are at `INFO`/`WARNING`. |
-| `LOG_FORMAT` | `text` | Log format (`text` for human-readable output). |
+| `LOG_FORMAT` | `text` | Log format: `text` (human-readable line) or `json` (one structured JSON object per line, for aggregators like Loki/ELK). Applies to both `docker logs` and `LOG_FILE`. |
 | `LOG_FILE` | – | Writes logs **in addition** to `docker logs` into this file (rotating). Recommended: `/config/logs/audit.log` with a mounted `/config` directory, to retain logs across container updates (see [Logging & Audit Trail](#logging--audit-trail)). |
 | `LOG_FILE_MAX_BYTES` | `10485760` | Log file rotation size in bytes (default 10 MB). |
 | `LOG_FILE_BACKUPS` | `5` | Number of rotated log files to retain. |

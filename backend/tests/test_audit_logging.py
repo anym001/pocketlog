@@ -7,6 +7,7 @@ the presence/level of events and the absence of credentials in the output.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 
@@ -81,6 +82,99 @@ def test_framework_logger_names_shortened(app):
     # Our own namespaces are preserved (audit must stay greppable).
     assert shown("pocketlog.audit") == "pocketlog.audit"
     assert shown("pocketlog.api") == "pocketlog.api"
+
+
+# ── structured (JSON) format ───────────────────────────────────────────────
+
+
+def test_resolve_format_accepts_json_and_falls_back(monkeypatch):
+    """LOG_FORMAT selects text (default) or json; anything else → text."""
+    from app.logging_config import _resolve_format
+
+    monkeypatch.setenv("LOG_FORMAT", "json")
+    assert _resolve_format() == "json"
+    monkeypatch.setenv("LOG_FORMAT", "JSON")  # case-insensitive
+    assert _resolve_format() == "json"
+    monkeypatch.setenv("LOG_FORMAT", "text")
+    assert _resolve_format() == "text"
+    monkeypatch.setenv("LOG_FORMAT", "xml")  # unknown
+    assert _resolve_format() == "text"
+    monkeypatch.delenv("LOG_FORMAT", raising=False)  # default
+    assert _resolve_format() == "text"
+
+
+def test_json_formatter_emits_structured_line():
+    """LOG_FORMAT=json renders one JSON object per record with the documented
+    fields, and keeps unicode readable (ensure_ascii=False)."""
+    from app.logging_config import _JsonFormatter
+
+    rec = logging.LogRecord(
+        "pocketlog.audit",
+        logging.WARNING,
+        __file__,
+        0,
+        "auth.login.failure user=%s ip=%s",
+        ("ströck", "1.2.3.4"),
+        None,
+    )
+    obj = json.loads(_JsonFormatter().format(rec))
+    assert obj["level"] == "WARNING"
+    assert obj["logger"] == "pocketlog.audit"
+    # Unicode survives (would be \uXXXX-escaped under ensure_ascii=True).
+    assert obj["message"] == "auth.login.failure user=ströck ip=1.2.3.4"
+    assert "time" in obj
+
+
+def test_json_formatter_attaches_exception_text():
+    """An error record carries the rendered traceback under exc_info."""
+    import sys
+
+    from app.logging_config import _JsonFormatter
+
+    try:
+        raise ValueError("boom")
+    except ValueError:
+        rec = logging.LogRecord(
+            "pocketlog.api", logging.ERROR, __file__, 0, "failed", None, sys.exc_info()
+        )
+    obj = json.loads(_JsonFormatter().format(rec))
+    assert "ValueError: boom" in obj["exc_info"]
+
+
+def test_log_file_json_format_writes_objects(tmp_path, monkeypatch):
+    """LOG_FORMAT=json applies to the file handler too: each line parses as a
+    JSON object carrying the record's message."""
+    import logging.handlers as handlers_mod
+
+    from app import logging_config
+
+    monkeypatch.setenv("LOG_FILE", str(tmp_path / "logs" / "audit.json"))
+
+    plog = logging.getLogger("pocketlog")
+    before = list(plog.handlers)
+    try:
+        logging_config._attach_file_handler(logging.INFO, "json")
+        fh = next(
+            h
+            for h in plog.handlers
+            if isinstance(h, handlers_mod.RotatingFileHandler) and h not in before
+        )
+        logging.getLogger("pocketlog.audit").warning("auth.login.failure user=x ip=y")
+        fh.flush()
+        line = (
+            (tmp_path / "logs" / "audit.json")
+            .read_text("utf-8")
+            .strip()
+            .splitlines()[-1]
+        )
+        obj = json.loads(line)
+        assert obj["logger"] == "pocketlog.audit"
+        assert obj["level"] == "WARNING"
+        assert obj["message"] == "auth.login.failure user=x ip=y"
+    finally:
+        for h in [h for h in plog.handlers if h not in before]:
+            plog.removeHandler(h)
+            h.close()
 
 
 # ── login ────────────────────────────────────────────────────────────────

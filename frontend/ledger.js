@@ -66,15 +66,13 @@ function applySearch() {
   // When the drill-down comes from a report, `appState.ledger.all` holds the
   // report range — same logic, just a wider pool.
   const pool = appState.ledger.all ?? appState.ledger.transactions;
-  const filtered = pool.filter((t) => {
-    if (catFilter != null) return t.category_id === catFilter;
-    if (tagFilter != null) return Array.isArray(t.tags) && t.tags.includes(tagFilter);
-    if ((t.desc || '').toLowerCase().includes(q)) return true;
-    const cat = getCatById(t.category_id);
-    if (cat.name.toLowerCase().includes(q)) return true;
-    if (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(q))) return true;
-    return false;
-  });
+  // Filter core lives in utils.js (_filterTransactions, unit-tested); the
+  // category-name lookup is passed in so the helper stays app-state-free.
+  const filtered = _filterTransactions(
+    pool,
+    { query: q, categoryFilterId: catFilter, tagFilterName: tagFilter },
+    (id) => getCatById(id).name,
+  );
   renderTransactions(filtered, document.getElementById('searchResultsList'));
 }
 
