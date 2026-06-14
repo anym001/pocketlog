@@ -1,8 +1,8 @@
 # PocketLog
 
-[![tests](https://github.com/anym001/pocketlog/actions/workflows/test.yml/badge.svg)](https://github.com/anym001/pocketlog/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/anym001/pocketlog/test.yml?label=Tests)](https://github.com/anym001/pocketlog/actions/workflows/test.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/anym001/pocketlog)](https://github.com/anym001/pocketlog/releases)
+[![Release](https://img.shields.io/github/v/release/anym001/pocketlog?label=Release)](https://github.com/anym001/pocketlog/releases)
 [![GHCR](https://img.shields.io/badge/GHCR-pocketlog-2496ED?logo=docker&logoColor=white)](https://github.com/anym001/pocketlog/pkgs/container/pocketlog)
 
 A household budget book as a Progressive Web App (PWA) — runs in the browser on all
