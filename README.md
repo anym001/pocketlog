@@ -4,6 +4,7 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/anym001/pocketlog/blob/HEAD/LICENSE)
 [![Release](https://img.shields.io/github/v/release/anym001/pocketlog?label=Release)](https://github.com/anym001/pocketlog/releases)
 [![GHCR](https://img.shields.io/badge/GHCR-pocketlog-2496ED?logo=docker&logoColor=white)](https://github.com/anym001/pocketlog/pkgs/container/pocketlog)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-pocketlog-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/anym001/pocketlog)
 
 A household budget book as a Progressive Web App (PWA) — runs in the browser on all
 major platforms (iOS, Android, macOS, Windows, Linux) and can be installed as an app
