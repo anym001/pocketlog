@@ -44,6 +44,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push :dev
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
@@ -53,9 +59,12 @@ jobs:
           platforms: linux/amd64
           # Mutable :dev (staging always pulls newest) + an immutable
           # :dev-<sha> for traceability / quick rollback on staging.
+          # Mirrored to GHCR + Docker Hub so both registries stay in sync.
           tags: |
             ghcr.io/${{ github.repository_owner }}/pocketlog:dev
             ghcr.io/${{ github.repository_owner }}/pocketlog:dev-${{ steps.sha.outputs.short }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/pocketlog:dev
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/pocketlog:dev-${{ steps.sha.outputs.short }}
           build-args: |
             APP_VERSION=dev-${{ steps.sha.outputs.short }}
           cache-from: type=gha
