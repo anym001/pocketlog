@@ -1,9 +1,10 @@
 # PocketLog
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/anym001/pocketlog/test.yml?label=Tests)](https://github.com/anym001/pocketlog/actions/workflows/test.yml)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/anym001/pocketlog/blob/HEAD/LICENSE)
 [![Release](https://img.shields.io/github/v/release/anym001/pocketlog?label=Release)](https://github.com/anym001/pocketlog/releases)
 [![GHCR](https://img.shields.io/badge/GHCR-pocketlog-2496ED?logo=docker&logoColor=white)](https://github.com/anym001/pocketlog/pkgs/container/pocketlog)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-pocketlog-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/anym001/pocketlog)
 
 A household budget book as a Progressive Web App (PWA) — runs in the browser on all
 major platforms (iOS, Android, macOS, Windows, Linux) and can be installed as an app
@@ -18,15 +19,15 @@ no tracking, no telemetry.
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/ledger.png" alt="Transaction ledger" width="18%">
-  <img src="docs/screenshots/categories.png" alt="Category management" width="18%">
-  <img src="docs/screenshots/recurring.png" alt="Recurring rules" width="18%">
-  <img src="docs/screenshots/reports.png" alt="Category analysis report" width="18%">
-  <img src="docs/screenshots/goals.png" alt="Savings goals" width="18%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/ledger.png" alt="Transaction ledger" width="18%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/categories.png" alt="Category management" width="18%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/recurring.png" alt="Recurring rules" width="18%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/reports.png" alt="Category analysis report" width="18%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/goals.png" alt="Savings goals" width="18%">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/desktop.png" alt="PocketLog on desktop, dark theme" width="84%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/desktop.png" alt="PocketLog on desktop, dark theme" width="84%">
 </p>
 
 <p align="center"><em>Mobile — the app's primary form factor: ledger, categories, recurring rules, category analysis, savings goals. Below: the desktop sidebar layout in dark theme.</em></p>
@@ -336,7 +337,12 @@ Resets the password and any lockout; a new password must be set on the next logi
 
 ## Image
 
-Image: `ghcr.io/anym001/pocketlog`
+Published to **GHCR** and **Docker Hub** — use whichever you prefer:
+
+```
+docker pull ghcr.io/anym001/pocketlog:<tag>
+docker pull anym001/pocketlog:<tag>      # Docker Hub
+```
 
 | Tag | Source | Purpose |
 |---|---|---|
@@ -348,14 +354,14 @@ Image: `ghcr.io/anym001/pocketlog`
 so a new `main` merge does not silently update your instance — and rollback is
 trivial (point to the old tag). A **staging** instance can track `:dev`
 (or `:latest`) to review changes before production. The branching and release
-workflow is described in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+workflow is described in [`CONTRIBUTING.md`](https://github.com/anym001/pocketlog/blob/HEAD/CONTRIBUTING.md).
 
 ## License
 
 PocketLog is released under the **GNU Affero General Public License v3.0**
 (AGPL-3.0). You may use, redistribute, and modify the software — if you offer a
 (modified) version as a networked service, you must make the complete source code
-available (AGPL §13). The full license text is in [`LICENSE`](LICENSE).
+available (AGPL §13). The full license text is in [`LICENSE`](https://github.com/anym001/pocketlog/blob/HEAD/LICENSE).
 
 Copyright (C) 2026 anym001
 
