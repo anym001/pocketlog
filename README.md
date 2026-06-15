@@ -337,7 +337,12 @@ Resets the password and any lockout; a new password must be set on the next logi
 
 ## Image
 
-Image: `ghcr.io/anym001/pocketlog`
+Published to **GHCR** and **Docker Hub** — use whichever you prefer:
+
+```
+docker pull ghcr.io/anym001/pocketlog:<tag>
+docker pull anym001/pocketlog:<tag>      # Docker Hub
+```
 
 | Tag | Source | Purpose |
 |---|---|---|
