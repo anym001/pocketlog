@@ -32,19 +32,45 @@ def _utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-# Cookie attributes. `Secure` is on by default; flip via
-# SESSION_COOKIE_SECURE=0 only for local HTTP dev where the cookie would
-# otherwise never be sent at all. SameSite=Lax is the right balance for
-# a SPA hosted same-origin behind a reverse proxy: it blocks classic
-# cross-site POSTs while still letting bookmark/typed-URL navigations
-# carry the cookie. The defense-in-depth against CSRF is the
-# X-CSRF-Token header (double-submit cookie).
+# Cookie attributes. SESSION_COOKIE_SECURE controls the Secure flag:
+#   auto (default) — set Secure when the effective transport to the browser
+#                    is HTTPS, detected via X-Forwarded-Proto or the request
+#                    scheme. Correct for direct HTTPS and most reverse-proxy
+#                    setups; plain-HTTP access (LAN / first-run) works without
+#                    any configuration change.
+#   1              — always set Secure; use when your proxy does not forward
+#                    X-Forwarded-Proto but you know HTTPS is in use.
+#   0              — never set Secure; use only in fully isolated environments
+#                    where the Secure flag would actively cause problems.
+# SameSite=Lax is the right balance for a SPA hosted same-origin behind a
+# reverse proxy: it blocks classic cross-site POSTs while still letting
+# bookmark/typed-URL navigations carry the cookie. The defense-in-depth
+# against CSRF is the X-CSRF-Token header (double-submit cookie).
 SESSION_COOKIE_NAME = "pocketlog_session"
 CSRF_COOKIE_NAME = "pocketlog_csrf"
 CSRF_HEADER_NAME = "X-CSRF-Token"
-COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1") != "0"
+_COOKIE_SECURE_ENV = os.environ.get("SESSION_COOKIE_SECURE", "auto").strip().lower()
 COOKIE_PATH = "/"
 COOKIE_SAMESITE = "lax"
+
+
+def _cookie_secure(request: Request) -> bool:
+    """Derive whether the Secure flag should be set for this request.
+
+    With SESSION_COOKIE_SECURE=auto (default) the flag tracks the effective
+    browser-facing transport: X-Forwarded-Proto is consulted first so that
+    HTTPS-terminating reverse proxies work out of the box, then the raw
+    request scheme for direct connections. Explicit 0/1 override that logic.
+    """
+    if _COOKIE_SECURE_ENV == "0":
+        return False
+    if _COOKIE_SECURE_ENV == "1":
+        return True
+    # auto: honour X-Forwarded-Proto if present, else use the request scheme.
+    proto = request.headers.get("x-forwarded-proto", "").lower()
+    if proto:
+        return proto == "https"
+    return request.url.scheme == "https"
 
 
 # ---------------------------------------------------------------------
@@ -58,18 +84,20 @@ def set_session_cookies(
     csrf_token: str,
     *,
     remember_me: bool,
+    request: Request,
 ) -> None:
     """Setzt das Session- und das CSRF-Cookie. Beide haben dieselbe
     Lebensdauer; das CSRF-Cookie ist NICHT HttpOnly, damit der
     Frontend-JS-Code es lesen und im ``X-CSRF-Token``-Header
     zurückschicken kann (Double-Submit-Pattern)."""
     max_age = auth.cookie_max_age_seconds(remember_me)
+    secure = _cookie_secure(request)
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=plain_token,
         max_age=max_age,
         httponly=True,
-        secure=COOKIE_SECURE,
+        secure=secure,
         samesite=COOKIE_SAMESITE,
         path=COOKIE_PATH,
     )
@@ -78,31 +106,32 @@ def set_session_cookies(
         value=csrf_token,
         max_age=max_age,
         httponly=False,
-        secure=COOKIE_SECURE,
+        secure=secure,
         samesite=COOKIE_SAMESITE,
         path=COOKIE_PATH,
     )
 
 
-def clear_session_cookies(response: Response) -> None:
+def clear_session_cookies(response: Response, request: Request | None = None) -> None:
+    secure = _cookie_secure(request) if request is not None else False
     response.delete_cookie(
         SESSION_COOKIE_NAME,
         path=COOKIE_PATH,
         samesite=COOKIE_SAMESITE,
-        secure=COOKIE_SECURE,
+        secure=secure,
         httponly=True,
     )
     response.delete_cookie(
         CSRF_COOKIE_NAME,
         path=COOKIE_PATH,
         samesite=COOKIE_SAMESITE,
-        secure=COOKIE_SECURE,
+        secure=secure,
         httponly=False,
     )
 
 
 def _refresh_cookie_if_needed(
-    response: Response, session: models.Session, refreshed: bool
+    response: Response, session: models.Session, refreshed: bool, request: Request
 ) -> None:
     """Wenn der Sliding-Refresh getriggert hat, setzen wir das
     Session-Cookie mit neuer Max-Age neu. Sonst lassen wir den Cookie
@@ -116,7 +145,7 @@ def _refresh_cookie_if_needed(
         value=session.csrf_token,
         max_age=auth.cookie_max_age_seconds(session.remember_me),
         httponly=False,
-        secure=COOKIE_SECURE,
+        secure=_cookie_secure(request),
         samesite=COOKIE_SAMESITE,
         path=COOKIE_PATH,
     )
@@ -127,10 +156,10 @@ def _refresh_cookie_if_needed(
 # ---------------------------------------------------------------------
 
 
-def _unauthorized(response: Response) -> HTTPException:
+def _unauthorized(response: Response, request: Request | None = None) -> HTTPException:
     """401 + leere Cookies. Verhindert, dass der Browser denselben
     kaputten Cookie immer wieder mitschickt."""
-    clear_session_cookies(response)
+    clear_session_cookies(response, request)
     return HTTPException(status_code=401, detail="unauthorized")
 
 
@@ -141,15 +170,15 @@ def get_current_user(
 ) -> models.User:
     plain = request.cookies.get(SESSION_COOKIE_NAME)
     if not plain:
-        raise _unauthorized(response)
+        raise _unauthorized(response, request)
     session = auth.get_session_by_token(db, plain)
     if session is None:
-        raise _unauthorized(response)
+        raise _unauthorized(response, request)
     user = db.get(models.User, session.user_id)
     if user is None or not user.is_active:
         # User wurde gelöscht oder deaktiviert: Session ungültig.
         auth.revoke_session(db, session)
-        raise _unauthorized(response)
+        raise _unauthorized(response, request)
 
     # CSRF-Check für alle non-safe Methoden. GET/HEAD/OPTIONS sind
     # idempotent und brauchen den Header nicht — wir wollen sonst auch
@@ -161,7 +190,7 @@ def get_current_user(
             raise HTTPException(status_code=403, detail="csrf_mismatch")
 
     refreshed = auth.refresh_session_if_needed(db, session)
-    _refresh_cookie_if_needed(response, session, refreshed)
+    _refresh_cookie_if_needed(response, session, refreshed, request)
     # Stash on the request so request-scoped helpers (z. B. der
     # Self-Schutz für DELETE /api/admin/users/{id}) auf die Session-ID
     # kommen ohne sie nochmal aus dem Cookie zu hashen.
