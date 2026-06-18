@@ -113,7 +113,9 @@ def setup_admin(
     session, plain = auth.create_session(
         db, user, remember_me=False, user_agent=user_agent
     )
-    set_session_cookies(response, plain, session.csrf_token, remember_me=False)
+    set_session_cookies(
+        response, plain, session.csrf_token, remember_me=False, request=request
+    )
     return {"ok": True}
 
 
@@ -173,7 +175,11 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         db, user, remember_me=payload.remember_me, user_agent=user_agent
     )
     set_session_cookies(
-        response, plain, session.csrf_token, remember_me=payload.remember_me
+        response,
+        plain,
+        session.csrf_token,
+        remember_me=payload.remember_me,
+        request=request,
     )
     audit.info(
         "auth.login.success user=%s id=%s ip=%s ua=%s",
@@ -236,7 +242,7 @@ def logout(request: Request, response: Response, db: DB):
             user_id = session.user_id
             auth.revoke_session(db, session)
             audit.info("auth.logout id=%s ip=%s", user_id, client_ip(request))
-    clear_session_cookies(response)
+    clear_session_cookies(response, request)
     return Response(status_code=204)
 
 
