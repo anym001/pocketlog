@@ -113,7 +113,9 @@ def setup_admin(
     session, plain = auth.create_session(
         db, user, remember_me=False, user_agent=user_agent
     )
-    set_session_cookies(response, plain, session.csrf_token, remember_me=False, request=request)
+    set_session_cookies(
+        response, plain, session.csrf_token, remember_me=False, request=request
+    )
     return {"ok": True}
 
 
@@ -173,7 +175,11 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         db, user, remember_me=payload.remember_me, user_agent=user_agent
     )
     set_session_cookies(
-        response, plain, session.csrf_token, remember_me=payload.remember_me, request=request
+        response,
+        plain,
+        session.csrf_token,
+        remember_me=payload.remember_me,
+        request=request,
     )
     audit.info(
         "auth.login.success user=%s id=%s ip=%s ua=%s",

@@ -270,7 +270,9 @@ def safe(value, *, max_len: int = 256) -> str:
 #
 # Example: TRUSTED_PROXIES=172.16.0.0/12,192.168.1.1
 # ---------------------------------------------------------------------------
-def _parse_trusted_proxies(env: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network] | None:
+def _parse_trusted_proxies(
+    env: str,
+) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network] | None:
     """Return None for wildcard (*), a list of networks otherwise."""
     raw = env.strip()
     if not raw:
