@@ -30,6 +30,7 @@ root handler (no duplicate lines).
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import logging.config
@@ -260,24 +261,74 @@ def safe(value, *, max_len: int = 256) -> str:
     return s
 
 
+# ---------------------------------------------------------------------------
+# Trusted-proxy list for client IP resolution.
+#
+# TRUSTED_PROXIES accepts a comma-separated list of IPs or CIDR ranges, or
+# the special value "*" to trust all proxies (simple single-proxy setups).
+# Default: empty — forwarded headers are ignored; the peer IP is used directly.
+#
+# Example: TRUSTED_PROXIES=172.16.0.0/12,192.168.1.1
+# ---------------------------------------------------------------------------
+def _parse_trusted_proxies(
+    env: str,
+) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network] | None:
+    """Return None for wildcard (*), a list of networks otherwise."""
+    raw = env.strip()
+    if not raw:
+        return []
+    if raw == "*":
+        return None  # None == trust all
+    networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(part, strict=False))
+        except ValueError:
+            logging.getLogger("pocketlog").warning(
+                "TRUSTED_PROXIES: invalid entry %r ignored", part
+            )
+    return networks
+
+
+_TRUSTED_PROXY_NETWORKS = _parse_trusted_proxies(os.environ.get("TRUSTED_PROXIES", ""))
+
+
+def _is_trusted_proxy(peer: str) -> bool:
+    if _TRUSTED_PROXY_NETWORKS is None:
+        return True  # wildcard
+    try:
+        addr = ipaddress.ip_address(peer)
+    except ValueError:
+        return False
+    return any(addr in net for net in _TRUSTED_PROXY_NETWORKS)
+
+
 def client_ip(request) -> str:
     """Best-effort client IP for audit context.
 
-    PocketLog's documented topology is behind a reverse proxy that sets
-    ``X-Real-IP`` (see README nginx example); ``request.client.host`` is then
-    always the proxy. We therefore prefer the forwarded headers.
+    Forwarded headers (X-Real-IP, X-Forwarded-For) are only trusted when the
+    immediate peer (request.client.host) is listed in TRUSTED_PROXIES.  This
+    prevents clients from spoofing their IP when the container port is directly
+    reachable without a proxy in front.
 
-    SECURITY: these headers are client-controllable and only trustworthy behind
-    a trusted proxy that overwrites them. Use this value for audit logging only
-    — never for authorization or rate-limiting decisions.
+    Set TRUSTED_PROXIES to the IP/CIDR of your reverse proxy, or "*" to trust
+    all peers (equivalent to the legacy behaviour, fine for single-proxy setups
+    where the container port is not directly exposed).
+
+    Use this value for audit logging only — never for authorization or
+    rate-limiting decisions.
     """
-    xri = request.headers.get("x-real-ip")
-    if xri:
-        return xri.strip()
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        # First hop is the original client in a well-behaved proxy chain.
-        return xff.split(",")[0].strip()
-    if request.client and request.client.host:
-        return request.client.host
+    peer = request.client.host if request.client else None
+    if peer and _is_trusted_proxy(peer):
+        xri = request.headers.get("x-real-ip")
+        if xri:
+            return xri.strip()
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            return xff.split(",")[0].strip()
+    if peer:
+        return peer
     return "unknown"

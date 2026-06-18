@@ -169,7 +169,8 @@ docker run -d \
 | `LOG_FILE_BACKUPS` | `5` | Number of rotated log files to retain. |
 | `DEFAULT_LOCALE` | `de-DE` | Starting locale for new accounts (BCP-47: `de-DE`, `de-AT`, `de-CH`, `en-GB`, `en-US`). Each user can override it. |
 | `DEFAULT_CURRENCY` | `EUR` | Starting currency for new accounts (ISO 4217: `EUR`, `USD`, `GBP`, `CHF`, `JPY`). Display only, overridable per user. |
-| `SESSION_COOKIE_SECURE` | `1` | Set to `0` if PocketLog is operated without HTTPS |
+| `SESSION_COOKIE_SECURE` | `auto` | Controls the `Secure` flag on session cookies. `auto` (default): set when the browser-facing transport is HTTPS, detected via `X-Forwarded-Proto` or the raw request scheme — works for direct HTTP (LAN / first-run) and HTTPS-proxy setups without any change. `1`: always set (use when your proxy does not forward `X-Forwarded-Proto`). `0`: never set. |
+| `TRUSTED_PROXIES` | – | Comma-separated IPs or CIDR ranges of trusted reverse proxies (e.g. `172.16.0.0/12,192.168.1.1`), or `*` to trust all peers. Controls which sources may set `X-Real-IP`/`X-Forwarded-For` for the audit log. Leave empty when the container is directly exposed (no proxy). |
 | `SESSION_LIFETIME_HOURS` | `24` | Session duration without "Stay logged in" |
 | `SESSION_REMEMBER_DAYS` | `30` | Session duration with "Stay logged in" |
 | `SESSION_ABSOLUTE_DAYS` | `7` | Maximum session duration (standard) |
@@ -194,6 +195,14 @@ server {
     }
 }
 ```
+
+With this setup PocketLog detects HTTPS automatically via `X-Forwarded-Proto` and
+sets the `Secure` cookie flag accordingly — no extra configuration needed.
+
+Set `TRUSTED_PROXIES` to the proxy's IP or subnet so that `X-Real-IP` is trusted
+for the audit log (e.g. `-e TRUSTED_PROXIES=172.17.0.0/16` for a typical Docker
+bridge network, or `-e TRUSTED_PROXIES=*` for a single-proxy setup where the
+container port is not directly reachable from untrusted networks).
 
 ## Login & Security
 
