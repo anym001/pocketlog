@@ -293,9 +293,7 @@ def _parse_trusted_proxies(
     return networks
 
 
-_TRUSTED_PROXY_NETWORKS = _parse_trusted_proxies(
-    os.environ.get("TRUSTED_PROXIES", "")
-)
+_TRUSTED_PROXY_NETWORKS = _parse_trusted_proxies(os.environ.get("TRUSTED_PROXIES", ""))
 
 
 def _is_trusted_proxy(peer: str) -> bool:
