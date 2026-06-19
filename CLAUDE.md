@@ -68,6 +68,8 @@ PocketLog/
 │       ├── recurring.py    ← catch-up / materialization engine
 │       ├── recurring_dates.py ← pure occurrence date math (no DB, cycle-free)
 │       ├── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
+│       ├── proxies.py      ← trusted reverse-proxy check (TRUSTED_PROXIES),
+│       │                     shared by audit client_ip + Secure-cookie decision
 │       ├── logging_config.py ← central logging setup (configure_logging())
 │       └── cli.py          ← operator CLI (reset-admin-password)
 ├── backend/
@@ -186,7 +188,7 @@ Tags are many-to-many via `transaction_tags` (no JSON array any more, removed in
 
 ## Auth Concept
 
-Sessions as HttpOnly cookie `pocketlog_session` (opaque token, DB holds SHA256) + non-HttpOnly `pocketlog_csrf` for Double-Submit. `get_current_user()`: cookie → SHA256 lookup → `expires_at`/`absolute_expires_at` → `is_active` → CSRF check (non-GET, `hmac.compare_digest`) → sliding refresh (5-min damper).
+Sessions as HttpOnly cookie `pocketlog_session` (opaque token, DB holds SHA256) + non-HttpOnly `pocketlog_csrf` for Double-Submit. `get_current_user()`: cookie → SHA256 lookup → `expires_at`/`absolute_expires_at` → `is_active` → CSRF check (non-GET, `hmac.compare_digest`) → sliding refresh (5-min damper). Cookies carry `SameSite=Lax`; the `Secure` flag is decided by `deps._cookie_secure` (`SESSION_COOKIE_SECURE` env, default `auto`). Under `auto`, `X-Forwarded-Proto` is honoured **only** from a trusted proxy (`app.proxies.is_trusted_peer`, `TRUSTED_PROXIES` env) — the same trust gate as the audit `client_ip()` — so a direct client cannot forge the header to flip the flag. `TRUSTED_PROXIES` defaults to the standard private/loopback ranges; an explicit list replaces them; `*` trusts all.
 
 Dependencies: `CurrentUser` = `require_active_password` (blocks on `force_change_password`; exceptions: `/api/auth/me`, `/api/auth/logout`, `/api/auth/change-password`). `AdminUser` = `require_admin` → `require_active_password`.
 
