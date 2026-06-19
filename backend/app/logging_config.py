@@ -30,12 +30,13 @@ root handler (no duplicate lines).
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 import logging.config
 import logging.handlers
 import os
+
+from .proxies import is_trusted_peer
 
 # Bootstrap logger for problems found *while* configuring logging (before our
 # own handler is attached). Uses the root config, which is fine for a warning.
@@ -262,67 +263,24 @@ def safe(value, *, max_len: int = 256) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Trusted-proxy list for client IP resolution.
+# Client IP resolution for the audit trail.
 #
-# TRUSTED_PROXIES accepts a comma-separated list of IPs or CIDR ranges, or
-# the special value "*" to trust all proxies (simple single-proxy setups).
-# Default: empty — forwarded headers are ignored; the peer IP is used directly.
-#
-# Example: TRUSTED_PROXIES=172.16.0.0/12,192.168.1.1
+# The trusted-proxy check lives in app.proxies (shared with the Secure-cookie
+# decision in deps.py); see TRUSTED_PROXIES there.
 # ---------------------------------------------------------------------------
-def _parse_trusted_proxies(
-    env: str,
-) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network] | None:
-    """Return None for wildcard (*), a list of networks otherwise."""
-    raw = env.strip()
-    if not raw:
-        return []
-    if raw == "*":
-        return None  # None == trust all
-    networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
-    for part in raw.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        try:
-            networks.append(ipaddress.ip_network(part, strict=False))
-        except ValueError:
-            logging.getLogger("pocketlog").warning(
-                "TRUSTED_PROXIES: invalid entry %r ignored", part
-            )
-    return networks
-
-
-_TRUSTED_PROXY_NETWORKS = _parse_trusted_proxies(os.environ.get("TRUSTED_PROXIES", ""))
-
-
-def _is_trusted_proxy(peer: str) -> bool:
-    if _TRUSTED_PROXY_NETWORKS is None:
-        return True  # wildcard
-    try:
-        addr = ipaddress.ip_address(peer)
-    except ValueError:
-        return False
-    return any(addr in net for net in _TRUSTED_PROXY_NETWORKS)
-
-
 def client_ip(request) -> str:
     """Best-effort client IP for audit context.
 
     Forwarded headers (X-Real-IP, X-Forwarded-For) are only trusted when the
-    immediate peer (request.client.host) is listed in TRUSTED_PROXIES.  This
-    prevents clients from spoofing their IP when the container port is directly
-    reachable without a proxy in front.
-
-    Set TRUSTED_PROXIES to the IP/CIDR of your reverse proxy, or "*" to trust
-    all peers (equivalent to the legacy behaviour, fine for single-proxy setups
-    where the container port is not directly exposed).
+    immediate peer (request.client.host) is a trusted proxy per TRUSTED_PROXIES
+    (see app.proxies). This prevents clients from spoofing their IP when the
+    container port is directly reachable without a proxy in front.
 
     Use this value for audit logging only — never for authorization or
     rate-limiting decisions.
     """
     peer = request.client.host if request.client else None
-    if peer and _is_trusted_proxy(peer):
+    if peer and is_trusted_peer(peer):
         xri = request.headers.get("x-real-ip")
         if xri:
             return xri.strip()
