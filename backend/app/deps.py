@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from . import auth, crud, models
 from .database import get_db
+from .proxies import is_trusted_peer
 
 # Sliding-window damper for api_key.last_used_at updates — avoids a DB
 # write on every authenticated request when the same key is used in rapid
@@ -34,7 +35,8 @@ def _utcnow() -> datetime:
 
 # Cookie attributes. SESSION_COOKIE_SECURE controls the Secure flag:
 #   auto (default) — set Secure when the effective transport to the browser
-#                    is HTTPS, detected via X-Forwarded-Proto or the request
+#                    is HTTPS, detected via X-Forwarded-Proto (only from a
+#                    trusted proxy, see TRUSTED_PROXIES) or the raw request
 #                    scheme. Correct for direct HTTPS and most reverse-proxy
 #                    setups; plain-HTTP access (LAN / first-run) works without
 #                    any configuration change.
@@ -58,17 +60,21 @@ def _cookie_secure(request: Request) -> bool:
     """Derive whether the Secure flag should be set for this request.
 
     With SESSION_COOKIE_SECURE=auto (default) the flag tracks the effective
-    browser-facing transport: X-Forwarded-Proto is consulted first so that
-    HTTPS-terminating reverse proxies work out of the box, then the raw
-    request scheme for direct connections. Explicit 0/1 override that logic.
+    browser-facing transport: X-Forwarded-Proto is honoured *only* when the
+    immediate peer is a trusted proxy (TRUSTED_PROXIES, see app.proxies),
+    otherwise the raw request scheme is used. Gating on the trusted peer stops
+    a direct client from forging X-Forwarded-Proto to flip the Secure flag.
+    Explicit 0/1 override the logic entirely.
     """
     if _COOKIE_SECURE_ENV == "0":
         return False
     if _COOKIE_SECURE_ENV == "1":
         return True
-    # auto: honour X-Forwarded-Proto if present, else use the request scheme.
+    # auto: honour X-Forwarded-Proto only from a trusted proxy, else fall
+    # back to the raw request scheme of the direct connection.
+    peer = request.client.host if request.client else None
     proto = request.headers.get("x-forwarded-proto", "").lower()
-    if proto:
+    if proto and is_trusted_peer(peer):
         return proto == "https"
     return request.url.scheme == "https"
 
