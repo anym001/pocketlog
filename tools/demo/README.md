@@ -29,7 +29,8 @@ python tools/demo/seed.py          # honours BASE_URL / ADMIN_USERNAME / ADMIN_P
 ```
 
 This imports ~2 months of transactions (auto-creating + styling categories and
-tags), then adds two savings goals and a recurring rule.
+tags), then adds two savings goals, four recurring rules and four per-category
+budgets.
 
 ## 3. Capture the screenshots
 
@@ -42,6 +43,6 @@ npm install
 npm run capture                    # writes ../../docs/screenshots/*.png
 ```
 
-Renders five views at the Pixel 5 mobile viewport (the app's primary form
+Renders six views at the Pixel 5 mobile viewport (the app's primary form
 factor) in light theme — ledger, categories, recurring, category report,
-goals — plus a wide desktop shot (sidebar layout, dark theme).
+goals, budgets — plus a wide desktop shot (sidebar layout, dark theme).

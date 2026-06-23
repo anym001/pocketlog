@@ -98,6 +98,16 @@ GOALS = [
     },
 ]
 
+# Per-category spending caps. Amounts chosen against the demo June spend so the
+# bars show a spread — Groceries/Leisure comfortably within, Subscriptions just
+# over (the red over-budget state), and Transport on a quarterly period.
+BUDGETS = [
+    {"category": "Groceries", "amount": "200.00", "frequency": "monthly"},
+    {"category": "Leisure", "amount": "100.00", "frequency": "monthly"},
+    {"category": "Subscriptions", "amount": "30.00", "frequency": "monthly"},
+    {"category": "Transport", "amount": "400.00", "frequency": "quarterly"},
+]
+
 # All start in the (near) future so they populate the recurring view as
 # upcoming bookings without materializing into the demo month.
 RECURRING_RULES = [
@@ -229,6 +239,18 @@ class Seeder:
                 continue  # duplicate name (idempotent) or already present
             r.raise_for_status()
 
+    def create_budgets(self, ids: dict[str, int]) -> None:
+        for b in BUDGETS:
+            cid = ids.get(b["category"])
+            if cid is None:
+                continue
+            payload = {k: v for k, v in b.items() if k != "category"}
+            payload["category_id"] = cid
+            r = self._c.post("/api/budgets", json=payload, headers=self._headers())
+            if r.status_code == 409:
+                continue  # budget already exists for this category — idempotent
+            r.raise_for_status()
+
 
 def main() -> int:
     with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
@@ -245,10 +267,11 @@ def main() -> int:
         seeder.style_categories(ids)
         seeder.create_goals(ids)
         seeder.create_recurring(ids)
+        seeder.create_budgets(ids)
     print(
         "Seeded demo data: "
         f"imported={result.get('imported')} deduped={result.get('deduped')} "
-        f"categories={len(ids)} goals={len(GOALS)}"
+        f"categories={len(ids)} goals={len(GOALS)} budgets={len(BUDGETS)}"
     )
     return 0
 
