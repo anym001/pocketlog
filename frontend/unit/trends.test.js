@@ -12,6 +12,7 @@ const {
   _movingAverage,
   _tagLineColor,
   _trendMatchesEntity,
+  _signedTrendAmount,
   _monthlyTotals,
   _trendStats,
 } = reportsData;
@@ -102,19 +103,26 @@ describe('_trendMatchesEntity', () => {
   });
 });
 
+describe('_signedTrendAmount', () => {
+  it('counts income positive and spending negative', () => {
+    expect(_signedTrendAmount({ type: 'in', amount: 50 })).toBe(50);
+    expect(_signedTrendAmount({ type: 'out', amount: 50 })).toBe(-50);
+  });
+});
+
 describe('_monthlyTotals', () => {
-  it('sums matching income and spending per calendar month', () => {
+  it('nets income (+) against spending (-) per calendar month', () => {
     const entity = { kind: 'category', catId: 1 };
     const txs = [
       { type: 'out', category_id: 1, date: '2026-01-05', amount: 10 },
       { type: 'out', category_id: 1, date: '2026-01-20', amount: 5 },
       { type: 'out', category_id: 1, date: '2026-02-01', amount: 8 },
       { type: 'out', category_id: 2, date: '2026-01-09', amount: 99 }, // other category
-      { type: 'in', category_id: 1, date: '2026-01-09', amount: 100 }, // income, now counted
+      { type: 'in', category_id: 1, date: '2026-01-09', amount: 100 }, // income, +
     ];
     const map = _monthlyTotals(txs, entity);
-    expect(map.get('2026-01')).toBe(115);
-    expect(map.get('2026-02')).toBe(8);
+    expect(map.get('2026-01')).toBe(85); // 100 income - 15 spending
+    expect(map.get('2026-02')).toBe(-8); // spending only → negative
     expect(map.size).toBe(2);
   });
 });
@@ -135,6 +143,15 @@ describe('_trendStats', () => {
     expect(stats.mean).toBe(100);
     expect(stats.peak).toEqual({ key: '2026-03', value: 200 });
     expect(stats.yoy).toBeNull();
+  });
+
+  it('picks the peak by magnitude, keeping the sign (net flow can be negative)', () => {
+    const map = new Map([
+      ['2026-01', 100],
+      ['2026-02', -250],
+    ]);
+    const stats = _trendStats(map, '2026-01', '2026-02');
+    expect(stats.peak).toEqual({ key: '2026-02', value: -250 });
   });
 
   it('computes year-over-year once each year has >= 3 months in the axis', () => {

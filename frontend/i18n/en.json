@@ -33,6 +33,10 @@
   "header": {
     "prevMonth": "Previous month",
     "nextMonth": "Next month",
+    "pickMonth": "Choose month and year",
+    "prevYear": "Previous year",
+    "nextYear": "Next year",
+    "today": "Today",
     "toggleSidebar": "Toggle sidebar",
     "sync": "Sync"
   },
@@ -371,7 +375,7 @@
     "switch": "Switch",
     "trendMean": "Mean",
     "perMonth": "per month",
-    "trendPeak": "Peak month",
+    "trendPeak": "Strongest month",
     "trendYoy": "Change per year",
     "smoothing": "{label} (smoothed)",
     "monthSummary": "{month} {year}: income {income}, expenses {expenses}.",

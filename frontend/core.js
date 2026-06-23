@@ -678,3 +678,88 @@ function changeMonth(d) {
   }
   loadAndRender();
 }
+
+// ── MONTH/YEAR PICKER (header popover) ────────────────────────────────────────
+// The month label is a button that opens a popover: a year stepper above a
+// 12-month grid, plus a "Today" shortcut. The arrows next to it keep doing
+// ±1-month steps; the popover is for jumping further. pickerYear (state.js) is
+// the year being browsed and is only committed to view.year when a month is
+// picked, so stepping years doesn't reload the ledger.
+
+function _monthPickerCloseOnOutside(e) {
+  const pop = document.getElementById('monthPicker');
+  const label = document.getElementById('monthLabel');
+  if (!pop || pop.contains(e.target) || (label && label.contains(e.target))) return;
+  toggleMonthPicker(false);
+}
+
+function _monthPickerCloseOnEsc(e) {
+  if (e.key === 'Escape') toggleMonthPicker(false);
+}
+
+function toggleMonthPicker(open) {
+  const next = open === undefined ? !appState.view.pickerOpen : !!open;
+  const pop = document.getElementById('monthPicker');
+  const label = document.getElementById('monthLabel');
+  if (!pop) return;
+  appState.view.pickerOpen = next;
+  pop.hidden = !next;
+  if (label) label.setAttribute('aria-expanded', String(next));
+  if (next) {
+    appState.view.pickerYear = appState.view.year;
+    rememberModalFocus('monthPicker');
+    renderMonthPicker();
+    trapFocusIn(pop, 'monthPicker');
+    // Defer so the click that opened the popover doesn't immediately close it.
+    setTimeout(() => {
+      document.addEventListener('pointerdown', _monthPickerCloseOnOutside);
+      document.addEventListener('keydown', _monthPickerCloseOnEsc);
+      const current = pop.querySelector('.mp-month.is-current') || pop.querySelector('.mp-month');
+      if (current) current.focus();
+    }, 0);
+  } else {
+    releaseFocusTrap('monthPicker');
+    document.removeEventListener('pointerdown', _monthPickerCloseOnOutside);
+    document.removeEventListener('keydown', _monthPickerCloseOnEsc);
+    restoreModalFocus('monthPicker');
+  }
+}
+
+function renderMonthPicker() {
+  const year = appState.view.pickerYear;
+  document.getElementById('mpYear').textContent = String(year);
+  const grid = document.getElementById('mpGrid');
+  const today = new Date();
+  grid.innerHTML = appState.calendar.monthsShort
+    .map((name, m) => {
+      const isSelected = m === appState.view.month && year === appState.view.year;
+      const isToday = m === today.getMonth() && year === today.getFullYear();
+      const cls = ['mp-month'];
+      if (isSelected) cls.push('is-current');
+      if (isToday) cls.push('is-today');
+      return `<button type="button" class="${cls.join(' ')}" onclick="pickMonth(${m})"${
+        isSelected ? ' aria-current="true"' : ''
+      }>${_escText(name)}</button>`;
+    })
+    .join('');
+}
+
+function stepPickerYear(d) {
+  appState.view.pickerYear += d;
+  renderMonthPicker();
+}
+
+function pickMonth(m) {
+  appState.view.month = m;
+  appState.view.year = appState.view.pickerYear;
+  toggleMonthPicker(false);
+  loadAndRender();
+}
+
+function goToCurrentMonth() {
+  const now = new Date();
+  appState.view.month = now.getMonth();
+  appState.view.year = now.getFullYear();
+  toggleMonthPicker(false);
+  loadAndRender();
+}

@@ -394,8 +394,13 @@
         background: transparent;
         border: none;
         width: fit-content;
+        /* Anchor for the month/year picker popover (.month-picker). */
+        position: relative;
       }
-      .month-nav button {
+      /* Direct children only — the two month arrows and the label trigger.
+         Buttons inside the picker popover (.month-picker) must not inherit the
+         round chrome shape, hence the child combinator. */
+      .month-nav > button {
         background: transparent;
         border: none;
         width: var(--btn-chrome-size);
@@ -410,29 +415,183 @@
         justify-content: center;
         transition: transform var(--dur-medium) var(--ease-spring);
       }
-      .month-nav button:active {
+      .month-nav > button:active {
         color: var(--text);
         transform: scale(0.94);
       }
       /* :hover guarded so touch devices don't get a sticky hover state
          after tap; touch gets feedback via :active above. */
       @media (hover: hover) and (pointer: fine) {
-        .month-nav button:hover {
+        .month-nav > button:hover {
           color: var(--text);
           transform: scale(0.94);
         }
       }
-      .month-nav button:focus-visible {
+      .month-nav > button:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
       }
+      /* The label is a button (opens the picker) — override the round chrome
+         shape from .month-nav > button with a compact, auto-width pill. */
       .month-label {
+        width: auto;
+        height: auto;
+        min-width: 132px;
+        border-radius: var(--r-pill);
+        padding: var(--space-4) var(--space-10);
+        gap: var(--space-4);
         font-size: var(--fs-footnote);
         font-weight: 600;
         color: var(--text);
-        min-width: 124px;
         text-align: center;
         letter-spacing: -0.01em;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .month-label:hover {
+          background: var(--surface-tint);
+          /* Override the round-arrow shrink — the wide pill reads better with
+             a background tint than with a scale on hover. */
+          transform: none;
+        }
+      }
+      .month-label:active {
+        transform: scale(0.97);
+      }
+      .month-label-chevron {
+        width: 14px;
+        height: 14px;
+        color: var(--text3);
+        transition: transform var(--dur-medium) var(--ease-spring);
+      }
+      .month-label[aria-expanded='true'] .month-label-chevron {
+        transform: rotate(180deg);
+      }
+
+      /* ====== Month/year picker popover ====== */
+      .month-picker {
+        position: absolute;
+        top: calc(100% + var(--space-8));
+        left: 50%;
+        transform: translateX(-50%);
+        width: 280px;
+        max-width: calc(100vw - var(--space-24));
+        padding: var(--space-12);
+        background: var(--glass-modal);
+        -webkit-backdrop-filter: blur(40px) saturate(180%);
+        backdrop-filter: blur(40px) saturate(180%);
+        border: var(--border-hairline);
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-floating);
+        z-index: var(--z-modal);
+        animation: monthPickerIn 0.2s var(--ease-spring);
+      }
+      .month-picker[hidden] {
+        display: none;
+      }
+      @keyframes monthPickerIn {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%);
+        }
+      }
+      .month-picker-year {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--space-12);
+      }
+      .month-picker-year .mp-step {
+        width: var(--space-24);
+        height: var(--space-24);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        color: var(--text2);
+        cursor: pointer;
+        transition: background var(--dur-medium) var(--ease-spring);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .month-picker-year .mp-step:hover {
+          background: var(--surface-tint);
+        }
+      }
+      .month-picker-year .mp-step:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .month-picker-year .mp-year {
+        font-size: var(--fs-callout);
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.01em;
+      }
+      .month-picker-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-8);
+      }
+      .month-picker-grid .mp-month {
+        padding: var(--space-10) 0;
+        background: var(--surface-tint);
+        border: 0.5px solid transparent;
+        border-radius: var(--r-sm);
+        color: var(--text2);
+        font-family: var(--font-body);
+        font-size: var(--fs-footnote);
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+          background var(--dur-medium) var(--ease-spring),
+          color var(--dur-medium) var(--ease-spring);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .month-picker-grid .mp-month:hover {
+          border-color: var(--hairline);
+        }
+      }
+      .month-picker-grid .mp-month:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .month-picker-grid .mp-month.is-today {
+        color: var(--accent);
+      }
+      .month-picker-grid .mp-month.is-current {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+      }
+      .month-picker-foot {
+        display: flex;
+        justify-content: center;
+        margin-top: var(--space-12);
+      }
+      .month-picker-foot .mp-today {
+        background: transparent;
+        border: none;
+        color: var(--accent);
+        font-family: var(--font-body);
+        font-size: var(--fs-footnote);
+        font-weight: 600;
+        cursor: pointer;
+        padding: var(--space-4) var(--space-12);
+        border-radius: var(--r-pill);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .month-picker-foot .mp-today:hover {
+          background: var(--accent-tint);
+        }
+      }
+      .month-picker-foot .mp-today:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
 
       .sync-btn {

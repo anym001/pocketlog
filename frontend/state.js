@@ -22,6 +22,12 @@ const appState = {
   view: {
     month: new Date().getMonth(),
     year: new Date().getFullYear(),
+    // Month/year picker popover (core.js): open flag plus the year currently
+    // being browsed in the grid. pickerYear stays separate from `year` so
+    // stepping years in the popover doesn't reload transactions until a month
+    // is chosen; it is seeded from `year` each time the popover opens.
+    pickerOpen: false,
+    pickerYear: null,
   },
 
   // Draft of the booking form (the in/out toggle and the tags being attached

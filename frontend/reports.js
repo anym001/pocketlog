@@ -727,7 +727,7 @@ function _trendSeries(txs, entityId, granularity, bucketKeys) {
   for (const t of txs) {
     if (!_trendMatchesEntity(t, entity)) continue;
     const key = _bucketKey(t.date, granularity);
-    if (sums.has(key)) sums.set(key, sums.get(key) + t.amount);
+    if (sums.has(key)) sums.set(key, sums.get(key) + _signedTrendAmount(t));
   }
   return {
     entity,
@@ -799,7 +799,7 @@ function _trendStatsMarkup(stats) {
           <div class="trend-stat-sub">${tr('reports.perMonth')}</div>
         </div>`;
   const peakCard =
-    stats.peak && stats.peak.value > 0
+    stats.peak && stats.peak.value !== 0
       ? `<div class="stat-card">
               <div class="trend-stat-label">${tr('reports.trendPeak')}</div>
               <div class="trend-stat-value">${fmtCurrency(stats.peak.value)}</div>
@@ -1059,7 +1059,9 @@ async function renderReportTrend(body, txs) {
         },
         y: {
           ticks: { color: c.text, font: { size: 10 }, callback: (v) => fmtCurrency(v) },
-          grid: { color: c.grid },
+          // Emphasise the zero baseline: the net-flow line sits above it for
+          // income, below it for spending, so the divider must read clearly.
+          grid: { color: (ctx) => (ctx.tick.value === 0 ? c.text : c.grid) },
         },
       },
     },

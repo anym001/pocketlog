@@ -96,6 +96,17 @@
           <path d="M9 6l6 6-6 6" />
         </symbol>
         <symbol
+          id="icon-chevron-down"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </symbol>
+        <symbol
           id="icon-close"
           viewBox="0 0 24 24"
           fill="none"
@@ -882,10 +893,28 @@
           <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat" data-i18n-attr="aria-label:header.prevMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
-          <span class="month-label" id="monthLabel"></span>
+          <button type="button" class="month-label" id="monthLabel" onclick="toggleMonthPicker()" aria-haspopup="dialog" aria-expanded="false" aria-controls="monthPicker" data-i18n-attr="aria-label:header.pickMonth">
+            <span id="monthLabelText"></span>
+            <svg class="ui-icon month-label-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+          </button>
           <button onclick="changeMonth(1)" aria-label="Nächster Monat" data-i18n-attr="aria-label:header.nextMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
+          <div class="month-picker" id="monthPicker" role="dialog" aria-label="Monat und Jahr wählen" data-i18n-attr="aria-label:header.pickMonth" hidden>
+            <div class="month-picker-year">
+              <button type="button" class="mp-step" onclick="stepPickerYear(-1)" aria-label="Vorheriges Jahr" data-i18n-attr="aria-label:header.prevYear">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+              </button>
+              <span class="mp-year" id="mpYear" aria-live="polite"></span>
+              <button type="button" class="mp-step" onclick="stepPickerYear(1)" aria-label="Nächstes Jahr" data-i18n-attr="aria-label:header.nextYear">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+              </button>
+            </div>
+            <div class="month-picker-grid" id="mpGrid"></div>
+            <div class="month-picker-foot">
+              <button type="button" class="mp-today" onclick="goToCurrentMonth()" data-i18n="header.today">Heute</button>
+            </div>
+          </div>
         </div>
         <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren" data-i18n-attr="aria-label:header.sync">
           <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
