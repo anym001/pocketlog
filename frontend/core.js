@@ -410,6 +410,23 @@ function _resetSearch() {
   }
 }
 
+// Panel registry: the single source of truth for every non-ledger panel.
+// `bodyClass` (optional) is the class that hides the ledger chrome (month
+// nav, summary tiles, search bar, FAB) while the panel is active — styles.css
+// keys off it. `render` (optional) is the view renderer, run on switch. The
+// render bodies are arrow-wrapped so the later-loaded feature modules supply
+// the functions at call time (cross-file calls are fine at runtime). Add a new
+// panel here and its body class + renderer wire up automatically — no more
+// scattered if-chains for showPanel to drift out of sync with (the missing
+// on-budgets CSS once shipped because the toggle lived apart from its CSS).
+const PANELS = {
+  charts: { bodyClass: 'in-report', render: () => renderReport() },
+  categories: { render: () => renderCategoryView() },
+  goals: { bodyClass: 'on-goals', render: () => renderGoalsView() },
+  budgets: { bodyClass: 'on-budgets', render: () => renderBudgetsView() },
+  recurring: { bodyClass: 'on-recurring', render: () => renderRecurringView() },
+};
+
 function showPanel(id) {
   if (
     appState.nav.searchQuery ||
@@ -418,21 +435,18 @@ function showPanel(id) {
   )
     _resetSearch();
   appState.nav.activePanel = id;
-  document.body.classList.toggle('in-report', id === 'charts');
-  document.body.classList.toggle('on-goals', id === 'goals');
-  document.body.classList.toggle('on-budgets', id === 'budgets');
-  document.body.classList.toggle('on-recurring', id === 'recurring');
+  // Toggle every registered chrome class so exactly the active panel's is set.
+  for (const [pid, cfg] of Object.entries(PANELS)) {
+    if (cfg.bodyClass) document.body.classList.toggle(cfg.bodyClass, pid === id);
+  }
   if (id !== 'charts') appState.reports.txPool = null;
   document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   document.querySelectorAll('.drawer-nav-item[data-panel]').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.panel === id);
   });
-  if (id === 'charts') renderReport();
-  if (id === 'categories') renderCategoryView();
-  if (id === 'goals') renderGoalsView();
-  if (id === 'budgets') renderBudgetsView();
-  if (id === 'recurring') renderRecurringView();
+  const cfg = PANELS[id];
+  if (cfg && cfg.render) cfg.render();
   closeDrawer();
 }
 
@@ -626,6 +640,30 @@ function releaseFocusTrap(key) {
   const fn = _modalTrapTeardown.get(key);
   if (fn) fn();
   _modalTrapTeardown.delete(key);
+}
+
+// Shared open/close tail for the edit modals (goals, budgets, recurring).
+// openModalShell: call AFTER the modal's fields are populated — it records the
+// previously focused element, reveals the overlay, locks body scroll, moves
+// focus to the first field once the open transition starts, and arms the Tab
+// focus-trap. closeModalShell reverses it. `key` is the focus-trap/restore
+// bucket, `overlayId` the .modal-overlay element, `focusId` the field to focus
+// on open. Per-modal state resets (e.g. editingId) stay in the caller. (Named
+// *Shell to avoid colliding with booking.js's own openModal/closeModal, which
+// share this global script scope.)
+function openModalShell(key, overlayId, focusId) {
+  rememberModalFocus(key);
+  document.getElementById(overlayId).classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById(focusId).focus(), 200);
+  trapFocusIn(document.querySelector('#' + overlayId + ' .modal'), key);
+}
+
+function closeModalShell(key, overlayId) {
+  document.getElementById(overlayId).classList.remove('open');
+  document.body.style.overflow = '';
+  releaseFocusTrap(key);
+  restoreModalFocus(key);
 }
 
 function changeMonth(d) {

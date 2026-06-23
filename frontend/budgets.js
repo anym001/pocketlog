@@ -110,7 +110,6 @@ function openBudgetModal(id) {
     toast(tr('budget.needCategory'), 'error');
     return;
   }
-  rememberModalFocus('budget');
   const deleteBtn = document.getElementById('budgetDeleteBtn');
   const title = document.getElementById('budgetModalTitle');
   if (id) {
@@ -130,18 +129,12 @@ function openBudgetModal(id) {
     title.textContent = tr('budget.newTitle');
     deleteBtn.style.display = 'none';
   }
-  document.getElementById('budgetModalOverlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => document.getElementById('budgetEditAmount').focus(), 200);
-  trapFocusIn(document.querySelector('#budgetModalOverlay .modal'), 'budget');
+  openModalShell('budget', 'budgetModalOverlay', 'budgetEditAmount');
 }
 
 function closeBudgetModal() {
-  document.getElementById('budgetModalOverlay').classList.remove('open');
-  document.body.style.overflow = '';
   appState.budgets.editingId = null;
-  releaseFocusTrap('budget');
-  restoreModalFocus('budget');
+  closeModalShell('budget', 'budgetModalOverlay');
 }
 
 async function saveBudgetEdit() {
