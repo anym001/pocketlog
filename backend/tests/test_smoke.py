@@ -174,6 +174,13 @@ def test_admin_all_data_clears_user(client):
     )
     assert client.get("/api/goals").json()
 
+    # A budget on the same category must be cleared too — not orphaned.
+    client.post(
+        "/api/budgets",
+        json={"category_id": cat_id, "amount": "200.00", "frequency": "monthly"},
+    )
+    assert client.get("/api/budgets").json()
+
     r = client.delete("/api/admin/all-data")
     assert r.status_code == 204
 
@@ -181,6 +188,7 @@ def test_admin_all_data_clears_user(client):
     assert client.get("/api/tags").json() == []
     assert client.get("/api/categories").json() == []
     assert client.get("/api/goals").json() == []
+    assert client.get("/api/budgets").json() == []
 
 
 def test_settings_default_and_update(client):
