@@ -19,6 +19,12 @@ SQLITE_PATH=/tmp/demo/pocketlog.db SESSION_COOKIE_SECURE=0 \
   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
+> ℹ️ The app serves the PWA from `backend/static`, which only exists inside the
+> built image (the Dockerfile copies `frontend/` into it). For a local run the
+> seeder works without it, but **`capture.mjs` needs the frontend served**, so
+> point `static` at `frontend/` first: `ln -sfn ../frontend backend/static`
+> (the symlink is git-ignored; remove it when done).
+
 ## 2. Seed the demo data
 
 Needs `httpx` (already a backend dependency). On first run it creates the admin
