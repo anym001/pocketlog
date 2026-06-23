@@ -15,6 +15,16 @@ from .. import exceptions, models, schemas
 from ._shared import _get_owned
 from .defaults import DEFAULT_CATEGORIES, DEFAULT_CATEGORY_NAMES, DEFAULT_LOCALE
 
+# Entities that block category deletion, paired with the error each raises.
+# Checked in order by delete_category; extend this when a new entity gains a
+# category_id FK instead of adding another inline guard block.
+_CATEGORY_DELETE_GUARDS = (
+    (models.Transaction, exceptions.CategoryInUseError),
+    (models.Goal, exceptions.CategoryHasGoalError),
+    (models.RecurringRule, exceptions.CategoryHasRecurringRuleError),
+    (models.Budget, exceptions.CategoryHasBudgetError),
+)
+
 
 def _seed_default_categories(
     db: Session, user_id: int, locale: str = DEFAULT_LOCALE, *, commit: bool = True
@@ -102,43 +112,18 @@ def delete_category(db: Session, user_id: int, category_id: int) -> bool:
     cat = _get_owned(db, models.Category, user_id, category_id)
     if cat is None:
         return False
-    in_use = db.scalar(
-        select(models.Transaction.id)
-        .where(models.Transaction.category_id == category_id)
-        .limit(1)
-    )
-    if in_use is not None:
-        raise exceptions.CategoryInUseError()
-    # A goal references exactly one category; deleting it out from under a
-    # goal would orphan the tracker (CASCADE would silently drop the goal).
-    # Block instead — symmetric with the transaction guard above; the user
-    # must delete the goal first.
-    has_goal = db.scalar(
-        select(models.Goal.id).where(models.Goal.category_id == category_id).limit(1)
-    )
-    if has_goal is not None:
-        raise exceptions.CategoryHasGoalError()
-    # A recurring rule references a category with ON DELETE RESTRICT —
-    # without this guard the FK would fail later with an opaque
-    # IntegrityError. The user must delete the rule first.
-    has_rule = db.scalar(
-        select(models.RecurringRule.id)
-        .where(models.RecurringRule.category_id == category_id)
-        .limit(1)
-    )
-    if has_rule is not None:
-        raise exceptions.CategoryHasRecurringRuleError()
-    # A budget references exactly one category with the same 1:1 contract as
-    # a goal; deleting it out from under a budget would orphan the cap
-    # (CASCADE would silently drop the budget). Block — symmetric with the
-    # goal guard above; the user must delete the budget first.
-    has_budget = db.scalar(
-        select(models.Budget.id)
-        .where(models.Budget.category_id == category_id)
-        .limit(1)
-    )
-    if has_budget is not None:
-        raise exceptions.CategoryHasBudgetError()
+    # Every entity that references a category blocks its deletion rather than
+    # letting the FK cascade (Goal/Budget would be silently orphaned) or fail
+    # with an opaque IntegrityError (Transaction/RecurringRule are RESTRICT).
+    # The user must remove the referencing entity first. New 1:1/owning
+    # entities only add a row here — keep the order stable (most common
+    # reference first) so the surfaced error is predictable.
+    for ref_model, error in _CATEGORY_DELETE_GUARDS:
+        referenced = db.scalar(
+            select(ref_model.id).where(ref_model.category_id == category_id).limit(1)
+        )
+        if referenced is not None:
+            raise error()
     db.delete(cat)
     db.commit()
     return True

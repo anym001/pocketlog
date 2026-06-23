@@ -158,7 +158,6 @@ function openGoalModal(id) {
     toast(tr('goals.needCategory'), 'error');
     return;
   }
-  rememberModalFocus('goal');
   const deleteBtn = document.getElementById('goalDeleteBtn');
   const title = document.getElementById('goalModalTitle');
   if (id) {
@@ -194,18 +193,12 @@ function openGoalModal(id) {
   }
   onGoalDirectionChange();
   renderGoalColorSwatches();
-  document.getElementById('goalModalOverlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => document.getElementById('goalEditName').focus(), 200);
-  trapFocusIn(document.querySelector('#goalModalOverlay .modal'), 'goal');
+  openModalShell('goal', 'goalModalOverlay', 'goalEditName');
 }
 
 function closeGoalModal() {
-  document.getElementById('goalModalOverlay').classList.remove('open');
-  document.body.style.overflow = '';
   appState.goals.editingId = null;
-  releaseFocusTrap('goal');
-  restoreModalFocus('goal');
+  closeModalShell('goal', 'goalModalOverlay');
 }
 
 async function saveGoalEdit() {

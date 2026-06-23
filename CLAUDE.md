@@ -32,6 +32,7 @@ PocketLog/
 │   ├── booking.js          ← create/edit transaction modal
 │   ├── categories.js       ← category management, tag picker, icon picker
 │   ├── goals.js            ← savings goals + debt trackers
+│   ├── budgets.js          ← per-category spending caps (derived consumption)
 │   ├── recurring.js        ← recurring rules editor + next-booking preview
 │   ├── settings.js         ← settings drawer: tags, sync, theme, backup,
 │   │                         import/export, API keys, account, admin users
@@ -56,12 +57,12 @@ PocketLog/
 │       ├── deps.py         ← shared auth plumbing: session/CSRF cookie I/O +
 │       │                     the dependency chain (CurrentUser/AdminUser/DB)
 │       ├── routers/        ← one APIRouter per domain (auth, categories, goals,
-│       │                     tags, recurring, transactions, imexport, admin,
-│       │                     settings, health); wired by main.include_router
+│       │                     budgets, tags, recurring, transactions, imexport,
+│       │                     admin, settings, health); wired by main.include_router
 │       ├── models.py       ← SQLAlchemy ORM
 │       ├── schemas.py      ← Pydantic v2
 │       ├── crud/           ← user_id-scoped queries, one module per domain
-│       │                     (users, categories, goals, tags, recurring,
+│       │                     (users, categories, goals, budgets, tags, recurring,
 │       │                     transactions, settings, imexport, defaults);
 │       │                     __init__ re-exports the full crud.* surface
 │       ├── auth.py         ← session, CSRF, brute-force
@@ -104,9 +105,11 @@ GET    /api/auth/me
 POST   /api/auth/change-password ← invalidates all other sessions
 GET    /api/transactions?year=&month=&from=&to=
 POST|PUT|DELETE /api/transactions/{id}
-GET|POST|PUT|DELETE /api/categories/{id}   ← DELETE only when no referenced transactions **and** no linked goal
+GET|POST|PUT|DELETE /api/categories/{id}   ← DELETE only when no referenced transactions, no linked goal **and** no linked budget
 GET|POST /api/goals
 PUT|DELETE /api/goals/{id}       ← 1:1 to category; 409 if category already has a goal. Progress is calculated in the frontend (no aggregate in the API)
+GET|POST /api/budgets
+PUT|DELETE /api/budgets/{id}     ← 1:1 to category; 409 if category already has a budget. Consumption is calculated in the frontend (no aggregate in the API). Independent of goals — a category may carry both
 GET|POST /api/tags
 PUT|DELETE /api/tags/{name}      ← PUT renames across all transactions
 GET|PUT  /api/settings
@@ -119,7 +122,7 @@ PUT|DELETE /api/recurring/{id}   ← DELETE leaves existing transactions intact 
 POST   /api/recurring/{id}/skip-next   ← skips the next occurrence, returns new cursor
 DELETE /api/recurring/{id}/skip/{date} ← un-skips a previously skipped date
 DELETE /api/admin/transactions   ← self-service: own transactions
-DELETE /api/admin/all-data       ← self-service: transactions + recurring rules + goals + tags + categories
+DELETE /api/admin/all-data       ← self-service: transactions + recurring rules + goals + budgets + tags + categories
 
 # Admin (+ admin role)
 GET|POST /api/admin/users
@@ -162,6 +165,13 @@ goals           id, user_id FK CASCADE, name, direction ENUM('save_up','pay_down
                 created_at, updated_at
                 UNIQUE(user_id, category_id)   ← 1:1 category↔goal
 
+budgets         id, user_id FK CASCADE, category_id FK CASCADE,
+                amount DECIMAL(12,2),
+                frequency ENUM('monthly','quarterly','yearly'),
+                created_at, updated_at
+                UNIQUE(user_id, category_id)   ← 1:1 category↔budget
+                INDEX(user_id), INDEX(category_id)
+
 recurring_rules id, user_id FK CASCADE, name UNIQUE(user_id),
                 amount DECIMAL(12,2), type ENUM('in','out'),
                 category_id FK RESTRICT, description,
@@ -184,6 +194,8 @@ Tags are many-to-many via `transaction_tags` (no JSON array any more, removed in
 
 **Goals (`goals`, migration 0011):** unified savings goal + debt tracker. A category carries at most one goal (`uq_goals_user_category`). Progress is **derived, never stored**: the frontend sums the transactions of the linked category from `start_date` (`in` for `save_up`, `out` for `pay_down`) — money rule observed (no SQL `SUM`). A goal **never** affects ledger totals. Category deletion is blocked (409) while a goal references it (`crud.delete_category`); CASCADE remains the DB safety net for user deletion.
 
+**Budgets (`budgets`, migration 0015):** per-category spending cap over a calendar period (`monthly`/`quarterly`/`yearly`, no rollover). A category carries at most one budget (`uq_budgets_user_category`), **independent** of any goal on the same category — a category may carry both. Consumption is **derived, never stored** (mirrors goals): the frontend sums the linked category's `out` transactions within the active period and compares against `amount` — money rule observed (no SQL `SUM`). A budget **never** affects ledger totals. Category deletion is blocked (409) while a budget references it (`crud.delete_category`); CASCADE remains the DB safety net for user deletion. The category-deletion guards (transaction-in-use, goal, recurring-rule, budget) are table-driven in `crud.delete_category` via `_CATEGORY_DELETE_GUARDS` — a new category-referencing entity adds one row there.
+
 **Recurring rules (`recurring_rules`, migrations 0012+):** booking templates materialized by `app.recurring.materialize_due` / `catch_up_safely`. Called on every `/api/auth/me` and `/api/transactions` GET — never on a separate schedule. The cursor (`next_occurrence_date`) is advanced per occurrence; NULL means terminated (end_date passed or max_occurrences reached). `active=False` rules are skipped entirely by the catch-up (`WHERE active = TRUE`). Skips (`recurring_rule_skips`) are consulted before each materialization step. Tags are linked via `recurring_rule_tags` and copied to each materialized transaction. Deleting a rule leaves its transactions intact (`source_rule_id → NULL`). Category deletion is blocked (409) while a rule references it.
 
 ## Auth Concept
@@ -203,7 +215,7 @@ Central config in `app/logging_config.py` (`configure_logging()`, called on impo
 
 **Container permissions (PUID/PGID):** The image starts as root; the entrypoint (`backend/docker-entrypoint.sh`) chowns `/config` to `PUID:PGID` (default `1000:1000`, Unraid `99:100`) and drops privileges via `gosu` before `alembic`+`uvicorn` run. This allows the SQLite file on the mount to be written with the correct host permissions. **SQLite pragmas** (`database.py`): `foreign_keys=ON` (cascades), `journal_mode=WAL` (concurrent reads/writes for PWA sync), `busy_timeout=5000`.
 
-Audit events are logged **in the endpoint layer** (the per-domain `app/routers/*.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud/*`/`deps.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`, `recurring.create/update/delete`, `data.reset_all_data`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
+Audit events are logged **in the endpoint layer** (the per-domain `app/routers/*.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud/*`/`deps.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`, `goal.create/update/delete`, `budget.create/update/delete`, `recurring.create/update/delete`, `data.reset_all_data`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
 
 ## Offline / PWA
 `sw.js`: network-first for HTML shell + GET /api/\*, cache-first for vendor/fonts/icons. Offline outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache keys from `__APP_VERSION__` (Dockerfile substitutes at build time). Both i18n bundles (`i18n/de.json`, `i18n/en.json`) are in the SHELL precache so that language switching works offline.
@@ -256,14 +268,14 @@ production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
   app-level wiring (the `DomainError` handler, the security-headers middleware, the router
   includes, the static mount); no endpoints live there.
 - **CRUD layout:** `app/crud/` is a package, one module per domain (`users`, `categories`,
-  `goals`, `tags`, `recurring`, `transactions`, `settings`, `imexport`) plus `defaults`
+  `goals`, `budgets`, `tags`, `recurring`, `transactions`, `settings`, `imexport`) plus `defaults`
   (seed categories + locale/currency defaults). `crud/__init__.py` re-exports the full
   former surface, so every call site stays `crud.<function>` — never import a submodule
   directly. A new crud function goes in its domain module and gets added to the `__init__`
   re-export + `__all__`. Cross-domain helpers are shared one direction only: `_shared`
   is the lowest leaf (domain-agnostic helpers like `_get_owned`, the user-scoped
   primary-key lookup; imports no sibling); `categories` and `tags` are leaf modules
-  above it; `users`/`goals`/`recurring`/`transactions`/`imexport` import the shared
+  above it; `users`/`goals`/`budgets`/`recurring`/`transactions`/`imexport` import the shared
   helpers (`_owned_category_exists`, `_seed_default_categories`, the tag resolvers)
   from them — keep it acyclic.
 - Audit events stay in the endpoint layer (the router), where `client_ip()` + DB facts are
@@ -274,7 +286,7 @@ production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - **Money** (`DECIMAL(12,2)`) must never be aggregated via SQL `SUM()`/`func.sum` — SQLite has no native decimal type and would round through float. Compute sums in Python over ORM `Decimal` values (the frontend calculates totals itself anyway). Per-row the round-trip is exact; `tests/test_money_precision.py` pins this.
 
 **Frontend:**
-- **Classic scripts, no bundler** (CSP `script-src 'self'`). Script order (see `index.html`): `i18n.js`, `utils.js`, `reportsData.js`, `state.js`, then the feature modules `core.js` → `ledger.js` → `reports.js` → `booking.js` → `categories.js` → `goals.js` → `recurring.js` → `settings.js`, and `app.js` (boot) last. Top-level declarations share the global lexical scope, so later scripts use earlier ones directly; inline `onclick` handlers in `index.html` reach any top-level function. **Top-level statements may only call functions defined in the same file or an earlier one** (function hoisting does not cross script boundaries); cross-file calls belong inside functions, which all run after every script is parsed. A `module.exports` guard at each file's bottom is a no-op in the browser but lets Vitest import the pure helpers. Any new frontend `.js` must be added in four places: `index.html` (script tag, before `app.js`), `sw.js` (SHELL precache **and** the network-first list), and the `Dockerfile` static `COPY`.
+- **Classic scripts, no bundler** (CSP `script-src 'self'`). Script order (see `index.html`): `i18n.js`, `utils.js`, `reportsData.js`, `state.js`, then the feature modules `core.js` → `ledger.js` → `reports.js` → `booking.js` → `categories.js` → `goals.js` → `budgets.js` → `recurring.js` → `settings.js`, and `app.js` (boot) last. Top-level declarations share the global lexical scope, so later scripts use earlier ones directly; inline `onclick` handlers in `index.html` reach any top-level function. **Top-level statements may only call functions defined in the same file or an earlier one** (function hoisting does not cross script boundaries); cross-file calls belong inside functions, which all run after every script is parsed. A `module.exports` guard at each file's bottom is a no-op in the browser but lets Vitest import the pure helpers. Any new frontend `.js` must be added in four places: `index.html` (script tag, before `app.js`), `sw.js` (SHELL precache **and** the network-first list), and the `Dockerfile` static `COPY`.
 - **App state lives in `state.js`** as one grouped `appState` object (`appState.ledger.transactions`, `appState.trend.kind`, …) — **no** loose module-global `let`s in the feature modules. Only safe literal defaults live in `state.js`; state restored from localStorage on boot (active report, trend selection) keeps its restore logic in `core.js` and assigns into `appState`. In-place-mutated `const` collections (`chartInsts`, `tagCounts`, `_txCacheByYear`) stay in `core.js`.
 - **Pure helpers** (`utils.js`, `reportsData.js`) take their data as arguments — no app state, no DOM, no I18N — and are unit-tested with Vitest (`frontend/unit/*.test.js`). Impure helpers that read `appState`/DOM/I18N stay in the feature module that owns them.
 
