@@ -473,22 +473,49 @@ async function renderReportYear(body, txs) {
 
 // ── REPORTS — CATEGORIES ──────────────────────────────────────────────────────
 
+// Expenses/income toggle shared by the category and tag breakdown donuts. A
+// donut is parts-of-a-whole, so it shows one direction at a time; this flips
+// appState.reports.breakdownDir and re-renders the current report.
+function _breakdownSegmentedMarkup() {
+  const dir = appState.reports.breakdownDir;
+  return `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.breakdownSelect'))}">
+            <button type="button" role="tab" aria-selected="${dir === 'out'}" class="${dir === 'out' ? 'is-active' : ''}" onclick="setBreakdownDir('out')">${tr('reports.expenses')}</button>
+            <button type="button" role="tab" aria-selected="${dir === 'in'}" class="${dir === 'in' ? 'is-active' : ''}" onclick="setBreakdownDir('in')">${tr('reports.income')}</button>
+          </div>`;
+}
+
+function setBreakdownDir(dir) {
+  if (dir !== 'out' && dir !== 'in') return;
+  if (appState.reports.breakdownDir === dir) return;
+  appState.reports.breakdownDir = dir;
+  renderReport();
+}
+
 function renderReportCategories(body, txs) {
-  const sorted = _totalsByCategory(txs, 'out');
+  const dir = appState.reports.breakdownDir;
+  const segmented = `<div class="report-section">${_breakdownSegmentedMarkup()}</div>`;
+  const sorted = _totalsByCategory(txs, dir);
   if (!sorted.length) {
-    body.innerHTML = _emptyState(tr('reports.noExpenses'));
+    body.innerHTML = `${segmented}<div class="report-section">${_emptyState(
+      tr(dir === 'out' ? 'reports.noExpenses' : 'reports.noIncome'),
+    )}</div>`;
     return;
   }
   const total = sorted.reduce((s, c) => s + c.amount, 0);
   const max = sorted[0].amount;
+  const donutLabel = tr(
+    dir === 'out' ? 'reports.expensesPerCategory' : 'reports.incomePerCategory',
+  );
+  const totalLabel = tr(dir === 'out' ? 'reports.expensesTotal' : 'reports.incomeTotal');
 
   body.innerHTML = `
+          ${segmented}
           <div class="report-section">
             <div class="donut-wrap">
-              <canvas id="categoriesDonut" role="img" aria-label="${_escAttr(tr('reports.expensesPerCategory'))}"></canvas>
+              <canvas id="categoriesDonut" role="img" aria-label="${_escAttr(donutLabel)}"></canvas>
               <div class="donut-center">
                 <div class="donut-center-value">${fmtCurrency(total)}</div>
-                <div class="donut-center-label">${tr('reports.expensesTotal')}</div>
+                <div class="donut-center-label">${totalLabel}</div>
               </div>
             </div>
           </div>
@@ -553,21 +580,28 @@ function _tagRowMarkup(name, amount, max, opts = {}) {
 }
 
 function renderReportTags(body, txs) {
-  const sorted = _totalsByTag(txs, 'out');
+  const dir = appState.reports.breakdownDir;
+  const segmented = `<div class="report-section">${_breakdownSegmentedMarkup()}</div>`;
+  const sorted = _totalsByTag(txs, dir);
   if (!sorted.length) {
-    body.innerHTML = _emptyState(tr('reports.noTagExpenses'));
+    body.innerHTML = `${segmented}<div class="report-section">${_emptyState(
+      tr(dir === 'out' ? 'reports.noTagExpenses' : 'reports.noTagIncome'),
+    )}</div>`;
     return;
   }
   const total = sorted.reduce((s, t) => s + t.amount, 0);
   const max = sorted[0].amount;
+  const donutLabel = tr(dir === 'out' ? 'reports.expensesPerTag' : 'reports.incomePerTag');
+  const totalLabel = tr(dir === 'out' ? 'reports.expensesTotal' : 'reports.incomeTotal');
 
   body.innerHTML = `
+          ${segmented}
           <div class="report-section">
             <div class="donut-wrap">
-              <canvas id="tagsDonut" role="img" aria-label="${_escAttr(tr('reports.expensesPerTag'))}"></canvas>
+              <canvas id="tagsDonut" role="img" aria-label="${_escAttr(donutLabel)}"></canvas>
               <div class="donut-center">
                 <div class="donut-center-value">${fmtCurrency(total)}</div>
-                <div class="donut-center-label">${tr('reports.expensesTotal')}</div>
+                <div class="donut-center-label">${totalLabel}</div>
               </div>
             </div>
           </div>
