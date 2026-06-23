@@ -72,6 +72,10 @@ def delete_all_user_data(db: Session, user_id: int) -> None:
         delete(models.RecurringRule).where(models.RecurringRule.user_id == user_id)
     )
     db.execute(delete(models.Goal).where(models.Goal.user_id == user_id))
+    # Budgets reference categories with ON DELETE CASCADE, same as goals;
+    # delete them explicitly too so the cleanup doesn't silently depend on
+    # the DB-level cascade (and on SQLite's foreign_keys pragma being on).
+    db.execute(delete(models.Budget).where(models.Budget.user_id == user_id))
     db.execute(delete(models.Tag).where(models.Tag.user_id == user_id))
     db.execute(delete(models.Category).where(models.Category.user_id == user_id))
     db.commit()

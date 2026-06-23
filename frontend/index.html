@@ -398,6 +398,10 @@
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-target" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.goals">Ziele</span>
             </button>
+            <button class="drawer-nav-item" data-panel="budgets" onclick="showPanel('budgets')" style="--nav-icon-bg: var(--green)">
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
+              <span class="drawer-nav-label" data-i18n="nav.budgets">Budgets</span>
+            </button>
             <button class="drawer-nav-item" data-panel="recurring" onclick="showPanel('recurring')" style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-arrows-clockwise" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.recurring">Wiederkehrend</span>
@@ -964,6 +968,14 @@
       <div id="goalsViewList"></div>
     </div>
 
+    <!-- BUDGETS VIEW (per-category spending caps) -->
+    <div class="panel" id="panel-budgets">
+      <div class="goals-toolbar">
+        <button class="save-btn" onclick="openBudgetModal()" data-i18n="budget.create">Budget erstellen</button>
+      </div>
+      <div id="budgetsViewList"></div>
+    </div>
+
     <!-- RECURRING TRANSACTIONS VIEW -->
     <div class="panel" id="panel-recurring">
       <div class="goals-toolbar">
@@ -1269,6 +1281,47 @@
             class="submit-btn btn-destructive"
             id="goalDeleteBtn"
             onclick="deleteGoalEdit()"
+            data-i18n="common.delete"
+          >
+            Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUDGET MODAL (create / edit) -->
+    <div class="modal-overlay" id="budgetModalOverlay" onclick="closeOnBackdrop(event, closeBudgetModal)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="budgetModalTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeBudgetModal()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="budgetModalTitle" data-i18n="budget.editTitle">Budget bearbeiten</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label data-i18n="budget.category">Kategorie</label>
+            <select id="budgetEditCategory"></select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="budget.amount">Limit</label>
+            <input type="text" class="amount-input" id="budgetEditAmount" placeholder="0,00" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]{0,2}" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="budget.frequency">Zeitraum</label>
+            <select id="budgetEditFrequency">
+              <option value="monthly" data-i18n="budget.freqMonthly">Monatlich</option>
+              <option value="quarterly" data-i18n="budget.freqQuarterly">Quartalsweise</option>
+              <option value="yearly" data-i18n="budget.freqYearly">Jährlich</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="saveBudgetEdit()" data-i18n="common.save">Speichern</button>
+          <button
+            class="submit-btn btn-destructive"
+            id="budgetDeleteBtn"
+            onclick="deleteBudgetEdit()"
             data-i18n="common.delete"
           >
             Löschen
@@ -1655,6 +1708,7 @@
     <script src="/booking.js" defer></script>
     <script src="/categories.js" defer></script>
     <script src="/goals.js" defer></script>
+    <script src="/budgets.js" defer></script>
     <script src="/recurring.js" defer></script>
     <script src="/settings.js" defer></script>
     <script src="/app.js" defer></script>

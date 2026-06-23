@@ -116,6 +116,9 @@ class User(Base):
     goals: Mapped[list["Goal"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    budgets: Mapped[list["Budget"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     # Cascade so ``db.delete(user)`` issues the rule deletes through
     # the ORM. The order in which SQLAlchemy emits DELETEs across
     # this user's collections is driven by FK topology, not by the
@@ -607,3 +610,63 @@ class ApiKey(Base):
     expires_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="api_keys")
+
+
+class Budget(Base):
+    """A per-category spending cap over a recurring calendar period.
+
+    A budget limits the ``out`` spending of its linked category within the
+    active period (``monthly``/``quarterly``/``yearly``, calendar-aligned).
+    Like a goal, its consumption is *derived* — never stored — from the
+    transactions of the category in the current period; the frontend sums
+    the ``out`` rows and compares them against ``amount``. A budget never
+    affects ledger income/expense totals.
+
+    Exactly one budget backs a category (1:1 per user via
+    ``uq_budgets_user_category``); a category may carry both a goal and a
+    budget — they are independent.
+    """
+
+    __tablename__ = "budgets"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category_id", name="uq_budgets_user_category"),
+        Index("ix_budgets_user_id", "user_id"),
+        # FK on category_id triggers an InnoDB FK-check on every category
+        # DELETE; without this index that check is a full table scan on
+        # budgets (mirrors ix_goals_category_id).
+        Index("ix_budgets_category_id", "category_id"),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    category_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False
+    )
+    amount: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)
+    frequency: Mapped[str] = mapped_column(
+        Enum("monthly", "quarterly", "yearly", name="budget_frequency"),
+        nullable=False,
+    )
+    # Python-side defaults so ORM inserts always carry a value regardless of
+    # backend; the CREATE TABLE server_default (CURRENT_TIMESTAMP) covers
+    # non-ORM inserts. updated_at additionally gets ON UPDATE on MariaDB via
+    # the migration's dialect-split server_default.
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        default=lambda: datetime.utcnow(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+        default=lambda: datetime.utcnow(),
+    )
+
+    user: Mapped[User] = relationship(back_populates="budgets")
+    category: Mapped[Category] = relationship()

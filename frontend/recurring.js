@@ -281,7 +281,6 @@ function openRecurringModal(id) {
     toast(tr('recurring.needCategory'), 'error');
     return;
   }
-  rememberModalFocus('recurring');
   const deleteBtn = document.getElementById('recDeleteBtn');
   const title = document.getElementById('recurringModalTitle');
   const skipsGroup = document.getElementById('recEditSkipsGroup');
@@ -339,18 +338,12 @@ function openRecurringModal(id) {
     deleteBtn.style.display = 'none';
     skipsGroup.hidden = true;
   }
-  document.getElementById('recurringModalOverlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => document.getElementById('recEditName').focus(), 200);
-  trapFocusIn(document.querySelector('#recurringModalOverlay .modal'), 'recurring');
+  openModalShell('recurring', 'recurringModalOverlay', 'recEditName');
 }
 
 function closeRecurringModal() {
-  document.getElementById('recurringModalOverlay').classList.remove('open');
-  document.body.style.overflow = '';
   appState.recurring.editingId = null;
-  releaseFocusTrap('recurring');
-  restoreModalFocus('recurring');
+  closeModalShell('recurring', 'recurringModalOverlay');
 }
 
 function _recurringPayloadFromForm() {

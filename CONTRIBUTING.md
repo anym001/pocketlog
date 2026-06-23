@@ -8,7 +8,7 @@ testing changes before they reach production.
 
 | Branch | Purpose | Protected |
 |---|---|---|
-| `main` | production-stable; every merge creates a release (`:latest` + `:X.Y.Z`) | yes |
+| `main` | production-stable; a release is cut by pushing a `vX.Y.Z` tag (`:latest` + `:X.Y.Z`) | yes |
 | `dev` | integration/staging; every push builds the `:dev` image | yes |
 | `feature/*` | short-lived work on a single topic; deleted after merge | – |
 
@@ -19,7 +19,7 @@ by this setting.
 ## Workflow
 
 ```
-feature/xyz ──PR──▶ dev ──(:dev-image)──▶ test on staging ──PR──▶ main ──▶ Release
+feature/xyz ──PR──▶ dev ──(:dev-image)──▶ test on staging ──PR──▶ main ──tag vX.Y.Z──▶ Release
 ```
 
 1. **Branch** from `dev`: `git switch dev && git pull && git switch -c feature/xyz`
@@ -28,13 +28,15 @@ feature/xyz ──PR──▶ dev ──(:dev-image)──▶ test on staging �
    unfinished/red head).
 3. The push to `dev` builds and publishes **`:dev`** on GHCR. Verify with the staging
    instance (pinned to `:dev`).
-4. When `dev` is good: **PR `dev → main`**. The merge triggers `build.yml` →
-   patch version bumped automatically, Git tag created, `:latest` + `:X.Y.Z` built,
-   GitHub release created.
-5. **Production** pulls the new `:X.Y.Z` tag deliberately, not `:latest`.
-
-**Minor/Major release:** instead of auto-patch, push a tag manually —
-`git tag v0.4.0 && git push origin v0.4.0` (builds exactly that version).
+4. When `dev` is good: **PR `dev → main`** and merge it. Merging to `main` does
+   **not** publish anything on its own — `main` only holds the release-ready state.
+5. **Cut the release** by pushing a version tag:
+   `git tag vX.Y.Z && git push origin vX.Y.Z`. The tag is the sole trigger for
+   `build.yml` → green `tests` gate → `:latest` + `:X.Y.Z` images (GHCR + Docker
+   Hub) + a GitHub release with generated notes. The version comes entirely from
+   the tag — there is no VERSION file and no auto-bump — so pick it by semver:
+   patch for fixes, minor for new features (e.g. `v0.7.3` → `v0.8.0`).
+6. **Production** pulls the new `:X.Y.Z` tag deliberately, not `:latest`.
 
 ## CI
 

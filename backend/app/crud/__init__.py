@@ -9,6 +9,7 @@ Submodules:
 - ``users``         user CRUD + admin-action target resolver
 - ``categories``    category CRUD + shared ownership/seed helpers
 - ``goals``         goal CRUD (1:1 with a category)
+- ``budgets``       budget CRUD (1:1 with a category)
 - ``tags``          tag CRUD + tag-name → ORM resolvers
 - ``recurring``     recurring-rule CRUD
 - ``transactions``  transaction CRUD
@@ -22,6 +23,12 @@ from .api_keys import (
     get_api_key_by_hash,
     list_api_keys,
     revoke_api_key,
+)
+from .budgets import (
+    create_budget,
+    delete_budget,
+    list_budgets,
+    update_budget,
 )
 from .categories import (
     _owned_category_exists,
@@ -142,6 +149,11 @@ __all__ = [
     "delete_goal",
     "list_goals",
     "update_goal",
+    # budgets
+    "create_budget",
+    "delete_budget",
+    "list_budgets",
+    "update_budget",
     # tags
     "_build_tag_cache",
     "_find_tag_by_name",

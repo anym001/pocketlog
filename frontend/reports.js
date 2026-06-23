@@ -258,7 +258,7 @@ function _catRowMarkup(catId, amount, max, opts = {}) {
             <div class="cat-name">${_escText(cat.name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${cat.color}"></div></div>
           </div>
-          <div class="cat-amount">${fmtCurrency(-Math.abs(amount))}</div>
+          <div class="cat-amount">${fmtCurrency(Math.abs(amount))}</div>
         </div>`;
 }
 
@@ -548,7 +548,7 @@ function _tagRowMarkup(name, amount, max, opts = {}) {
             <div class="cat-name">${_escText(name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
           </div>
-          <div class="cat-amount">${fmtCurrency(-Math.abs(amount))}</div>
+          <div class="cat-amount">${fmtCurrency(Math.abs(amount))}</div>
         </div>`;
 }
 

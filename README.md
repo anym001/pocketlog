@@ -19,18 +19,19 @@ no tracking, no telemetry.
 ## Screenshots
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/ledger.png" alt="Transaction ledger" width="18%">
-  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/categories.png" alt="Category management" width="18%">
-  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/recurring.png" alt="Recurring rules" width="18%">
-  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/reports.png" alt="Category analysis report" width="18%">
-  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/goals.png" alt="Savings goals" width="18%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/ledger.png" alt="Transaction ledger" width="16%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/categories.png" alt="Category management" width="16%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/recurring.png" alt="Recurring rules" width="16%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/reports.png" alt="Category analysis report" width="16%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/goals.png" alt="Savings goals" width="16%">
+  <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/budgets.png" alt="Per-category budgets" width="16%">
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/anym001/pocketlog/HEAD/docs/screenshots/desktop.png" alt="PocketLog on desktop, dark theme" width="84%">
 </p>
 
-<p align="center"><em>Mobile — the app's primary form factor: ledger, categories, recurring rules, category analysis, savings goals. Below: the desktop sidebar layout in dark theme.</em></p>
+<p align="center"><em>Mobile — the app's primary form factor: ledger, categories, recurring rules, category analysis, savings goals, per-category budgets. Below: the desktop sidebar layout in dark theme.</em></p>
 
 ## Contents
 
@@ -56,6 +57,11 @@ no tracking, no telemetry.
 - **Goals** — savings targets and debt tracker in one: link a goal to a category and
   PocketLog calculates your progress automatically from that category's transactions.
   Goals are tracked separately and do not affect your balance
+- **Budgets** — per-category spending caps: set a limit per category over a monthly,
+  quarterly, or yearly period and PocketLog shows how much of it you've used in the
+  current period, with the bar turning red once you go over. Calculated automatically
+  from that category's expenses; budgets do not affect your balance, and a category
+  can have both a goal and a budget
 - **Recurring transactions** — define rules for transactions that repeat (rent,
   subscriptions, salaries) and PocketLog books them automatically at the next due
   date. Frequencies daily / weekly / monthly / quarterly / yearly with a configurable

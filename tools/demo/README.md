@@ -10,14 +10,22 @@ reachable instance and never create states the app itself wouldn't.
 
 ## 1. Start a throwaway instance
 
-Run a fresh PocketLog with `SESSION_COOKIE_SECURE=0` so the seeder's plain-HTTP
-session cookie is accepted on localhost. For example, from `backend/`:
+Run a fresh PocketLog. The default `SESSION_COOKIE_SECURE=auto` already omits
+the Secure flag on a direct plain-HTTP connection, so the seeder's session
+cookie is accepted on localhost without any override. For example, from
+`backend/`:
 
 ```sh
 SQLITE_PATH=/tmp/demo/pocketlog.db python -m alembic upgrade head
-SQLITE_PATH=/tmp/demo/pocketlog.db SESSION_COOKIE_SECURE=0 \
+SQLITE_PATH=/tmp/demo/pocketlog.db \
   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+> ℹ️ The app serves the PWA from `backend/static`, which only exists inside the
+> built image (the Dockerfile copies `frontend/` into it). For a local run the
+> seeder works without it, but **`capture.mjs` needs the frontend served**, so
+> point `static` at `frontend/` first: `ln -sfn ../frontend backend/static`
+> (the symlink is git-ignored; remove it when done).
 
 ## 2. Seed the demo data
 
@@ -29,7 +37,8 @@ python tools/demo/seed.py          # honours BASE_URL / ADMIN_USERNAME / ADMIN_P
 ```
 
 This imports ~2 months of transactions (auto-creating + styling categories and
-tags), then adds two savings goals and a recurring rule.
+tags), then adds two savings goals, four recurring rules and four per-category
+budgets.
 
 ## 3. Capture the screenshots
 
@@ -42,6 +51,6 @@ npm install
 npm run capture                    # writes ../../docs/screenshots/*.png
 ```
 
-Renders five views at the Pixel 5 mobile viewport (the app's primary form
+Renders six views at the Pixel 5 mobile viewport (the app's primary form
 factor) in light theme — ledger, categories, recurring, category report,
-goals — plus a wide desktop shot (sidebar layout, dark theme).
+goals, budgets — plus a wide desktop shot (sidebar layout, dark theme).
