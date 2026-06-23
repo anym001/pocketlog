@@ -710,11 +710,11 @@ function _trendEntityFromId(id) {
 
 function _pickDefaultTrendEntity(txs, kind) {
   if (kind === 'category') {
-    for (const r of _totalsByCategory(txs, 'out')) {
+    for (const r of _totalsByCategory(txs, 'all')) {
       if (appState.ledger.categories.find((c) => c.id === r.catId)) return `cat:${r.catId}`;
     }
   } else {
-    const top = _totalsByTag(txs, 'out')[0];
+    const top = _totalsByTag(txs, 'all')[0];
     if (top) return `tag:${top.name}`;
   }
   return null;
@@ -752,7 +752,7 @@ function _trendChipMarkup(id, name, color, selected) {
 function _trendPickerOptions(txs, kind, selectedId, filter) {
   const options = [];
   if (kind === 'category') {
-    const ranked = _totalsByCategory(txs, 'out');
+    const ranked = _totalsByCategory(txs, 'all');
     const seen = new Set();
     for (const r of ranked) {
       const cat = appState.ledger.categories.find((c) => c.id === r.catId);
@@ -767,7 +767,7 @@ function _trendPickerOptions(txs, kind, selectedId, filter) {
       options.push({ id: `cat:${c.id}`, label: c.name, color: c.color });
     }
   } else {
-    for (const r of _totalsByTag(txs, 'out')) {
+    for (const r of _totalsByTag(txs, 'all')) {
       options.push({ id: `tag:${r.name}`, label: `#${r.name}`, color: _tagLineColor(r.name) });
     }
   }

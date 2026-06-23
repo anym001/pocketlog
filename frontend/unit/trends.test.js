@@ -83,10 +83,10 @@ describe('_tagLineColor', () => {
 });
 
 describe('_trendMatchesEntity', () => {
-  it('only counts spending', () => {
+  it('counts both spending and income', () => {
     const entity = { kind: 'category', catId: 1 };
     expect(_trendMatchesEntity({ type: 'out', category_id: 1 }, entity)).toBe(true);
-    expect(_trendMatchesEntity({ type: 'in', category_id: 1 }, entity)).toBe(false);
+    expect(_trendMatchesEntity({ type: 'in', category_id: 1 }, entity)).toBe(true);
   });
 
   it('matches a category by id and a tag by name', () => {
@@ -103,17 +103,17 @@ describe('_trendMatchesEntity', () => {
 });
 
 describe('_monthlyTotals', () => {
-  it('sums matching spending per calendar month', () => {
+  it('sums matching income and spending per calendar month', () => {
     const entity = { kind: 'category', catId: 1 };
     const txs = [
       { type: 'out', category_id: 1, date: '2026-01-05', amount: 10 },
       { type: 'out', category_id: 1, date: '2026-01-20', amount: 5 },
       { type: 'out', category_id: 1, date: '2026-02-01', amount: 8 },
       { type: 'out', category_id: 2, date: '2026-01-09', amount: 99 }, // other category
-      { type: 'in', category_id: 1, date: '2026-01-09', amount: 99 }, // income
+      { type: 'in', category_id: 1, date: '2026-01-09', amount: 100 }, // income, now counted
     ];
     const map = _monthlyTotals(txs, entity);
-    expect(map.get('2026-01')).toBe(15);
+    expect(map.get('2026-01')).toBe(115);
     expect(map.get('2026-02')).toBe(8);
     expect(map.size).toBe(2);
   });
