@@ -10,12 +10,14 @@ reachable instance and never create states the app itself wouldn't.
 
 ## 1. Start a throwaway instance
 
-Run a fresh PocketLog with `SESSION_COOKIE_SECURE=0` so the seeder's plain-HTTP
-session cookie is accepted on localhost. For example, from `backend/`:
+Run a fresh PocketLog. The default `SESSION_COOKIE_SECURE=auto` already omits
+the Secure flag on a direct plain-HTTP connection, so the seeder's session
+cookie is accepted on localhost without any override. For example, from
+`backend/`:
 
 ```sh
 SQLITE_PATH=/tmp/demo/pocketlog.db python -m alembic upgrade head
-SQLITE_PATH=/tmp/demo/pocketlog.db SESSION_COOKIE_SECURE=0 \
+SQLITE_PATH=/tmp/demo/pocketlog.db \
   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
