@@ -25,6 +25,7 @@
     "categories": "Categories",
     "transactions": "Transactions",
     "goals": "Goals",
+    "budgets": "Budgets",
     "recurring": "Recurring",
     "reports": "Reports",
     "settings": "Settings"
@@ -174,6 +175,27 @@
     "debtTargetInvalid": "The initial debt must be greater than the remaining target.",
     "deleteConfirm": "Delete this goal?",
     "editAria": "Edit goal {name}"
+  },
+  "budget": {
+    "create": "Create budget",
+    "editTitle": "Edit budget",
+    "newTitle": "New budget",
+    "category": "Category",
+    "amount": "Limit",
+    "frequency": "Period",
+    "freqMonthly": "Monthly",
+    "freqQuarterly": "Quarterly",
+    "freqYearly": "Yearly",
+    "emptyView": "No budgets yet.",
+    "emptyViewHint": "Set a spending limit for a category.",
+    "needCategory": "Create a category first.",
+    "spentOf": "{spent} of {limit}",
+    "remaining": "{amount} remaining",
+    "overBy": "{amount} over budget",
+    "categoryTaken": "This category already has a budget.",
+    "invalidAmount": "Please enter a valid limit greater than zero.",
+    "deleteConfirm": "Delete this budget?",
+    "editAria": "Edit budget {name}"
   },
   "recurring": {
     "create": "Create rule",

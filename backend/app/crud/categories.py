@@ -128,6 +128,17 @@ def delete_category(db: Session, user_id: int, category_id: int) -> bool:
     )
     if has_rule is not None:
         raise exceptions.CategoryHasRecurringRuleError()
+    # A budget references exactly one category with the same 1:1 contract as
+    # a goal; deleting it out from under a budget would orphan the cap
+    # (CASCADE would silently drop the budget). Block — symmetric with the
+    # goal guard above; the user must delete the budget first.
+    has_budget = db.scalar(
+        select(models.Budget.id)
+        .where(models.Budget.category_id == category_id)
+        .limit(1)
+    )
+    if has_budget is not None:
+        raise exceptions.CategoryHasBudgetError()
     db.delete(cat)
     db.commit()
     return True

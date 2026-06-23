@@ -37,6 +37,7 @@ const SHELL_CRITICAL = [
   '/booking.js',
   '/categories.js',
   '/goals.js',
+  '/budgets.js',
   '/recurring.js',
   '/settings.js',
   '/utils.js',
@@ -87,6 +88,7 @@ function isNetworkFirstShell(url) {
     url.pathname === '/booking.js' ||
     url.pathname === '/categories.js' ||
     url.pathname === '/goals.js' ||
+    url.pathname === '/budgets.js' ||
     url.pathname === '/recurring.js' ||
     url.pathname === '/settings.js' ||
     url.pathname === '/utils.js' ||

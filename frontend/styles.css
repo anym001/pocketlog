@@ -763,6 +763,22 @@
       .goal-card.complete .goal-progress-fill {
         background: var(--green);
       }
+      /* Budget cards: green bar while within the limit, red once over. */
+      .budget-card .goal-progress-fill {
+        background: var(--green);
+      }
+      .budget-card.over .goal-progress-fill {
+        background: var(--red);
+      }
+      .budget-card.over .goal-card-primary {
+        color: var(--red);
+      }
+      .budget-card-period {
+        font-size: var(--fs-caption);
+        font-weight: 600;
+        color: var(--text3);
+        flex-shrink: 0;
+      }
       .goal-card-meta {
         display: flex;
         align-items: baseline;

@@ -10,6 +10,7 @@ from . import (  # noqa: F401  (re-exported for main.include_router)
     admin,
     api_keys,
     auth,
+    budgets,
     categories,
     goals,
     health,

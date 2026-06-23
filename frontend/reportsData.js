@@ -102,6 +102,57 @@ function _goalProgress(goal, pool) {
   };
 }
 
+// Calendar-aligned period bounds for a budget frequency, given a reference
+// year + zero-based month. Returns ISO date strings { from, to } (inclusive)
+// matching the GET /api/transactions?from=&to= contract. No rollover: each
+// period is a clean calendar slice (month / quarter / year). Pure — used by
+// _budgetUsage and the render path.
+function _budgetPeriod(frequency, year, month) {
+  let startMonth, endMonth;
+  if (frequency === 'yearly') {
+    startMonth = 0;
+    endMonth = 11;
+  } else if (frequency === 'quarterly') {
+    startMonth = Math.floor(month / 3) * 3;
+    endMonth = startMonth + 2;
+  } else {
+    // monthly (default)
+    startMonth = month;
+    endMonth = month;
+  }
+  const pad = (n) => String(n).padStart(2, '0');
+  const from = `${year}-${pad(startMonth + 1)}-01`;
+  // Last day of endMonth: day 0 of the following month.
+  const last = new Date(year, endMonth + 1, 0).getDate();
+  const to = `${year}-${pad(endMonth + 1)}-${pad(last)}`;
+  return { from, to };
+}
+
+// Derived budget consumption over a pool of transactions for one period.
+// Sums the category's `out` rows dated within [periodFrom, periodTo] in
+// integer cents (Math.round) so the bar percentage and remaining figure
+// never drift through float — mirroring the backend's money rule. Never
+// mutates its inputs; returns a fresh summary object.
+function _budgetUsage(budget, pool, periodFrom, periodTo) {
+  let spentCents = 0;
+  for (const t of pool) {
+    if (t.category_id !== budget.category_id) continue;
+    if (t.type !== 'out') continue;
+    if (t.date < periodFrom || t.date > periodTo) continue;
+    spentCents += Math.round(t.amount * 100);
+  }
+  const limitCents = Math.round(Number(budget.amount) * 100);
+  const pct = limitCents > 0 ? (spentCents / limitCents) * 100 : 100;
+  return {
+    spentCents,
+    limitCents,
+    pct: Math.max(0, Math.min(100, pct)),
+    rawPct: Math.max(0, pct),
+    remainingCents: limitCents - spentCents,
+    over: spentCents > limitCents,
+  };
+}
+
 // --- Trend math (spending trend chart) -----------------------------------
 // Pure calendar-bucketing and aggregation helpers lifted out of the
 // renderReportTrend render path. They take ISO date strings, granularity and
@@ -272,6 +323,8 @@ if (typeof module !== 'undefined' && module.exports) {
     _tagColor,
     _totalsByTag,
     _goalProgress,
+    _budgetPeriod,
+    _budgetUsage,
     _monthSpan,
     _autoGranularity,
     _bucketKey,

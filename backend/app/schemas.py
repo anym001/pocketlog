@@ -169,6 +169,33 @@ class GoalOut(GoalBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# -------- Budgets --------
+
+
+class BudgetBase(BaseModel):
+    # The single category whose out-spending this budget caps (1:1 per user).
+    category_id: int
+    # The spending limit per period. Strictly positive — a zero cap is
+    # meaningless and would always read as over-budget.
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    # Calendar-aligned period the limit applies to. Consumption resets at
+    # each boundary (no rollover).
+    frequency: Literal["monthly", "quarterly", "yearly"]
+
+
+class BudgetCreate(BudgetBase):
+    pass
+
+
+class BudgetUpdate(BudgetBase):
+    pass
+
+
+class BudgetOut(BudgetBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
 # -------- Tags --------
 
 

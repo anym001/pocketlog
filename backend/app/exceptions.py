@@ -59,6 +59,13 @@ class CategoryHasRecurringRuleError(DomainError):
     detail = "category has recurring rule"
 
 
+class CategoryHasBudgetError(DomainError):
+    """Category deletion blocked: a budget still references it."""
+
+    status_code = 409
+    detail = "category has budget"
+
+
 class BackdateTooFarError(DomainError):
     """A recurring rule's start date lies further in the past than the
     catch-up engine will materialize."""
