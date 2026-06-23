@@ -50,6 +50,7 @@ const NAMESPACES = [
   'catIcons',
   'categories',
   'goals',
+  'budget',
   'tags',
   'tx',
   'reports',

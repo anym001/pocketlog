@@ -4,7 +4,7 @@
 // account). Produces a two-tier gallery:
 //   - a wide desktop hero (sidebar layout, dark theme)
 //   - a row of mobile views (Pixel 5, the app's primary form factor, light):
-//     ledger, category report, goals, categories, recurring
+//     ledger, category report, goals, budgets, categories, recurring
 //
 // Env: BASE_URL (default http://127.0.0.1:8000),
 //      ADMIN_USERNAME / ADMIN_PASSWORD (must match seed.py),
@@ -71,6 +71,9 @@ async function captureMobile(browser) {
 
   await showPanel(page, 'goals');
   await shot(page, 'goals');
+
+  await showPanel(page, 'budgets');
+  await shot(page, 'budgets');
 
   await showPanel(page, 'categories');
   await shot(page, 'categories');

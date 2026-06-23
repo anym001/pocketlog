@@ -25,6 +25,7 @@
     "categories": "Kategorienübersicht",
     "transactions": "Buchungsübersicht",
     "goals": "Ziele",
+    "budgets": "Budgets",
     "recurring": "Wiederkehrend",
     "reports": "Auswertungen",
     "settings": "Einstellungen"
@@ -174,6 +175,27 @@
     "debtTargetInvalid": "Die Anfangsschuld muss größer als das Restziel sein.",
     "deleteConfirm": "Ziel wirklich löschen?",
     "editAria": "Ziel {name} bearbeiten"
+  },
+  "budget": {
+    "create": "Budget erstellen",
+    "editTitle": "Budget bearbeiten",
+    "newTitle": "Neues Budget",
+    "category": "Kategorie",
+    "amount": "Limit",
+    "frequency": "Zeitraum",
+    "freqMonthly": "Monatlich",
+    "freqQuarterly": "Quartalsweise",
+    "freqYearly": "Jährlich",
+    "emptyView": "Noch keine Budgets.",
+    "emptyViewHint": "Lege ein Ausgabenlimit für eine Kategorie fest.",
+    "needCategory": "Lege zuerst eine Kategorie an.",
+    "spentOf": "{spent} von {limit}",
+    "remaining": "Noch {amount} übrig",
+    "overBy": "{amount} über dem Limit",
+    "categoryTaken": "Diese Kategorie hat bereits ein Budget.",
+    "invalidAmount": "Gib ein gültiges Limit größer als null ein.",
+    "deleteConfirm": "Budget wirklich löschen?",
+    "editAria": "Budget {name} bearbeiten"
   },
   "recurring": {
     "create": "Regel erstellen",

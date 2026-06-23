@@ -763,6 +763,22 @@
       .goal-card.complete .goal-progress-fill {
         background: var(--green);
       }
+      /* Budget cards: green bar while within the limit, red once over. */
+      .budget-card .goal-progress-fill {
+        background: var(--green);
+      }
+      .budget-card.over .goal-progress-fill {
+        background: var(--red);
+      }
+      .budget-card.over .goal-card-primary {
+        color: var(--red);
+      }
+      .budget-card-period {
+        font-size: var(--fs-caption);
+        font-weight: 600;
+        color: var(--text3);
+        flex-shrink: 0;
+      }
       .goal-card-meta {
         display: flex;
         align-items: baseline;
@@ -1047,6 +1063,7 @@
          the whole bar there. Body classes are toggled in showPanel(). */
       body.in-report .bottom-bar,
       body.on-goals .bottom-bar,
+      body.on-budgets .bottom-bar,
       body.on-recurring .bottom-bar {
         display: none;
       }
@@ -2384,6 +2401,8 @@
       body.in-report .summary,
       body.on-goals .month-nav,
       body.on-goals .summary,
+      body.on-budgets .month-nav,
+      body.on-budgets .summary,
       body.on-recurring .month-nav,
       body.on-recurring .summary {
         max-height: 0;

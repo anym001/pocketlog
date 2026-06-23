@@ -185,6 +185,7 @@ async function _afterAuthSuccess(me) {
   await loadCategories();
   await loadTags();
   await loadGoals();
+  await loadBudgets();
   await loadRecurringRules();
   await loadAndRender();
   showPanel(loadDefaultView());

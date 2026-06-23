@@ -9,6 +9,8 @@ const {
   _tagColor,
   _totalsByTag,
   _goalProgress,
+  _budgetPeriod,
+  _budgetUsage,
   _monthSpan,
   _autoGranularity,
 } = reportsData;
@@ -148,5 +150,94 @@ describe('_goalProgress', () => {
     const p = _goalProgress(goal, pool);
     expect(p.primaryCents).toBe(30); // 0.1 + 0.2 === 30 cents exactly
     expect(p.complete).toBe(true);
+  });
+});
+
+describe('_budgetPeriod', () => {
+  it('monthly returns the single calendar month', () => {
+    expect(_budgetPeriod('monthly', 2026, 5)).toEqual({
+      from: '2026-06-01',
+      to: '2026-06-30',
+    });
+  });
+
+  it('monthly handles February (28 days in 2026)', () => {
+    expect(_budgetPeriod('monthly', 2026, 1)).toEqual({
+      from: '2026-02-01',
+      to: '2026-02-28',
+    });
+  });
+
+  it('quarterly snaps any month to its containing calendar quarter', () => {
+    // April (month 3) → Q2 = Apr–Jun.
+    expect(_budgetPeriod('quarterly', 2026, 3)).toEqual({
+      from: '2026-04-01',
+      to: '2026-06-30',
+    });
+    // December (month 11) → Q4 = Oct–Dec.
+    expect(_budgetPeriod('quarterly', 2026, 11)).toEqual({
+      from: '2026-10-01',
+      to: '2026-12-31',
+    });
+    // January (month 0) → Q1 = Jan–Mar.
+    expect(_budgetPeriod('quarterly', 2026, 0)).toEqual({
+      from: '2026-01-01',
+      to: '2026-03-31',
+    });
+  });
+
+  it('yearly spans the whole calendar year regardless of month', () => {
+    expect(_budgetPeriod('yearly', 2026, 7)).toEqual({
+      from: '2026-01-01',
+      to: '2026-12-31',
+    });
+  });
+});
+
+describe('_budgetUsage', () => {
+  const budget = { category_id: 5, amount: '300' };
+
+  it('sums only out rows of the category within the period', () => {
+    const pool = [
+      { category_id: 5, type: 'out', date: '2026-06-10', amount: 100 },
+      { category_id: 5, type: 'out', date: '2026-06-20', amount: 50 },
+      { category_id: 5, type: 'in', date: '2026-06-15', amount: 999 }, // wrong type
+      { category_id: 9, type: 'out', date: '2026-06-15', amount: 999 }, // wrong category
+      { category_id: 5, type: 'out', date: '2026-05-31', amount: 999 }, // before period
+      { category_id: 5, type: 'out', date: '2026-07-01', amount: 999 }, // after period
+    ];
+    const u = _budgetUsage(budget, pool, '2026-06-01', '2026-06-30');
+    expect(u.spentCents).toBe(15000);
+    expect(u.limitCents).toBe(30000);
+    expect(u.pct).toBe(50);
+    expect(u.remainingCents).toBe(15000);
+    expect(u.over).toBe(false);
+  });
+
+  it('flags over-budget and clamps pct while rawPct keeps the overshoot', () => {
+    const pool = [{ category_id: 5, type: 'out', date: '2026-06-10', amount: 450 }];
+    const u = _budgetUsage(budget, pool, '2026-06-01', '2026-06-30');
+    expect(u.spentCents).toBe(45000);
+    expect(u.pct).toBe(100); // clamped
+    expect(u.rawPct).toBe(150);
+    expect(u.remainingCents).toBe(-15000);
+    expect(u.over).toBe(true);
+  });
+
+  it('exactly at the limit is not over budget', () => {
+    const pool = [{ category_id: 5, type: 'out', date: '2026-06-10', amount: 300 }];
+    const u = _budgetUsage(budget, pool, '2026-06-01', '2026-06-30');
+    expect(u.spentCents).toBe(30000);
+    expect(u.remainingCents).toBe(0);
+    expect(u.over).toBe(false);
+  });
+
+  it('sums money in integer cents (no float drift)', () => {
+    const pool = [
+      { category_id: 5, type: 'out', date: '2026-06-10', amount: 0.1 },
+      { category_id: 5, type: 'out', date: '2026-06-11', amount: 0.2 },
+    ];
+    const u = _budgetUsage(budget, pool, '2026-06-01', '2026-06-30');
+    expect(u.spentCents).toBe(30); // 0.1 + 0.2 === 30 cents exactly
   });
 });

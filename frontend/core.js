@@ -420,6 +420,7 @@ function showPanel(id) {
   appState.nav.activePanel = id;
   document.body.classList.toggle('in-report', id === 'charts');
   document.body.classList.toggle('on-goals', id === 'goals');
+  document.body.classList.toggle('on-budgets', id === 'budgets');
   document.body.classList.toggle('on-recurring', id === 'recurring');
   if (id !== 'charts') appState.reports.txPool = null;
   document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
@@ -430,6 +431,7 @@ function showPanel(id) {
   if (id === 'charts') renderReport();
   if (id === 'categories') renderCategoryView();
   if (id === 'goals') renderGoalsView();
+  if (id === 'budgets') renderBudgetsView();
   if (id === 'recurring') renderRecurringView();
   closeDrawer();
 }

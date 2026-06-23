@@ -123,6 +123,12 @@ const appState = {
     editingColor: '#9e9b96',
   },
 
+  // Budgets list + edit modal draft (per-category spending caps).
+  budgets: {
+    list: [],
+    editingId: null,
+  },
+
   // Recurring rules list + edit modal draft. recurringRules /
   // editingRecurringId / _recurringValidity.
   recurring: {

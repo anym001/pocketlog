@@ -62,11 +62,16 @@ test('first-run setup, core views, and a transaction CRUD round-trip', async ({ 
   // Drawer carries the nav labels (incl. nav.goals).
   await page.click('.hamburger-btn');
   await expect(page.locator('[data-panel="goals"]')).toBeVisible();
+  await expect(page.locator('[data-panel="budgets"]')).toBeVisible();
   await expectNoRawKeys(page, 'navigation drawer');
 
   // Goals view renders (the goals.* i18n regression lived here).
   await gotoPanel(page, 'goals');
   await expectNoRawKeys(page, 'goals view');
+
+  // Budgets view renders (same i18n-regression risk as goals; budget.* keys).
+  await gotoPanel(page, 'budgets');
+  await expectNoRawKeys(page, 'budgets view');
 
   // --- Create a category (exercises the `categories` state mutation and the
   //     re-render that follows: the categories panel, the booking modal's
