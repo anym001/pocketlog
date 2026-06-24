@@ -6,6 +6,10 @@
 [![GHCR](https://img.shields.io/badge/GHCR-pocketlog-2496ED?logo=docker&logoColor=white)](https://github.com/anym001/pocketlog/pkgs/container/pocketlog)
 [![Docker Hub](https://img.shields.io/badge/Docker%20Hub-pocketlog-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/anym001/pocketlog)
 
+> **A privacy-first household budget book you fully self-host — a fast PWA on every
+> device, backed by a real scoped API for automation. No cloud, no accounts, no
+> tracking, no telemetry.**
+
 A household budget book as a Progressive Web App (PWA) — runs in the browser on all
 major platforms (iOS, Android, macOS, Windows, Linux) and can be installed as an app
 on the home screen.
