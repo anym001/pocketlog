@@ -1649,6 +1649,10 @@
         transition: background var(--dur-fast);
         -webkit-tap-highlight-color: transparent;
       }
+      .drawer-back-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
       .drawer-back-btn:hover,
       .drawer-back-btn:active {
         background: var(--surface-tint);
@@ -1755,6 +1759,10 @@
         justify-content: center;
         transition: background var(--dur-fast);
         -webkit-tap-highlight-color: transparent;
+      }
+      .modal-cancel-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
       .modal-cancel-btn:hover,
       .modal-cancel-btn:active {
@@ -1990,6 +1998,10 @@
         margin: calc(-1 * var(--space-8));
         line-height: 1;
       }
+      .tag-pill button:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
 
       .tag-add-btn {
         margin-left: auto;
@@ -2118,6 +2130,10 @@
       }
       .color-swatch:active {
         transform: scale(0.9);
+      }
+      .color-swatch:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
       .color-swatch.active {
         border-color: var(--text);
@@ -2282,6 +2298,10 @@
         cursor: pointer;
         font-family: inherit;
         transition: all var(--dur-base) var(--ease-spring);
+      }
+      .tag-suggestion:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
       .tag-suggestion:hover,
       .tag-suggestion:active {
@@ -2453,6 +2473,10 @@
       }
       .save-btn:active {
         transform: scale(0.985);
+      }
+      .save-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
       @media (hover: hover) and (pointer: fine) {
         .save-btn:hover {
@@ -2647,6 +2671,10 @@
         align-items: center;
         justify-content: center;
         transition: all var(--dur-base) var(--ease-spring);
+      }
+      .range-stepper button:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
       .range-stepper button:hover,
       .range-stepper button:active {
@@ -3420,6 +3448,10 @@
       .recurring-skip-list button:hover {
         color: var(--accent);
       }
+      .recurring-skip-list button:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
       .form-hint {
         margin: var(--space-4) 0 0;
         font-size: var(--fs-footnote);
@@ -3878,6 +3910,10 @@
         opacity: 0.45;
         cursor: not-allowed;
       }
+      .admin-user-actions button:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
 
       /* Admin-only menu entries collapse to display:none when the
          body doesn't carry the .is-admin class. Cleaner than juggling
@@ -3951,6 +3987,10 @@
         white-space: nowrap;
         flex-shrink: 0;
         min-height: var(--btn-chrome-size);
+      }
+      .api-key-revoke-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
       .api-key-card-empty {
         font-size: var(--fs-footnote);
