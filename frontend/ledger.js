@@ -10,7 +10,7 @@ function normalizeTx(t) {
 }
 
 async function loadAndRender() {
-  document.getElementById('monthLabel').textContent =
+  document.getElementById('monthLabelText').textContent =
     `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
   try {
     const raw = await api(
@@ -35,7 +35,7 @@ async function loadAndRender() {
 }
 
 function renderAll() {
-  document.getElementById('monthLabel').textContent =
+  document.getElementById('monthLabelText').textContent =
     `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
   const out = appState.ledger.transactions
     .filter((t) => t.type === 'out')

@@ -96,6 +96,17 @@
           <path d="M9 6l6 6-6 6" />
         </symbol>
         <symbol
+          id="icon-chevron-down"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </symbol>
+        <symbol
           id="icon-close"
           viewBox="0 0 24 24"
           fill="none"
@@ -429,13 +440,11 @@
           </div>
           <nav class="drawer-nav">
             <button class="drawer-nav-item" onclick="openReport('overview')" data-i18n="reports.overview">Übersicht</button>
-            <button class="drawer-nav-item" onclick="openReport('month')" data-i18n="reports.month">Monatsverlauf</button>
-            <button class="drawer-nav-item" onclick="openReport('year')" data-i18n="reports.year">Jahresverlauf</button>
-            <button class="drawer-nav-item" onclick="openReport('categories')" data-i18n="reports.categories">Kategorienanalyse</button>
-            <button class="drawer-nav-item" onclick="openReport('tags')" data-i18n="reports.tags">Taganalyse</button>
+            <button class="drawer-nav-item" onclick="openReport('course')" data-i18n="reports.course">Verlauf</button>
+            <button class="drawer-nav-item" onclick="openReport('breakdown')" data-i18n="reports.breakdown">Aufteilung</button>
             <button class="drawer-nav-item" onclick="openReport('trend')" data-i18n="reports.trend">Trend</button>
-            <button class="drawer-nav-item" onclick="openReport('forecast')" data-i18n="reports.forecast">Prognose</button>
-            <button class="drawer-nav-item" onclick="openReport('top')" data-i18n="reports.top">Größte Ausgaben</button>
+            <button class="drawer-nav-item" onclick="openReport('forecast')" data-i18n="reports.forecast">Ausgaben-Prognose</button>
+            <button class="drawer-nav-item" onclick="openReport('top')" data-i18n="reports.top">Größte Buchungen</button>
           </nav>
         </div>
 
@@ -882,10 +891,30 @@
           <button onclick="changeMonth(-1)" aria-label="Vorheriger Monat" data-i18n-attr="aria-label:header.prevMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
-          <span class="month-label" id="monthLabel"></span>
+          <button type="button" class="month-label" id="monthLabel" onclick="toggleMonthPicker()" aria-haspopup="dialog" aria-expanded="false" aria-controls="monthPicker" data-i18n-attr="aria-label:header.pickMonth">
+            <span id="monthLabelText"></span>
+            <svg class="ui-icon month-label-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+          </button>
           <button onclick="changeMonth(1)" aria-label="Nächster Monat" data-i18n-attr="aria-label:header.nextMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
+        </div>
+        <!-- Lives outside .month-nav: that wrapper has overflow:hidden for the
+             search/report collapse animation, which would clip the popover. -->
+        <div class="month-picker" id="monthPicker" role="dialog" aria-label="Monat und Jahr wählen" data-i18n-attr="aria-label:header.pickMonth" hidden>
+          <div class="month-picker-year">
+            <button type="button" class="mp-step" onclick="stepPickerYear(-1)" aria-label="Vorheriges Jahr" data-i18n-attr="aria-label:header.prevYear">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="mp-year" id="mpYear" aria-live="polite"></span>
+            <button type="button" class="mp-step" onclick="stepPickerYear(1)" aria-label="Nächstes Jahr" data-i18n-attr="aria-label:header.nextYear">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+            </button>
+          </div>
+          <div class="month-picker-grid" id="mpGrid"></div>
+          <div class="month-picker-foot">
+            <button type="button" class="mp-today" onclick="goToCurrentMonth()" data-i18n="header.today">Heute</button>
+          </div>
         </div>
         <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren" data-i18n-attr="aria-label:header.sync">
           <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
@@ -935,10 +964,29 @@
           <button type="button" onclick="shiftRange(-1)" aria-label="Zurück" data-i18n-attr="aria-label:common.back">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
-          <span id="rangeStepperLabel"></span>
+          <button type="button" class="range-stepper-label" id="rangeStepperLabel" onclick="toggleRangePicker()" aria-haspopup="dialog" aria-expanded="false" aria-controls="rangePicker">
+            <span id="rangeStepperLabelText"></span>
+            <svg class="ui-icon month-label-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+          </button>
           <button type="button" onclick="shiftRange(1)" aria-label="Vor" data-i18n-attr="aria-label:header.nextMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
+          <!-- Period jump popover (month grid / year grid), reuses .month-picker. -->
+          <div class="month-picker" id="rangePicker" role="dialog" aria-label="Zeitraum wählen" data-i18n-attr="aria-label:reports.pickPeriod" hidden>
+            <div class="month-picker-year">
+              <button type="button" class="mp-step" onclick="stepRangePicker(-1)" aria-label="Zurück" data-i18n-attr="aria-label:common.back">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+              </button>
+              <span class="mp-year" id="rangePickerYearLabel" aria-live="polite"></span>
+              <button type="button" class="mp-step" onclick="stepRangePicker(1)" aria-label="Vor" data-i18n-attr="aria-label:header.nextMonth">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+              </button>
+            </div>
+            <div class="month-picker-grid" id="rangePickerGrid"></div>
+            <div class="month-picker-foot">
+              <button type="button" class="mp-today" onclick="rangePickerToday()" data-i18n="header.today">Heute</button>
+            </div>
+          </div>
         </div>
         <div class="range-custom" id="rangeCustom" hidden>
           <label class="range-custom-field">
