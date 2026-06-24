@@ -293,14 +293,14 @@ function _emptyState(msg) {
 async function renderReportOverview(body, txs) {
   const totals = _sumByType(txs);
   const balance = totals.in - totals.out;
-  const cats = _totalsByCategory(txs, 'out').slice(0, 3);
-  const tags = _totalsByTag(txs, 'out').slice(0, 3);
-  const topTx = [...txs]
-    .filter((t) => t.type === 'out')
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 3);
-  const maxCat = cats[0]?.amount || 1;
-  const maxTag = tags[0]?.amount || 1;
+  // Two-sided snapshot: top spending and top income categories side by side,
+  // plus the largest transactions of either direction (colour-coded by
+  // _txRowMarkup). Tags live in the dedicated tag analysis, not here.
+  const topOut = _totalsByCategory(txs, 'out').slice(0, 3);
+  const topIn = _totalsByCategory(txs, 'in').slice(0, 3);
+  const topTx = [...txs].sort((a, b) => b.amount - a.amount).slice(0, 3);
+  const maxOut = topOut[0]?.amount || 1;
+  const maxIn = topIn[0]?.amount || 1;
 
   body.innerHTML = `
           <div class="report-kpis">
@@ -310,18 +310,18 @@ async function renderReportOverview(body, txs) {
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">${tr('reports.topCategories')}</h3>
-            <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat, { drillDown: true })).join('') : _emptyState(tr('reports.noExpenses'))}</div>
+            <h3 class="report-section-title">${tr('reports.topExpenses')}</h3>
+            <div id="overviewExpenses">${topOut.length ? topOut.map((c) => _catRowMarkup(c.catId, c.amount, maxOut, { drillDown: true })).join('') : _emptyState(tr('reports.noExpenses'))}</div>
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">${tr('reports.topTags')}</h3>
-            <div id="overviewTags">${tags.length ? tags.map((t2) => _tagRowMarkup(t2.name, t2.amount, maxTag, { drillDown: true })).join('') : _emptyState(tr('reports.noTaggedExpenses'))}</div>
+            <h3 class="report-section-title">${tr('reports.topIncome')}</h3>
+            <div id="overviewIncome">${topIn.length ? topIn.map((c) => _catRowMarkup(c.catId, c.amount, maxIn, { drillDown: true })).join('') : _emptyState(tr('reports.noIncome'))}</div>
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">${tr('reports.top')}</h3>
-            <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState(tr('reports.noExpenses'))}</div>
+            <h3 class="report-section-title">${tr('reports.largestTransactions')}</h3>
+            <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState(tr('reports.noTransactions'))}</div>
           </div>
 
         `;
