@@ -302,6 +302,33 @@
     "createAria": "Tag erstellen",
     "removeAria": "Tag „{name}“ entfernen"
   },
+  "selection": {
+    "toolbar": "Mehrfachauswahl",
+    "exit": "Auswahl beenden",
+    "count": "{n} markiert",
+    "selectAll": "Alle markieren",
+    "deselectAll": "Auswahl aufheben",
+    "category": "Kategorie",
+    "setCategory": "Kategorie ändern",
+    "setCategoryTitle": "Kategorie ändern",
+    "addTag": "Tag hinzufügen",
+    "addTagShort": "Tag +",
+    "addTagTitle": "Tags hinzufügen",
+    "removeTag": "Tag entfernen",
+    "removeTagShort": "Tag −",
+    "removeTagTitle": "Tags entfernen",
+    "delete": "Buchungen löschen",
+    "deleteConfirm": "{n} Buchungen löschen?",
+    "noTagsToRemove": "Die markierten Buchungen haben keine Tags.",
+    "queuedOffline": "Änderung wird synchronisiert, sobald du wieder online bist.",
+    "failed": "Sammeländerung fehlgeschlagen. ",
+    "applied": {
+      "set_category": "{n} Buchungen aktualisiert",
+      "add_tags": "{n} Buchungen aktualisiert",
+      "remove_tags": "{n} Buchungen aktualisiert",
+      "delete": "{n} Buchungen gelöscht"
+    }
+  },
   "tx": {
     "newTitle": "Neue Buchung",
     "editTitle": "Buchung bearbeiten",

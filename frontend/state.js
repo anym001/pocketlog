@@ -100,12 +100,26 @@ const appState = {
     goalRelayoutTimer: null,
   },
 
-  // Tag picker (shared between the transaction form and the recurring form).
-  // pickerSelection / _tagPickerContext / currentRecurringTags.
+  // Tag picker (shared between the transaction form, the recurring form and
+  // the bulk add/remove actions). pickerSelection / _tagPickerContext /
+  // currentRecurringTags. `bulkRemovePool` holds the union of tags present on
+  // the currently selected transactions, so the "remove tag" picker offers
+  // only tags that can actually be removed.
   tagPicker: {
     selection: [],
     context: 'transaction',
     recurringTags: [],
+    bulkRemovePool: [],
+  },
+
+  // Multi-select / bulk-edit mode in the ledger list. `active` toggles the
+  // whole UI; `ids` are the currently marked transaction ids; `visibleIds` is
+  // the id set of the last rendered list (drives "Select all" and survives a
+  // search/filter re-render). selectionActive / selectionIds / selectionVisible.
+  selection: {
+    active: false,
+    ids: [],
+    visibleIds: [],
   },
 
   // Category create/edit modal draft. editingCatId / editingCatColor /

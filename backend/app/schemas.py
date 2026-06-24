@@ -3,7 +3,7 @@ import re
 from datetime import date as date_type
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Union
 
 from pydantic import (
     AfterValidator,
@@ -82,6 +82,19 @@ NameStr = Annotated[str, AfterValidator(_strip_control_required)]
 FreeText = Annotated[str, AfterValidator(_strip_control)]
 # A tags payload: stripped, case-insensitively deduplicated, capped.
 TagList = Annotated[list[str] | None, AfterValidator(_normalise_tag_list)]
+
+
+def _require_non_empty_tag_list(value: list[str] | None) -> list[str]:
+    """Runs after ``_normalise_tag_list``: the bulk add/remove actions are
+    meaningless without a tag, so an absent or empty list is a 422 rather
+    than a silent no-op."""
+    if not value:
+        raise ValueError("at least one tag required")
+    return value
+
+
+# Like TagList but mandatory and non-empty — used by the bulk tag actions.
+RequiredTagList = Annotated[TagList, AfterValidator(_require_non_empty_tag_list)]
 
 
 # -------- Categories --------
@@ -273,6 +286,60 @@ class TransactionOut(BaseModel):
         if isinstance(value, list):
             return [t.name if hasattr(t, "name") else t for t in value]
         return value
+
+
+# -------- Bulk transaction actions --------
+# One discriminated request applies a single action to many transactions at
+# once. The id list is user-scoped in the CRUD layer; foreign/unknown ids are
+# silently ignored (never an error, never a leak), so the only validation here
+# is shape: a non-empty, capped id list and the per-action payload.
+
+# Upper bound on a single bulk request. Generous for real "tidy up after an
+# import" use, but keeps one payload from loading tens of thousands of rows.
+BULK_MAX_IDS = 500
+
+
+class _TransactionBulkBase(BaseModel):
+    ids: Annotated[list[int], Field(min_length=1, max_length=BULK_MAX_IDS)]
+
+
+class TransactionBulkSetCategory(_TransactionBulkBase):
+    action: Literal["set_category"]
+    category_id: int
+
+
+class TransactionBulkAddTags(_TransactionBulkBase):
+    action: Literal["add_tags"]
+    tags: RequiredTagList
+
+
+class TransactionBulkRemoveTags(_TransactionBulkBase):
+    action: Literal["remove_tags"]
+    tags: RequiredTagList
+
+
+class TransactionBulkDelete(_TransactionBulkBase):
+    action: Literal["delete"]
+
+
+TransactionBulk = Annotated[
+    Union[
+        TransactionBulkSetCategory,
+        TransactionBulkAddTags,
+        TransactionBulkRemoveTags,
+        TransactionBulkDelete,
+    ],
+    Field(discriminator="action"),
+]
+
+
+class TransactionBulkResult(BaseModel):
+    # matched: how many of the requested ids are actually owned by the user.
+    # updated: how many rows actually changed (or were deleted) — may be lower
+    # than matched when the action was already a no-op (e.g. a tag that wasn't
+    # present, or a category that was already set).
+    matched: int
+    updated: int
 
 
 # -------- Recurring Rules --------

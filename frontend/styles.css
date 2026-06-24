@@ -150,6 +150,7 @@
         --icon-list-md: 42px; /* .t-icon / .cat-view-icon (list-row icon container) */
         --icon-list-sm: 38px; /* .cat-icon (category-breakdown icon) */
         --swipe-action-w: 92px; /* .tx-action reveal width on swipe-to-delete */
+        --icon-select: 24px; /* .tx-select-check multi-select indicator circle */
         --cat-bar-h: 5px; /* .cat-bar progress-bar height */
         --bottom-bar-clearance: 66px; /* space content panels reserve under the floating bottom bar */
 
@@ -855,6 +856,51 @@
         transform: translateX(calc(-1 * var(--swipe-action-w)));
       }
 
+      /* ── Multi-select indicator ── */
+      /* The check circle is the first child of .transaction; hidden until the
+         list enters select mode, then shows as an empty ring that fills with
+         the accent + checkmark when the row is selected. */
+      .tx-select-check {
+        display: none;
+        width: var(--icon-select);
+        height: var(--icon-select);
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--text3);
+        border-radius: var(--r-pill);
+        color: transparent;
+        background: transparent;
+        transition:
+          background var(--dur-fast) var(--ease-standard),
+          border-color var(--dur-fast) var(--ease-standard);
+      }
+      #transactionList.selecting .tx-select-check,
+      #searchResultsList.selecting .tx-select-check {
+        display: flex;
+      }
+      .tx-row.selected .tx-select-check {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+      }
+      .tx-select-check .ui-icon {
+        width: 0.85em;
+        height: 0.85em;
+      }
+      /* Tint the whole selected row so the marked state reads at a glance and
+         is unmistakable next to the (different) swiped state. */
+      .tx-row.selected .transaction {
+        background: color-mix(in oklab, var(--accent) 10%, var(--bg-canvas));
+        border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+      }
+      /* In select mode the row no longer swipes — neutralise the gesture cue. */
+      #transactionList.selecting .transaction,
+      #searchResultsList.selecting .transaction {
+        touch-action: pan-y;
+        cursor: pointer;
+      }
+
       .tx-action {
         position: absolute;
         top: 0;
@@ -1148,6 +1194,111 @@
       .fab.search-exit {
         font-size: var(--fs-icon-md);
         font-weight: 400;
+      }
+
+      /* ====== MULTI-SELECT BAR ====== */
+      /* Lives inside .bottom-bar; replaces the search form + FAB while the
+         ledger is in select mode (body.selecting, toggled in ledger.js). */
+      .selection-bar {
+        display: none;
+      }
+      body.selecting .search-form,
+      body.selecting .fab {
+        display: none;
+      }
+      body.selecting .selection-bar {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: var(--space-10);
+        padding: var(--space-10) var(--space-12) var(--space-12);
+        background: var(--glass-thin);
+        -webkit-backdrop-filter: var(--blur-regular);
+        backdrop-filter: var(--blur-regular);
+        border: var(--border-hairline);
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-floating-strip);
+      }
+      .selection-bar-top {
+        display: flex;
+        align-items: center;
+        gap: var(--space-10);
+      }
+      .selection-close {
+        width: var(--icon-list-sm);
+        height: var(--icon-list-sm);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: none;
+        color: var(--text3);
+        cursor: pointer;
+        border-radius: var(--r-sm);
+      }
+      .selection-close:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .selection-count {
+        flex: 1;
+        font-weight: 600;
+        font-size: var(--fs-callout);
+        color: var(--text);
+      }
+      .selection-all {
+        border: none;
+        background: none;
+        color: var(--accent);
+        font-family: var(--font-body);
+        font-size: var(--fs-footnote);
+        font-weight: 600;
+        cursor: pointer;
+        padding: var(--space-4) var(--space-8);
+        border-radius: var(--r-sm);
+      }
+      .selection-all:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .selection-actions {
+        display: flex;
+        gap: var(--space-8);
+      }
+      .selection-actions button {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-8) var(--space-4);
+        border: var(--border-hairline);
+        border-radius: var(--r-md);
+        background: var(--bg-canvas);
+        color: var(--text);
+        font-family: var(--font-body);
+        font-size: var(--fs-caption);
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform var(--dur-medium) var(--ease-bounce);
+      }
+      .selection-actions button .ui-icon {
+        font-size: var(--fs-icon-md);
+      }
+      .selection-actions button:active {
+        transform: scale(0.95);
+      }
+      .selection-actions button:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .selection-actions button:disabled {
+        opacity: 0.4;
+        pointer-events: none;
+      }
+      .selection-actions button.destructive {
+        color: var(--red);
       }
 
       /* ====== BOTTOM NAV (floating liquid glass capsule) ====== */
