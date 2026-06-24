@@ -80,6 +80,14 @@ async function _setSearchPanelActive(active) {
   const fab = document.querySelector('.fab');
   if (active) {
     document.body.classList.add('searching');
+    // The search panel is chrome-less (no PANELS bodyClass). When entered via a
+    // report drill-down, a lingering in-report/on-goals/… class would keep
+    // .bottom-bar hidden — and with it the search-exit FAB *and* the selection
+    // bar. Strip them so the bottom bar shows; clearSearch() restores the origin
+    // panel's chrome via showPanel(searchExitTarget).
+    for (const cfg of Object.values(PANELS)) {
+      if (cfg.bodyClass) document.body.classList.remove(cfg.bodyClass);
+    }
     document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
     document.getElementById('panel-search').classList.add('active');
     fab.innerHTML = ICON_SVG.close;
