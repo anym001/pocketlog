@@ -898,20 +898,22 @@
           <button onclick="changeMonth(1)" aria-label="Nächster Monat" data-i18n-attr="aria-label:header.nextMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
-          <div class="month-picker" id="monthPicker" role="dialog" aria-label="Monat und Jahr wählen" data-i18n-attr="aria-label:header.pickMonth" hidden>
-            <div class="month-picker-year">
-              <button type="button" class="mp-step" onclick="stepPickerYear(-1)" aria-label="Vorheriges Jahr" data-i18n-attr="aria-label:header.prevYear">
-                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
-              </button>
-              <span class="mp-year" id="mpYear" aria-live="polite"></span>
-              <button type="button" class="mp-step" onclick="stepPickerYear(1)" aria-label="Nächstes Jahr" data-i18n-attr="aria-label:header.nextYear">
-                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
-              </button>
-            </div>
-            <div class="month-picker-grid" id="mpGrid"></div>
-            <div class="month-picker-foot">
-              <button type="button" class="mp-today" onclick="goToCurrentMonth()" data-i18n="header.today">Heute</button>
-            </div>
+        </div>
+        <!-- Lives outside .month-nav: that wrapper has overflow:hidden for the
+             search/report collapse animation, which would clip the popover. -->
+        <div class="month-picker" id="monthPicker" role="dialog" aria-label="Monat und Jahr wählen" data-i18n-attr="aria-label:header.pickMonth" hidden>
+          <div class="month-picker-year">
+            <button type="button" class="mp-step" onclick="stepPickerYear(-1)" aria-label="Vorheriges Jahr" data-i18n-attr="aria-label:header.prevYear">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+            </button>
+            <span class="mp-year" id="mpYear" aria-live="polite"></span>
+            <button type="button" class="mp-step" onclick="stepPickerYear(1)" aria-label="Nächstes Jahr" data-i18n-attr="aria-label:header.nextYear">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+            </button>
+          </div>
+          <div class="month-picker-grid" id="mpGrid"></div>
+          <div class="month-picker-foot">
+            <button type="button" class="mp-today" onclick="goToCurrentMonth()" data-i18n="header.today">Heute</button>
           </div>
         </div>
         <button class="sync-btn" onclick="syncNow()" id="syncBtn" aria-label="Synchronisieren" data-i18n-attr="aria-label:header.sync">

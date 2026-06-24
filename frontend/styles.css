@@ -384,6 +384,9 @@
         align-items: center;
         gap: var(--space-8);
         padding-top: var(--space-8);
+        /* Positioning context for the month/year picker popover, which is a
+           child here (not of .month-nav, whose overflow:hidden would clip it). */
+        position: relative;
       }
       .month-nav {
         display: flex;
@@ -394,8 +397,6 @@
         background: transparent;
         border: none;
         width: fit-content;
-        /* Anchor for the month/year picker popover (.month-picker). */
-        position: relative;
       }
       /* Direct children only — the two month arrows and the label trigger.
          Buttons inside the picker popover (.month-picker) must not inherit the
@@ -445,6 +446,7 @@
         color: var(--text);
         text-align: center;
         letter-spacing: -0.01em;
+        white-space: nowrap;
       }
       @media (hover: hover) and (pointer: fine) {
         .month-label:hover {
