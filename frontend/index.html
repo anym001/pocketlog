@@ -964,10 +964,29 @@
           <button type="button" onclick="shiftRange(-1)" aria-label="Zurück" data-i18n-attr="aria-label:common.back">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
           </button>
-          <span id="rangeStepperLabel"></span>
+          <button type="button" class="range-stepper-label" id="rangeStepperLabel" onclick="toggleRangePicker()" aria-haspopup="dialog" aria-expanded="false" aria-controls="rangePicker">
+            <span id="rangeStepperLabelText"></span>
+            <svg class="ui-icon month-label-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+          </button>
           <button type="button" onclick="shiftRange(1)" aria-label="Vor" data-i18n-attr="aria-label:header.nextMonth">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
           </button>
+          <!-- Period jump popover (month grid / year grid), reuses .month-picker. -->
+          <div class="month-picker" id="rangePicker" role="dialog" aria-label="Zeitraum wählen" data-i18n-attr="aria-label:reports.pickPeriod" hidden>
+            <div class="month-picker-year">
+              <button type="button" class="mp-step" onclick="stepRangePicker(-1)" aria-label="Zurück" data-i18n-attr="aria-label:common.back">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+              </button>
+              <span class="mp-year" id="rangePickerYearLabel" aria-live="polite"></span>
+              <button type="button" class="mp-step" onclick="stepRangePicker(1)" aria-label="Vor" data-i18n-attr="aria-label:header.nextMonth">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+              </button>
+            </div>
+            <div class="month-picker-grid" id="rangePickerGrid"></div>
+            <div class="month-picker-foot">
+              <button type="button" class="mp-today" onclick="rangePickerToday()" data-i18n="header.today">Heute</button>
+            </div>
+          </div>
         </div>
         <div class="range-custom" id="rangeCustom" hidden>
           <label class="range-custom-field">

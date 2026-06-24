@@ -59,6 +59,12 @@ const appState = {
     rangeLock: null,
     txPool: null,
     searchExitTarget: null,
+    // Stepper-label popover for jumping the period further than ±1 (month grid
+    // for kind 'month', 12-year grid for kind 'year'). pickerOpen tracks the
+    // open state; pickerYear is the year/decade being browsed, committed to the
+    // range anchor only when a cell is picked.
+    pickerOpen: false,
+    pickerYear: new Date().getFullYear(),
     // Breakdown ("Aufteilung") donut toggles: entity (categories vs tags) and
     // direction ('out' expenses / 'in' income). A donut is parts-of-a-whole,
     // so it shows one entity + one direction at a time; the two segmented

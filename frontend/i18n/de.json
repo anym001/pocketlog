@@ -347,6 +347,7 @@
     "rangeTo": "Bis",
     "endAfterStart": "Enddatum muss nach Startdatum liegen.",
     "rangeLabel": "Zeitraum",
+    "pickPeriod": "Zeitraum wählen",
     "income": "Einnahmen",
     "expenses": "Ausgaben",
     "balance": "Bilanz",

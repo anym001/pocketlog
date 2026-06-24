@@ -154,6 +154,9 @@ function updatePickerUI() {
     b.setAttribute('aria-selected', String(active));
     b.classList.toggle('is-active', active);
   });
+  // The stepper-label popover only makes sense for month/year — close it if the
+  // kind changed to one without it (quarter/custom).
+  if (!_rangePickerActive() && appState.reports.pickerOpen) toggleRangePicker(false);
   const stepper = document.getElementById('rangeStepper');
   const custom = document.getElementById('rangeCustom');
   if (appState.reports.range.kind === 'custom') {
@@ -164,8 +167,130 @@ function updatePickerUI() {
   } else {
     stepper.hidden = false;
     custom.hidden = true;
-    document.getElementById('rangeStepperLabel').textContent = _rangeStepperLabel();
+    document.getElementById('rangeStepperLabelText').textContent = _rangeStepperLabel();
+    document
+      .getElementById('rangeStepperLabel')
+      .classList.toggle('is-interactive', _rangePickerActive());
   }
+}
+
+// ── REPORTS — RANGE PICKER POPOVER ────────────────────────────────────────────
+// The stepper label opens a popover to jump further than the ±1 arrows: a month
+// grid (kind 'month') or a 12-year grid (kind 'year'). Reuses the .month-picker
+// styling and the shared modal-focus helpers. Quarter/custom have no popover.
+
+function _rangePickerActive() {
+  const k = appState.reports.range.kind;
+  return k === 'month' || k === 'year';
+}
+
+function _rangePickerCloseOnOutside(e) {
+  const pop = document.getElementById('rangePicker');
+  const label = document.getElementById('rangeStepperLabel');
+  if (!pop || pop.contains(e.target) || (label && label.contains(e.target))) return;
+  toggleRangePicker(false);
+}
+
+function _rangePickerCloseOnEsc(e) {
+  if (e.key === 'Escape') toggleRangePicker(false);
+}
+
+function toggleRangePicker(open) {
+  const next = open === undefined ? !appState.reports.pickerOpen : !!open;
+  if (next && !_rangePickerActive()) return;
+  const pop = document.getElementById('rangePicker');
+  const label = document.getElementById('rangeStepperLabel');
+  if (!pop) return;
+  appState.reports.pickerOpen = next;
+  pop.hidden = !next;
+  if (label) label.setAttribute('aria-expanded', String(next));
+  if (next) {
+    appState.reports.pickerYear = appState.reports.range.anchor.y;
+    rememberModalFocus('rangePicker');
+    renderRangePicker();
+    trapFocusIn(pop, 'rangePicker');
+    // Defer so the opening click doesn't immediately close it again.
+    setTimeout(() => {
+      document.addEventListener('pointerdown', _rangePickerCloseOnOutside);
+      document.addEventListener('keydown', _rangePickerCloseOnEsc);
+      const cur = pop.querySelector('.mp-month.is-current') || pop.querySelector('.mp-month');
+      if (cur) cur.focus();
+    }, 0);
+  } else {
+    releaseFocusTrap('rangePicker');
+    document.removeEventListener('pointerdown', _rangePickerCloseOnOutside);
+    document.removeEventListener('keydown', _rangePickerCloseOnEsc);
+    restoreModalFocus('rangePicker');
+  }
+}
+
+function renderRangePicker() {
+  const grid = document.getElementById('rangePickerGrid');
+  const yearLabel = document.getElementById('rangePickerYearLabel');
+  const today = new Date();
+  const a = appState.reports.range.anchor;
+  if (appState.reports.range.kind === 'year') {
+    // 12-year grid, paged in decade-aligned blocks.
+    const base = Math.floor(appState.reports.pickerYear / 12) * 12;
+    yearLabel.textContent = `${base}–${base + 11}`;
+    grid.innerHTML = Array.from({ length: 12 }, (_, i) => base + i)
+      .map((y) => {
+        const cls = ['mp-month'];
+        if (y === a.y) cls.push('is-current');
+        if (y === today.getFullYear()) cls.push('is-today');
+        return `<button type="button" class="${cls.join(' ')}" onclick="pickRangeYear(${y})"${
+          y === a.y ? ' aria-current="true"' : ''
+        }>${y}</button>`;
+      })
+      .join('');
+  } else {
+    const year = appState.reports.pickerYear;
+    yearLabel.textContent = String(year);
+    grid.innerHTML = appState.calendar.monthsShort
+      .map((name, m) => {
+        const isCurrent = m === a.m && year === a.y;
+        const isToday = m === today.getMonth() && year === today.getFullYear();
+        const cls = ['mp-month'];
+        if (isCurrent) cls.push('is-current');
+        if (isToday) cls.push('is-today');
+        return `<button type="button" class="${cls.join(' ')}" onclick="pickRangeMonth(${m})"${
+          isCurrent ? ' aria-current="true"' : ''
+        }>${_escText(name)}</button>`;
+      })
+      .join('');
+  }
+}
+
+function stepRangePicker(d) {
+  appState.reports.pickerYear += appState.reports.range.kind === 'year' ? d * 12 : d;
+  renderRangePicker();
+}
+
+function pickRangeMonth(m) {
+  const a = appState.reports.range.anchor;
+  a.m = m;
+  a.y = appState.reports.pickerYear;
+  a.q = Math.floor(m / 3);
+  toggleRangePicker(false);
+  applyRange();
+}
+
+function pickRangeYear(y) {
+  appState.reports.range.anchor.y = y;
+  toggleRangePicker(false);
+  applyRange();
+}
+
+function rangePickerToday() {
+  const now = new Date();
+  const a = appState.reports.range.anchor;
+  a.y = now.getFullYear();
+  if (appState.reports.range.kind !== 'year') {
+    a.m = now.getMonth();
+    a.q = Math.floor(a.m / 3);
+  }
+  toggleRangePicker(false);
+  applyRange();
 }
 
 async function _loadYearTxs(year) {

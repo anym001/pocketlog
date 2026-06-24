@@ -347,6 +347,7 @@
     "rangeTo": "To",
     "endAfterStart": "The end date must be after the start date.",
     "rangeLabel": "Period",
+    "pickPeriod": "Choose period",
     "income": "Income",
     "expenses": "Expenses",
     "balance": "Balance",

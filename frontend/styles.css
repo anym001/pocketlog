@@ -2667,8 +2667,12 @@
         border-radius: var(--r-pill);
         width: fit-content;
         align-self: center;
+        /* Positioning context for the period jump popover (#rangePicker). */
+        position: relative;
       }
-      .range-stepper button {
+      /* Direct children only — the two arrows and the label trigger. Buttons
+         inside the #rangePicker popover keep their own .mp-* styling. */
+      .range-stepper > button {
         background: transparent;
         border: none;
         border-radius: 50%;
@@ -2681,19 +2685,44 @@
         justify-content: center;
         transition: all var(--dur-base) var(--ease-spring);
       }
-      .range-stepper button:hover,
-      .range-stepper button:active {
+      .range-stepper > button:not(.range-stepper-label):hover,
+      .range-stepper > button:not(.range-stepper-label):active {
         background: var(--bg-grouped);
         color: var(--text);
         transform: scale(0.94);
       }
-      .range-stepper span {
+      /* The label is a direct-child button but not a round arrow — a two-class
+         selector outranks the chrome rule above. Auto-width pill; only month/
+         year turn it into an interactive popover trigger (chevron + hover). */
+      .range-stepper > .range-stepper-label {
+        width: auto;
+        height: auto;
+        min-width: 148px;
+        gap: var(--space-4);
+        padding: var(--space-4) var(--space-8);
+        border-radius: var(--r-pill);
         font-size: var(--fs-footnote);
         font-weight: 600;
-        min-width: 148px;
-        text-align: center;
         letter-spacing: -0.01em;
         color: var(--text);
+        cursor: default;
+      }
+      .range-stepper-label .month-label-chevron {
+        display: none;
+      }
+      .range-stepper-label.is-interactive {
+        cursor: pointer;
+      }
+      .range-stepper-label.is-interactive .month-label-chevron {
+        display: inline-block;
+      }
+      .range-stepper-label[aria-expanded='true'] .month-label-chevron {
+        transform: rotate(180deg);
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .range-stepper-label.is-interactive:hover {
+          background: var(--bg-grouped);
+        }
       }
 
       .range-custom {
