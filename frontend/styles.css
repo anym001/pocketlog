@@ -2602,6 +2602,12 @@
         border-radius: var(--r-pill);
         border: var(--border-hairline);
       }
+      /* Breakdown report stacks two segmented controls (entity + direction). */
+      .breakdown-controls {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-8);
+      }
       .segmented button {
         flex: 1;
         border: none;

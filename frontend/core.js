@@ -37,18 +37,25 @@ try {
 // Which report is currently active (source of truth for panel-charts).
 // Persisted in localStorage so a reload shows the last state.
 const REPORT_STORAGE_KEY = 'pocketlog.report';
-const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'tags', 'trend', 'forecast', 'top'];
+const REPORT_IDS = ['overview', 'course', 'breakdown', 'trend', 'forecast', 'top'];
 // Report id → i18n key. Resolved through t() at render time so the
 // titles follow the active language.
 const REPORT_TITLE_KEYS = {
   overview: 'reports.overview',
-  month: 'reports.month',
-  year: 'reports.year',
-  categories: 'reports.categories',
-  tags: 'reports.tags',
+  course: 'reports.course',
+  breakdown: 'reports.breakdown',
   trend: 'reports.trend',
   forecast: 'reports.forecast',
   top: 'reports.top',
+};
+// Old report ids (pre-merge) → their successor, so a stored selection still
+// lands somewhere sensible: month/year folded into "course", categories/tags
+// into "breakdown".
+const _REPORT_ID_MIGRATE = {
+  month: 'course',
+  year: 'course',
+  categories: 'breakdown',
+  tags: 'breakdown',
 };
 const reportTitle = (id) => tr(REPORT_TITLE_KEYS[id] || 'reports.overview');
 // Reports state lives in appState.reports (state.js). `current` (the active
@@ -57,11 +64,12 @@ const reportTitle = (id) => tr(REPORT_TITLE_KEYS[id] || 'reports.overview');
 // pins the picker for reports only meaningful at one granularity; null = free)
 // keep their identical defaults from state.js.
 appState.reports.current = (() => {
-  const v = localStorage.getItem(REPORT_STORAGE_KEY);
+  let v = localStorage.getItem(REPORT_STORAGE_KEY);
+  if (v && _REPORT_ID_MIGRATE[v]) v = _REPORT_ID_MIGRATE[v];
   return REPORT_IDS.includes(v) ? v : 'overview';
 })();
 // Chart.js instances per report, kept separate so destroy() never hits a foreign instance.
-const chartInsts = { month: null, year: null, categories: null, tags: null, trend: null };
+const chartInsts = { course: null, breakdown: null, trend: null };
 
 // ── TREND-STATE ───────────────────────────────────────────────────────────────
 const TREND_STORAGE_KEY = 'pocketlog.trend';
@@ -460,10 +468,6 @@ function openReport(id) {
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
   } catch (e) {}
-  if (id === 'month' && appState.reports.range.kind !== 'month')
-    setRangeKind('month', { skipRender: true });
-  if (id === 'year' && appState.reports.range.kind !== 'year')
-    setRangeKind('year', { skipRender: true });
   showPanel('charts');
 }
 

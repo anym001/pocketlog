@@ -59,10 +59,11 @@ const appState = {
     rangeLock: null,
     txPool: null,
     searchExitTarget: null,
-    // Direction shown in the category/tag breakdown donuts: 'out' (expenses)
-    // or 'in' (income). A donut is parts-of-a-whole, so it shows one direction
-    // at a time; the segmented control in those reports flips this. Shared by
-    // both reports so switching once carries over.
+    // Breakdown ("Aufteilung") donut toggles: entity (categories vs tags) and
+    // direction ('out' expenses / 'in' income). A donut is parts-of-a-whole,
+    // so it shows one entity + one direction at a time; the two segmented
+    // controls flip these.
+    breakdownKind: 'category', // 'category' | 'tag'
     breakdownDir: 'out',
   },
 
