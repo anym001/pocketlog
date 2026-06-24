@@ -3524,6 +3524,10 @@
       .confirm-cancel:active {
         background: var(--surface-tint);
       }
+      .confirm-cancel:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
 
       /* ====== MATERIAL FALLBACKS ====== */
       /* When the browser cannot blur, or the user prefers reduced transparency,
