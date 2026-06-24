@@ -45,7 +45,7 @@ async function showPanel(page, id) {
 
 async function categoryReport(page) {
   await page.evaluate(() => window.showPanel('charts'));
-  await page.evaluate(() => window.renderReport('categories'));
+  await page.evaluate(() => window.renderReport('breakdown'));
   await page.locator('#reportBody').waitFor({ timeout: 10000 });
   await page.waitForTimeout(800);
 }
