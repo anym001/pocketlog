@@ -3,7 +3,7 @@ import re
 from datetime import date as date_type
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import (
     AfterValidator,
@@ -323,12 +323,10 @@ class TransactionBulkDelete(_TransactionBulkBase):
 
 
 TransactionBulk = Annotated[
-    Union[
-        TransactionBulkSetCategory,
-        TransactionBulkAddTags,
-        TransactionBulkRemoveTags,
-        TransactionBulkDelete,
-    ],
+    TransactionBulkSetCategory
+    | TransactionBulkAddTags
+    | TransactionBulkRemoveTags
+    | TransactionBulkDelete,
     Field(discriminator="action"),
 ]
 
