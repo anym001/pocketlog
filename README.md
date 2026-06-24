@@ -73,6 +73,8 @@ no tracking, no telemetry.
   how many were added since the last visit
 - **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view
   and forecast
+- **Bulk actions** — select multiple transactions at once to reassign a category, add or
+  remove tags, or delete them in one step
 - **Search** — full-text, category, and tag filtering in the transaction list
 - **CSV Import / Export** — UTF-8 or CP1252, max. 5 MB; export all transactions as
   semicolon-delimited CSV. Import is also available over the API for automated
