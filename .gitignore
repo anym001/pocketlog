@@ -41,6 +41,7 @@ frontend/unit/package-lock.json
 # Root JS tooling (Prettier + ESLint)
 /node_modules/
 /package-lock.json
+frontend/node_modules/
 
 # Local dev: frontend symlink/copy for running uvicorn from backend/
 # (the Docker build COPYs the frontend here as /app/static).

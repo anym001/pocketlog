@@ -22,6 +22,12 @@ const appState = {
   view: {
     month: new Date().getMonth(),
     year: new Date().getFullYear(),
+    // Month/year picker popover (core.js): open flag plus the year currently
+    // being browsed in the grid. pickerYear stays separate from `year` so
+    // stepping years in the popover doesn't reload transactions until a month
+    // is chosen; it is seeded from `year` each time the popover opens.
+    pickerOpen: false,
+    pickerYear: null,
   },
 
   // Draft of the booking form (the in/out toggle and the tags being attached
@@ -53,6 +59,18 @@ const appState = {
     rangeLock: null,
     txPool: null,
     searchExitTarget: null,
+    // Stepper-label popover for jumping the period further than ±1 (month grid
+    // for kind 'month', 12-year grid for kind 'year'). pickerOpen tracks the
+    // open state; pickerYear is the year/decade being browsed, committed to the
+    // range anchor only when a cell is picked.
+    pickerOpen: false,
+    pickerYear: new Date().getFullYear(),
+    // Breakdown ("Aufteilung") donut toggles: entity (categories vs tags) and
+    // direction ('out' expenses / 'in' income). A donut is parts-of-a-whole,
+    // so it shows one entity + one direction at a time; the two segmented
+    // controls flip these.
+    breakdownKind: 'category', // 'category' | 'tag'
+    breakdownDir: 'out',
   },
 
   // Spending-trend chart state (entity selection + year range + picker UI).

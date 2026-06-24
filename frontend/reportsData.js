@@ -19,11 +19,13 @@ function _sumByType(txs) {
 }
 
 // Total amount per category for a single type, as a list sorted by amount
-// descending: [{ catId, amount }, …].
+// descending: [{ catId, amount }, …]. Pass type 'all' to total income and
+// spending together (used by the trend, which graphs any category — income
+// categories like a salary included — not just spending).
 function _totalsByCategory(txs, type = 'out') {
   const totals = {};
   for (const t of txs) {
-    if (t.type !== type) continue;
+    if (type !== 'all' && t.type !== type) continue;
     totals[t.category_id] = (totals[t.category_id] || 0) + t.amount;
   }
   return Object.entries(totals)
@@ -43,11 +45,12 @@ function _tagColor(name) {
 
 // Sum amounts per tag for the given type. A transaction with multiple
 // tags contributes its full amount to each tag (tags are categorical
-// labels, not splits) — mirrors how Top-Kategorien aggregates.
+// labels, not splits) — mirrors how Top-Kategorien aggregates. Pass type
+// 'all' to total income and spending together (used by the trend).
 function _totalsByTag(txs, type = 'out') {
   const totals = {};
   for (const t of txs) {
-    if (t.type !== type) continue;
+    if (type !== 'all' && t.type !== type) continue;
     if (!Array.isArray(t.tags) || !t.tags.length) continue;
     for (const tag of t.tags) {
       totals[tag] = (totals[tag] || 0) + t.amount;
@@ -257,22 +260,32 @@ function _tagLineColor(name) {
   return `hsl(${Math.abs(h) % 360}deg 55% 50%)`;
 }
 
-// Does a transaction belong to the trend entity (a category or a tag)? Only
-// spending ('out') counts towards a trend line.
+// Does a transaction belong to the trend entity (a category or a tag)? Both
+// income and spending count towards a trend line, so income-only categories
+// (e.g. a salary) graph the same way as spending categories. Amounts are
+// stored positive with direction in `type`, so summing magnitudes keeps every
+// line positive; a category mixing income and spending sums both magnitudes.
 function _trendMatchesEntity(t, entity) {
-  if (t.type !== 'out') return false;
   if (entity.kind === 'category') return t.category_id === entity.catId;
   return Array.isArray(t.tags) && t.tags.includes(entity.name);
 }
 
-// Sum the entity's spending into a per-calendar-month map (YYYY-MM → amount),
+// Trend lines are a net flow: income counts positive, spending negative.
+// That keeps each category's direction visible against the zero baseline and
+// lets a category that mixes both directions net out per month. Amounts are
+// stored positive with the direction in `type`.
+function _signedTrendAmount(t) {
+  return t.type === 'out' ? -t.amount : t.amount;
+}
+
+// Sum the entity's net flow into a per-calendar-month map (YYYY-MM → amount),
 // the input to _trendStats.
 function _monthlyTotals(txs, entity) {
   const sums = new Map();
   for (const t of txs) {
     if (!_trendMatchesEntity(t, entity)) continue;
     const key = t.date.slice(0, 7);
-    sums.set(key, (sums.get(key) || 0) + t.amount);
+    sums.set(key, (sums.get(key) || 0) + _signedTrendAmount(t));
   }
   return sums;
 }
@@ -287,7 +300,10 @@ function _trendStats(monthlyMap, fromIso, toIso) {
   for (const k of months) {
     const v = monthlyMap.get(k) || 0;
     total += v;
-    if (peak === null || v > peak.value) peak = { key: k, value: v };
+    // Peak = the month with the largest movement in either direction; the
+    // value keeps its sign so the card shows whether it was income or
+    // spending (net flow can be negative).
+    if (peak === null || Math.abs(v) > Math.abs(peak.value)) peak = { key: k, value: v };
   }
   const mean = total / months.length;
   const yearGroups = new Map();
@@ -308,7 +324,7 @@ function _trendStats(monthlyMap, fromIso, toIso) {
     if (first[0] !== last[0]) {
       const firstMean = first[1].reduce((s, v) => s + v, 0) / first[1].length;
       const lastMean = last[1].reduce((s, v) => s + v, 0) / last[1].length;
-      const pct = firstMean > 0 ? ((lastMean - firstMean) / firstMean) * 100 : null;
+      const pct = firstMean !== 0 ? ((lastMean - firstMean) / firstMean) * 100 : null;
       yoy = { firstYear: first[0], lastYear: last[0], firstMean, lastMean, pct };
     }
   }
@@ -332,6 +348,7 @@ if (typeof module !== 'undefined' && module.exports) {
     _movingAverage,
     _tagLineColor,
     _trendMatchesEntity,
+    _signedTrendAmount,
     _monthlyTotals,
     _trendStats,
   };

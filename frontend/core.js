@@ -37,18 +37,25 @@ try {
 // Which report is currently active (source of truth for panel-charts).
 // Persisted in localStorage so a reload shows the last state.
 const REPORT_STORAGE_KEY = 'pocketlog.report';
-const REPORT_IDS = ['overview', 'month', 'year', 'categories', 'tags', 'trend', 'forecast', 'top'];
+const REPORT_IDS = ['overview', 'course', 'breakdown', 'trend', 'forecast', 'top'];
 // Report id → i18n key. Resolved through t() at render time so the
 // titles follow the active language.
 const REPORT_TITLE_KEYS = {
   overview: 'reports.overview',
-  month: 'reports.month',
-  year: 'reports.year',
-  categories: 'reports.categories',
-  tags: 'reports.tags',
+  course: 'reports.course',
+  breakdown: 'reports.breakdown',
   trend: 'reports.trend',
   forecast: 'reports.forecast',
   top: 'reports.top',
+};
+// Old report ids (pre-merge) → their successor, so a stored selection still
+// lands somewhere sensible: month/year folded into "course", categories/tags
+// into "breakdown".
+const _REPORT_ID_MIGRATE = {
+  month: 'course',
+  year: 'course',
+  categories: 'breakdown',
+  tags: 'breakdown',
 };
 const reportTitle = (id) => tr(REPORT_TITLE_KEYS[id] || 'reports.overview');
 // Reports state lives in appState.reports (state.js). `current` (the active
@@ -57,11 +64,12 @@ const reportTitle = (id) => tr(REPORT_TITLE_KEYS[id] || 'reports.overview');
 // pins the picker for reports only meaningful at one granularity; null = free)
 // keep their identical defaults from state.js.
 appState.reports.current = (() => {
-  const v = localStorage.getItem(REPORT_STORAGE_KEY);
+  let v = localStorage.getItem(REPORT_STORAGE_KEY);
+  if (v && _REPORT_ID_MIGRATE[v]) v = _REPORT_ID_MIGRATE[v];
   return REPORT_IDS.includes(v) ? v : 'overview';
 })();
 // Chart.js instances per report, kept separate so destroy() never hits a foreign instance.
-const chartInsts = { month: null, year: null, categories: null, tags: null, trend: null };
+const chartInsts = { course: null, breakdown: null, trend: null };
 
 // ── TREND-STATE ───────────────────────────────────────────────────────────────
 const TREND_STORAGE_KEY = 'pocketlog.trend';
@@ -460,10 +468,6 @@ function openReport(id) {
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
   } catch (e) {}
-  if (id === 'month' && appState.reports.range.kind !== 'month')
-    setRangeKind('month', { skipRender: true });
-  if (id === 'year' && appState.reports.range.kind !== 'year')
-    setRangeKind('year', { skipRender: true });
   showPanel('charts');
 }
 
@@ -676,5 +680,90 @@ function changeMonth(d) {
     appState.view.month = 11;
     appState.view.year--;
   }
+  loadAndRender();
+}
+
+// ── MONTH/YEAR PICKER (header popover) ────────────────────────────────────────
+// The month label is a button that opens a popover: a year stepper above a
+// 12-month grid, plus a "Today" shortcut. The arrows next to it keep doing
+// ±1-month steps; the popover is for jumping further. pickerYear (state.js) is
+// the year being browsed and is only committed to view.year when a month is
+// picked, so stepping years doesn't reload the ledger.
+
+function _monthPickerCloseOnOutside(e) {
+  const pop = document.getElementById('monthPicker');
+  const label = document.getElementById('monthLabel');
+  if (!pop || pop.contains(e.target) || (label && label.contains(e.target))) return;
+  toggleMonthPicker(false);
+}
+
+function _monthPickerCloseOnEsc(e) {
+  if (e.key === 'Escape') toggleMonthPicker(false);
+}
+
+function toggleMonthPicker(open) {
+  const next = open === undefined ? !appState.view.pickerOpen : !!open;
+  const pop = document.getElementById('monthPicker');
+  const label = document.getElementById('monthLabel');
+  if (!pop) return;
+  appState.view.pickerOpen = next;
+  pop.hidden = !next;
+  if (label) label.setAttribute('aria-expanded', String(next));
+  if (next) {
+    appState.view.pickerYear = appState.view.year;
+    rememberModalFocus('monthPicker');
+    renderMonthPicker();
+    trapFocusIn(pop, 'monthPicker');
+    // Defer so the click that opened the popover doesn't immediately close it.
+    setTimeout(() => {
+      document.addEventListener('pointerdown', _monthPickerCloseOnOutside);
+      document.addEventListener('keydown', _monthPickerCloseOnEsc);
+      const current = pop.querySelector('.mp-month.is-current') || pop.querySelector('.mp-month');
+      if (current) current.focus();
+    }, 0);
+  } else {
+    releaseFocusTrap('monthPicker');
+    document.removeEventListener('pointerdown', _monthPickerCloseOnOutside);
+    document.removeEventListener('keydown', _monthPickerCloseOnEsc);
+    restoreModalFocus('monthPicker');
+  }
+}
+
+function renderMonthPicker() {
+  const year = appState.view.pickerYear;
+  document.getElementById('mpYear').textContent = String(year);
+  const grid = document.getElementById('mpGrid');
+  const today = new Date();
+  grid.innerHTML = appState.calendar.monthsShort
+    .map((name, m) => {
+      const isSelected = m === appState.view.month && year === appState.view.year;
+      const isToday = m === today.getMonth() && year === today.getFullYear();
+      const cls = ['mp-month'];
+      if (isSelected) cls.push('is-current');
+      if (isToday) cls.push('is-today');
+      return `<button type="button" class="${cls.join(' ')}" onclick="pickMonth(${m})"${
+        isSelected ? ' aria-current="true"' : ''
+      }>${_escText(name)}</button>`;
+    })
+    .join('');
+}
+
+function stepPickerYear(d) {
+  appState.view.pickerYear += d;
+  renderMonthPicker();
+}
+
+function pickMonth(m) {
+  appState.view.month = m;
+  appState.view.year = appState.view.pickerYear;
+  toggleMonthPicker(false);
+  loadAndRender();
+}
+
+function goToCurrentMonth() {
+  const now = new Date();
+  appState.view.month = now.getMonth();
+  appState.view.year = now.getFullYear();
+  toggleMonthPicker(false);
   loadAndRender();
 }

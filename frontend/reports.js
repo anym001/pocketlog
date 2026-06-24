@@ -154,6 +154,9 @@ function updatePickerUI() {
     b.setAttribute('aria-selected', String(active));
     b.classList.toggle('is-active', active);
   });
+  // The stepper-label popover only makes sense for month/year — close it if the
+  // kind changed to one without it (quarter/custom).
+  if (!_rangePickerActive() && appState.reports.pickerOpen) toggleRangePicker(false);
   const stepper = document.getElementById('rangeStepper');
   const custom = document.getElementById('rangeCustom');
   if (appState.reports.range.kind === 'custom') {
@@ -164,8 +167,130 @@ function updatePickerUI() {
   } else {
     stepper.hidden = false;
     custom.hidden = true;
-    document.getElementById('rangeStepperLabel').textContent = _rangeStepperLabel();
+    document.getElementById('rangeStepperLabelText').textContent = _rangeStepperLabel();
+    document
+      .getElementById('rangeStepperLabel')
+      .classList.toggle('is-interactive', _rangePickerActive());
   }
+}
+
+// ── REPORTS — RANGE PICKER POPOVER ────────────────────────────────────────────
+// The stepper label opens a popover to jump further than the ±1 arrows: a month
+// grid (kind 'month') or a 12-year grid (kind 'year'). Reuses the .month-picker
+// styling and the shared modal-focus helpers. Quarter/custom have no popover.
+
+function _rangePickerActive() {
+  const k = appState.reports.range.kind;
+  return k === 'month' || k === 'year';
+}
+
+function _rangePickerCloseOnOutside(e) {
+  const pop = document.getElementById('rangePicker');
+  const label = document.getElementById('rangeStepperLabel');
+  if (!pop || pop.contains(e.target) || (label && label.contains(e.target))) return;
+  toggleRangePicker(false);
+}
+
+function _rangePickerCloseOnEsc(e) {
+  if (e.key === 'Escape') toggleRangePicker(false);
+}
+
+function toggleRangePicker(open) {
+  const next = open === undefined ? !appState.reports.pickerOpen : !!open;
+  if (next && !_rangePickerActive()) return;
+  const pop = document.getElementById('rangePicker');
+  const label = document.getElementById('rangeStepperLabel');
+  if (!pop) return;
+  appState.reports.pickerOpen = next;
+  pop.hidden = !next;
+  if (label) label.setAttribute('aria-expanded', String(next));
+  if (next) {
+    appState.reports.pickerYear = appState.reports.range.anchor.y;
+    rememberModalFocus('rangePicker');
+    renderRangePicker();
+    trapFocusIn(pop, 'rangePicker');
+    // Defer so the opening click doesn't immediately close it again.
+    setTimeout(() => {
+      document.addEventListener('pointerdown', _rangePickerCloseOnOutside);
+      document.addEventListener('keydown', _rangePickerCloseOnEsc);
+      const cur = pop.querySelector('.mp-month.is-current') || pop.querySelector('.mp-month');
+      if (cur) cur.focus();
+    }, 0);
+  } else {
+    releaseFocusTrap('rangePicker');
+    document.removeEventListener('pointerdown', _rangePickerCloseOnOutside);
+    document.removeEventListener('keydown', _rangePickerCloseOnEsc);
+    restoreModalFocus('rangePicker');
+  }
+}
+
+function renderRangePicker() {
+  const grid = document.getElementById('rangePickerGrid');
+  const yearLabel = document.getElementById('rangePickerYearLabel');
+  const today = new Date();
+  const a = appState.reports.range.anchor;
+  if (appState.reports.range.kind === 'year') {
+    // 12-year grid, paged in decade-aligned blocks.
+    const base = Math.floor(appState.reports.pickerYear / 12) * 12;
+    yearLabel.textContent = `${base}–${base + 11}`;
+    grid.innerHTML = Array.from({ length: 12 }, (_, i) => base + i)
+      .map((y) => {
+        const cls = ['mp-month'];
+        if (y === a.y) cls.push('is-current');
+        if (y === today.getFullYear()) cls.push('is-today');
+        return `<button type="button" class="${cls.join(' ')}" onclick="pickRangeYear(${y})"${
+          y === a.y ? ' aria-current="true"' : ''
+        }>${y}</button>`;
+      })
+      .join('');
+  } else {
+    const year = appState.reports.pickerYear;
+    yearLabel.textContent = String(year);
+    grid.innerHTML = appState.calendar.monthsShort
+      .map((name, m) => {
+        const isCurrent = m === a.m && year === a.y;
+        const isToday = m === today.getMonth() && year === today.getFullYear();
+        const cls = ['mp-month'];
+        if (isCurrent) cls.push('is-current');
+        if (isToday) cls.push('is-today');
+        return `<button type="button" class="${cls.join(' ')}" onclick="pickRangeMonth(${m})"${
+          isCurrent ? ' aria-current="true"' : ''
+        }>${_escText(name)}</button>`;
+      })
+      .join('');
+  }
+}
+
+function stepRangePicker(d) {
+  appState.reports.pickerYear += appState.reports.range.kind === 'year' ? d * 12 : d;
+  renderRangePicker();
+}
+
+function pickRangeMonth(m) {
+  const a = appState.reports.range.anchor;
+  a.m = m;
+  a.y = appState.reports.pickerYear;
+  a.q = Math.floor(m / 3);
+  toggleRangePicker(false);
+  applyRange();
+}
+
+function pickRangeYear(y) {
+  appState.reports.range.anchor.y = y;
+  toggleRangePicker(false);
+  applyRange();
+}
+
+function rangePickerToday() {
+  const now = new Date();
+  const a = appState.reports.range.anchor;
+  a.y = now.getFullYear();
+  if (appState.reports.range.kind !== 'year') {
+    a.m = now.getMonth();
+    a.q = Math.floor(a.m / 3);
+  }
+  toggleRangePicker(false);
+  applyRange();
 }
 
 async function _loadYearTxs(year) {
@@ -203,12 +328,9 @@ async function renderReport(id = appState.reports.current) {
   if (id === 'trend') {
     await _ensureTrendDefaultRange();
   }
-  const locks = { month: 'month', year: 'year' };
-  setRangeLock(locks[id] || null);
-  if (appState.reports.rangeLock && appState.reports.range.kind !== appState.reports.rangeLock) {
-    appState.reports.range.kind = appState.reports.rangeLock;
-    applyRange({ skipRender: true });
-  }
+  // No report pins the period any more — "course" adapts its granularity to
+  // whatever the picker is set to, so the picker stays fully free everywhere.
+  setRangeLock(null);
   updatePickerUI();
   document.getElementById('reportTitle').textContent = reportTitle(id);
 
@@ -231,10 +353,8 @@ async function renderReport(id = appState.reports.current) {
   document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
 
   if (id === 'overview') await renderReportOverview(body, txs);
-  else if (id === 'month') renderReportMonth(body, txs);
-  else if (id === 'year') await renderReportYear(body, txs);
-  else if (id === 'categories') renderReportCategories(body, txs);
-  else if (id === 'tags') renderReportTags(body, txs);
+  else if (id === 'course') await renderReportCourse(body, txs);
+  else if (id === 'breakdown') renderReportBreakdown(body, txs);
   else if (id === 'trend') await renderReportTrend(body, txs);
   else if (id === 'forecast') await renderReportForecast(body, txs);
   else if (id === 'top') renderReportTop(body, txs);
@@ -252,13 +372,14 @@ function _catRowMarkup(catId, amount, max, opts = {}) {
   const drill = opts.drillDown
     ? `role="button" tabindex="0" onclick="drillDownCategory(${catId})" onkeydown="handleRowActivate(event, () => drillDownCategory(${catId}))"`
     : '';
+  const amtClass = opts.positive ? 'cat-amount is-positive' : 'cat-amount';
   return `<div class="cat-row" ${drill}>
           <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="cat-info">
             <div class="cat-name">${_escText(cat.name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${cat.color}"></div></div>
           </div>
-          <div class="cat-amount">${fmtCurrency(Math.abs(amount))}</div>
+          <div class="${amtClass}">${fmtCurrency(Math.abs(amount))}</div>
         </div>`;
 }
 
@@ -293,14 +414,14 @@ function _emptyState(msg) {
 async function renderReportOverview(body, txs) {
   const totals = _sumByType(txs);
   const balance = totals.in - totals.out;
-  const cats = _totalsByCategory(txs, 'out').slice(0, 3);
-  const tags = _totalsByTag(txs, 'out').slice(0, 3);
-  const topTx = [...txs]
-    .filter((t) => t.type === 'out')
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 3);
-  const maxCat = cats[0]?.amount || 1;
-  const maxTag = tags[0]?.amount || 1;
+  // Two-sided snapshot: top spending and top income categories side by side,
+  // plus the largest transactions of either direction (colour-coded by
+  // _txRowMarkup). Tags live in the dedicated tag analysis, not here.
+  const topOut = _totalsByCategory(txs, 'out').slice(0, 3);
+  const topIn = _totalsByCategory(txs, 'in').slice(0, 3);
+  const topTx = [...txs].sort((a, b) => b.amount - a.amount).slice(0, 3);
+  const maxOut = topOut[0]?.amount || 1;
+  const maxIn = topIn[0]?.amount || 1;
 
   body.innerHTML = `
           <div class="report-kpis">
@@ -310,26 +431,53 @@ async function renderReportOverview(body, txs) {
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">${tr('reports.topCategories')}</h3>
-            <div id="overviewCats">${cats.length ? cats.map((c) => _catRowMarkup(c.catId, c.amount, maxCat, { drillDown: true })).join('') : _emptyState(tr('reports.noExpenses'))}</div>
+            <h3 class="report-section-title">${tr('reports.topExpenses')}</h3>
+            <div id="overviewExpenses">${topOut.length ? topOut.map((c) => _catRowMarkup(c.catId, c.amount, maxOut, { drillDown: true })).join('') : _emptyState(tr('reports.noExpenses'))}</div>
           </div>
 
           <div class="report-section">
-            <h3 class="report-section-title">${tr('reports.topTags')}</h3>
-            <div id="overviewTags">${tags.length ? tags.map((t2) => _tagRowMarkup(t2.name, t2.amount, maxTag, { drillDown: true })).join('') : _emptyState(tr('reports.noTaggedExpenses'))}</div>
+            <h3 class="report-section-title">${tr('reports.topIncome')}</h3>
+            <div id="overviewIncome">${topIn.length ? topIn.map((c) => _catRowMarkup(c.catId, c.amount, maxIn, { drillDown: true, positive: true })).join('') : _emptyState(tr('reports.noIncome'))}</div>
           </div>
 
           <div class="report-section">
             <h3 class="report-section-title">${tr('reports.top')}</h3>
-            <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState(tr('reports.noExpenses'))}</div>
+            <div id="overviewTop">${topTx.length ? topTx.map(_txRowMarkup).join('') : _emptyState(tr('reports.noTransactions'))}</div>
           </div>
 
         `;
 }
 
-// ── REPORTS — MONTH ───────────────────────────────────────────────────────────
+// ── REPORTS — COURSE (over time) ──────────────────────────────────────────────
+// One report that follows the period picker: a single month draws daily bars,
+// any wider range (quarter / year / custom) draws a monthly in/out line. Merges
+// the former month- and year-trend reports so there is one "Verlauf" instead of
+// two near-identical ones locked to their granularity.
 
-function renderReportMonth(body, txs) {
+async function renderReportCourse(body, txs) {
+  if (appState.reports.range.kind === 'month') _renderCourseDaily(body, txs);
+  else await _renderCourseMonthly(body, txs);
+}
+
+function _courseKpisMarkup(totals) {
+  return `<div class="report-kpis">
+            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(totals.in - totals.out))}</div></div>
+          </div>`;
+}
+
+function _courseChartScales(c) {
+  return {
+    x: { ticks: { color: c.text, font: { size: 10 } }, grid: { color: c.grid } },
+    y: {
+      ticks: { color: c.text, font: { size: 10 }, callback: (v) => fmtCurrency(v) },
+      grid: { color: c.grid },
+    },
+  };
+}
+
+function _renderCourseDaily(body, txs) {
   const a = appState.reports.range.anchor;
   const days = _daysInMonth(a.y, a.m);
   const labels = Array.from({ length: days }, (_, i) => i + 1);
@@ -345,18 +493,14 @@ function renderReportMonth(body, txs) {
 
   body.innerHTML = `
           <div class="report-section">
-            <div class="report-canvas-wrap"><canvas id="monthChart" role="img" aria-labelledby="reportTitle" aria-describedby="monthChartSummary"></canvas></div>
-            <p id="monthChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.monthSummary', { month: appState.calendar.months[a.m], year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
+            <div class="report-canvas-wrap"><canvas id="courseChart" role="img" aria-labelledby="reportTitle" aria-describedby="courseChartSummary"></canvas></div>
+            <p id="courseChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.monthSummary', { month: appState.calendar.months[a.m], year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
           </div>
-          <div class="report-kpis">
-            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(totals.in - totals.out))}</div></div>
-          </div>
+          ${_courseKpisMarkup(totals)}
         `;
 
   const c = getChartColors();
-  chartInsts.month = new Chart(document.getElementById('monthChart'), {
+  chartInsts.course = new Chart(document.getElementById('courseChart'), {
     type: 'bar',
     data: {
       labels,
@@ -380,51 +524,49 @@ function renderReportMonth(body, txs) {
     options: {
       responsive: true,
       plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
-      scales: {
-        x: { ticks: { color: c.text, font: { size: 10 } }, grid: { color: c.grid } },
-        y: {
-          ticks: { color: c.text, font: { size: 10 }, callback: (v) => fmtCurrency(v) },
-          grid: { color: c.grid },
-        },
-      },
+      scales: _courseChartScales(c),
     },
   });
 }
 
-// ── REPORTS — YEAR ────────────────────────────────────────────────────────────
-
-async function renderReportYear(body, txs) {
-  const a = appState.reports.range.anchor;
-  const aggregate = (pool) =>
-    Array.from({ length: 12 }, (_, m) => {
-      const tx = pool.filter((t) => new Date(t.date).getMonth() === m);
-      return {
-        out: tx.filter((t) => t.type === 'out').reduce((s, t) => s + t.amount, 0),
-        in: tx.filter((t) => t.type === 'in').reduce((s, t) => s + t.amount, 0),
-      };
-    });
-  const monthly = aggregate(txs);
-  const prevTxs = await _loadYearTxs(a.y - 1);
-  const hasPrev = prevTxs.length > 0;
-  const prevMonthly = hasPrev ? aggregate(prevTxs) : null;
+async function _renderCourseMonthly(body, txs) {
+  const bucketKeys = _bucketAxis(appState.reports.range.from, appState.reports.range.to, 'month');
+  const labels = bucketKeys.map((k) => _bucketLabel(k, 'month'));
+  const slots = new Map(bucketKeys.map((k) => [k, { out: 0, in: 0 }]));
+  for (const t of txs) {
+    const key = t.date.slice(0, 7);
+    if (slots.has(key)) slots.get(key)[t.type] += t.amount;
+  }
+  const monthly = bucketKeys.map((k) => slots.get(k));
   const totals = _sumByType(txs);
+
+  // Prev-year comparison only for the year view: the picker sits on a single
+  // calendar year, so the 12 buckets line up month-for-month with last year.
+  const isYear = appState.reports.range.kind === 'year';
+  let prevOut = null;
+  if (isYear) {
+    const y = appState.reports.range.anchor.y;
+    const prevTxs = await _loadYearTxs(y - 1);
+    if (prevTxs.length) {
+      prevOut = Array.from({ length: 12 }, () => 0);
+      for (const t of prevTxs) {
+        if (t.type === 'out') prevOut[new Date(t.date).getMonth()] += t.amount;
+      }
+    }
+  }
 
   body.innerHTML = `
           <div class="report-section">
-            <div class="report-canvas-wrap"><canvas id="yearChart" role="img" aria-labelledby="reportTitle" aria-describedby="yearChartSummary"></canvas></div>
-            <p id="yearChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.yearSummary', { year: a.y, income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
+            <div class="report-canvas-wrap"><canvas id="courseChart" role="img" aria-labelledby="reportTitle" aria-describedby="courseChartSummary"></canvas></div>
+            <p id="courseChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.courseSummary', { income: fmtCurrency(totals.in), expenses: fmtCurrency(totals.out) })}</p>
           </div>
-          <div class="report-kpis">
-            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(totals.in - totals.out))}</div></div>
-          </div>
+          ${_courseKpisMarkup(totals)}
         `;
 
   const c = getChartColors();
   const datasets = [
     {
-      label: tr('reports.expensesYear', { year: a.y }),
+      label: tr('reports.expenses'),
       data: monthly.map((m) => m.out),
       borderColor: cssColor('--accent'),
       backgroundColor: cssColor('--accent', 0.1),
@@ -433,7 +575,7 @@ async function renderReportYear(body, txs) {
       pointRadius: 3,
     },
     {
-      label: tr('reports.incomeYear', { year: a.y }),
+      label: tr('reports.income'),
       data: monthly.map((m) => m.in),
       borderColor: cssColor('--green'),
       backgroundColor: cssColor('--green', 0.1),
@@ -442,10 +584,10 @@ async function renderReportYear(body, txs) {
       pointRadius: 3,
     },
   ];
-  if (prevMonthly) {
+  if (prevOut) {
     datasets.push({
-      label: tr('reports.expensesYear', { year: a.y - 1 }),
-      data: prevMonthly.map((m) => m.out),
+      label: tr('reports.expensesYear', { year: appState.reports.range.anchor.y - 1 }),
+      data: prevOut,
       borderColor: cssColor('--accent', 0.5),
       borderDash: [5, 4],
       backgroundColor: 'transparent',
@@ -454,50 +596,97 @@ async function renderReportYear(body, txs) {
       pointRadius: 0,
     });
   }
-  chartInsts.year = new Chart(document.getElementById('yearChart'), {
+  chartInsts.course = new Chart(document.getElementById('courseChart'), {
     type: 'line',
-    data: { labels: appState.calendar.monthsShort, datasets },
+    data: { labels, datasets },
     options: {
       responsive: true,
       plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
-      scales: {
-        x: { ticks: { color: c.text, font: { size: 10 } }, grid: { color: c.grid } },
-        y: {
-          ticks: { color: c.text, font: { size: 10 }, callback: (v) => fmtCurrency(v) },
-          grid: { color: c.grid },
-        },
-      },
+      scales: _courseChartScales(c),
     },
   });
 }
 
 // ── REPORTS — CATEGORIES ──────────────────────────────────────────────────────
 
-function renderReportCategories(body, txs) {
-  const sorted = _totalsByCategory(txs, 'out');
+// Expenses/income toggle shared by the category and tag breakdown donuts. A
+// donut is parts-of-a-whole, so it shows one direction at a time; this flips
+// appState.reports.breakdownDir and re-renders the current report.
+function _breakdownSegmentedMarkup() {
+  const dir = appState.reports.breakdownDir;
+  return `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.breakdownSelect'))}">
+            <button type="button" role="tab" aria-selected="${dir === 'out'}" class="${dir === 'out' ? 'is-active' : ''}" onclick="setBreakdownDir('out')">${tr('reports.expenses')}</button>
+            <button type="button" role="tab" aria-selected="${dir === 'in'}" class="${dir === 'in' ? 'is-active' : ''}" onclick="setBreakdownDir('in')">${tr('reports.income')}</button>
+          </div>`;
+}
+
+function setBreakdownDir(dir) {
+  if (dir !== 'out' && dir !== 'in') return;
+  if (appState.reports.breakdownDir === dir) return;
+  appState.reports.breakdownDir = dir;
+  renderReport();
+}
+
+// Entity toggle (categories/tags) for the breakdown, mirroring the trend's
+// selector; sits next to the direction toggle in one control row.
+function _breakdownKindSegmentedMarkup() {
+  const kind = appState.reports.breakdownKind;
+  return `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.trendSelect'))}">
+            <button type="button" role="tab" aria-selected="${kind === 'category'}" class="${kind === 'category' ? 'is-active' : ''}" onclick="setBreakdownKind('category')">${tr('reports.kindCategories')}</button>
+            <button type="button" role="tab" aria-selected="${kind === 'tag'}" class="${kind === 'tag' ? 'is-active' : ''}" onclick="setBreakdownKind('tag')">${tr('reports.kindTags')}</button>
+          </div>`;
+}
+
+function setBreakdownKind(kind) {
+  if (kind !== 'category' && kind !== 'tag') return;
+  if (appState.reports.breakdownKind === kind) return;
+  appState.reports.breakdownKind = kind;
+  renderReport();
+}
+
+// "Aufteilung": one donut report with an entity toggle (categories/tags) and a
+// direction toggle (expenses/income). Merges the former category- and tag-
+// analysis reports into a single, consistent breakdown.
+function renderReportBreakdown(body, txs) {
+  const controls = `<div class="report-section breakdown-controls">${_breakdownKindSegmentedMarkup()}${_breakdownSegmentedMarkup()}</div>`;
+  if (appState.reports.breakdownKind === 'tag') _breakdownTags(body, txs, controls);
+  else _breakdownCategories(body, txs, controls);
+}
+
+function _breakdownCategories(body, txs, controls) {
+  const dir = appState.reports.breakdownDir;
+  const segmented = controls;
+  const sorted = _totalsByCategory(txs, dir);
   if (!sorted.length) {
-    body.innerHTML = _emptyState(tr('reports.noExpenses'));
+    body.innerHTML = `${segmented}<div class="report-section">${_emptyState(
+      tr(dir === 'out' ? 'reports.noExpenses' : 'reports.noIncome'),
+    )}</div>`;
     return;
   }
   const total = sorted.reduce((s, c) => s + c.amount, 0);
   const max = sorted[0].amount;
+  const donutLabel = tr(
+    dir === 'out' ? 'reports.expensesPerCategory' : 'reports.incomePerCategory',
+  );
+  const totalLabel = tr(dir === 'out' ? 'reports.expensesTotal' : 'reports.incomeTotal');
 
   body.innerHTML = `
+          ${segmented}
           <div class="report-section">
             <div class="donut-wrap">
-              <canvas id="categoriesDonut" role="img" aria-label="${_escAttr(tr('reports.expensesPerCategory'))}"></canvas>
+              <canvas id="categoriesDonut" role="img" aria-label="${_escAttr(donutLabel)}"></canvas>
               <div class="donut-center">
                 <div class="donut-center-value">${fmtCurrency(total)}</div>
-                <div class="donut-center-label">${tr('reports.expensesTotal')}</div>
+                <div class="donut-center-label">${totalLabel}</div>
               </div>
             </div>
           </div>
           <div class="report-section">
-            ${sorted.map((c) => _catRowMarkup(c.catId, c.amount, max, { drillDown: true })).join('')}
+            ${sorted.map((c) => _catRowMarkup(c.catId, c.amount, max, { drillDown: true, positive: dir === 'in' })).join('')}
           </div>
         `;
 
-  chartInsts.categories = new Chart(document.getElementById('categoriesDonut'), {
+  chartInsts.breakdown = new Chart(document.getElementById('categoriesDonut'), {
     type: 'doughnut',
     data: {
       labels: sorted.map((c) => getCatById(c.catId)?.name || ''),
@@ -542,41 +731,49 @@ function _tagRowMarkup(name, amount, max, opts = {}) {
   const pct = max > 0 ? (amount / max) * 100 : 0;
   const attrName = _escAttr(name);
   const drill = opts.drillDown ? `role="button" tabindex="0" data-tag-drill="${attrName}"` : '';
+  const amtClass = opts.positive ? 'cat-amount is-positive' : 'cat-amount';
   return `<div class="cat-row" ${drill}>
           <div class="cat-icon" style="--cat-color:${color}">#</div>
           <div class="cat-info">
             <div class="cat-name">${_escText(name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
           </div>
-          <div class="cat-amount">${fmtCurrency(Math.abs(amount))}</div>
+          <div class="${amtClass}">${fmtCurrency(Math.abs(amount))}</div>
         </div>`;
 }
 
-function renderReportTags(body, txs) {
-  const sorted = _totalsByTag(txs, 'out');
+function _breakdownTags(body, txs, controls) {
+  const dir = appState.reports.breakdownDir;
+  const segmented = controls;
+  const sorted = _totalsByTag(txs, dir);
   if (!sorted.length) {
-    body.innerHTML = _emptyState(tr('reports.noTagExpenses'));
+    body.innerHTML = `${segmented}<div class="report-section">${_emptyState(
+      tr(dir === 'out' ? 'reports.noTagExpenses' : 'reports.noTagIncome'),
+    )}</div>`;
     return;
   }
   const total = sorted.reduce((s, t) => s + t.amount, 0);
   const max = sorted[0].amount;
+  const donutLabel = tr(dir === 'out' ? 'reports.expensesPerTag' : 'reports.incomePerTag');
+  const totalLabel = tr(dir === 'out' ? 'reports.expensesTotal' : 'reports.incomeTotal');
 
   body.innerHTML = `
+          ${segmented}
           <div class="report-section">
             <div class="donut-wrap">
-              <canvas id="tagsDonut" role="img" aria-label="${_escAttr(tr('reports.expensesPerTag'))}"></canvas>
+              <canvas id="tagsDonut" role="img" aria-label="${_escAttr(donutLabel)}"></canvas>
               <div class="donut-center">
                 <div class="donut-center-value">${fmtCurrency(total)}</div>
-                <div class="donut-center-label">${tr('reports.expensesTotal')}</div>
+                <div class="donut-center-label">${totalLabel}</div>
               </div>
             </div>
           </div>
           <div class="report-section">
-            ${sorted.map((t) => _tagRowMarkup(t.name, t.amount, max, { drillDown: true })).join('')}
+            ${sorted.map((t) => _tagRowMarkup(t.name, t.amount, max, { drillDown: true, positive: dir === 'in' })).join('')}
           </div>
         `;
 
-  chartInsts.tags = new Chart(document.getElementById('tagsDonut'), {
+  chartInsts.breakdown = new Chart(document.getElementById('tagsDonut'), {
     type: 'doughnut',
     data: {
       labels: sorted.map((t) => t.name),
@@ -710,11 +907,11 @@ function _trendEntityFromId(id) {
 
 function _pickDefaultTrendEntity(txs, kind) {
   if (kind === 'category') {
-    for (const r of _totalsByCategory(txs, 'out')) {
+    for (const r of _totalsByCategory(txs, 'all')) {
       if (appState.ledger.categories.find((c) => c.id === r.catId)) return `cat:${r.catId}`;
     }
   } else {
-    const top = _totalsByTag(txs, 'out')[0];
+    const top = _totalsByTag(txs, 'all')[0];
     if (top) return `tag:${top.name}`;
   }
   return null;
@@ -727,7 +924,7 @@ function _trendSeries(txs, entityId, granularity, bucketKeys) {
   for (const t of txs) {
     if (!_trendMatchesEntity(t, entity)) continue;
     const key = _bucketKey(t.date, granularity);
-    if (sums.has(key)) sums.set(key, sums.get(key) + t.amount);
+    if (sums.has(key)) sums.set(key, sums.get(key) + _signedTrendAmount(t));
   }
   return {
     entity,
@@ -752,7 +949,7 @@ function _trendChipMarkup(id, name, color, selected) {
 function _trendPickerOptions(txs, kind, selectedId, filter) {
   const options = [];
   if (kind === 'category') {
-    const ranked = _totalsByCategory(txs, 'out');
+    const ranked = _totalsByCategory(txs, 'all');
     const seen = new Set();
     for (const r of ranked) {
       const cat = appState.ledger.categories.find((c) => c.id === r.catId);
@@ -767,7 +964,7 @@ function _trendPickerOptions(txs, kind, selectedId, filter) {
       options.push({ id: `cat:${c.id}`, label: c.name, color: c.color });
     }
   } else {
-    for (const r of _totalsByTag(txs, 'out')) {
+    for (const r of _totalsByTag(txs, 'all')) {
       options.push({ id: `tag:${r.name}`, label: `#${r.name}`, color: _tagLineColor(r.name) });
     }
   }
@@ -799,7 +996,7 @@ function _trendStatsMarkup(stats) {
           <div class="trend-stat-sub">${tr('reports.perMonth')}</div>
         </div>`;
   const peakCard =
-    stats.peak && stats.peak.value > 0
+    stats.peak && stats.peak.value !== 0
       ? `<div class="stat-card">
               <div class="trend-stat-label">${tr('reports.trendPeak')}</div>
               <div class="trend-stat-value">${fmtCurrency(stats.peak.value)}</div>
@@ -1059,7 +1256,9 @@ async function renderReportTrend(body, txs) {
         },
         y: {
           ticks: { color: c.text, font: { size: 10 }, callback: (v) => fmtCurrency(v) },
-          grid: { color: c.grid },
+          // Emphasise the zero baseline: the net-flow line sits above it for
+          // income, below it for spending, so the divider must read clearly.
+          grid: { color: (ctx) => (ctx.tick.value === 0 ? c.text : c.grid) },
         },
       },
     },
@@ -1224,12 +1423,10 @@ async function renderReportForecast(body, rangeTxs) {
 // ── REPORTS — TOP EXPENSES ────────────────────────────────────────────────────
 
 function renderReportTop(body, txs) {
-  const top = txs
-    .filter((t) => t.type === 'out')
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 10);
+  // Largest transactions of either direction, colour-coded by _txRowMarkup.
+  const top = [...txs].sort((a, b) => b.amount - a.amount).slice(0, 10);
   if (!top.length) {
-    body.innerHTML = _emptyState(tr('reports.noExpenses'));
+    body.innerHTML = _emptyState(tr('reports.noTransactions'));
     return;
   }
   body.innerHTML = `<div class="report-section">${top.map(_txRowMarkup).join('')}</div>`;
