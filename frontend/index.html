@@ -234,6 +234,13 @@
           <rect x="9" y="9" width="12" height="12" rx="2" />
           <path d="M5 15H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v1" />
         </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </symbol>
+        <symbol id="icon-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L3 13V3h10l7.59 7.59a2 2 0 0 1 0 2.82z" />
+          <circle cx="7.5" cy="7.5" r="1.25" />
+        </symbol>
       </defs>
     </svg>
 
@@ -1059,6 +1066,36 @@
       <button class="fab" onclick="openModal()" aria-label="Neue Buchung" data-i18n-attr="aria-label:fab.newTransaction">
         <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
       </button>
+
+      <!-- MULTI-SELECT BAR — shown (via body.selecting) when the ledger is in
+           bulk-edit mode; replaces the search form + FAB. -->
+      <div class="selection-bar" id="selectionBar" role="toolbar" aria-label="Mehrfachauswahl" data-i18n-attr="aria-label:selection.toolbar">
+        <div class="selection-bar-top">
+          <button class="selection-close" onclick="exitSelectionMode()" aria-label="Auswahl beenden" data-i18n-attr="aria-label:selection.exit">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <span class="selection-count" id="selectionCount" aria-live="polite">0</span>
+          <button class="selection-all" id="selectionAllBtn" type="button" onclick="toggleSelectAll()" data-i18n="selection.selectAll">Alle markieren</button>
+        </div>
+        <div class="selection-actions">
+          <button type="button" data-bulk-action onclick="openBulkCategory()" data-i18n-attr="aria-label:selection.setCategory">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-squares-four" /></svg>
+            <span data-i18n="selection.category">Kategorie</span>
+          </button>
+          <button type="button" data-bulk-action onclick="openBulkAddTags()" data-i18n-attr="aria-label:selection.addTag">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-tag" /></svg>
+            <span data-i18n="selection.addTagShort">Tag +</span>
+          </button>
+          <button type="button" data-bulk-action onclick="openBulkRemoveTags()" data-i18n-attr="aria-label:selection.removeTag">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-tag" /></svg>
+            <span data-i18n="selection.removeTagShort">Tag −</span>
+          </button>
+          <button type="button" data-bulk-action class="destructive" onclick="bulkDelete()" data-i18n-attr="aria-label:selection.delete">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-trash" /></svg>
+            <span data-i18n="common.delete">Löschen</span>
+          </button>
+        </div>
+      </div>
     </div>
     </main>
 
@@ -1181,7 +1218,7 @@
           <h2 id="tagPickerTitle" data-i18n="tags.pickTitle">Tag wählen</h2>
         </div>
         <div class="modal-body">
-          <div class="form-group">
+          <div class="form-group" id="tagPickerNewGroup">
             <label data-i18n="tags.newLabel">Neuen Tag anlegen</label>
             <div class="tag-create-row">
               <input
@@ -1230,6 +1267,27 @@
         </div>
         <div class="modal-footer">
           <button class="submit-btn" onclick="commitTagPicker()" data-i18n="common.apply">Übernehmen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BULK SET-CATEGORY MODAL — used by the multi-select bar -->
+    <div class="modal-overlay" id="bulkCatOverlay" onclick="closeOnBackdrop(event, closeBulkCategory)">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bulkCatTitle">
+        <div class="modal-header">
+          <button class="modal-cancel-btn" onclick="closeBulkCategory()" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
+          </button>
+          <h2 id="bulkCatTitle" data-i18n="selection.setCategoryTitle">Kategorie ändern</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="bulkCatSelect" data-i18n="tx.category">Kategorie</label>
+            <select id="bulkCatSelect"></select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="submit-btn" onclick="commitBulkCategory()" data-i18n="common.apply">Übernehmen</button>
         </div>
       </div>
     </div>

@@ -95,8 +95,27 @@ function openTagPicker() {
 function openTagPickerFor(context) {
   appState.tagPicker.context = context;
   rememberModalFocus('tagPicker');
+  // bulkAdd / bulkRemove start from an empty selection (the picked tags are the
+  // ones to add / remove); the form contexts seed their current tags.
   appState.tagPicker.selection =
-    context === 'recurring' ? [...appState.tagPicker.recurringTags] : [...appState.form.tags];
+    context === 'recurring'
+      ? [...appState.tagPicker.recurringTags]
+      : context === 'transaction'
+        ? [...appState.form.tags]
+        : [];
+  // Creating a new tag only makes sense when adding; the remove picker offers
+  // only tags already present on the selection.
+  const isRemove = context === 'bulkRemove';
+  const newGroup = document.getElementById('tagPickerNewGroup');
+  if (newGroup) newGroup.style.display = isRemove ? 'none' : '';
+  const title = document.getElementById('tagPickerTitle');
+  if (title)
+    title.textContent =
+      context === 'bulkAdd'
+        ? tr('selection.addTagTitle')
+        : isRemove
+          ? tr('selection.removeTagTitle')
+          : tr('tags.pickTitle');
   document.getElementById('tagPickerFilter').value = '';
   document.getElementById('tagPickerNew').value = '';
   const chips = document.getElementById('tagPickerChips');
@@ -128,6 +147,14 @@ function closeTagPickerOutside(e) {
   if (e.target === document.getElementById('tagPickerOverlay')) closeTagPicker();
 }
 function commitTagPicker() {
+  const ctx = appState.tagPicker.context;
+  if (ctx === 'bulkAdd' || ctx === 'bulkRemove') {
+    const tags = [...appState.tagPicker.selection];
+    closeTagPicker();
+    if (!tags.length) return;
+    bulkApply({ action: ctx === 'bulkAdd' ? 'add_tags' : 'remove_tags', tags });
+    return;
+  }
   if (appState.tagPicker.context === 'recurring') {
     appState.tagPicker.recurringTags = [...appState.tagPicker.selection];
     closeTagPicker();
@@ -143,9 +170,12 @@ function renderTagPickerChips() {
   const box = document.getElementById('tagPickerChips');
   if (!box) return;
   const q = (document.getElementById('tagPickerFilter').value || '').trim().toLowerCase();
-  const filtered = q
-    ? appState.ledger.availableTags.filter((t) => t.toLowerCase().includes(q))
-    : appState.ledger.availableTags;
+  // The remove picker is scoped to the tags actually on the selected rows.
+  const source =
+    appState.tagPicker.context === 'bulkRemove'
+      ? appState.tagPicker.bulkRemovePool
+      : appState.ledger.availableTags;
+  const filtered = q ? source.filter((t) => t.toLowerCase().includes(q)) : source;
   const selected = new Set(appState.tagPicker.selection.map((x) => x.toLowerCase()));
   box.innerHTML = filtered
     .map((t) => {

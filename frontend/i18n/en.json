@@ -306,6 +306,33 @@
     "createAria": "Create tag",
     "removeAria": "Remove tag “{name}”"
   },
+  "selection": {
+    "toolbar": "Multiple selection",
+    "exit": "Exit selection",
+    "count": "{n} selected",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "category": "Category",
+    "setCategory": "Change category",
+    "setCategoryTitle": "Change category",
+    "addTag": "Add tag",
+    "addTagShort": "Tag +",
+    "addTagTitle": "Add tags",
+    "removeTag": "Remove tag",
+    "removeTagShort": "Tag −",
+    "removeTagTitle": "Remove tags",
+    "delete": "Delete transactions",
+    "deleteConfirm": "Delete {n} transactions?",
+    "noTagsToRemove": "The selected transactions have no tags.",
+    "queuedOffline": "Change will sync once you’re back online.",
+    "failed": "Bulk action failed. ",
+    "applied": {
+      "set_category": "{n} transactions updated",
+      "add_tags": "{n} transactions updated",
+      "remove_tags": "{n} transactions updated",
+      "delete": "{n} transactions deleted"
+    }
+  },
   "tx": {
     "newTitle": "New transaction",
     "editTitle": "Edit transaction",

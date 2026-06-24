@@ -1,0 +1,32 @@
+# Keep the Docker build context lean and prevent non-runtime material from
+# ever reaching the image. The Dockerfile copies only explicit paths, so this
+# is defence-in-depth + faster context uploads.
+
+# VCS / CI
+.git
+.github
+
+# Node tooling (lint/format + demo screenshots) — never part of the image
+node_modules
+tools/demo/node_modules
+
+# Demo seeder & screenshots (driven against a running instance, not baked in)
+tools/demo
+docs
+
+# Local-only served-files symlink and any local databases
+backend/static
+**/*.db
+**/*.db-wal
+**/*.db-shm
+
+# Python caches / venvs
+**/__pycache__
+**/*.pyc
+.venv
+venv
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store

@@ -144,6 +144,10 @@ function getCatById(id) {
 }
 
 function renderTransactions(txs, el = document.getElementById('transactionList')) {
+  // Track what's on screen so "Select all" and the selection re-render after a
+  // search/filter change operate on the currently visible rows.
+  appState.selection.visibleIds = txs.map((t) => t.id);
+  el.classList.toggle('selecting', appState.selection.active);
   if (!txs.length) {
     el.innerHTML = appState.nav.searchQuery
       ? `<div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg><p>${tr('tx.emptySearch', { query: _escText(appState.nav.searchQuery) })}<br>${tr('tx.emptySearchHint')}</p></div>`
@@ -188,9 +192,11 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
             const recurringBadge = t.source_rule_id
               ? `<span class="tx-recurring-badge" role="img" aria-label="${_escAttr(tr('recurring.fromRule'))}" title="${_escAttr(tr('recurring.fromRule'))}"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrows-clockwise"/></svg></span>`
               : '';
-            return `<div class="tx-row" data-id="${t.id}">
+            const selCls = appState.selection.ids.includes(t.id) ? ' selected' : '';
+            return `<div class="tx-row${selCls}" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="${_escAttr(tr('tx.deleteAria'))}">${tr('common.delete')}</button>
         <div class="transaction">
+          <span class="tx-select-check" aria-hidden="true"><svg class="ui-icon"><use href="#icon-check"/></svg></span>
           <div class="t-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <span class="visually-hidden">${_escText(cat.name)}</span>
           <div class="t-info">
@@ -283,6 +289,7 @@ async function showTransactionsForCategory(catId) {
 const SWIPE_ACTION_WIDTH = 92;
 const SWIPE_OPEN_THRESHOLD = 40; // pixels beyond which the action snaps open
 const TAP_TOLERANCE = 6; // pixel slop below which a pointer-down counts as a tap
+const LONG_PRESS_MS = 500; // hold duration that enters multi-select mode
 
 function closeAllSwipes(except) {
   document.querySelectorAll('.tx-row.swiped').forEach((r) => {
@@ -299,7 +306,17 @@ function attachSwipeHandlers(container) {
       dx = 0,
       dragging = false,
       committedAxis = null, // 'x' once we've decided the gesture is a swipe
-      openOnStart = false;
+      openOnStart = false,
+      moved = false, // moved past the tap slop (any axis) — used in select mode
+      longPressTimer = null, // pending "enter multi-select" timer
+      longPressFired = false; // the timer already toggled this row's selection
+
+    const cancelLongPress = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
 
     inner.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -307,18 +324,41 @@ function attachSwipeHandlers(container) {
       startY = e.clientY;
       dx = 0;
       dragging = true;
+      moved = false;
       committedAxis = null;
+      longPressFired = false;
       openOnStart = row.classList.contains('swiped');
       row.classList.add('dragging');
       try {
         inner.setPointerCapture(e.pointerId);
       } catch (_) {}
+      // A long press on a normal (not-yet-swiped) row starts multi-select.
+      // Already in select mode? Then a press is just a tap-to-toggle, no timer.
+      if (!appState.selection.active && !openOnStart) {
+        longPressTimer = setTimeout(() => {
+          longPressTimer = null;
+          longPressFired = true;
+          if (navigator.vibrate) {
+            try {
+              navigator.vibrate(15);
+            } catch (_) {}
+          }
+          enterSelectionMode();
+          toggleSelect(Number(row.dataset.id));
+        }, LONG_PRESS_MS);
+      }
     });
 
     inner.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       const rawDx = e.clientX - startX;
       const rawDy = e.clientY - startY;
+      if (Math.abs(rawDx) >= 8 || Math.abs(rawDy) >= 8) {
+        moved = true;
+        cancelLongPress(); // any real movement aborts the long-press
+      }
+      // In select mode the row never swipes; movement only decides tap-vs-not.
+      if (appState.selection.active) return;
       // Discriminate axis only once the finger has moved past a small
       // slop, so a vertical scroll never briefly shifts the card and
       // reveals the red delete action behind it. Once committed to a
@@ -343,11 +383,22 @@ function attachSwipeHandlers(container) {
     function endDrag(cancelled) {
       if (!dragging) return;
       dragging = false;
+      cancelLongPress();
       row.classList.remove('dragging');
       inner.style.transform = '';
 
+      // The long-press handler already entered select mode and toggled
+      // this row — don't let the trailing pointerup toggle it back.
+      if (longPressFired) return;
+
       if (cancelled) {
         // Cancelled by the browser (e.g. vertical scroll): leave the state alone
+        return;
+      }
+
+      // Multi-select mode: a clean tap toggles the row, nothing swipes.
+      if (appState.selection.active) {
+        if (!moved) toggleSelect(Number(row.dataset.id));
         return;
       }
 
@@ -414,3 +465,188 @@ document.addEventListener(
   },
   { capture: true },
 );
+
+// ── MULTI-SELECT / BULK EDIT ──────────────────────────────────────────────────
+// Long-press a ledger row to enter select mode (attachSwipeHandlers), then tap
+// to mark more. The selection bar (index.html) drives the four bulk actions,
+// each funnelling through bulkApply() → POST /api/transactions/bulk.
+
+function enterSelectionMode() {
+  if (appState.selection.active) return;
+  appState.selection.active = true;
+  appState.selection.ids = [];
+  document.body.classList.add('selecting');
+  closeAllSwipes();
+  applySearch(); // re-render the active list with the select affordance
+  updateSelectionBar();
+}
+
+function exitSelectionMode() {
+  if (!appState.selection.active) return;
+  appState.selection.active = false;
+  appState.selection.ids = [];
+  document.body.classList.remove('selecting');
+  applySearch();
+  updateSelectionBar();
+}
+
+function toggleSelect(id) {
+  id = Number(id);
+  const i = appState.selection.ids.indexOf(id);
+  if (i >= 0) appState.selection.ids.splice(i, 1);
+  else appState.selection.ids.push(id);
+  // Targeted DOM update keeps tapping snappy — no full list re-render per tap.
+  const sel = appState.selection.ids.includes(id);
+  document.querySelectorAll(`.tx-row[data-id="${id}"]`).forEach((row) => {
+    row.classList.toggle('selected', sel);
+  });
+  updateSelectionBar();
+}
+
+function toggleSelectAll() {
+  const vis = appState.selection.visibleIds;
+  const allSelected = vis.length > 0 && vis.every((id) => appState.selection.ids.includes(id));
+  appState.selection.ids = allSelected ? [] : [...vis];
+  applySearch();
+  updateSelectionBar();
+}
+
+function updateSelectionBar() {
+  const n = appState.selection.ids.length;
+  const countEl = document.getElementById('selectionCount');
+  if (countEl) countEl.textContent = tr('selection.count', { n });
+  const vis = appState.selection.visibleIds;
+  const allSelected = vis.length > 0 && vis.every((id) => appState.selection.ids.includes(id));
+  const allBtn = document.getElementById('selectionAllBtn');
+  if (allBtn)
+    allBtn.textContent = allSelected ? tr('selection.deselectAll') : tr('selection.selectAll');
+  // Actions need at least one marked row.
+  document
+    .querySelectorAll('.selection-bar [data-bulk-action]')
+    .forEach((b) => (b.disabled = n === 0));
+}
+
+// Mutate the in-memory pools to mirror a bulk op locally — used only on the
+// offline path, so the list reflects the queued change before the SW replays it.
+function _applyBulkLocally(body) {
+  const idset = new Set(body.ids);
+  const apply = (pool) => {
+    if (!pool) return pool;
+    if (body.action === 'delete') return pool.filter((t) => !idset.has(t.id));
+    pool.forEach((t) => {
+      if (!idset.has(t.id)) return;
+      if (body.action === 'set_category') {
+        t.category_id = body.category_id;
+      } else if (body.action === 'add_tags') {
+        const lower = new Set((t.tags || []).map((x) => x.toLowerCase()));
+        body.tags.forEach((tag) => {
+          if (!lower.has(tag.toLowerCase())) {
+            t.tags.push(tag);
+            lower.add(tag.toLowerCase());
+          }
+        });
+      } else if (body.action === 'remove_tags') {
+        const rm = new Set(body.tags.map((x) => x.toLowerCase()));
+        t.tags = (t.tags || []).filter((x) => !rm.has(x.toLowerCase()));
+      }
+    });
+    return pool;
+  };
+  appState.ledger.transactions = apply(appState.ledger.transactions);
+  if (appState.ledger.all) appState.ledger.all = apply(appState.ledger.all);
+}
+
+async function bulkApply(op) {
+  const ids = appState.selection.ids.slice();
+  if (!ids.length) return;
+  const body = { ...op, ids };
+  try {
+    const res = await api('POST', '/transactions/bulk', body);
+    const n = res && typeof res.updated === 'number' ? res.updated : ids.length;
+    exitSelectionMode();
+    const tasks = [loadAndRender()];
+    if (op.action === 'add_tags' || op.action === 'remove_tags') tasks.push(loadTags());
+    await Promise.all(tasks);
+    toast(tr(`selection.applied.${op.action}`, { n }));
+  } catch (e) {
+    if (!navigator.onLine && window.PocketLogOutbox) {
+      await window.PocketLogOutbox.enqueue({
+        method: 'POST',
+        path: '/transactions/bulk',
+        body,
+      });
+      _applyBulkLocally(body);
+      exitSelectionMode();
+      renderAll();
+      updateSyncBadge();
+      toast(tr('selection.queuedOffline'));
+      return;
+    }
+    toast(tr('selection.failed') + (e.message || ''), 'error');
+  }
+}
+
+async function bulkDelete() {
+  const n = appState.selection.ids.length;
+  if (!n) return;
+  const ok = await confirmAction({
+    title: tr('selection.deleteConfirm', { n }),
+    confirmLabel: tr('common.delete'),
+    destructive: true,
+  });
+  if (!ok) return;
+  bulkApply({ action: 'delete' });
+}
+
+function openBulkCategory() {
+  if (!appState.selection.ids.length) return;
+  rememberModalFocus('bulkCat');
+  _populateCategorySelect(document.getElementById('bulkCatSelect'), null);
+  document.getElementById('bulkCatOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  trapFocusIn(document.querySelector('#bulkCatOverlay .modal'), 'bulkCat');
+}
+
+function closeBulkCategory() {
+  document.getElementById('bulkCatOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  releaseFocusTrap('bulkCat');
+  restoreModalFocus('bulkCat');
+}
+
+function commitBulkCategory() {
+  const catId = parseInt(document.getElementById('bulkCatSelect').value, 10);
+  closeBulkCategory();
+  if (!catId) return;
+  bulkApply({ action: 'set_category', category_id: catId });
+}
+
+function openBulkAddTags() {
+  if (!appState.selection.ids.length) return;
+  openTagPickerFor('bulkAdd');
+}
+
+function openBulkRemoveTags() {
+  if (!appState.selection.ids.length) return;
+  // The remove picker offers only the tags actually present on the marked
+  // rows (the union), so there's never a no-op chip to pick.
+  const idset = new Set(appState.selection.ids);
+  const pool = appState.ledger.all || appState.ledger.transactions;
+  const seen = new Map();
+  pool.forEach((t) => {
+    if (!idset.has(t.id)) return;
+    (t.tags || []).forEach((tg) => {
+      const k = tg.toLowerCase();
+      if (!seen.has(k)) seen.set(k, tg);
+    });
+  });
+  const union = [...seen.values()].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' }),
+  );
+  if (!union.length) {
+    toast(tr('selection.noTagsToRemove'));
+    return;
+  }
+  appState.tagPicker.bulkRemovePool = union;
+  openTagPickerFor('bulkRemove');
+}

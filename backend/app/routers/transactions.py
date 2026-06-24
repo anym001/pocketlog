@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from .. import crud, errors, recurring, schemas
 from ..deps import DB, ReadUser, WriteUser
+from ..logging_config import client_ip
 
 audit = logging.getLogger("pocketlog.audit")
 
@@ -67,6 +68,43 @@ def get_transactions(
 def post_transaction(payload: schemas.TransactionCreate, user: WriteUser, db: DB):
     # A foreign category raises UnknownCategoryError -> 400 (global handler).
     return crud.create_transaction(db, user.id, payload)
+
+
+@router.post(
+    "/api/transactions/bulk",
+    response_model=schemas.TransactionBulkResult,
+)
+def bulk_transactions(
+    payload: schemas.TransactionBulk,
+    request: Request,
+    user: WriteUser,
+    db: DB,
+):
+    # Declared before the /{tx_id} routes so "bulk" is matched as a literal
+    # path rather than coerced into the int path param.
+    action = payload.action
+    if action == "set_category":
+        # A foreign category raises UnknownCategoryError -> 400 (global handler).
+        matched, updated = crud.bulk_set_category(
+            db, user.id, payload.ids, payload.category_id
+        )
+    elif action == "add_tags":
+        matched, updated = crud.bulk_add_tags(db, user.id, payload.ids, payload.tags)
+    elif action == "remove_tags":
+        matched, updated = crud.bulk_remove_tags(db, user.id, payload.ids, payload.tags)
+    else:  # delete — the discriminated union admits no other value
+        matched, updated = crud.bulk_delete(db, user.id, payload.ids)
+    # Counts only — never the affected ids, tag names or amounts.
+    audit.info(
+        "transaction.bulk action=%s id=%s requested=%s matched=%s updated=%s ip=%s",
+        action,
+        user.id,
+        len(payload.ids),
+        matched,
+        updated,
+        client_ip(request),
+    )
+    return schemas.TransactionBulkResult(matched=matched, updated=updated)
 
 
 @router.put(
