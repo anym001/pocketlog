@@ -247,13 +247,14 @@ function _catRowMarkup(catId, amount, max, opts = {}) {
   const drill = opts.drillDown
     ? `role="button" tabindex="0" onclick="drillDownCategory(${catId})" onkeydown="handleRowActivate(event, () => drillDownCategory(${catId}))"`
     : '';
+  const amtClass = opts.positive ? 'cat-amount is-positive' : 'cat-amount';
   return `<div class="cat-row" ${drill}>
           <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="cat-info">
             <div class="cat-name">${_escText(cat.name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${cat.color}"></div></div>
           </div>
-          <div class="cat-amount">${fmtCurrency(Math.abs(amount))}</div>
+          <div class="${amtClass}">${fmtCurrency(Math.abs(amount))}</div>
         </div>`;
 }
 
@@ -311,7 +312,7 @@ async function renderReportOverview(body, txs) {
 
           <div class="report-section">
             <h3 class="report-section-title">${tr('reports.topIncome')}</h3>
-            <div id="overviewIncome">${topIn.length ? topIn.map((c) => _catRowMarkup(c.catId, c.amount, maxIn, { drillDown: true })).join('') : _emptyState(tr('reports.noIncome'))}</div>
+            <div id="overviewIncome">${topIn.length ? topIn.map((c) => _catRowMarkup(c.catId, c.amount, maxIn, { drillDown: true, positive: true })).join('') : _emptyState(tr('reports.noIncome'))}</div>
           </div>
 
           <div class="report-section">
@@ -556,7 +557,7 @@ function _breakdownCategories(body, txs, controls) {
             </div>
           </div>
           <div class="report-section">
-            ${sorted.map((c) => _catRowMarkup(c.catId, c.amount, max, { drillDown: true })).join('')}
+            ${sorted.map((c) => _catRowMarkup(c.catId, c.amount, max, { drillDown: true, positive: dir === 'in' })).join('')}
           </div>
         `;
 
@@ -605,13 +606,14 @@ function _tagRowMarkup(name, amount, max, opts = {}) {
   const pct = max > 0 ? (amount / max) * 100 : 0;
   const attrName = _escAttr(name);
   const drill = opts.drillDown ? `role="button" tabindex="0" data-tag-drill="${attrName}"` : '';
+  const amtClass = opts.positive ? 'cat-amount is-positive' : 'cat-amount';
   return `<div class="cat-row" ${drill}>
           <div class="cat-icon" style="--cat-color:${color}">#</div>
           <div class="cat-info">
             <div class="cat-name">${_escText(name)}</div>
             <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${color}"></div></div>
           </div>
-          <div class="cat-amount">${fmtCurrency(Math.abs(amount))}</div>
+          <div class="${amtClass}">${fmtCurrency(Math.abs(amount))}</div>
         </div>`;
 }
 
@@ -642,7 +644,7 @@ function _breakdownTags(body, txs, controls) {
             </div>
           </div>
           <div class="report-section">
-            ${sorted.map((t) => _tagRowMarkup(t.name, t.amount, max, { drillDown: true })).join('')}
+            ${sorted.map((t) => _tagRowMarkup(t.name, t.amount, max, { drillDown: true, positive: dir === 'in' })).join('')}
           </div>
         `;
 

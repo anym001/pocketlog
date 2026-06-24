@@ -434,7 +434,10 @@
       }
       /* The label is a button (opens the picker) — override the round chrome
          shape from .month-nav > button with a compact, auto-width pill. */
-      .month-label {
+      /* Scoped as a direct child so it outranks the .month-nav > button chrome
+         rule (round 24px icon buttons) — the label is an auto-width 14px pill,
+         not an icon button. */
+      .month-nav > .month-label {
         width: auto;
         height: auto;
         min-width: 132px;
@@ -1203,6 +1206,11 @@
         color: var(--accent);
         letter-spacing: -0.02em;
         font-variant-numeric: tabular-nums;
+      }
+      /* Income amounts (Top income, income breakdown) read green, matching the
+         ledger's direction colours. */
+      .cat-amount.is-positive {
+        color: var(--green);
       }
 
       /* ====== BOTTOM BAR (search + FAB) ====== */
@@ -2604,11 +2612,20 @@
         border-radius: var(--r-pill);
         border: var(--border-hairline);
       }
-      /* Breakdown report stacks two segmented controls (entity + direction). */
+      /* Breakdown report: two segmented controls (entity + direction) sharing
+         one row, each taking half the width. */
       .breakdown-controls {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         gap: var(--space-8);
+      }
+      .breakdown-controls .segmented {
+        flex: 1;
+        min-width: 0;
+      }
+      .breakdown-controls .segmented button {
+        padding: var(--space-8) var(--space-4);
+        white-space: nowrap;
       }
       .segmented button {
         flex: 1;
