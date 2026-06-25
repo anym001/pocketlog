@@ -10,15 +10,14 @@
 > device, backed by a real scoped API for automation. No cloud, no accounts, no
 > tracking, no telemetry.**
 
-A household budget book as a Progressive Web App (PWA) — runs in the browser on all
-major platforms (iOS, Android, macOS, Windows, Linux) and can be installed as an app
-on the home screen.
+Runs in the browser on all major platforms — iOS, Android, macOS, Windows, Linux —
+and installs to the home screen like a native app.
 
-Designed for **private self-hosting**: data resides exclusively on your own server —
-by default in an embedded SQLite file (no separate database required), optionally in an
-external MariaDB. The app runs in your own container. All assets (fonts, icons,
-JS libraries) are served from your own server — no CDN calls, no external connections,
-no tracking, no telemetry.
+Designed for **private self-hosting**: data lives only on your own server — by
+default in an embedded SQLite file (no separate database required), optionally in an
+external MariaDB, all in your own container. Every asset (fonts, icons, JS libraries)
+is served from your own origin, so the app makes no CDN calls and no external
+connections at all.
 
 ## Screenshots
 
