@@ -223,6 +223,24 @@ function onI18nChanged() {
   if (appState.nav.activePanel === 'recurring') renderRecurringView();
 }
 
+// Auth bootstrap fetches (setup-status, me) gate which view init() unhides,
+// so they must never hang. On a weak signal a plain fetch neither resolves
+// nor rejects for tens of seconds, leaving every view hidden — a white
+// screen. Abort after BOOTSTRAP_TIMEOUT_MS so a slow link falls through to
+// the login view (same outcome as the existing "backend unreachable" catch)
+// instead of stalling. A working-but-slow link still has a few seconds to
+// answer before we give up.
+const BOOTSTRAP_TIMEOUT_MS = 5000;
+
+function _bootstrapFetch(path) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BOOTSTRAP_TIMEOUT_MS);
+  return fetch(API + path, {
+    credentials: 'same-origin',
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timer));
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
   // Wait for the i18n bundle so the first render is already in the
@@ -256,9 +274,7 @@ async function init() {
   let suggested = null;
   let defaultLocale = null;
   try {
-    const res = await fetch(API + '/auth/setup-status', {
-      credentials: 'same-origin',
-    });
+    const res = await _bootstrapFetch('/auth/setup-status');
     if (res.ok) {
       const data = await res.json();
       needsSetup = !!data.needs_setup;
@@ -301,9 +317,7 @@ async function init() {
   window._suppressAuthReload = true;
   let me = null;
   try {
-    const res = await fetch(API + '/auth/me', {
-      credentials: 'same-origin',
-    });
+    const res = await _bootstrapFetch('/auth/me');
     if (res.ok) me = await res.json();
   } catch (e) {}
   window._suppressAuthReload = false;
