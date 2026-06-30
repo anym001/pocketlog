@@ -262,6 +262,19 @@ async function init() {
   syncDisplaySelects();
   applyRange({ skipRender: true });
   if ('serviceWorker' in navigator) {
+    // Auto-reload once when a new service worker takes control. The shell HTML
+    // is network-first, so after an upgrade the page can boot fresh markup
+    // while still running the previous version's cached JS/i18n until a reload
+    // — exactly the half-updated state that breaks newly added reports/keys.
+    // Guarded against the first-ever install (no prior controller; the new
+    // SW's clients.claim() fires controllerchange there too) and reload loops.
+    let _swReloading = false;
+    const _hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_swReloading || !_hadController) return;
+      _swReloading = true;
+      window.location.reload();
+    });
     try {
       await navigator.serviceWorker.register('/sw.js');
     } catch (e) {

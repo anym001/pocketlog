@@ -561,6 +561,54 @@ def test_recurring_audit_never_contains_user_free_text(app, regular_user, caplog
     assert not leaks, f"user free-text leaked into audit log: {leaks!r}"
 
 
+# ── bulk transaction actions ───────────────────────────────────────────────
+
+
+def test_bulk_action_logs_counts_not_content(app, regular_user, caplog):
+    """A bulk action emits one INFO event with the action and counts only —
+    never the affected ids, the tag names or any amount."""
+    client = _login(app, regular_user)
+    cat = client.post(
+        "/api/categories",
+        json={"name": "BulkAuditCat", "icon": "house", "color": "#123456"},
+    ).json()["id"]
+    tx = client.post(
+        "/api/transactions",
+        json={
+            "amount": "12.34",
+            "desc": "d",
+            "category_id": cat,
+            "date": "2026-05-20",
+            "type": "out",
+            "tags": [],
+        },
+    ).json()["id"]
+    caplog.clear()
+
+    sentinel_tag = "SECRET-BULK-TAG-XYZ"
+    res = client.post(
+        "/api/transactions/bulk",
+        json={"action": "add_tags", "ids": [tx], "tags": [sentinel_tag]},
+    )
+    assert res.status_code == 200, res.text
+
+    recs = [
+        r
+        for r in caplog.records
+        if r.name == AUDIT and r.getMessage().startswith("transaction.bulk")
+    ]
+    assert len(recs) == 1
+    msg = recs[0].getMessage()
+    assert recs[0].levelno == logging.INFO
+    assert "action=add_tags" in msg
+    assert f"id={regular_user.id}" in msg
+    assert "matched=1" in msg
+    assert "updated=1" in msg
+    assert "ip=" in msg
+    # The tag name (user free-text) must never reach the audit log.
+    assert sentinel_tag not in caplog.text
+
+
 # ── helpers ──────────────────────────────────────────────────────────────
 
 

@@ -56,6 +56,8 @@ const NAMESPACES = [
   'reports',
   'forecast',
   'importExport',
+  'recurring',
+  'selection',
   'admin',
   'users',
   'account',

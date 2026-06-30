@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import exceptions, models, schemas
 from ._shared import _get_owned
 from .categories import _owned_category_exists
-from .tags import _resolve_tags
+from .tags import _build_tag_cache, _resolve_tags, _resolve_tags_cached
 
 # Transaction.tags already has lazy='selectin' on the relationship, so
 # every list endpoint gets the tags batched in via a single extra IN
@@ -108,3 +108,85 @@ def delete_transaction(db: Session, user_id: int, tx_id: int) -> bool:
     db.delete(tx)
     db.commit()
     return True
+
+
+# ── Bulk actions ──────────────────────────────────────────────────────────────
+# Every bulk helper scopes the id set to the caller (user_id == AND id IN ids):
+# foreign or unknown ids simply never match, so the result silently omits them
+# instead of leaking their existence or failing the whole batch. Each helper
+# commits once, so a bulk action is atomic. Return value is (matched, updated):
+# matched = owned rows the ids resolved to, updated = rows that actually changed.
+
+
+def _owned_in(db: Session, user_id: int, ids: list[int], *, with_tags: bool = False):
+    q = select(models.Transaction).where(
+        and_(
+            models.Transaction.user_id == user_id,
+            models.Transaction.id.in_(ids),
+        )
+    )
+    if with_tags:
+        q = q.options(_TX_TAGS_LOAD)
+    return list(db.scalars(q))
+
+
+def bulk_set_category(
+    db: Session, user_id: int, ids: list[int], category_id: int
+) -> tuple[int, int]:
+    if not _owned_category_exists(db, user_id, category_id):
+        raise exceptions.UnknownCategoryError()
+    txs = _owned_in(db, user_id, ids)
+    updated = 0
+    for tx in txs:
+        if tx.category_id != category_id:
+            tx.category_id = category_id
+            updated += 1
+    db.commit()
+    return len(txs), updated
+
+
+def bulk_add_tags(
+    db: Session, user_id: int, ids: list[int], names: list[str]
+) -> tuple[int, int]:
+    txs = _owned_in(db, user_id, ids, with_tags=True)
+    # One tag cache for the whole batch — newly created tags are reused
+    # across rows instead of being re-resolved per transaction.
+    resolved = _resolve_tags_cached(db, user_id, names, _build_tag_cache(db, user_id))
+    updated = 0
+    for tx in txs:
+        present = {t.id for t in tx.tags}
+        added = False
+        for tag in resolved:
+            if tag.id not in present:
+                tx.tags.append(tag)
+                present.add(tag.id)
+                added = True
+        if added:
+            updated += 1
+    db.commit()
+    return len(txs), updated
+
+
+def bulk_remove_tags(
+    db: Session, user_id: int, ids: list[int], names: list[str]
+) -> tuple[int, int]:
+    # Case-insensitive match (casefold, mirroring _normalise_tag_list and
+    # _find_tag_by_name) so "Food" removes a tag stored as "food".
+    targets = {n.casefold() for n in names}
+    txs = _owned_in(db, user_id, ids, with_tags=True)
+    updated = 0
+    for tx in txs:
+        kept = [t for t in tx.tags if t.name.casefold() not in targets]
+        if len(kept) != len(tx.tags):
+            tx.tags = kept
+            updated += 1
+    db.commit()
+    return len(txs), updated
+
+
+def bulk_delete(db: Session, user_id: int, ids: list[int]) -> tuple[int, int]:
+    txs = _owned_in(db, user_id, ids)
+    for tx in txs:
+        db.delete(tx)
+    db.commit()
+    return len(txs), len(txs)

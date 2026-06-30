@@ -45,6 +45,18 @@ describe('_totalsByTag', () => {
   it('returns an empty list when nothing matches', () => {
     expect(_totalsByTag([{ type: 'in', amount: 1, tags: ['x'] }], 'out')).toEqual([]);
   });
+
+  it('totals income and spending together with type "all"', () => {
+    const txs = [
+      { type: 'out', amount: 10, tags: ['a'] },
+      { type: 'in', amount: 5, tags: ['a'] },
+      { type: 'in', amount: 7, tags: ['b'] },
+    ];
+    expect(_totalsByTag(txs, 'all')).toEqual([
+      { name: 'a', amount: 15 },
+      { name: 'b', amount: 7 },
+    ]);
+  });
 });
 
 describe('_monthSpan', () => {
@@ -99,6 +111,18 @@ describe('_totalsByCategory', () => {
       { type: 'in', category_id: 1, amount: 100 },
     ];
     expect(_totalsByCategory(txs)).toEqual([{ catId: 1, amount: 7 }]);
+  });
+
+  it('totals income and spending together with type "all"', () => {
+    const txs = [
+      { type: 'out', category_id: 1, amount: 7 },
+      { type: 'in', category_id: 2, amount: 100 },
+      { type: 'in', category_id: 1, amount: 3 },
+    ];
+    expect(_totalsByCategory(txs, 'all')).toEqual([
+      { catId: 2, amount: 100 },
+      { catId: 1, amount: 10 },
+    ]);
   });
 });
 

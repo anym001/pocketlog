@@ -6,15 +6,18 @@
 [![GHCR](https://img.shields.io/badge/GHCR-pocketlog-2496ED?logo=docker&logoColor=white)](https://github.com/anym001/pocketlog/pkgs/container/pocketlog)
 [![Docker Hub](https://img.shields.io/badge/Docker%20Hub-pocketlog-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/anym001/pocketlog)
 
-A household budget book as a Progressive Web App (PWA) — runs in the browser on all
-major platforms (iOS, Android, macOS, Windows, Linux) and can be installed as an app
-on the home screen.
+> **A privacy-first household budget book you fully self-host — a fast PWA on every
+> device, backed by a real scoped API for automation. No cloud, no accounts, no
+> tracking, no telemetry.**
 
-Designed for **private self-hosting**: data resides exclusively on your own server —
-by default in an embedded SQLite file (no separate database required), optionally in an
-external MariaDB. The app runs in your own container. All assets (fonts, icons,
-JS libraries) are served from your own server — no CDN calls, no external connections,
-no tracking, no telemetry.
+Runs in the browser on all major platforms — iOS, Android, macOS, Windows, Linux —
+and installs to the home screen like a native app.
+
+Designed for **private self-hosting**: data lives only on your own server — by
+default in an embedded SQLite file (no separate database required), optionally in an
+external MariaDB, all in your own container. Every asset (fonts, icons, JS libraries)
+is served from your own origin, so the app makes no CDN calls and no external
+connections at all.
 
 ## Screenshots
 
@@ -73,6 +76,8 @@ no tracking, no telemetry.
   how many were added since the last visit
 - **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view
   and forecast
+- **Bulk actions** — select multiple transactions at once to reassign a category, add or
+  remove tags, or delete them in one step
 - **Search** — full-text, category, and tag filtering in the transaction list
 - **CSV Import / Export** — UTF-8 or CP1252, max. 5 MB; export all transactions as
   semicolon-delimited CSV. Import is also available over the API for automated

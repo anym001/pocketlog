@@ -12,73 +12,54 @@ PWA (Browser / Homescreen)
   │  App auth: pocketlog_session cookie + X-CSRF-Token header (Double-Submit).
   └──────────────────┬──────────────────┘
                      ↓
-   SQLite file /config/db/pocketlog.db (default)
-   · OR external MariaDB (opt-in via DB_*)
+   SQLite /config/db/pocketlog.db (default) · OR external MariaDB (opt-in via DB_*)
 ```
-Backend selection is implicit (`database.py:_build_url`): `DATABASE_URL` wins;
-otherwise MariaDB as soon as any `DB_*` variable is set (`DB_PASSWORD`
-then required); otherwise SQLite at `SQLITE_PATH` (default `/config/db/pocketlog.db`).
+`DATABASE_URL` wins; otherwise MariaDB as soon as any `DB_*` variable is set; otherwise SQLite.
 
 ## Project Structure
 ```
-PocketLog/
-├── frontend/
-│   ├── index.html          ← PWA shell (markup + inline theme bootstrap)
-│   ├── styles.css          ← complete CSS (tokens, layout, components)
-│   ├── core.js             ← API/CSRF plumbing, formatting, toast/confirm,
-│   │                         navigation, modal focus management
-│   ├── ledger.js           ← transaction list view + swipe-to-delete
-│   ├── reports.js          ← Chart.js wiring + all report renderers
-│   ├── booking.js          ← create/edit transaction modal
-│   ├── categories.js       ← category management, tag picker, icon picker
-│   ├── goals.js            ← savings goals + debt trackers
-│   ├── budgets.js          ← per-category spending caps (derived consumption)
-│   ├── recurring.js        ← recurring rules editor + next-booking preview
-│   ├── settings.js         ← settings drawer: tags, sync, theme, backup,
-│   │                         import/export, API keys, account, admin users
-│   ├── app.js              ← boot: auth bootstrap + init() (loads last)
-│   ├── state.js            ← central app state (grouped `appState` object)
-│   ├── utils.js            ← pure helpers (loaded before app.js)
-│   ├── reportsData.js      ← pure report/goal/trend aggregation (loaded before app.js)
-│   ├── i18n.js             ← i18n runtime (window.I18N, tr(), locale/currency)
-│   ├── i18n/               ← translation bundles (de.json, en.json)
-│   ├── sw.js               ← service worker (cache + outbox)
-│   ├── db.js               ← IndexedDB helper for outbox
-│   ├── manifest.webmanifest
-│   ├── icons/categories/sprite.svg  ← category glyphs (Phosphor Regular, MIT)
-│   ├── fonts/              ← DM Sans + DM Serif Display woff2
-│   └── vendor/             ← third-party bundles (Chart.js)
-├── backend/
-│   ├── Dockerfile
-│   ├── migrations/
-│   └── app/
-│       ├── main.py         ← app setup: DomainError handler, security-headers
-│       │                     middleware, include_router wiring, StaticFiles mount
-│       ├── deps.py         ← shared auth plumbing: session/CSRF cookie I/O +
-│       │                     the dependency chain (CurrentUser/AdminUser/DB)
-│       ├── routers/        ← one APIRouter per domain (auth, categories, goals,
-│       │                     budgets, tags, recurring, transactions, imexport,
-│       │                     admin, settings, health); wired by main.include_router
-│       ├── models.py       ← SQLAlchemy ORM
-│       ├── schemas.py      ← Pydantic v2
-│       ├── crud/           ← user_id-scoped queries, one module per domain
-│       │                     (users, categories, goals, budgets, tags, recurring,
-│       │                     transactions, settings, imexport, defaults);
-│       │                     __init__ re-exports the full crud.* surface
-│       ├── auth.py         ← session, CSRF, brute-force
-│       ├── recurring.py    ← catch-up / materialization engine
-│       ├── recurring_dates.py ← pure occurrence date math (no DB, cycle-free)
-│       ├── database.py     ← engine selection: SQLite (default) | MariaDB (pymysql)
-│       ├── proxies.py      ← trusted reverse-proxy check (TRUSTED_PROXIES),
-│       │                     shared by audit client_ip + Secure-cookie decision
-│       ├── logging_config.py ← central logging setup (configure_logging())
-│       └── cli.py          ← operator CLI (reset-admin-password)
-├── backend/
-│   └── docker-entrypoint.sh  ← chown /config, drop to PUID/PGID via gosu
-├── tests/                    ← pytest suite (backend)
-├── CLAUDE.md
-├── CONTRIBUTING.md
-└── DESIGN_CONVENTIONS.md
+frontend/
+  index.html         ← PWA shell
+  styles.css         ← complete CSS (tokens, layout, components)
+  core.js            ← API/CSRF plumbing, formatting, toast/confirm, navigation
+  ledger.js          ← transaction list, swipe-to-delete, bulk actions
+  reports.js         ← Chart.js wiring + all report renderers
+  booking.js         ← create/edit transaction modal
+  categories.js      ← category management, tag picker, icon picker
+  goals.js           ← savings goals + debt trackers
+  budgets.js         ← per-category spending caps
+  recurring.js       ← recurring rules editor + next-booking preview
+  settings.js        ← settings drawer (tags, sync, theme, backup, import/export, API keys, users)
+  app.js             ← boot: auth bootstrap + init() (loads last)
+  state.js           ← central app state (grouped `appState` object)
+  utils.js           ← pure helpers (loaded before app.js)
+  reportsData.js     ← pure report/goal/trend aggregation (loaded before app.js)
+  i18n.js            ← i18n runtime (window.I18N, tr(), locale/currency)
+  i18n/              ← translation bundles (de.json, en.json)
+  sw.js              ← service worker (cache + outbox)
+  db.js              ← IndexedDB helper for outbox
+  icons/categories/sprite.svg  ← category glyphs (Phosphor Regular, MIT)
+  fonts/             ← DM Sans + DM Serif Display woff2
+  vendor/            ← third-party bundles (Chart.js)
+backend/
+  docker-entrypoint.sh  ← chown /config, drop to PUID/PGID via gosu
+  Dockerfile
+  migrations/
+  app/
+    main.py            ← DomainError handler, security-headers middleware, router wiring, StaticFiles
+    deps.py            ← session/CSRF cookie I/O + dependency chain (CurrentUser/AdminUser/DB)
+    routers/           ← one APIRouter per domain; wired by main.include_router
+    models.py          ← SQLAlchemy ORM
+    schemas.py         ← Pydantic v2
+    crud/              ← user_id-scoped queries, one module per domain; __init__ re-exports all
+    auth.py            ← session, CSRF, brute-force
+    recurring.py       ← catch-up / materialization engine
+    recurring_dates.py ← pure occurrence date math (no DB)
+    database.py        ← engine selection: SQLite | MariaDB
+    proxies.py         ← trusted reverse-proxy check (TRUSTED_PROXIES)
+    logging_config.py  ← central logging setup
+    cli.py             ← operator CLI (reset-admin-password)
+tests/               ← pytest suite (backend)
 ```
 
 ## Third-Party Assets & Privacy
@@ -93,208 +74,113 @@ All assets from own origin — no CDNs, no tracking.
 ## API Endpoints (FastAPI)
 ```
 # Public
-GET    /api/health
-GET    /api/version
-GET    /api/auth/setup-status
-POST   /api/auth/setup           ← only while no admin exists
-POST   /api/auth/login           ← cookie + CSRF; 429 + Retry-After on lockout
-POST   /api/auth/logout
+GET    /api/health | /api/version | /api/auth/setup-status
+POST   /api/auth/setup | /api/auth/login | /api/auth/logout
 
 # User (session cookie + X-CSRF-Token on non-GET)
 GET    /api/auth/me
-POST   /api/auth/change-password ← invalidates all other sessions
+POST   /api/auth/change-password
 GET    /api/transactions?year=&month=&from=&to=
 POST|PUT|DELETE /api/transactions/{id}
-GET|POST|PUT|DELETE /api/categories/{id}   ← DELETE only when no referenced transactions, no linked goal **and** no linked budget
+POST   /api/transactions/bulk        ← set_category | add_tags | remove_tags | delete
+GET|POST|PUT|DELETE /api/categories/{id}
 GET|POST /api/goals
-PUT|DELETE /api/goals/{id}       ← 1:1 to category; 409 if category already has a goal. Progress is calculated in the frontend (no aggregate in the API)
+PUT|DELETE /api/goals/{id}
 GET|POST /api/budgets
-PUT|DELETE /api/budgets/{id}     ← 1:1 to category; 409 if category already has a budget. Consumption is calculated in the frontend (no aggregate in the API). Independent of goals — a category may carry both
+PUT|DELETE /api/budgets/{id}
 GET|POST /api/tags
-PUT|DELETE /api/tags/{name}      ← PUT renames across all transactions
+PUT|DELETE /api/tags/{name}
 GET|PUT  /api/settings
-POST   /api/import/csv           ← max. 5 MB, UTF-8 or CP1252; ImportUser (session OR Bearer w/ import scope)
+POST   /api/import/csv               ← ImportUser (session OR Bearer w/ import scope)
 GET    /api/export/csv
-GET|POST /api/api-keys           ← session-only (CurrentUser); POST returns the raw plk_ key once
-DELETE /api/api-keys/{id}        ← session-only; revoke
+GET|POST /api/api-keys               ← session-only; POST returns raw plk_ key once
+DELETE /api/api-keys/{id}
 GET|POST /api/recurring
-PUT|DELETE /api/recurring/{id}   ← DELETE leaves existing transactions intact (source_rule_id → NULL)
-POST   /api/recurring/{id}/skip-next   ← skips the next occurrence, returns new cursor
-DELETE /api/recurring/{id}/skip/{date} ← un-skips a previously skipped date
-DELETE /api/admin/transactions   ← self-service: own transactions
-DELETE /api/admin/all-data       ← self-service: transactions + recurring rules + goals + budgets + tags + categories
+PUT|DELETE /api/recurring/{id}
+POST   /api/recurring/{id}/skip-next
+DELETE /api/recurring/{id}/skip/{date}
+DELETE /api/admin/transactions | /api/admin/all-data   ← self-service
 
 # Admin (+ admin role)
 GET|POST /api/admin/users
-POST   /api/admin/users/{id}/reset-password  ← force_change=true, sessions killed
-POST   /api/admin/users/{id}/deactivate|activate
-DELETE /api/admin/users/{id}     ← cascade; not on self
+POST   /api/admin/users/{id}/reset-password | deactivate | activate
+DELETE /api/admin/users/{id}
 ```
 
 ## Database Schema (SQLite default / MariaDB option)
 ```
-users           id, username UNIQUE, password_hash NULL (argon2id),
-                is_admin, is_active, force_change_password,
-                failed_login_count, lockout_until
-
-sessions        id, user_id FK CASCADE, token_hash CHAR(64) UNIQUE,
-                csrf_token CHAR(64), created_at, last_seen_at,
-                expires_at, absolute_expires_at, remember_me, user_agent
-                INDEX(expires_at)
-
-categories      id, user_id FK CASCADE, name, icon, color
-                UNIQUE(user_id, name)
-
-transactions    id, user_id FK CASCADE, amount DECIMAL(12,2),
-                description, category_id FK RESTRICT, date, type ENUM('in','out'),
+users           id, username UNIQUE, password_hash (argon2id), is_admin, is_active,
+                force_change_password, failed_login_count, lockout_until
+sessions        id, user_id FK CASCADE, token_hash CHAR(64) UNIQUE, csrf_token CHAR(64),
+                created_at, last_seen_at, expires_at, absolute_expires_at, remember_me
+categories      id, user_id FK CASCADE, name, icon, color — UNIQUE(user_id, name)
+transactions    id, user_id FK CASCADE, amount DECIMAL(12,2), description,
+                category_id FK RESTRICT, date, type ENUM('in','out'),
                 source_rule_id FK SET NULL → recurring_rules.id
-
-tags            id, user_id FK CASCADE, name VARCHAR(64)
-                UNIQUE(user_id, name)
-
-transaction_tags  transaction_id FK CASCADE, tag_id FK CASCADE
-                  PK(transaction_id, tag_id)
-
-user_settings   user_id PK FK CASCADE, theme, default_view,
-                locale (BCP-47, e.g. de-DE/de-AT/en-GB), currency (ISO 4217,
-                display-only), updated_at
-
+tags            id, user_id FK CASCADE, name VARCHAR(64) — UNIQUE(user_id, name)
+transaction_tags  transaction_id FK CASCADE, tag_id FK CASCADE — PK(both)
+user_settings   user_id PK FK CASCADE, theme, default_view, locale (BCP-47), currency (ISO 4217)
 goals           id, user_id FK CASCADE, name, direction ENUM('save_up','pay_down'),
-                category_id FK CASCADE, initial_amount DECIMAL(12,2),
-                target_amount DECIMAL(12,2), start_date, icon, color,
-                created_at, updated_at
-                UNIQUE(user_id, category_id)   ← 1:1 category↔goal
-
-budgets         id, user_id FK CASCADE, category_id FK CASCADE,
-                amount DECIMAL(12,2),
-                frequency ENUM('monthly','quarterly','yearly'),
-                created_at, updated_at
-                UNIQUE(user_id, category_id)   ← 1:1 category↔budget
-                INDEX(user_id), INDEX(category_id)
-
-recurring_rules id, user_id FK CASCADE, name UNIQUE(user_id),
-                amount DECIMAL(12,2), type ENUM('in','out'),
-                category_id FK RESTRICT, description,
-                frequency ENUM('daily','weekly','monthly','quarterly','yearly'),
-                interval, weekday (nullable, weekly only),
-                day_of_month (nullable, monthly+; 31 = last day),
-                start_date, end_date (nullable), max_occurrences (nullable),
-                next_occurrence_date (nullable cursor; NULL = terminated),
-                occurrences_count, active BOOL,
-                created_at, updated_at
-                INDEX(user_id, active, next_occurrence_date)  ← catch-up scan
-
-recurring_rule_tags  rule_id FK CASCADE, tag_id FK CASCADE
-                     PK(rule_id, tag_id)   ← tags inherited by every materialized transaction
-
-recurring_rule_skips rule_id FK CASCADE, skip_date DATE
-                     PK(rule_id, skip_date)  ← idempotent; consulted during materialization
+                category_id FK CASCADE, initial_amount, target_amount DECIMAL(12,2),
+                start_date, icon, color — UNIQUE(user_id, category_id) [1:1 goal↔category]
+budgets         id, user_id FK CASCADE, category_id FK CASCADE, amount DECIMAL(12,2),
+                frequency ENUM('monthly','quarterly','yearly')
+                UNIQUE(user_id, category_id) [1:1 budget↔category; independent of goals]
+recurring_rules id, user_id FK CASCADE, name, amount DECIMAL(12,2), type ENUM('in','out'),
+                category_id FK RESTRICT, description, frequency, interval,
+                weekday (nullable), day_of_month (nullable; 31=last), start_date, end_date,
+                max_occurrences, next_occurrence_date (cursor; NULL=terminated),
+                occurrences_count, active BOOL — INDEX(user_id, active, next_occurrence_date)
+recurring_rule_tags   rule_id FK CASCADE, tag_id FK CASCADE — PK(both)
+recurring_rule_skips  rule_id FK CASCADE, skip_date DATE — PK(both)
 ```
-Tags are many-to-many via `transaction_tags` (no JSON array any more, removed in migration 0008). Default categories are seeded once in `crud.create_user`.
-
-**Goals (`goals`, migration 0011):** unified savings goal + debt tracker. A category carries at most one goal (`uq_goals_user_category`). Progress is **derived, never stored**: the frontend sums the transactions of the linked category from `start_date` (`in` for `save_up`, `out` for `pay_down`) — money rule observed (no SQL `SUM`). A goal **never** affects ledger totals. Category deletion is blocked (409) while a goal references it (`crud.delete_category`); CASCADE remains the DB safety net for user deletion.
-
-**Budgets (`budgets`, migration 0015):** per-category spending cap over a calendar period (`monthly`/`quarterly`/`yearly`, no rollover). A category carries at most one budget (`uq_budgets_user_category`), **independent** of any goal on the same category — a category may carry both. Consumption is **derived, never stored** (mirrors goals): the frontend sums the linked category's `out` transactions within the active period and compares against `amount` — money rule observed (no SQL `SUM`). A budget **never** affects ledger totals. Category deletion is blocked (409) while a budget references it (`crud.delete_category`); CASCADE remains the DB safety net for user deletion. The category-deletion guards (transaction-in-use, goal, recurring-rule, budget) are table-driven in `crud.delete_category` via `_CATEGORY_DELETE_GUARDS` — a new category-referencing entity adds one row there.
-
-**Recurring rules (`recurring_rules`, migrations 0012+):** booking templates materialized by `app.recurring.materialize_due` / `catch_up_safely`. Called on every `/api/auth/me` and `/api/transactions` GET — never on a separate schedule. The cursor (`next_occurrence_date`) is advanced per occurrence; NULL means terminated (end_date passed or max_occurrences reached). `active=False` rules are skipped entirely by the catch-up (`WHERE active = TRUE`). Skips (`recurring_rule_skips`) are consulted before each materialization step. Tags are linked via `recurring_rule_tags` and copied to each materialized transaction. Deleting a rule leaves its transactions intact (`source_rule_id → NULL`). Category deletion is blocked (409) while a rule references it.
+Tags many-to-many via `transaction_tags`. Goals/budgets: progress/consumption **derived in frontend** (no SQL SUM — money rule). Category deletion blocked (409) while a goal, budget, or recurring rule references it (`_CATEGORY_DELETE_GUARDS` in `crud.delete_category`).
 
 ## Auth Concept
 
-Sessions as HttpOnly cookie `pocketlog_session` (opaque token, DB holds SHA256) + non-HttpOnly `pocketlog_csrf` for Double-Submit. `get_current_user()`: cookie → SHA256 lookup → `expires_at`/`absolute_expires_at` → `is_active` → CSRF check (non-GET, `hmac.compare_digest`) → sliding refresh (5-min damper). Cookies carry `SameSite=Lax`; the `Secure` flag is decided by `deps._cookie_secure` (`SESSION_COOKIE_SECURE` env, default `auto`). Under `auto`, `X-Forwarded-Proto` is honoured **only** from a trusted proxy (`app.proxies.is_trusted_peer`, `TRUSTED_PROXIES` env) — the same trust gate as the audit `client_ip()` — so a direct client cannot forge the header to flip the flag. `TRUSTED_PROXIES` defaults to the standard private/loopback ranges; an explicit list replaces them; `*` trusts all.
+Cookie `pocketlog_session` (HttpOnly, SHA256 in DB) + `pocketlog_csrf` (Double-Submit). `get_current_user()`: cookie → lookup → expiry → active → CSRF (`hmac.compare_digest`) → sliding refresh. `Secure` flag via `SESSION_COOKIE_SECURE` (`auto`: reads `X-Forwarded-Proto` from trusted proxies only). `CurrentUser` blocks on `force_change_password` (except `/me`, `/logout`, `/change-password`). Brute-force: exponential lockout from attempt 5 (1 s → 60 s cap).
 
-Dependencies: `CurrentUser` = `require_active_password` (blocks on `force_change_password`; exceptions: `/api/auth/me`, `/api/auth/logout`, `/api/auth/change-password`). `AdminUser` = `require_admin` → `require_active_password`.
-
-Brute-force protection: from the 5th failed attempt, exponential lockout (1 s → 60 s cap). Unknown users run through `verify_password_dummy()` (timing protection).
-
-**API keys (Bearer tokens, `deps.py`):** `Authorization: Bearer plk_…` for programmatic access. The raw key is shown **once** on creation (`POST /api/api-keys`); only its SHA256 hex is stored (`api_keys.key_hash`). Three hierarchical **data** scopes — `read` < `import` < `write` (`write` ⊇ `import`/`read`, `_SCOPE_GRANTS`). `require_scope(scope)` builds a dependency that accepts **either** a session (CSRF as usual; any logged-in user passes — scopes constrain API keys only) **or** a sufficiently-scoped Bearer key (**CSRF bypassed** — browsers never auto-send the header). Routers use `ReadUser` (GETs) / `WriteUser` (mutations) / `ImportUser` (import). Wrong scope → 403, expired/revoked/unknown key → 401, `last_used_at` updated with a 5-min damper. **No `admin` data scope:** user management, the bulk-delete endpoints and API-key management stay session-only (`CurrentUser`/`AdminUser`) and are never token-reachable — a Bearer request there falls through to the cookie path and gets 401. A legacy key stored with `admin` keeps full data access (wildcard) but likewise never reaches those session-only paths.
+**API keys:** `plk_…` Bearer tokens; raw key shown once, only SHA256 stored. Scopes: `read` < `import` < `write`. Session users bypass scope checks. No `admin` scope — user management and bulk-delete are session-only, never token-reachable.
 
 ## Logging & Audit
-Central config in `app/logging_config.py` (`configure_logging()`, called on import of `main.py`). Logger namespace `pocketlog` with its own stderr handler + `propagate=False`; modules use `pocketlog.api`/`pocketlog.crud`, **security events** use `pocketlog.audit`. **Uniform format** `%(asctime)s %(levelname)s %(name)s %(message)s` with `datefmt %Y-%m-%d %H:%M:%S` (second precision, **no** milliseconds): the `dictConfig` also redirects the `uvicorn`/`uvicorn.error`/`uvicorn.access` loggers to it (runs on app import after uvicorn's default, so it wins), and `alembic.ini` (separate migrations process) mirrors format + datefmt. This keeps Docker logs consistently formatted throughout. `uvicorn.access` is intentionally pinned to `WARNING` (per-request lines are noise; errors still come through `uvicorn.error` + app logs). **Short logger names:** a handler filter (`_ShortLoggerNameFilter`) trims framework names to the top-level package (`uvicorn.error`/`uvicorn.access`→`uvicorn`, `alembic.runtime.migration`→`alembic`) — severity is in the level, not the name; `pocketlog.*` remains intact (audit/api/crud are semantically significant). The migrations process configures logging separately via `alembic.ini`, so `migrations/env.py` attaches the same filter via `install_short_logger_names()`. ENV `LOG_LEVEL` (default INFO) and `LOG_FORMAT` (default `text`; `json` selects `_JsonFormatter`, a dependency-free one-JSON-object-per-line formatter — fields `time`/`level`/`logger`/`message` + `exc_info`/`stack_info` when present, same timestamp as text, `ensure_ascii=False`; applies to both the stderr and `LOG_FILE` handlers; unknown value → `text`). Optional `LOG_FILE` (+ `LOG_FILE_MAX_BYTES`/`LOG_FILE_BACKUPS`): an additional `RotatingFileHandler`, attached programmatically after the dictConfig and wrapped in try/except — an unwritable file only warns and lets the app continue on stderr (never crashes). Persistence is an operations concern (volume mount or Docker log driver), see README.
 
-**App directory convention:** Persistent container state lives under `/config` (LinuxServer/Unraid standard, mounted to e.g. `/mnt/user/appdata/pocketlog`). Contents: the SQLite DB (`/config/db/pocketlog.db`, unless an external MariaDB is used) and the audit trail (`/config/logs/`, recommended `LOG_FILE` path). Future persistent data (uploads, backups) belong in the same `/config`, not in scattered paths — a single mount covers the entire app state.
-
-**Container permissions (PUID/PGID):** The image starts as root; the entrypoint (`backend/docker-entrypoint.sh`) chowns `/config` to `PUID:PGID` (default `1000:1000`, Unraid `99:100`) and drops privileges via `gosu` before `alembic`+`uvicorn` run. This allows the SQLite file on the mount to be written with the correct host permissions. **SQLite pragmas** (`database.py`): `foreign_keys=ON` (cascades), `journal_mode=WAL` (concurrent reads/writes for PWA sync), `busy_timeout=5000`.
-
-Audit events are logged **in the endpoint layer** (the per-domain `app/routers/*.py`) (where request IP via `client_ip()` + DB facts are available); `auth.py`/`crud/*`/`deps.py` remain audit-free. Events: `auth.login.success/failure/lockout_triggered/during_lockout`, `auth.logout`, `auth.password.change_self/reset_admin`, `admin.user.create/deactivate/activate/delete`, `setup.admin_created`, `goal.create/update/delete`, `budget.create/update/delete`, `recurring.create/update/delete`, `data.reset_all_data`. **Never log:** passwords, hashes, session/CSRF tokens, cookies — only IDs, username, IP, counts. `tests/test_audit_logging.py` pins level/fields **and** the secret-leak protection. Logs in English.
+Central config in `logging_config.py`. Loggers: `pocketlog.api`, `pocketlog.crud`, `pocketlog.audit` (security events). Format: `%(asctime)s %(levelname)s %(name)s %(message)s` (datefmt `%Y-%m-%d %H:%M:%S`). `uvicorn.access` pinned to WARNING. `LOG_FORMAT=json` for structured output. Optional `LOG_FILE` (rotating). Audit events logged in the **router layer only** — never in `crud/*`/`deps.py`/`auth.py`. **Never log** passwords, tokens, cookies, or user-supplied free text.
 
 ## Offline / PWA
-`sw.js`: network-first for HTML shell + GET /api/\*, cache-first for vendor/fonts/icons. Offline outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache keys from `__APP_VERSION__` (Dockerfile substitutes at build time). Both i18n bundles (`i18n/de.json`, `i18n/en.json`) are in the SHELL precache so that language switching works offline.
+`sw.js`: network-first for HTML + GET /api/\*, cache-first for vendor/fonts/icons. Offline outbox (POST/PUT/DELETE) via `db.js` (IndexedDB). Cache keys from `__APP_VERSION__` (Dockerfile substitutes at build time). Both i18n bundles in SHELL precache.
 
 ## i18n (Locale & Currency)
-Two static JSON bundles at `frontend/i18n/<bundle>.json` (de/en today), shipped with the code — **no** DB translation table. `i18n.js` provides `window.I18N` + global `tr(key, params)`; `t` is reserved as a transaction loop variable, hence the helper is named `tr`.
-
-- **The full locale (BCP-47) is stored**, e.g. `de-DE`, `de-AT`, `en-GB`, `en-US`. The **translation bundle** is the **primary subtag** (`de-AT`→`de`, `I18N.getBundle()`): one `en.json` serves all English variants; only **formatting** (date/number via `Intl`, `I18N.getLocale()`) differs between en-GB and en-US. Curated list in `SUPPORTED_LOCALES` (i18n.js + schemas.py + picker `<option>`s must stay in sync).
-- **Static markup:** `data-i18n="key"` (textContent) or `data-i18n-attr="attr:key;attr2:key2"`. `I18N.applyStatic()` re-translates on locale change.
-- **Dynamic strings:** `tr('key', { n: 3 })` with `{placeholder}` interpolation.
-- **Currency is a separate ISO code** (`fmtCurrency`, `Intl`), display only — no conversion. **Month names** from `Intl` (`rebuildMonthNames()`).
-- **Deployment default → user override:** `DEFAULT_LOCALE` / `DEFAULT_CURRENCY` as ENV (validated, fallback `de-DE`/`EUR`) seed new users; `/api/auth/setup-status` delivers `default_locale` to the setup screen. Per-user values in `user_settings` (+ localStorage mirror), reconciled on login via `reconcileSettingsFromServer`. `i18n:changed` event → re-render.
-- Both JSON catalogs must have **identical keys** (pytest/CI-verifiable: key diff = empty).
-- **CSV import example** exists per bundle (`example-import-de.csv` / `-en.csv`), `downloadExampleCSV()` selects by `I18N.getBundle()`.
-
-- **Backend errors as codes (phase 3, done):** The API returns **stable codes** instead of prose for CSV import and password policy; the frontend translates them.
-  - CSV import: `ImportRowError = {row, code, params}`; codes via `crud.CsvRowError` (e.g. `date_unrecognised {value}`, `row_limit {max}`, `db_conflict`). Frontend keys under `importExport.error.*`, displayed as a translated row list.
-  - Password: `validate_password_complexity` raises `PydanticCustomError('password_complexity', …, {missing})`; 422 `type`/`ctx` are mapped in the frontend (`_passwordErrorMessage`) to `pwd.*`. Length uses the stable Pydantic codes `string_too_short`/`string_too_long`.
-  - Import fallback category follows the user locale (`bundle_for_locale`), no hard-coded `Sonstiges` any more.
-  - **CLI output is intentionally English-only** (operator tooling convention; no end user sees it). Logs likewise English.
-  - **Intentionally static German:** `manifest.webmanifest` (`name`/`description`/`lang`) — a single served file; true localisation would require server-side content negotiation on `Accept-Language`.
+Two static bundles (`i18n/de.json`, `i18n/en.json`); `i18n.js` provides `window.I18N` + `tr()`. Full BCP-47 locale stored; translation bundle = primary subtag. `SUPPORTED_LOCALES` must stay in sync across `i18n.js`, `schemas.py`, and `<option>` pickers. Currency is display-only. Both JSON catalogs must have **identical keys**. API returns **stable error codes** for CSV import and password validation; frontend translates them (`importExport.error.*`, `pwd.*`).
 
 ## Deployment → [`README.md`](README.md)
-
-## Design Conventions (Frontend)
-
-→ Consult [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md) before every frontend change.
+## Design Conventions (Frontend) → Consult [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md) before every frontend change.
 
 ## Conventions
 
-**Branching/PR workflow (mandatory):** Development always on short-lived
-`feature/*` branches, branched from `dev`. **PRs always against `dev`**,
-**never** directly against `main`. `main` is updated exclusively via a PR
-`dev → main` (= release; triggers the versioned image build).
-`main` and `dev` are protected by ruleset (PR required, green checks, no
-direct/force pushes). Image channels: `:dev` = maintainer staging, `:vX.Y.Z` =
-production. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+**Branching/PR workflow:** `feature/*` → `dev` (PRs always against `dev`); `dev → main` = release. `main`/`dev` are protected. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-**Language:** Everything is English — code, comments, YAML, scripts, all docs (README.md, CLAUDE.md, CONTRIBUTING.md, DESIGN_CONVENTIONS.md), commit messages, and PR titles/descriptions.
+**Language:** Everything in English — code, comments, docs, commits, PRs.
 
 **Backend:**
 - CRUD functions always with `user_id: int`; pass `user.id` from `CurrentUser` in the endpoint
-- New endpoints: add to the matching `app/routers/<domain>.py` (one `APIRouter` per
-  domain, wired in `main.py` via `include_router`) + `schemas.py` + the matching
-  `app/crud/<domain>.py`. A brand-new domain needs a new router module (declare
-  `router = APIRouter()`, re-export it in `routers/__init__.py`, and
-  `app.include_router(routers.<domain>.router)` in `main.py`).
-  Routers pull the shared auth dependencies (`CurrentUser`/`AdminUser`/`RawCurrentUser`/`DB`)
-  and the cookie helpers from `app.deps` — never re-derive them. `main.py` itself holds only
-  app-level wiring (the `DomainError` handler, the security-headers middleware, the router
-  includes, the static mount); no endpoints live there.
-- **CRUD layout:** `app/crud/` is a package, one module per domain (`users`, `categories`,
-  `goals`, `budgets`, `tags`, `recurring`, `transactions`, `settings`, `imexport`) plus `defaults`
-  (seed categories + locale/currency defaults). `crud/__init__.py` re-exports the full
-  former surface, so every call site stays `crud.<function>` — never import a submodule
-  directly. A new crud function goes in its domain module and gets added to the `__init__`
-  re-export + `__all__`. Cross-domain helpers are shared one direction only: `_shared`
-  is the lowest leaf (domain-agnostic helpers like `_get_owned`, the user-scoped
-  primary-key lookup; imports no sibling); `categories` and `tags` are leaf modules
-  above it; `users`/`goals`/`budgets`/`recurring`/`transactions`/`imexport` import the shared
-  helpers (`_owned_category_exists`, `_seed_default_categories`, the tag resolvers)
-  from them — keep it acyclic.
-- Audit events stay in the endpoint layer (the router), where `client_ip()` + DB facts are
-  available; `auth.py`/`crud/*`/`deps.py` remain audit-free.
+- New endpoints: add to `app/routers/<domain>.py` + `schemas.py` + `app/crud/<domain>.py`. New domain: declare `router = APIRouter()`, re-export in `routers/__init__.py`, `app.include_router` in `main.py`.
+- `app/crud/` is a package; one module per domain; `__init__` re-exports full surface — call sites always use `crud.<fn>`. `_shared` is the lowest leaf; keep dependency graph acyclic.
+- Audit events in the **router layer only**; `crud/*`/`deps.py`/`auth.py` remain audit-free.
 - `from_attributes=True` on output schemas; `populate_by_name=True` only with `Field(alias=…)`
-- Schema changes: generate an Alembic revision, never manual `ALTER TABLE`
-- Always register the `StaticFiles` mount last (it stays in `main.py`, after every router)
-- **Money** (`DECIMAL(12,2)`) must never be aggregated via SQL `SUM()`/`func.sum` — SQLite has no native decimal type and would round through float. Compute sums in Python over ORM `Decimal` values (the frontend calculates totals itself anyway). Per-row the round-trip is exact; `tests/test_money_precision.py` pins this.
+- Schema changes: Alembic revision only — never manual `ALTER TABLE`
+- `StaticFiles` mount last in `main.py`
+- **Money** (`DECIMAL(12,2)`): never `SQL SUM()` — SQLite rounds through float. Sum in Python over ORM `Decimal` values. `tests/test_money_precision.py` pins this.
 
 **Frontend:**
-- **Classic scripts, no bundler** (CSP `script-src 'self'`). Script order (see `index.html`): `i18n.js`, `utils.js`, `reportsData.js`, `state.js`, then the feature modules `core.js` → `ledger.js` → `reports.js` → `booking.js` → `categories.js` → `goals.js` → `budgets.js` → `recurring.js` → `settings.js`, and `app.js` (boot) last. Top-level declarations share the global lexical scope, so later scripts use earlier ones directly; inline `onclick` handlers in `index.html` reach any top-level function. **Top-level statements may only call functions defined in the same file or an earlier one** (function hoisting does not cross script boundaries); cross-file calls belong inside functions, which all run after every script is parsed. A `module.exports` guard at each file's bottom is a no-op in the browser but lets Vitest import the pure helpers. Any new frontend `.js` must be added in four places: `index.html` (script tag, before `app.js`), `sw.js` (SHELL precache **and** the network-first list), and the `Dockerfile` static `COPY`.
-- **App state lives in `state.js`** as one grouped `appState` object (`appState.ledger.transactions`, `appState.trend.kind`, …) — **no** loose module-global `let`s in the feature modules. Only safe literal defaults live in `state.js`; state restored from localStorage on boot (active report, trend selection) keeps its restore logic in `core.js` and assigns into `appState`. In-place-mutated `const` collections (`chartInsts`, `tagCounts`, `_txCacheByYear`) stay in `core.js`.
-- **Pure helpers** (`utils.js`, `reportsData.js`) take their data as arguments — no app state, no DOM, no I18N — and are unit-tested with Vitest (`frontend/unit/*.test.js`). Impure helpers that read `appState`/DOM/I18N stay in the feature module that owns them.
+- **Classic scripts, no bundler** (CSP `script-src 'self'`). Script order: `i18n.js`, `utils.js`, `reportsData.js`, `state.js`, feature modules (`core.js` → … → `settings.js`), `app.js` last. Top-level statements may only call functions from the same file or an earlier one (hoisting doesn't cross script boundaries). Any new `.js` must be added in **four places**: `index.html` (script tag), `sw.js` (SHELL precache), `sw.js` (network-first list), `Dockerfile` (static COPY).
+- **App state in `state.js`** as `appState` — no loose module-global `let`s in feature modules.
+- **Pure helpers** (`utils.js`, `reportsData.js`): no DOM/state/I18N; unit-tested with Vitest (`frontend/unit/*.test.js`).
 
 **Alembic migrations:**
 - Revision ID ≤ 24 characters (pytest guard in `test_migrations.py`)
-- DDL idempotent: guard `op.create_*`/`op.drop_*` with `sa.inspect()` (example: `0007_tx_category_idx.py`)
-- MariaDB-only SQL (`UPDATE…JOIN`, `REGEXP`, `CHAR_LENGTH`) split by `dialect.name`
-- `drop_constraint`/`alter_column` always inside a `batch_alter_table` block
+- DDL idempotent: guard with `sa.inspect()` (see `0007_tx_category_idx.py`)
+- MariaDB-only SQL split by `dialect.name`
+- `drop_constraint`/`alter_column` always inside `batch_alter_table`
 
 ## Subagents (`.claude/agents/`)
 

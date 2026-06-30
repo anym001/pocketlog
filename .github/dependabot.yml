@@ -15,3 +15,25 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # Python dependencies (FastAPI, SQLAlchemy, Alembic, argon2-cffi …).
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    target-branch: "dev"
+    groups:
+      python:
+        patterns:
+          - "*"
+
+  # Base image bumps (python:3.12-slim …).
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    target-branch: "dev"
+    groups:
+      docker:
+        patterns:
+          - "*"

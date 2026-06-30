@@ -91,6 +91,10 @@ from .tags import (
 )
 from .transactions import (
     _TX_TAGS_LOAD,
+    bulk_add_tags,
+    bulk_delete,
+    bulk_remove_tags,
+    bulk_set_category,
     create_transaction,
     delete_transaction,
     list_all_transactions,
@@ -176,6 +180,10 @@ __all__ = [
     "update_recurring_rule",
     # transactions
     "_TX_TAGS_LOAD",
+    "bulk_add_tags",
+    "bulk_delete",
+    "bulk_remove_tags",
+    "bulk_set_category",
     "create_transaction",
     "delete_transaction",
     "list_all_transactions",
