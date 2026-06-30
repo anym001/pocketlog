@@ -127,6 +127,15 @@
 
   async function drain(apiBase) {
     const items = await all();
+    // Every queued entry is a state-changing write, so each needs the CSRF
+    // header. Without a token the server rejects them all with 403 and we'd
+    // dead-letter the user's data on what is really a setup gap (e.g. the SW
+    // lost its in-memory token after a restart, or the page outbox was never
+    // seeded). Treat a missing token like being offline: keep the entries and
+    // retry once a token is available, rather than discarding them.
+    if (items.length && !_csrfToken) {
+      return { ok: 0, failed: 0, deferred: items.length };
+    }
     let ok = 0;
     let failed = 0;
     for (const item of items) {

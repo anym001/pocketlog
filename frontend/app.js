@@ -78,7 +78,7 @@ async function submitLogin() {
     }
     const data = await res.json();
     window._csrfToken = data.user.csrf_token;
-    _broadcastCsrfToSw(window._csrfToken);
+    _propagateCsrfToken(window._csrfToken);
     await _afterAuthSuccess(data.user);
   } catch (e) {
     _setAuthError(
@@ -361,7 +361,7 @@ async function init() {
     return;
   }
   window._csrfToken = me.csrf_token;
-  _broadcastCsrfToSw(window._csrfToken);
+  _propagateCsrfToken(window._csrfToken);
   await _afterAuthSuccess(me);
 }
 init();
