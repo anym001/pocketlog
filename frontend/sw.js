@@ -7,6 +7,11 @@
 //                          the offline fallback.
 //   - Static shell assets (icons, fonts, Chart.js vendor bundle) → cache-first.
 //   - GET /api/...   → network-first, falling back to the cache.
+//   - Network-first requests with a cached copy race the network against
+//     a short timeout (NETWORK_TIMEOUT_MS) so a weak signal can't hang the
+//     shell on a white screen — the cache is served the moment the network
+//     is too slow, while the fetch keeps warming the cache in the
+//     background. Auth-state endpoints are exempt (always live).
 //   - Write /api/... → pass through directly while online; offline, store in
 //                       the outbox (frontend/db.js) and return 202.
 //   - Background sync → flush the outbox once the network is back.
@@ -165,10 +170,75 @@ function isAuthPath(url) {
   return url.pathname.startsWith('/api/auth/');
 }
 
+// How long a network-first request may block on a slow ("lie-fi")
+// connection before we serve the cached copy instead. On a fully dead
+// link `fetch` rejects almost instantly and we fall back right away;
+// the timeout exists for the in-between case — a weak signal (Edge/2G)
+// where `fetch` neither resolves nor rejects for tens of seconds. Without
+// it the whole shell (HTML + the classic-script chain that unhides every
+// view) hangs on the network and the user stares at a white screen until
+// the OS-level TCP timeout finally fires. Only armed when a cached copy
+// exists to fall back to — otherwise we must wait for the network anyway.
+const NETWORK_TIMEOUT_MS = 3000;
+
+// Race a fetch against the timeout. Resolves with the response if the
+// network wins; rejects with a sentinel if the timer wins, so the caller
+// can serve the cache. The in-flight fetch is left running — its `.put`
+// still lands, so the cache is warmed for next time even on a slow link.
+function fetchWithTimeout(request, onFresh) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('network-timeout'));
+    }, NETWORK_TIMEOUT_MS);
+    fetch(request).then(
+      (res) => {
+        // Always let the caller cache the fresh response, even if the
+        // timeout already won the race and served the stale copy.
+        if (onFresh) {
+          try {
+            onFresh(res);
+          } catch (_) {}
+        }
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(res);
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 async function networkFirst(request, cacheName) {
   const url = new URL(request.url);
+  // If we already hold a cached copy, don't let a slow network block the
+  // page: race the fetch against NETWORK_TIMEOUT_MS and serve the cache
+  // the moment the network is too slow. The fetch keeps running in the
+  // background and repopulates the cache via the onFresh callback.
+  // Auth-state endpoints are exempt — they must always come live from the
+  // server (a timed-out stale `me` would pin the user in the wrong view),
+  // so they stay on a plain unbounded fetch and never serve from cache.
+  const cachedFallback = isAuthPath(url) ? null : await caches.match(request);
   try {
-    const fresh = await fetch(request);
+    const fresh = cachedFallback
+      ? await fetchWithTimeout(request, (res) => {
+          // Clone synchronously, before the page consumes the body — the
+          // cache write below runs a microtask later and res.clone() would
+          // otherwise throw "body already used".
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(cacheName).then((c) => c.put(request, copy));
+          }
+        })
+      : await fetch(request);
     // Auth boundary: a 401 on /api/* means the session expired or a
     // different Authentik identity is signed in. Drop the API cache so
     // the next online request repopulates it from scratch — never serve
@@ -188,9 +258,11 @@ async function networkFirst(request, cacheName) {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
-    } else if (fresh.ok) {
+    } else if (fresh.ok && !cachedFallback) {
       // Only cache successful responses. Caching 4xx/5xx would let a
-      // transient error linger as the offline fallback.
+      // transient error linger as the offline fallback. On the warm-cache
+      // (timeout) path the onFresh callback already wrote the cache, so we
+      // skip the redundant put here.
       const cache = await caches.open(cacheName);
       cache.put(request, fresh.clone());
     }
@@ -206,7 +278,10 @@ async function networkFirst(request, cacheName) {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    const cached = await caches.match(request);
+    // Reached either because the network erred outright or because it was
+    // too slow and the timeout fired (network-timeout sentinel). Either
+    // way, serve the cached copy we already looked up above.
+    const cached = cachedFallback || (await caches.match(request));
     if (cached) return cached;
     return new Response(JSON.stringify({ offline: true }), {
       status: 503,
