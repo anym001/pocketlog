@@ -71,6 +71,7 @@
     "savePassword": "Save password",
     "loggedInAs": "Signed in as {name}",
     "badCredentials": "Username or password is incorrect.",
+    "offline": "No internet connection. Sign-in unavailable.",
     "passwordsMismatch": "The passwords don’t match.",
     "setupFailed": "Setup failed. Check your input and try again.",
     "setupAlreadyDone": "First-time setup is already complete. Please reload."

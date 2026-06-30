@@ -71,6 +71,7 @@
     "savePassword": "Passwort speichern",
     "loggedInAs": "Angemeldet als {name}",
     "badCredentials": "Benutzername oder Passwort stimmt nicht.",
+    "offline": "Keine Internetverbindung. Anmeldung nicht möglich.",
     "passwordsMismatch": "Die Passwörter stimmen nicht überein.",
     "setupFailed": "Einrichtung fehlgeschlagen. Eingaben prüfen und erneut versuchen.",
     "setupAlreadyDone": "Die Ersteinrichtung ist bereits abgeschlossen. Bitte neu laden."
