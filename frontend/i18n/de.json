@@ -14,7 +14,8 @@
     "actionFailed": "Aktion fehlgeschlagen.",
     "downloadFailed": "Download fehlgeschlagen",
     "nameRequired": "Name ist ein Pflichtfeld.",
-    "loading": "Wird geladen …"
+    "loading": "Wird geladen …",
+    "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist."
   },
   "menu": {
     "title": "Menü",

@@ -14,7 +14,8 @@
     "actionFailed": "Action failed.",
     "downloadFailed": "Download failed",
     "nameRequired": "Name is required.",
-    "loading": "Loading …"
+    "loading": "Loading …",
+    "queuedOffline": "Saved offline. Will sync once you’re back online."
   },
   "menu": {
     "title": "Menu",

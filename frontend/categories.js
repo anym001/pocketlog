@@ -650,17 +650,15 @@ async function saveCategoryEdit() {
     toast(tr('categories.invalidColor'), 'error');
     return;
   }
+  const editId = appState.catEdit.id;
+  const fields = { name, icon, color: appState.catEdit.color };
   try {
-    if (appState.catEdit.id) {
-      await api('PUT', `/categories/${appState.catEdit.id}`, {
-        name,
-        icon,
-        color: appState.catEdit.color,
-      });
-    } else {
-      await api('POST', '/categories', { name, icon, color: appState.catEdit.color });
-    }
+    const result = editId
+      ? await api('PUT', `/categories/${editId}`, fields)
+      : await api('POST', '/categories', fields);
     closeCatModal();
+    if (_handleQueuedWrite(result, () => _applyCatLocally(editId ? 'PUT' : 'POST', editId, fields)))
+      return;
     await loadCategories();
     renderCategories();
     await loadAndRender();
@@ -673,6 +671,25 @@ async function saveCategoryEdit() {
   }
 }
 
+// Mirror a category create/edit/delete into the in-memory list so an offline
+// change shows immediately; the next sync reload reconciles it (see
+// refreshDomainAfterSync). Display fields (icon/color) on transaction rows are
+// resolved from this list via getCatById, so updating it is enough.
+function _applyCatLocally(method, id, fields) {
+  const list = appState.ledger.categories;
+  if (method === 'DELETE') {
+    const i = list.findIndex((c) => c.id === Number(id));
+    if (i >= 0) list.splice(i, 1);
+  } else if (method === 'PUT') {
+    const c = list.find((x) => x.id === Number(id));
+    if (c) Object.assign(c, fields);
+  } else {
+    list.push({ id: -Date.now(), ...fields }); // provisional id until sync
+  }
+  renderCategories();
+  renderAll();
+}
+
 async function deleteCategoryEdit() {
   if (!appState.catEdit.id) return;
   const ok = await confirmAction({
@@ -680,9 +697,11 @@ async function deleteCategoryEdit() {
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
+  const editId = appState.catEdit.id;
   try {
-    await api('DELETE', `/categories/${appState.catEdit.id}`);
+    const result = await api('DELETE', `/categories/${editId}`);
     closeCatModal();
+    if (_handleQueuedWrite(result, () => _applyCatLocally('DELETE', editId))) return;
     await loadCategories();
     renderCategories();
     await loadAndRender();

@@ -237,6 +237,22 @@ async function authFetch(method, path, body, opts = {}) {
 // Miss the page-side token and an offline edit replays without the header,
 // the server rejects it with 403, drain dead-letters it, and the change
 // looks reverted on reconnect.
+// Shared offline-write helper. When api() reports a queued write (HTTP 202 —
+// the service worker stored it in the outbox instead of reaching the server),
+// reflect the change locally via applyLocally(), tell the user it's saved
+// offline, and bump the sync badge. Returns true when it handled a queued
+// write, so the caller skips its normal reload-from-cache path (which offline
+// would just re-render the stale data and make the change look lost).
+function _handleQueuedWrite(result, applyLocally) {
+  if (!result || !result.queued) return false;
+  try {
+    applyLocally();
+  } catch (_) {}
+  if (typeof updateSyncBadge === 'function') updateSyncBadge();
+  toast(tr('common.queuedOffline'));
+  return true;
+}
+
 function _propagateCsrfToken(token) {
   const t = token || '';
   try {

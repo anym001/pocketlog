@@ -62,13 +62,16 @@ async function saveTagEdit() {
     closeTagModal();
     return;
   }
+  const oldName = appState.tagEdit.name;
   try {
-    if (appState.tagEdit.name) {
-      await api('PUT', `/tags/${encodeURIComponent(appState.tagEdit.name)}`, { new_name: newName });
-    } else {
-      await api('POST', '/tags', { name: newName });
-    }
+    const result = oldName
+      ? await api('PUT', `/tags/${encodeURIComponent(oldName)}`, { new_name: newName })
+      : await api('POST', '/tags', { name: newName });
     closeTagModal();
+    if (
+      _handleQueuedWrite(result, () => _applyTagLocally(oldName ? 'PUT' : 'POST', oldName, newName))
+    )
+      return;
     await loadTags();
     renderTagList();
     await loadAndRender();
@@ -89,15 +92,64 @@ async function deleteTagEdit() {
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
+  const oldName = appState.tagEdit.name;
   try {
-    await api('DELETE', `/tags/${encodeURIComponent(appState.tagEdit.name)}`);
+    const result = await api('DELETE', `/tags/${encodeURIComponent(oldName)}`);
     closeTagModal();
+    if (_handleQueuedWrite(result, () => _applyTagLocally('DELETE', oldName))) return;
     await loadTags();
     renderTagList();
     await loadAndRender();
   } catch (e) {
     toast(tr('tx.deleteFailed') + e.message, 'error');
   }
+}
+
+// Mirror a tag create/rename/delete into the in-memory tag list and the loaded
+// transaction pools for the offline queued path; the next sync reload
+// reconciles. availableTags holds canonical server casing (see loadTags), so a
+// new/renamed tag is stored as typed while matching stays case-insensitive.
+function _applyTagLocally(method, oldName, newName) {
+  const tags = appState.ledger.availableTags;
+  const lc = (s) => (s || '').toLowerCase();
+  const sortTags = () =>
+    tags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  if (method === 'POST') {
+    if (newName && !tags.some((t) => lc(t) === lc(newName))) {
+      tags.push(newName);
+      sortTags();
+    }
+  } else if (method === 'DELETE') {
+    const i = tags.findIndex((t) => lc(t) === lc(oldName));
+    if (i >= 0) tags.splice(i, 1);
+    _renameTagInTxPools(oldName, null);
+  } else if (method === 'PUT') {
+    const i = tags.findIndex((t) => lc(t) === lc(oldName));
+    if (i >= 0) tags[i] = newName;
+    sortTags();
+    _renameTagInTxPools(oldName, newName);
+  }
+  renderTagList();
+  renderAll();
+}
+
+// Rename (newName) or remove (newName == null) a tag across the loaded
+// transaction pools, matching case-insensitively on the old name.
+function _renameTagInTxPools(oldName, newName) {
+  const lcOld = (oldName || '').toLowerCase();
+  const apply = (pool) => {
+    if (!pool) return;
+    pool.forEach((t) => {
+      if (!t.tags || !t.tags.length) return;
+      t.tags =
+        newName == null
+          ? t.tags.filter((x) => x.toLowerCase() !== lcOld)
+          : t.tags.map((x) => (x.toLowerCase() === lcOld ? newName : x));
+    });
+  };
+  apply(appState.ledger.transactions);
+  apply(appState.ledger.all);
+  apply(appState.reports.txPool);
 }
 
 // ── SYNC (service worker outbox) ──────────────────────────────────────────────
@@ -188,12 +240,30 @@ async function syncNow() {
     toast(msg, 'error');
   }
   if (flushed > 0 || failed > 0) {
-    await loadTags();
-    // Replayed POST/PUT/DELETE on /api/recurring would otherwise
-    // leave the in-memory rules list stale until the user opens
-    // the panel; refresh so the next render is correct.
-    await loadRecurringRules();
+    await refreshDomainAfterSync();
+  } else {
+    await loadAndRender();
   }
+}
+
+// After a sync drains the outbox, the in-memory entity lists may still hold
+// optimistic offline edits — including provisional negative ids from offline
+// creates. Reload every list the offline write path can touch so the server's
+// real rows replace them, then re-render whatever panel is on screen. Replayed
+// writes on /api/recurring need the same treatment, hence the rules reload.
+async function refreshDomainAfterSync() {
+  await Promise.all([
+    loadTags(),
+    loadCategories(),
+    loadGoals(),
+    loadBudgets(),
+    loadRecurringRules(),
+  ]);
+  renderTagList();
+  renderCategories();
+  if (appState.nav.activePanel === 'goals') await renderGoalsView();
+  if (appState.nav.activePanel === 'budgets') await renderBudgetsView();
+  if (appState.nav.activePanel === 'recurring') await renderRecurringView();
   await loadAndRender();
 }
 
@@ -409,8 +479,7 @@ if ('serviceWorker' in navigator) {
         const msg = failed === 1 ? tr('sync.oneFailed') : tr('sync.manyFailed', { n: failed });
         toast(msg, 'error');
       }
-      loadTags();
-      loadAndRender();
+      refreshDomainAfterSync();
     }
   });
 }
