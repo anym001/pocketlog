@@ -37,6 +37,15 @@ async function submitLogin() {
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
   const remember = document.getElementById('loginRemember').checked;
+  // Login needs the server: the password is verified server-side and the
+  // session cookie is issued by the backend — there is deliberately no
+  // offline credential cache (the service worker even refuses to queue
+  // login attempts). When there's no connection, say so plainly instead
+  // of letting the request fail into a misleading "bad credentials".
+  if (navigator.onLine === false) {
+    _setAuthError('loginError', tr('auth.offline'));
+    return;
+  }
   const btn = document.getElementById('loginSubmit');
   if (btn) btn.disabled = true;
   try {
@@ -55,6 +64,14 @@ async function submitLogin() {
       );
       return;
     }
+    if (res.status === 503) {
+      // The service worker's offline fallback (or an unreachable backend
+      // on "lie-fi", where navigator.onLine still reports online). A login
+      // is never queued, so this is a connection problem, not a wrong
+      // password.
+      _setAuthError('loginError', tr('auth.offline'));
+      return;
+    }
     if (!res.ok) {
       _setAuthError('loginError', tr('auth.badCredentials'));
       return;
@@ -64,7 +81,10 @@ async function submitLogin() {
     _broadcastCsrfToSw(window._csrfToken);
     await _afterAuthSuccess(data.user);
   } catch (e) {
-    _setAuthError('loginError', tr('common.connectionFailed'));
+    _setAuthError(
+      'loginError',
+      navigator.onLine === false ? tr('auth.offline') : tr('common.connectionFailed'),
+    );
   } finally {
     if (btn) btn.disabled = false;
   }
