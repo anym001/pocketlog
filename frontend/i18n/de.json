@@ -353,6 +353,7 @@
     "amountDateRequired": "Gib Betrag und Datum ein.",
     "saveFailed": "Fehler beim Speichern: ",
     "deleteFailed": "Fehler beim Löschen: ",
+    "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist.",
     "emptyMonth": "Keine Buchungen in diesem Monat.",
     "emptyMonthHint": "Tippe auf <strong>+</strong>, um eine hinzuzufügen.",
     "emptySearch": "Keine Buchungen passen zu „{query}“.",
