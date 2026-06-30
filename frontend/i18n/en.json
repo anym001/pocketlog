@@ -353,6 +353,7 @@
     "amountDateRequired": "Enter an amount and a date.",
     "saveFailed": "Error while saving: ",
     "deleteFailed": "Error while deleting: ",
+    "queuedOffline": "Saved offline. Will sync once you’re back online.",
     "emptyMonth": "No transactions this month.",
     "emptyMonthHint": "Tap <strong>+</strong> to add one.",
     "emptySearch": "No transactions match “{query}”.",

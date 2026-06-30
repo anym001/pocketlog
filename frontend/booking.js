@@ -182,20 +182,73 @@ async function addTransaction() {
   const method = editId ? 'PUT' : 'POST';
   const path = editId ? `/transactions/${editId}` : '/transactions';
   try {
-    await api(method, path, body);
+    const result = await api(method, path, body);
     mergeIntoAvailableTags(appState.form.tags);
     closeModal();
+    if (result && result.queued) {
+      // Offline: the service worker queued the write (HTTP 202) instead of
+      // reaching the server. Reloading now would pull the stale API cache and
+      // make the save look reverted — so mirror the change into the in-memory
+      // pools and re-render. The next sync (SYNC_DONE → loadAndRender)
+      // reconciles with the server, replacing the provisional create row.
+      _applyTxLocally(method, editId, body);
+      renderAll();
+      updateSyncBadge();
+      toast(tr('tx.queuedOffline'));
+      return;
+    }
     await Promise.all([loadAndRender(), loadTags()]);
   } catch (e) {
     if (!navigator.onLine && window.PocketLogOutbox) {
+      // No active service worker to queue the write — enqueue it ourselves and
+      // reflect it locally, same as the 202 path above.
       await window.PocketLogOutbox.enqueue({ method, path, body });
       mergeIntoAvailableTags(appState.form.tags);
+      _applyTxLocally(method, editId, body);
       closeModal();
+      renderAll();
       updateSyncBadge();
+      toast(tr('tx.queuedOffline'));
       return;
     }
     toast(tr('tx.saveFailed') + e.message, 'error');
   }
+}
+
+// Mirror a single create/edit into the in-memory transaction pools so an
+// offline save shows immediately, before the service worker replays it.
+// Mirrors _applyBulkLocally (ledger.js): only the ledger pools are touched —
+// the report cache is already invalidated by api() on every non-GET. All
+// display fields derive from category_id via getCatById, so updating the raw
+// fields is enough.
+function _applyTxLocally(method, editId, body) {
+  const fields = {
+    amount: Number(body.amount),
+    desc: body.desc,
+    category_id: body.category_id,
+    date: body.date,
+    type: body.type,
+    tags: (body.tags || []).slice(),
+  };
+  if (method === 'PUT') {
+    const id = Number(editId);
+    [appState.ledger.transactions, appState.ledger.all].forEach((pool) => {
+      if (!pool) return;
+      const t = pool.find((x) => x.id === id);
+      if (t) Object.assign(t, fields);
+    });
+    return;
+  }
+  // Create: there's no server id yet. A negative provisional id keeps the row
+  // distinct from real ones until the next sync reload replaces it.
+  const tx = { id: -Date.now(), source_rule_id: null, ...fields };
+  // The month list is scoped to the displayed month, so only add it there when
+  // its date falls in that month; otherwise it would render under a stray date.
+  const [y, m] = body.date.split('-').map(Number);
+  if (y === appState.view.year && m === appState.view.month + 1) {
+    appState.ledger.transactions.push(tx);
+  }
+  if (appState.ledger.all) appState.ledger.all.push(tx);
 }
 
 function mergeIntoAvailableTags(tags) {
