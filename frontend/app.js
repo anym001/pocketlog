@@ -210,6 +210,7 @@ async function _afterAuthSuccess(me) {
   await loadAndRender();
   showPanel(loadDefaultView());
   updateSyncBadge();
+  updateFailedNotice();
   reconcileSettingsFromServer();
   // Toast the "N transactions auto-added" notice once per session if
   // the backend just materialized due recurring occurrences. The

@@ -106,6 +106,20 @@
     });
   }
 
+  // Move every dead-lettered entry back into the outbox so the next drain
+  // retries it — used by the recovery UI once the cause of the 4xx is gone
+  // (the prime example: a replay that 403'd because the CSRF token wasn't
+  // propagated). Only method/path/body are requeued; the failure metadata
+  // (status/detail) is dropped. Returns the number of entries requeued.
+  async function requeueFailed() {
+    const items = await failedAll();
+    for (const item of items) {
+      await enqueue({ method: item.method, path: item.path, body: item.body });
+    }
+    await failedClear();
+    return items.length;
+  }
+
   // Replays the outbox. Returns {ok, failed}:
   //   ok     – number of entries processed successfully
   //   failed – number of entries the server rejected with a 4xx
@@ -188,6 +202,7 @@
     failedAll,
     failedCount,
     failedClear,
+    requeueFailed,
     setCsrfToken,
   };
 })(self);

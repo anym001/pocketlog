@@ -244,6 +244,52 @@ async function syncNow() {
   } else {
     await loadAndRender();
   }
+  await updateFailedNotice();
+}
+
+// ── DEAD-LETTER RECOVERY ──────────────────────────────────────────────────────
+// drain() moves a write to the `failed` store when the server rejects its
+// replay with a 4xx, so user data is never silently dropped. This surfaces
+// those entries: a drawer section (Import/Export) plus an attention dot on the
+// header sync button, with all-or-nothing retry / discard.
+
+async function updateFailedNotice() {
+  const n = window.PocketLogOutbox ? await window.PocketLogOutbox.failedCount() : 0;
+  const section = document.getElementById('failedSyncSection');
+  if (section) section.hidden = n === 0;
+  const countEl = document.getElementById('failedSyncCount');
+  if (countEl) {
+    countEl.textContent = n === 1 ? tr('sync.recoverOne') : tr('sync.recoverMany', { n });
+  }
+  // Attention cue on the header sync button (reuses the red error dot).
+  const dot = document.getElementById('syncDot');
+  if (dot) dot.classList.toggle('error', n > 0);
+}
+
+// Push the dead-lettered writes back into the outbox and replay them. With the
+// CSRF token now propagated, a write that only failed because of the old
+// token bug goes through; a genuinely invalid one (duplicate name, deleted
+// category) lands back in the failed store — one pass, no retry loop.
+async function retryFailedSync() {
+  if (!window.PocketLogOutbox) return;
+  const n = await window.PocketLogOutbox.requeueFailed();
+  if (n > 0) updateSyncBadge();
+  await syncNow();
+  await updateFailedNotice();
+}
+
+async function discardFailedSync() {
+  if (!window.PocketLogOutbox) return;
+  const ok = await confirmAction({
+    title: tr('sync.recoverDiscardConfirm'),
+    message: tr('sync.recoverDiscardBody'),
+    confirmLabel: tr('sync.recoverDiscard'),
+    destructive: true,
+  });
+  if (!ok) return;
+  await window.PocketLogOutbox.failedClear();
+  await updateFailedNotice();
+  toast(tr('sync.recoverDiscarded'));
 }
 
 // After a sync drains the outbox, the in-memory entity lists may still hold
@@ -480,6 +526,7 @@ if ('serviceWorker' in navigator) {
         toast(msg, 'error');
       }
       refreshDomainAfterSync();
+      updateFailedNotice();
     }
   });
 }

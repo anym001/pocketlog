@@ -580,6 +580,26 @@
               >Beispieldatei herunterladen</button>
               <div class="status-msg" id="importStatus"></div>
             </div>
+            <!-- Dead-letter recovery: only shown when the outbox moved writes
+                 to the failed store (a replay the server rejected). -->
+            <div class="settings-section" id="failedSyncSection" hidden>
+              <span class="settings-field-label" data-i18n="sync.recoverTitle">Nicht synchronisiert</span>
+              <p class="status-msg" id="failedSyncCount"></p>
+              <p class="empty-state-hint" data-i18n="sync.recoverHint">
+                Erneut versuchen, sobald du wieder online bist – oder verwerfen.
+              </p>
+              <button class="save-btn" onclick="retryFailedSync()" data-i18n="sync.recoverRetry">
+                Erneut versuchen
+              </button>
+              <button
+                class="save-btn"
+                style="margin-top: var(--space-8)"
+                onclick="discardFailedSync()"
+                data-i18n="sync.recoverDiscard"
+              >
+                Verwerfen
+              </button>
+            </div>
           </div>
         </div>
 

@@ -562,7 +562,16 @@
     "offlineSaving": "Offline – Änderungen werden gespeichert",
     "failed": "Synchronisation fehlgeschlagen – Verbindung prüfen",
     "oneFailed": "1 Buchung konnte nicht gespeichert werden.",
-    "manyFailed": "{n} Buchungen konnten nicht gespeichert werden."
+    "manyFailed": "{n} Buchungen konnten nicht gespeichert werden.",
+    "recoverTitle": "Nicht synchronisiert",
+    "recoverOne": "1 Änderung konnte nicht gespeichert werden.",
+    "recoverMany": "{n} Änderungen konnten nicht gespeichert werden.",
+    "recoverHint": "Erneut versuchen, sobald du wieder online bist – oder verwerfen.",
+    "recoverRetry": "Erneut versuchen",
+    "recoverDiscard": "Verwerfen",
+    "recoverDiscardConfirm": "Änderungen verwerfen?",
+    "recoverDiscardBody": "Diese Änderungen gehen endgültig verloren.",
+    "recoverDiscarded": "Verworfen."
   },
   "date": {
     "today": "Heute",

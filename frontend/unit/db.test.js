@@ -122,6 +122,27 @@ describe('PocketLogOutbox.drain', () => {
     expect(await OB.failedCount()).toBe(0);
   });
 
+  it('requeueFailed moves dead-lettered entries back into the outbox', async () => {
+    OB.setCsrfToken('tok');
+    // Dead-letter one entry via a 4xx, then requeue it.
+    await OB.enqueue({ method: 'PUT', path: '/transactions/1', body: { amount: 27 } });
+    globalThis.fetch = vi.fn(async () => reply(403));
+    await OB.drain('/api');
+    expect(await OB.failedCount()).toBe(1);
+    expect(await OB.count()).toBe(0);
+
+    const n = await OB.requeueFailed();
+
+    expect(n).toBe(1);
+    expect(await OB.failedCount()).toBe(0);
+    expect(await OB.count()).toBe(1); // back in the outbox for the next drain
+    // and the requeued entry replays cleanly once the cause is gone
+    globalThis.fetch = vi.fn(async () => reply(200));
+    const r = await OB.drain('/api');
+    expect(r.ok).toBe(1);
+    expect(await OB.count()).toBe(0);
+  });
+
   it('stops on a network error, keeping the entry queued', async () => {
     OB.setCsrfToken('tok');
     await OB.enqueue({ method: 'PUT', path: '/transactions/1', body: { amount: 27 } });
