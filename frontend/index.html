@@ -580,26 +580,6 @@
               >Beispieldatei herunterladen</button>
               <div class="status-msg" id="importStatus"></div>
             </div>
-            <!-- Dead-letter recovery: only shown when the outbox moved writes
-                 to the failed store (a replay the server rejected). -->
-            <div class="settings-section" id="failedSyncSection" hidden>
-              <span class="settings-field-label" data-i18n="sync.recoverTitle">Nicht synchronisiert</span>
-              <p class="status-msg error" id="failedSyncCount"></p>
-              <p class="empty-state-hint" data-i18n="sync.recoverHint">
-                Erneut versuchen, sobald du wieder online bist – oder verwerfen.
-              </p>
-              <button class="save-btn" onclick="retryFailedSync()" data-i18n="sync.recoverRetry">
-                Erneut versuchen
-              </button>
-              <button
-                class="save-btn"
-                style="margin-top: var(--space-8)"
-                onclick="discardFailedSync()"
-                data-i18n="sync.recoverDiscard"
-              >
-                Verwerfen
-              </button>
-            </div>
           </div>
         </div>
 
@@ -951,9 +931,8 @@
       </div>
     </div>
 
-    <!-- Dead-letter banner: surfaces writes the server rejected on replay so
-         they aren't only findable three levels deep in Settings. A tap opens
-         the recovery controls (Settings → Import/Export). Toggled by
+    <!-- Dead-letter banner: surfaces writes the server rejected on replay.
+         A tap opens the recovery sheet (retry / discard). Toggled by
          updateFailedNotice(). -->
     <button class="sync-banner" id="failedSyncBanner" onclick="openFailedRecovery()" hidden>
       <span class="sync-banner-text" id="failedSyncBannerText"></span>

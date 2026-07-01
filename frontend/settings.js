@@ -255,15 +255,7 @@ async function syncNow() {
 
 async function updateFailedNotice() {
   const n = window.PocketLogOutbox ? await window.PocketLogOutbox.failedCount() : 0;
-  const section = document.getElementById('failedSyncSection');
-  if (section) section.hidden = n === 0;
-  const countEl = document.getElementById('failedSyncCount');
-  if (countEl) {
-    countEl.textContent = n === 1 ? tr('sync.recoverOne') : tr('sync.recoverMany', { n });
-  }
-  // Primary surfacing: a banner at the top of the ledger. The drawer section
-  // stays as the detail/action surface; the banner is how the user finds it
-  // without digging three levels into Settings.
+  // Primary surfacing: a banner at the top of the content, on every view.
   const banner = document.getElementById('failedSyncBanner');
   if (banner) banner.hidden = n === 0;
   const bannerText = document.getElementById('failedSyncBannerText');
@@ -275,15 +267,87 @@ async function updateFailedNotice() {
   if (dot) dot.classList.toggle('error', n > 0);
 }
 
-// Deep-link from the ledger banner to the recovery controls, which live under
-// Settings → Import/Export. Walk the drawer there (opening it first on mobile,
-// where it's an overlay rather than a persistent sidebar) and reveal the
-// section so the retry/discard actions are in view.
-function openFailedRecovery() {
-  _drawerResetPanels();
-  if (!_mqTablet.matches) openDrawer();
-  drawerNav('dpSettings');
-  drawerNav('dpImport');
+// Open the recovery sheet from the banner: a self-contained dialog (no drawer
+// navigation) offering retry or discard. Built programmatically like
+// confirmAction so it inherits the same overlay, scroll-lock and Escape
+// handling. No-op when nothing is dead-lettered.
+async function openFailedRecovery() {
+  const n = window.PocketLogOutbox ? await window.PocketLogOutbox.failedCount() : 0;
+  if (n === 0) return;
+
+  const prevFocus = document.activeElement;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open';
+  overlay.style.alignItems = 'center';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal confirm-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'recoverTitle');
+
+  const h = document.createElement('h2');
+  h.id = 'recoverTitle';
+  h.textContent = tr('sync.recoverTitle');
+  modal.appendChild(h);
+
+  const p = document.createElement('p');
+  p.className = 'confirm-msg';
+  const count = n === 1 ? tr('sync.recoverOne') : tr('sync.recoverMany', { n });
+  p.textContent = count + ' ' + tr('sync.recoverHint');
+  modal.appendChild(p);
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'submit-btn';
+  retry.textContent = tr('sync.recoverRetry');
+  modal.appendChild(retry);
+
+  const discard = document.createElement('button');
+  discard.type = 'button';
+  discard.className = 'submit-btn btn-destructive';
+  discard.textContent = tr('sync.recoverDiscard');
+  modal.appendChild(discard);
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'confirm-cancel';
+  cancel.textContent = tr('common.close');
+  modal.appendChild(cancel);
+
+  overlay.appendChild(modal);
+
+  const close = () => {
+    overlay.removeEventListener('keydown', onKey);
+    overlay.remove();
+    const stillOpen = document.querySelector('.modal-overlay.open');
+    if (!stillOpen) document.body.style.overflow = '';
+    if (prevFocus && document.contains(prevFocus) && typeof prevFocus.focus === 'function') {
+      prevFocus.focus();
+    }
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') close();
+  };
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+  overlay.addEventListener('keydown', onKey);
+  cancel.addEventListener('click', close);
+  // Close first so discard's own confirm isn't stacked on top of this sheet.
+  retry.addEventListener('click', () => {
+    close();
+    retryFailedSync();
+  });
+  discard.addEventListener('click', () => {
+    close();
+    discardFailedSync();
+  });
+
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => retry.focus(), 50);
 }
 
 // Push the dead-lettered writes back into the outbox and replay them. With the
