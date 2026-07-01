@@ -3515,6 +3515,11 @@
         text-align: start;
         cursor: pointer;
       }
+      /* display:flex above beats the UA [hidden]{display:none}, so honour the
+         hidden attribute explicitly (see .sync-badge[hidden]). */
+      .sync-banner[hidden] {
+        display: none;
+      }
       .sync-banner:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
