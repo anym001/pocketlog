@@ -235,7 +235,15 @@ async function networkFirst(request, cacheName) {
           // otherwise throw "body already used".
           if (res && res.ok) {
             const copy = res.clone();
-            caches.open(cacheName).then((c) => c.put(request, copy));
+            // Fire-and-forget by design (the response must not wait on
+            // this), but still caught: an uncaught QuotaExceededError here
+            // would surface as an unhandled rejection instead of just
+            // leaving the offline cache one response staler than it could
+            // be — a harmless outcome that doesn't deserve a console error.
+            caches
+              .open(cacheName)
+              .then((c) => c.put(request, copy))
+              .catch(() => {});
           }
         })
       : await fetch(request);
@@ -264,7 +272,11 @@ async function networkFirst(request, cacheName) {
       // (timeout) path the onFresh callback already wrote the cache, so we
       // skip the redundant put here.
       const cache = await caches.open(cacheName);
-      cache.put(request, fresh.clone());
+      // Awaited so a QuotaExceededError is caught here rather than
+      // escaping as an unhandled rejection after the response already
+      // returned; caching is best-effort, so a failure here doesn't fail
+      // the request.
+      await cache.put(request, fresh.clone()).catch(() => {});
     }
     return fresh;
   } catch (e) {
@@ -299,7 +311,9 @@ async function cacheFirst(request) {
   try {
     const res = await fetch(request);
     const cache = await caches.open(CACHE);
-    cache.put(request, res.clone());
+    // Best-effort: a full quota shouldn't fail the response, just skip
+    // refreshing this shell asset in the cache.
+    await cache.put(request, res.clone()).catch(() => {});
     return res;
   } catch (e) {
     return new Response('', { status: 503, statusText: 'Offline' });

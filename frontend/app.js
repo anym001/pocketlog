@@ -2,6 +2,28 @@
 // init(). Loaded last — every other frontend module is already parsed
 // when init() runs (see index.html for the full script order).
 
+// ── GLOBAL ERROR SURFACING ────────────────────────────────────────────────────
+// Without this, a bug anywhere in the app (a thrown error, a rejected
+// promise nobody awaited) failed silently — nothing but a console line the
+// user never sees, leaving them stuck on a dead view with no explanation.
+// This only makes failures visible locally; no data leaves the device (no
+// tracking, per project privacy policy).
+let _lastGlobalErrorToastAt = 0;
+function _surfaceUnexpectedError() {
+  const now = Date.now();
+  if (now - _lastGlobalErrorToastAt < 4000) return; // one toast per burst
+  _lastGlobalErrorToastAt = now;
+  toast(tr('common.actionFailed'), 'error');
+}
+window.addEventListener('error', (event) => {
+  console.error('Unhandled error:', event.error || event.message);
+  _surfaceUnexpectedError();
+});
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  _surfaceUnexpectedError();
+});
+
 // ── AUTH BOOTSTRAP ────────────────────────────────────────────────────────────
 function _showAuthView(id) {
   // 'login' | 'setup' | 'forcePw' | null (none = app shell)
