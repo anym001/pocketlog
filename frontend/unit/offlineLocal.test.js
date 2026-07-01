@@ -179,3 +179,97 @@ describe('_applyTagLocally (settings.js)', () => {
     expect(appState.ledger.all[0].tags).toEqual(['Rewe']);
   });
 });
+
+// Offline READ fallback (ledger.js): when the per-month GET misses the cache
+// offline, the month view is rebuilt from the cached full history filtered
+// client-side, so any month ever synced stays browsable offline. And the
+// full-history cache warm is throttled so rapid month stepping online doesn't
+// refetch the whole history each time.
+describe('ledger.js offline month fallback', () => {
+  const FULL = [
+    {
+      id: 1,
+      amount: '10.00',
+      desc: 'jun',
+      category_id: 2,
+      date: '2026-06-10',
+      type: 'out',
+      tags: [],
+    },
+    {
+      id: 2,
+      amount: '20.00',
+      desc: 'may',
+      category_id: 2,
+      date: '2026-05-11',
+      type: 'in',
+      tags: ['x'],
+    },
+    {
+      id: 3,
+      amount: '30.00',
+      desc: 'jun2',
+      category_id: 3,
+      date: '2026-06-30',
+      type: 'out',
+      tags: [],
+    },
+  ];
+
+  function loadLedger(appState, api) {
+    return load('ledger.js', ['_monthFromFullHistory', '_txInViewMonth', '_warmFullHistoryCache'], {
+      stubs: [
+        'renderAll',
+        'applySearch',
+        'renderTransactions',
+        'closeAllSwipes',
+        'renderCategoryView',
+      ],
+      globals: { document: { addEventListener() {} }, api },
+      appState,
+    });
+  }
+
+  it('_monthFromFullHistory returns only the displayed month, normalized', async () => {
+    const appState = { view: { year: 2026, month: 5 }, ledger: { fullHistoryWarmedAt: 0 } }; // month 5 → June
+    const mod = loadLedger(appState, async () => FULL);
+    const rows = await mod._monthFromFullHistory();
+    expect(rows.map((r) => r.id).sort()).toEqual([1, 3]);
+    // normalizeTx coerces amount to Number.
+    expect(rows.every((r) => typeof r.amount === 'number')).toBe(true);
+  });
+
+  it('_monthFromFullHistory returns [] when the full history is not cached', async () => {
+    const appState = { view: { year: 2026, month: 5 }, ledger: { fullHistoryWarmedAt: 0 } };
+    const mod = loadLedger(appState, async () => {
+      throw Object.assign(new Error('offline'), { status: undefined });
+    });
+    expect(await mod._monthFromFullHistory()).toEqual([]);
+  });
+
+  it('_warmFullHistoryCache skips the refetch inside the throttle window', async () => {
+    let calls = 0;
+    const appState = {
+      view: { year: 2026, month: 5 },
+      ledger: { fullHistoryWarmedAt: Date.now() },
+    };
+    const mod = loadLedger(appState, async () => {
+      calls++;
+      return FULL;
+    });
+    mod._warmFullHistoryCache();
+    expect(calls).toBe(0); // warmed just now → throttled
+  });
+
+  it('_warmFullHistoryCache refetches once the throttle window has passed', async () => {
+    let calls = 0;
+    const appState = { view: { year: 2026, month: 5 }, ledger: { fullHistoryWarmedAt: 0 } };
+    const mod = loadLedger(appState, async () => {
+      calls++;
+      return FULL;
+    });
+    mod._warmFullHistoryCache();
+    expect(calls).toBe(1);
+    expect(appState.ledger.fullHistoryWarmedAt).toBeGreaterThan(0);
+  });
+});

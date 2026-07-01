@@ -374,10 +374,7 @@ describe('_importReport', () => {
   it('reports not-ok when nothing was imported', () => {
     const r = _importReport({ imported: 0, skipped: 1, deduped: 0, errors: [] });
     expect(r.ok).toBe(false);
-    expect(r.summary.map((s) => s.key)).toEqual([
-      'importExport.imported',
-      'importExport.skipped',
-    ]);
+    expect(r.summary.map((s) => s.key)).toEqual(['importExport.imported', 'importExport.skipped']);
   });
 
   it('caps the row errors and counts the overflow', () => {

@@ -159,6 +159,16 @@ docker run -d \
   ghcr.io/anym001/pocketlog:latest
 ```
 
+> **MariaDB 11.6+ (`innodb_snapshot_isolation`):** From MariaDB 11.6 the
+> `innodb_snapshot_isolation` setting can be **ON** by default. Under it, two
+> requests writing the *same* row at once (e.g. the offline outbox reconnecting
+> and replaying queued writes, plus the per-request session refresh) get a
+> transient `ERROR 1020 … try restarting transaction`. PocketLog **retries these
+> automatically**, so no action is required. If you'd rather remove the errors at
+> the source, set `innodb_snapshot_isolation = OFF` in your MariaDB config —
+> PocketLog does not rely on snapshot isolation. Standalone InnoDB before 11.6
+> and the default SQLite backend are unaffected.
+
 ## Configuration
 
 | Variable | Default | Description |

@@ -85,11 +85,13 @@ function editTransaction(id) {
 }
 
 // Offline-delete fallback shared by the swipe-to-delete row and the edit
-// modal: when offline, queue the DELETE in the outbox for the SW to replay
-// and report that it was handled. Returns false when online (or no outbox),
-// so the caller surfaces the original error instead.
-async function _enqueueOfflineDelete(id) {
-  if (!navigator.onLine || !window.PocketLogOutbox) return false;
+// modal: when the DELETE failed at the network level, queue it in the outbox
+// for the SW to replay and report that it was handled. Returns false for a
+// real HTTP error (or no outbox), so the caller surfaces the original error
+// instead. Gated on the error shape rather than navigator.onLine, which lies
+// on iOS (reports online in airplane mode).
+async function _enqueueOfflineDelete(id, err) {
+  if (!_isOfflineWriteError(err) || !window.PocketLogOutbox) return false;
   await window.PocketLogOutbox.enqueue({ method: 'DELETE', path: `/transactions/${id}` });
   return true;
 }
@@ -104,7 +106,7 @@ async function deleteCurrentTransaction() {
     closeModal();
     await loadAndRender();
   } catch (e) {
-    if (await _enqueueOfflineDelete(editId)) {
+    if (await _enqueueOfflineDelete(editId, e)) {
       closeModal();
       updateSyncBadge();
       return;
@@ -181,6 +183,10 @@ async function addTransaction() {
   const editId = document.getElementById('modalOverlay').dataset.editId;
   const method = editId ? 'PUT' : 'POST';
   const path = editId ? `/transactions/${editId}` : '/transactions';
+  // Tag every create with a client op-id so an offline replay that already
+  // reached the server is deduplicated instead of creating a second row.
+  // Edits (PUT) are idempotent by nature and need none.
+  if (method === 'POST') body.client_op_id = _newOpId();
   try {
     const result = await api(method, path, body);
     mergeIntoAvailableTags(appState.form.tags);
@@ -199,9 +205,11 @@ async function addTransaction() {
     }
     await Promise.all([loadAndRender(), loadTags()]);
   } catch (e) {
-    if (!navigator.onLine && window.PocketLogOutbox) {
-      // No active service worker to queue the write — enqueue it ourselves and
-      // reflect it locally, same as the 202 path above.
+    if (_isOfflineWriteError(e) && window.PocketLogOutbox) {
+      // Network-level failure (offline, or the write timed out and aborted)
+      // and no active service worker to queue it — enqueue it ourselves and
+      // reflect it locally, same as the 202 path above. A real HTTP error
+      // (e.g. a 500) carries e.status and falls through to the toast instead.
       await window.PocketLogOutbox.enqueue({ method, path, body });
       mergeIntoAvailableTags(appState.form.tags);
       _applyTxLocally(method, editId, body);

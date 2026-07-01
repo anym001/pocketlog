@@ -9,7 +9,7 @@
 // server, so a browser-level test can't stall it. So we evaluate sw.js in a
 // vm context with mocked `caches`, `fetch`, `Response` and timers, and call
 // networkFirst() directly. That makes the timeout race deterministic.
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -53,7 +53,8 @@ function loadSw() {
   const src =
     readFileSync(SW_PATH, 'utf8') +
     '\n;self.__exports = { networkFirst, fetchWithTimeout, isAuthPath, ' +
-    'CACHE, API_CACHE, NETWORK_TIMEOUT_MS };';
+    'handleWrite, fetchWriteWithTimeout, CACHE, API_CACHE, ' +
+    'NETWORK_TIMEOUT_MS, WRITE_TIMEOUT_MS };';
   const caches = makeCaches();
   const sandbox = {
     self: {
@@ -69,6 +70,7 @@ function loadSw() {
     fetch: async () => new Response(null, { status: 200 }),
     Response: globalThis.Response,
     URL: globalThis.URL,
+    AbortController: globalThis.AbortController,
     Promise,
     Set,
     Error,
@@ -190,5 +192,78 @@ describe('networkFirst — auth endpoints never serve stale', () => {
     settled = true;
     expect(settled).toBe(true);
     expect(result.status).toBe(503);
+  });
+});
+
+// The write timeout is the fix for the "modal hangs, save looks lost, error
+// later" bug: in iOS airplane mode / lie-fi a write's fetch never rejects on
+// its own — it stalls until the OS TCP timeout. handleWrite now aborts it
+// after WRITE_TIMEOUT_MS and queues it in the outbox instead, so the page
+// gets a prompt 202 "queued" and the write is replayed on reconnect.
+describe('handleWrite — write timeout queues offline', () => {
+  afterEach(() => vi.useRealTimers());
+
+  // A minimal Request stand-in: handleWrite only needs url/method, a
+  // Content-Type header, and clone()/json() to read the body for the outbox.
+  function makeWriteRequest(url, method, body) {
+    const make = () => ({
+      url,
+      method,
+      headers: {
+        get: (h) => (h.toLowerCase() === 'content-type' ? 'application/json' : null),
+      },
+      clone: () => make(),
+      json: async () => body,
+    });
+    return make();
+  }
+
+  it('aborts a stalled write past WRITE_TIMEOUT_MS and queues it as a 202', async () => {
+    vi.useFakeTimers();
+    const { sw, sandbox } = loadSw();
+
+    const queued = [];
+    sandbox.self.PocketLogOutbox = { enqueue: async (e) => queued.push(e) };
+    // A lie-fi fetch: only settles when the abort signal fires, mirroring how
+    // a real fetch rejects with AbortError once its signal is aborted.
+    sandbox.fetch = (req, init) =>
+      new Promise((_res, rej) => {
+        const sig = init && init.signal;
+        if (sig)
+          sig.addEventListener('abort', () =>
+            rej(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+          );
+      });
+
+    const request = makeWriteRequest('https://app.test/api/transactions', 'POST', {
+      amount: '5.00',
+      client_op_id: 'op-xyz',
+    });
+    const pending = sw.handleWrite(request);
+    // Let the abort timer fire, then the queue/enqueue microtasks settle.
+    await vi.advanceTimersByTimeAsync(sw.WRITE_TIMEOUT_MS + 10);
+    const res = await pending;
+
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ queued: true });
+    // The queued entry carries the op-id so the replay is deduplicated.
+    expect(queued).toHaveLength(1);
+    expect(queued[0]).toMatchObject({ method: 'POST', path: '/transactions' });
+    expect(queued[0].body).toEqual({ amount: '5.00', client_op_id: 'op-xyz' });
+  });
+
+  it('passes a healthy write straight through without queueing', async () => {
+    vi.useFakeTimers();
+    const { sw, sandbox } = loadSw();
+    const queued = [];
+    sandbox.self.PocketLogOutbox = { enqueue: async (e) => queued.push(e) };
+    sandbox.fetch = async () => new Response(null, { status: 201 });
+
+    const request = makeWriteRequest('https://app.test/api/transactions', 'POST', {
+      amount: '5.00',
+    });
+    const res = await sw.handleWrite(request);
+    expect(res.status).toBe(201);
+    expect(queued).toHaveLength(0);
   });
 });

@@ -7,9 +7,11 @@ recurring rules and CSV import.
 from datetime import date as date_type
 
 from sqlalchemy import and_, extract, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .. import exceptions, models, schemas
+from ..db_retry import run_with_retry
 from ._shared import _get_owned
 from .categories import _owned_category_exists
 from .tags import _build_tag_cache, _resolve_tags, _resolve_tags_cached
@@ -66,6 +68,19 @@ def list_transactions_by_range(
     return list(db.scalars(q))
 
 
+def _find_by_op_id(db: Session, user_id: int, op_id: str) -> models.Transaction | None:
+    return db.scalar(
+        select(models.Transaction)
+        .where(
+            and_(
+                models.Transaction.user_id == user_id,
+                models.Transaction.client_op_id == op_id,
+            )
+        )
+        .options(_TX_TAGS_LOAD)
+    )
+
+
 def create_transaction(
     db: Session, user_id: int, payload: schemas.TransactionCreate
 ) -> models.Transaction:
@@ -73,32 +88,68 @@ def create_transaction(
         raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
-    tx = models.Transaction(user_id=user_id, **data)
-    tx.tags = _resolve_tags(db, user_id, tag_names)
-    db.add(tx)
-    db.commit()
-    db.refresh(tx)
-    return tx
+    # Idempotency: an offline create carries a client_op_id; a replay after
+    # the first (timed-out) attempt already committed must return that row
+    # rather than insert a duplicate. Check up front for the common case,
+    # and fall back to the same lookup on the UNIQUE(user_id, client_op_id)
+    # violation that a concurrent replay would raise on commit.
+    op_id = data.get("client_op_id")
+
+    # run_with_retry restarts the whole read-modify-write on a transient
+    # row-conflict (OperationalError 1020 / deadlock) — the offline outbox
+    # reconnecting can fire the same create/replay concurrently. Each attempt
+    # re-checks the op-id so a row a racing writer committed in between is
+    # returned rather than duplicated.
+    def _do() -> models.Transaction:
+        if op_id:
+            existing = _find_by_op_id(db, user_id, op_id)
+            if existing is not None:
+                return existing
+        tx = models.Transaction(user_id=user_id, **data)
+        tx.tags = _resolve_tags(db, user_id, tag_names)
+        db.add(tx)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            if op_id:
+                existing = _find_by_op_id(db, user_id, op_id)
+                if existing is not None:
+                    return existing
+            raise
+        db.refresh(tx)
+        return tx
+
+    return run_with_retry(db, _do)
 
 
 def update_transaction(
     db: Session, user_id: int, tx_id: int, payload: schemas.TransactionUpdate
 ) -> models.Transaction | None:
-    tx = _get_owned(db, models.Transaction, user_id, tx_id)
-    if tx is None:
-        return None
-    if not _owned_category_exists(db, user_id, payload.category_id):
-        raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
-    for k, v in data.items():
-        setattr(tx, k, v)
-    # Replacing the collection lets SQLAlchemy diff old vs new and
-    # emit the minimal INSERT/DELETE set on the junction table.
-    tx.tags = _resolve_tags(db, user_id, tag_names)
-    db.commit()
-    db.refresh(tx)
-    return tx
+
+    # Retry the whole read-modify-write on a transient row-conflict: two
+    # concurrent PUTs to the same booking (a timed-out offline edit that still
+    # reached the server, plus its outbox replay) can hit OperationalError
+    # 1020 on an optimistic-locking engine. Re-reads inside the session, so a
+    # rolled-back attempt starts clean.
+    def _do() -> models.Transaction | None:
+        tx = _get_owned(db, models.Transaction, user_id, tx_id)
+        if tx is None:
+            return None
+        if not _owned_category_exists(db, user_id, payload.category_id):
+            raise exceptions.UnknownCategoryError()
+        for k, v in data.items():
+            setattr(tx, k, v)
+        # Replacing the collection lets SQLAlchemy diff old vs new and
+        # emit the minimal INSERT/DELETE set on the junction table.
+        tx.tags = _resolve_tags(db, user_id, tag_names)
+        db.commit()
+        db.refresh(tx)
+        return tx
+
+    return run_with_retry(db, _do)
 
 
 def delete_transaction(db: Session, user_id: int, tx_id: int) -> bool:

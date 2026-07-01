@@ -317,9 +317,26 @@ const NEVER_QUEUE_PATHS = new Set([
   '/api/auth/change-password',
 ]);
 
+// How long a write may block on the network before we abort it and queue it
+// in the outbox. Without this, a request in iOS airplane mode / "lie-fi"
+// never rejects — it stalls until the OS TCP timeout, the save modal hangs,
+// and the late request later surfaces as an error instead of a queued write.
+// Kept SHORTER than the page's own WRITE_TIMEOUT_MS (core.js) so this SW path
+// wins the race and returns its 202 "queued" before the page-side abort fires.
+const WRITE_TIMEOUT_MS = 8000;
+
+// fetch() a write with an abort timeout so a stalled network can't hang it
+// forever. Aborting may still leave a request the server already received —
+// that's why creates carry a client_op_id for server-side dedup on replay.
+function fetchWriteWithTimeout(request) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS);
+  return fetch(request.clone(), { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function handleWrite(request) {
   try {
-    return await fetch(request.clone());
+    return await fetchWriteWithTimeout(request);
   } catch (e) {
     const url = new URL(request.url);
     if (NEVER_QUEUE_PATHS.has(url.pathname)) {

@@ -26,10 +26,12 @@ from datetime import UTC, datetime, timedelta
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHash, VerificationError, VerifyMismatchError
 from sqlalchemy import delete, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as DbSession
 
 from . import models
 from .constants import LOCKOUT_MAX_SECONDS, LOCKOUT_THRESHOLD
+from .db_retry import is_retryable_operational_error
 
 # ---------------------------------------------------------------------
 # Passwort-Hashing
@@ -216,12 +218,25 @@ def refresh_session_if_needed(db: DbSession, session: models.Session) -> bool:
         now + _sliding_lifetime(session.remember_me),
         session.absolute_expires_at,
     )
-    if new_expires == session.expires_at:
+    changed = new_expires != session.expires_at
+    if changed:
+        session.expires_at = new_expires
+    try:
         db.commit()
+    except OperationalError as exc:
+        # Best-effort sliding refresh. This UPDATE targets the caller's own
+        # session row and runs on *every* request, so under a burst of
+        # concurrent requests — the offline outbox reconnecting and replaying
+        # queued writes is the classic trigger — an optimistic-locking engine
+        # (Galera and friends) can raise a transient row-conflict (1020) here.
+        # Housekeeping must never fail the request: skip this refresh, keep
+        # the still-valid session, and let the next request try again. A real
+        # (non-transient) DB error still propagates.
+        if not is_retryable_operational_error(exc):
+            raise
+        db.rollback()
         return False
-    session.expires_at = new_expires
-    db.commit()
-    return True
+    return changed
 
 
 def revoke_session(db: DbSession, session: models.Session) -> None:
