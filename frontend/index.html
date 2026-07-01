@@ -931,6 +931,14 @@
       </div>
     </div>
 
+    <!-- Dead-letter banner: surfaces writes the server rejected on replay.
+         A tap opens the recovery sheet (retry / discard). Toggled by
+         updateFailedNotice(). -->
+    <button class="sync-banner" id="failedSyncBanner" onclick="openFailedRecovery()" hidden>
+      <span class="sync-banner-text" id="failedSyncBannerText"></span>
+      <span class="sync-banner-action" data-i18n="sync.recoverFix">Beheben</span>
+    </button>
+
     <!-- SUMMARY -->
     <div class="summary">
       <div class="summary-card">

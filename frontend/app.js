@@ -78,7 +78,7 @@ async function submitLogin() {
     }
     const data = await res.json();
     window._csrfToken = data.user.csrf_token;
-    _broadcastCsrfToSw(window._csrfToken);
+    _propagateCsrfToken(window._csrfToken);
     await _afterAuthSuccess(data.user);
   } catch (e) {
     _setAuthError(
@@ -210,6 +210,7 @@ async function _afterAuthSuccess(me) {
   await loadAndRender();
   showPanel(loadDefaultView());
   updateSyncBadge();
+  updateFailedNotice();
   reconcileSettingsFromServer();
   // Toast the "N transactions auto-added" notice once per session if
   // the backend just materialized due recurring occurrences. The
@@ -361,7 +362,7 @@ async function init() {
     return;
   }
   window._csrfToken = me.csrf_token;
-  _broadcastCsrfToSw(window._csrfToken);
+  _propagateCsrfToken(window._csrfToken);
   await _afterAuthSuccess(me);
 }
 init();

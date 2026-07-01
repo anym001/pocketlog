@@ -137,6 +137,12 @@ function _resetAuthClientState() {
       navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
     }
   } catch (_) {}
+  // Clear the in-page outbox token too (the SW's is cleared via the message
+  // above). The drain guard then defers any queued writes until a fresh login
+  // re-seeds the token, rather than replaying them with a stale one.
+  try {
+    window.PocketLogOutbox?.setCsrfToken?.('');
+  } catch (_) {}
   window._csrfToken = '';
 }
 
@@ -222,13 +228,39 @@ async function authFetch(method, path, body, opts = {}) {
   return res;
 }
 
-function _broadcastCsrfToSw(token) {
+// Push the current CSRF token to every outbox that may replay a queued
+// write, so the replay carries an X-CSRF-Token the server accepts:
+//   - the service worker's outbox (Background Sync replay), and
+//   - the in-page outbox (db.js, a classic script with its own module
+//     state), which drains on the `online` event whenever Background Sync
+//     isn't available — notably iOS Safari.
+// Miss the page-side token and an offline edit replays without the header,
+// the server rejects it with 403, drain dead-letters it, and the change
+// looks reverted on reconnect.
+// Shared offline-write helper. When api() reports a queued write (HTTP 202 —
+// the service worker stored it in the outbox instead of reaching the server),
+// reflect the change locally via applyLocally(), tell the user it's saved
+// offline, and bump the sync badge. Returns true when it handled a queued
+// write, so the caller skips its normal reload-from-cache path (which offline
+// would just re-render the stale data and make the change look lost).
+function _handleQueuedWrite(result, applyLocally) {
+  if (!result || !result.queued) return false;
+  try {
+    applyLocally();
+  } catch (_) {}
+  if (typeof updateSyncBadge === 'function') updateSyncBadge();
+  toast(tr('common.queuedOffline'));
+  return true;
+}
+
+function _propagateCsrfToken(token) {
+  const t = token || '';
+  try {
+    window.PocketLogOutbox?.setCsrfToken?.(t);
+  } catch (_) {}
   try {
     if (navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: 'SET_CSRF',
-        token: token || '',
-      });
+      navigator.serviceWorker.controller.postMessage({ type: 'SET_CSRF', token: t });
     }
   } catch (_) {}
 }

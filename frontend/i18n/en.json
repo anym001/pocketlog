@@ -14,7 +14,8 @@
     "actionFailed": "Action failed.",
     "downloadFailed": "Download failed",
     "nameRequired": "Name is required.",
-    "loading": "Loading …"
+    "loading": "Loading …",
+    "queuedOffline": "Saved offline. Will sync once you’re back online."
   },
   "menu": {
     "title": "Menu",
@@ -561,7 +562,19 @@
     "offlineSaving": "Offline – changes are being saved",
     "failed": "Sync failed – check your connection",
     "oneFailed": "1 transaction couldn’t be saved.",
-    "manyFailed": "{n} transactions couldn’t be saved."
+    "manyFailed": "{n} transactions couldn’t be saved.",
+    "recoverTitle": "Not synced",
+    "recoverOne": "1 change couldn’t be saved.",
+    "recoverMany": "{n} changes couldn’t be saved.",
+    "recoverHint": "Try again once you’re back online — or discard.",
+    "recoverRetry": "Try again",
+    "recoverDiscard": "Discard",
+    "recoverDiscardConfirm": "Discard changes?",
+    "recoverDiscardBody": "These changes will be lost for good.",
+    "recoverDiscarded": "Discarded.",
+    "recoverFix": "Fix",
+    "bannerOne": "1 change not saved",
+    "bannerMany": "{n} changes not saved"
   },
   "date": {
     "today": "Today",

@@ -240,13 +240,16 @@ async function saveGoalEdit() {
     icon: direction === 'pay_down' ? 'hand-coins' : 'piggy-bank',
     color: appState.goals.editingColor,
   };
+  const editId = appState.goals.editingId;
   try {
-    if (appState.goals.editingId) {
-      await api('PUT', `/goals/${appState.goals.editingId}`, payload);
-    } else {
-      await api('POST', '/goals', payload);
-    }
+    const result = editId
+      ? await api('PUT', `/goals/${editId}`, payload)
+      : await api('POST', '/goals', payload);
     closeGoalModal();
+    if (
+      _handleQueuedWrite(result, () => _applyGoalLocally(editId ? 'PUT' : 'POST', editId, payload))
+    )
+      return;
     await loadGoals();
     if (appState.nav.activePanel === 'goals') await renderGoalsView();
   } catch (e) {
@@ -260,6 +263,23 @@ async function saveGoalEdit() {
   }
 }
 
+// Mirror a goal create/edit/delete into the in-memory list for the offline
+// queued path; the next sync reload reconciles it. _goalProgress reads the same
+// fields the payload carries (direction, category_id, amounts, start_date).
+function _applyGoalLocally(method, id, goal) {
+  const list = appState.goals.list;
+  if (method === 'DELETE') {
+    const i = list.findIndex((g) => g.id === Number(id));
+    if (i >= 0) list.splice(i, 1);
+  } else if (method === 'PUT') {
+    const g = list.find((x) => x.id === Number(id));
+    if (g) Object.assign(g, goal);
+  } else {
+    list.push({ id: -Date.now(), ...goal }); // provisional id until sync
+  }
+  if (appState.nav.activePanel === 'goals') renderGoalsView();
+}
+
 async function deleteGoalEdit() {
   if (!appState.goals.editingId) return;
   const ok = await confirmAction({
@@ -267,9 +287,11 @@ async function deleteGoalEdit() {
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
+  const editId = appState.goals.editingId;
   try {
-    await api('DELETE', `/goals/${appState.goals.editingId}`);
+    const result = await api('DELETE', `/goals/${editId}`);
     closeGoalModal();
+    if (_handleQueuedWrite(result, () => _applyGoalLocally('DELETE', editId))) return;
     await loadGoals();
     if (appState.nav.activePanel === 'goals') await renderGoalsView();
   } catch (e) {

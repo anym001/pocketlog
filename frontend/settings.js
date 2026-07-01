@@ -62,13 +62,16 @@ async function saveTagEdit() {
     closeTagModal();
     return;
   }
+  const oldName = appState.tagEdit.name;
   try {
-    if (appState.tagEdit.name) {
-      await api('PUT', `/tags/${encodeURIComponent(appState.tagEdit.name)}`, { new_name: newName });
-    } else {
-      await api('POST', '/tags', { name: newName });
-    }
+    const result = oldName
+      ? await api('PUT', `/tags/${encodeURIComponent(oldName)}`, { new_name: newName })
+      : await api('POST', '/tags', { name: newName });
     closeTagModal();
+    if (
+      _handleQueuedWrite(result, () => _applyTagLocally(oldName ? 'PUT' : 'POST', oldName, newName))
+    )
+      return;
     await loadTags();
     renderTagList();
     await loadAndRender();
@@ -89,15 +92,64 @@ async function deleteTagEdit() {
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
+  const oldName = appState.tagEdit.name;
   try {
-    await api('DELETE', `/tags/${encodeURIComponent(appState.tagEdit.name)}`);
+    const result = await api('DELETE', `/tags/${encodeURIComponent(oldName)}`);
     closeTagModal();
+    if (_handleQueuedWrite(result, () => _applyTagLocally('DELETE', oldName))) return;
     await loadTags();
     renderTagList();
     await loadAndRender();
   } catch (e) {
     toast(tr('tx.deleteFailed') + e.message, 'error');
   }
+}
+
+// Mirror a tag create/rename/delete into the in-memory tag list and the loaded
+// transaction pools for the offline queued path; the next sync reload
+// reconciles. availableTags holds canonical server casing (see loadTags), so a
+// new/renamed tag is stored as typed while matching stays case-insensitive.
+function _applyTagLocally(method, oldName, newName) {
+  const tags = appState.ledger.availableTags;
+  const lc = (s) => (s || '').toLowerCase();
+  const sortTags = () =>
+    tags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  if (method === 'POST') {
+    if (newName && !tags.some((t) => lc(t) === lc(newName))) {
+      tags.push(newName);
+      sortTags();
+    }
+  } else if (method === 'DELETE') {
+    const i = tags.findIndex((t) => lc(t) === lc(oldName));
+    if (i >= 0) tags.splice(i, 1);
+    _renameTagInTxPools(oldName, null);
+  } else if (method === 'PUT') {
+    const i = tags.findIndex((t) => lc(t) === lc(oldName));
+    if (i >= 0) tags[i] = newName;
+    sortTags();
+    _renameTagInTxPools(oldName, newName);
+  }
+  renderTagList();
+  renderAll();
+}
+
+// Rename (newName) or remove (newName == null) a tag across the loaded
+// transaction pools, matching case-insensitively on the old name.
+function _renameTagInTxPools(oldName, newName) {
+  const lcOld = (oldName || '').toLowerCase();
+  const apply = (pool) => {
+    if (!pool) return;
+    pool.forEach((t) => {
+      if (!t.tags || !t.tags.length) return;
+      t.tags =
+        newName == null
+          ? t.tags.filter((x) => x.toLowerCase() !== lcOld)
+          : t.tags.map((x) => (x.toLowerCase() === lcOld ? newName : x));
+    });
+  };
+  apply(appState.ledger.transactions);
+  apply(appState.ledger.all);
+  apply(appState.reports.txPool);
 }
 
 // ── SYNC (service worker outbox) ──────────────────────────────────────────────
@@ -188,12 +240,160 @@ async function syncNow() {
     toast(msg, 'error');
   }
   if (flushed > 0 || failed > 0) {
-    await loadTags();
-    // Replayed POST/PUT/DELETE on /api/recurring would otherwise
-    // leave the in-memory rules list stale until the user opens
-    // the panel; refresh so the next render is correct.
-    await loadRecurringRules();
+    await refreshDomainAfterSync();
+  } else {
+    await loadAndRender();
   }
+  await updateFailedNotice();
+}
+
+// ── DEAD-LETTER RECOVERY ──────────────────────────────────────────────────────
+// drain() moves a write to the `failed` store when the server rejects its
+// replay with a 4xx, so user data is never silently dropped. This surfaces
+// those entries: a drawer section (Import/Export) plus an attention dot on the
+// header sync button, with all-or-nothing retry / discard.
+
+async function updateFailedNotice() {
+  const n = window.PocketLogOutbox ? await window.PocketLogOutbox.failedCount() : 0;
+  // Primary surfacing: a banner at the top of the content, on every view.
+  const banner = document.getElementById('failedSyncBanner');
+  if (banner) banner.hidden = n === 0;
+  const bannerText = document.getElementById('failedSyncBannerText');
+  if (bannerText) {
+    bannerText.textContent = n === 1 ? tr('sync.bannerOne') : tr('sync.bannerMany', { n });
+  }
+  // Secondary cue on the header sync button (reuses the red error dot).
+  const dot = document.getElementById('syncDot');
+  if (dot) dot.classList.toggle('error', n > 0);
+}
+
+// Open the recovery sheet from the banner: a self-contained dialog (no drawer
+// navigation) offering retry or discard. Built programmatically like
+// confirmAction so it inherits the same overlay, scroll-lock and Escape
+// handling. No-op when nothing is dead-lettered.
+async function openFailedRecovery() {
+  const n = window.PocketLogOutbox ? await window.PocketLogOutbox.failedCount() : 0;
+  if (n === 0) return;
+
+  const prevFocus = document.activeElement;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open';
+  overlay.style.alignItems = 'center';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal confirm-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'recoverTitle');
+
+  const h = document.createElement('h2');
+  h.id = 'recoverTitle';
+  h.textContent = tr('sync.recoverTitle');
+  modal.appendChild(h);
+
+  const p = document.createElement('p');
+  p.className = 'confirm-msg';
+  const count = n === 1 ? tr('sync.recoverOne') : tr('sync.recoverMany', { n });
+  p.textContent = count + ' ' + tr('sync.recoverHint');
+  modal.appendChild(p);
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'submit-btn';
+  retry.textContent = tr('sync.recoverRetry');
+  modal.appendChild(retry);
+
+  const discard = document.createElement('button');
+  discard.type = 'button';
+  discard.className = 'submit-btn btn-destructive';
+  discard.textContent = tr('sync.recoverDiscard');
+  modal.appendChild(discard);
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'confirm-cancel';
+  cancel.textContent = tr('common.close');
+  modal.appendChild(cancel);
+
+  overlay.appendChild(modal);
+
+  const close = () => {
+    overlay.removeEventListener('keydown', onKey);
+    overlay.remove();
+    const stillOpen = document.querySelector('.modal-overlay.open');
+    if (!stillOpen) document.body.style.overflow = '';
+    if (prevFocus && document.contains(prevFocus) && typeof prevFocus.focus === 'function') {
+      prevFocus.focus();
+    }
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') close();
+  };
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+  overlay.addEventListener('keydown', onKey);
+  cancel.addEventListener('click', close);
+  // Close first so discard's own confirm isn't stacked on top of this sheet.
+  retry.addEventListener('click', () => {
+    close();
+    retryFailedSync();
+  });
+  discard.addEventListener('click', () => {
+    close();
+    discardFailedSync();
+  });
+
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => retry.focus(), 50);
+}
+
+// Push the dead-lettered writes back into the outbox and replay them. With the
+// CSRF token now propagated, a write that only failed because of the old
+// token bug goes through; a genuinely invalid one (duplicate name, deleted
+// category) lands back in the failed store — one pass, no retry loop.
+async function retryFailedSync() {
+  if (!window.PocketLogOutbox) return;
+  const n = await window.PocketLogOutbox.requeueFailed();
+  if (n > 0) updateSyncBadge();
+  await syncNow();
+  await updateFailedNotice();
+}
+
+async function discardFailedSync() {
+  if (!window.PocketLogOutbox) return;
+  const ok = await confirmAction({
+    title: tr('sync.recoverDiscardConfirm'),
+    message: tr('sync.recoverDiscardBody'),
+    confirmLabel: tr('sync.recoverDiscard'),
+    destructive: true,
+  });
+  if (!ok) return;
+  await window.PocketLogOutbox.failedClear();
+  await updateFailedNotice();
+  toast(tr('sync.recoverDiscarded'));
+}
+
+// After a sync drains the outbox, the in-memory entity lists may still hold
+// optimistic offline edits — including provisional negative ids from offline
+// creates. Reload every list the offline write path can touch so the server's
+// real rows replace them, then re-render whatever panel is on screen. Replayed
+// writes on /api/recurring need the same treatment, hence the rules reload.
+async function refreshDomainAfterSync() {
+  await Promise.all([
+    loadTags(),
+    loadCategories(),
+    loadGoals(),
+    loadBudgets(),
+    loadRecurringRules(),
+  ]);
+  renderTagList();
+  renderCategories();
+  if (appState.nav.activePanel === 'goals') await renderGoalsView();
+  if (appState.nav.activePanel === 'budgets') await renderBudgetsView();
+  if (appState.nav.activePanel === 'recurring') await renderRecurringView();
   await loadAndRender();
 }
 
@@ -409,8 +609,8 @@ if ('serviceWorker' in navigator) {
         const msg = failed === 1 ? tr('sync.oneFailed') : tr('sync.manyFailed', { n: failed });
         toast(msg, 'error');
       }
-      loadTags();
-      loadAndRender();
+      refreshDomainAfterSync();
+      updateFailedNotice();
     }
   });
 }

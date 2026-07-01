@@ -106,6 +106,20 @@
     });
   }
 
+  // Move every dead-lettered entry back into the outbox so the next drain
+  // retries it — used by the recovery UI once the cause of the 4xx is gone
+  // (the prime example: a replay that 403'd because the CSRF token wasn't
+  // propagated). Only method/path/body are requeued; the failure metadata
+  // (status/detail) is dropped. Returns the number of entries requeued.
+  async function requeueFailed() {
+    const items = await failedAll();
+    for (const item of items) {
+      await enqueue({ method: item.method, path: item.path, body: item.body });
+    }
+    await failedClear();
+    return items.length;
+  }
+
   // Replays the outbox. Returns {ok, failed}:
   //   ok     – number of entries processed successfully
   //   failed – number of entries the server rejected with a 4xx
@@ -127,6 +141,15 @@
 
   async function drain(apiBase) {
     const items = await all();
+    // Every queued entry is a state-changing write, so each needs the CSRF
+    // header. Without a token the server rejects them all with 403 and we'd
+    // dead-letter the user's data on what is really a setup gap (e.g. the SW
+    // lost its in-memory token after a restart, or the page outbox was never
+    // seeded). Treat a missing token like being offline: keep the entries and
+    // retry once a token is available, rather than discarding them.
+    if (items.length && !_csrfToken) {
+      return { ok: 0, failed: 0, deferred: items.length };
+    }
     let ok = 0;
     let failed = 0;
     for (const item of items) {
@@ -179,6 +202,7 @@
     failedAll,
     failedCount,
     failedClear,
+    requeueFailed,
     setCsrfToken,
   };
 })(self);

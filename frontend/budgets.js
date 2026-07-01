@@ -158,13 +158,18 @@ async function saveBudgetEdit() {
     amount: amount.toFixed(2),
     frequency,
   };
+  const editId = appState.budgets.editingId;
   try {
-    if (appState.budgets.editingId) {
-      await api('PUT', `/budgets/${appState.budgets.editingId}`, payload);
-    } else {
-      await api('POST', '/budgets', payload);
-    }
+    const result = editId
+      ? await api('PUT', `/budgets/${editId}`, payload)
+      : await api('POST', '/budgets', payload);
     closeBudgetModal();
+    if (
+      _handleQueuedWrite(result, () =>
+        _applyBudgetLocally(editId ? 'PUT' : 'POST', editId, payload),
+      )
+    )
+      return;
     await loadBudgets();
     if (appState.nav.activePanel === 'budgets') await renderBudgetsView();
   } catch (e) {
@@ -178,6 +183,24 @@ async function saveBudgetEdit() {
   }
 }
 
+// Mirror a budget create/edit/delete into the in-memory list for the offline
+// queued path; the next sync reload reconciles it. Name/icon/color are derived
+// from the linked category, so the budget only needs id/category_id/amount/
+// frequency to render.
+function _applyBudgetLocally(method, id, budget) {
+  const list = appState.budgets.list;
+  if (method === 'DELETE') {
+    const i = list.findIndex((b) => b.id === Number(id));
+    if (i >= 0) list.splice(i, 1);
+  } else if (method === 'PUT') {
+    const b = list.find((x) => x.id === Number(id));
+    if (b) Object.assign(b, budget);
+  } else {
+    list.push({ id: -Date.now(), ...budget }); // provisional id until sync
+  }
+  if (appState.nav.activePanel === 'budgets') renderBudgetsView();
+}
+
 async function deleteBudgetEdit() {
   if (!appState.budgets.editingId) return;
   const ok = await confirmAction({
@@ -185,9 +208,11 @@ async function deleteBudgetEdit() {
     confirmLabel: tr('common.delete'),
   });
   if (!ok) return;
+  const editId = appState.budgets.editingId;
   try {
-    await api('DELETE', `/budgets/${appState.budgets.editingId}`);
+    const result = await api('DELETE', `/budgets/${editId}`);
     closeBudgetModal();
+    if (_handleQueuedWrite(result, () => _applyBudgetLocally('DELETE', editId))) return;
     await loadBudgets();
     if (appState.nav.activePanel === 'budgets') await renderBudgetsView();
   } catch (e) {
