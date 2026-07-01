@@ -261,9 +261,29 @@ async function updateFailedNotice() {
   if (countEl) {
     countEl.textContent = n === 1 ? tr('sync.recoverOne') : tr('sync.recoverMany', { n });
   }
-  // Attention cue on the header sync button (reuses the red error dot).
+  // Primary surfacing: a banner at the top of the ledger. The drawer section
+  // stays as the detail/action surface; the banner is how the user finds it
+  // without digging three levels into Settings.
+  const banner = document.getElementById('failedSyncBanner');
+  if (banner) banner.hidden = n === 0;
+  const bannerText = document.getElementById('failedSyncBannerText');
+  if (bannerText) {
+    bannerText.textContent = n === 1 ? tr('sync.bannerOne') : tr('sync.bannerMany', { n });
+  }
+  // Secondary cue on the header sync button (reuses the red error dot).
   const dot = document.getElementById('syncDot');
   if (dot) dot.classList.toggle('error', n > 0);
+}
+
+// Deep-link from the ledger banner to the recovery controls, which live under
+// Settings → Import/Export. Walk the drawer there (opening it first on mobile,
+// where it's an overlay rather than a persistent sidebar) and reveal the
+// section so the retry/discard actions are in view.
+function openFailedRecovery() {
+  _drawerResetPanels();
+  if (!_mqTablet.matches) openDrawer();
+  drawerNav('dpSettings');
+  drawerNav('dpImport');
 }
 
 // Push the dead-lettered writes back into the outbox and replay them. With the

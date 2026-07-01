@@ -571,7 +571,10 @@
     "recoverDiscard": "Discard",
     "recoverDiscardConfirm": "Discard changes?",
     "recoverDiscardBody": "These changes will be lost for good.",
-    "recoverDiscarded": "Discarded."
+    "recoverDiscarded": "Discarded.",
+    "recoverFix": "Fix",
+    "bannerOne": "1 change not saved",
+    "bannerMany": "{n} changes not saved"
   },
   "date": {
     "today": "Today",

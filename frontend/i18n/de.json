@@ -571,7 +571,10 @@
     "recoverDiscard": "Verwerfen",
     "recoverDiscardConfirm": "Änderungen verwerfen?",
     "recoverDiscardBody": "Diese Änderungen gehen endgültig verloren.",
-    "recoverDiscarded": "Verworfen."
+    "recoverDiscarded": "Verworfen.",
+    "recoverFix": "Beheben",
+    "bannerOne": "1 Änderung nicht gespeichert",
+    "bannerMany": "{n} Änderungen nicht gespeichert"
   },
   "date": {
     "today": "Heute",
