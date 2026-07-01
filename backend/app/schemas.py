@@ -244,7 +244,12 @@ class TransactionIn(BaseModel):
 
 
 class TransactionCreate(TransactionIn):
-    pass
+    # Client-generated idempotency key (UUID). The offline outbox sends the
+    # same value when it replays a queued create, so a create that already
+    # reached the server before the client aborted is deduplicated instead of
+    # inserting a second row. Optional: direct online creates may omit it.
+    # Treated as an opaque token; capped so it can't bloat the row.
+    client_op_id: str | None = Field(default=None, max_length=64)
 
 
 class TransactionUpdate(TransactionIn):

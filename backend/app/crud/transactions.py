@@ -7,6 +7,7 @@ recurring rules and CSV import.
 from datetime import date as date_type
 
 from sqlalchemy import and_, extract, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .. import exceptions, models, schemas
@@ -66,6 +67,19 @@ def list_transactions_by_range(
     return list(db.scalars(q))
 
 
+def _find_by_op_id(db: Session, user_id: int, op_id: str) -> models.Transaction | None:
+    return db.scalar(
+        select(models.Transaction)
+        .where(
+            and_(
+                models.Transaction.user_id == user_id,
+                models.Transaction.client_op_id == op_id,
+            )
+        )
+        .options(_TX_TAGS_LOAD)
+    )
+
+
 def create_transaction(
     db: Session, user_id: int, payload: schemas.TransactionCreate
 ) -> models.Transaction:
@@ -73,10 +87,28 @@ def create_transaction(
         raise exceptions.UnknownCategoryError()
     data = payload.model_dump(by_alias=False)
     tag_names = data.pop("tags", None)
+    # Idempotency: an offline create carries a client_op_id; a replay after
+    # the first (timed-out) attempt already committed must return that row
+    # rather than insert a duplicate. Check up front for the common case,
+    # and fall back to the same lookup on the UNIQUE(user_id, client_op_id)
+    # violation that a concurrent replay would raise on commit.
+    op_id = data.get("client_op_id")
+    if op_id:
+        existing = _find_by_op_id(db, user_id, op_id)
+        if existing is not None:
+            return existing
     tx = models.Transaction(user_id=user_id, **data)
     tx.tags = _resolve_tags(db, user_id, tag_names)
     db.add(tx)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if op_id:
+            existing = _find_by_op_id(db, user_id, op_id)
+            if existing is not None:
+                return existing
+        raise
     db.refresh(tx)
     return tx
 

@@ -277,6 +277,10 @@ class Transaction(Base):
         # Idempotency guard for CSV imports. NULLs are distinct in every
         # supported backend, so manual transactions are unaffected.
         UniqueConstraint("user_id", "import_hash", name="uq_tx_user_import_hash"),
+        # Idempotency guard for offline create replays. NULLs are distinct in
+        # every supported backend, so online creates that send no op-id are
+        # unaffected.
+        UniqueConstraint("user_id", "client_op_id", name="uq_tx_user_client_op"),
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
     )
 
@@ -311,6 +315,13 @@ class Transaction(Base):
     # The UNIQUE(user_id, import_hash) constraint makes repeated imports
     # of the same bank data idempotent.
     import_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Client-generated idempotency key (UUID) for offline create replays.
+    # The offline outbox keeps the same op-id when it replays a queued
+    # create, so a create that already reached the server before the client
+    # timed out is deduplicated via UNIQUE(user_id, client_op_id) instead of
+    # inserting a second row. NULL for creates that sent none; never exposed
+    # on read.
+    client_op_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="transactions")
     category: Mapped[Category] = relationship(back_populates="transactions")

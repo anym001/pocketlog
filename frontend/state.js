@@ -103,6 +103,10 @@ const appState = {
     categories: [],
     availableTags: [],
     all: null,
+    // Timestamp of the last online full-history cache warm (see
+    // _warmFullHistoryCache in ledger.js). Throttles the background GET so
+    // rapid month stepping doesn't refetch the whole history each time.
+    fullHistoryWarmedAt: 0,
   },
 
   // Navigation / cross-cutting UI state. _activePanel / _bookingModalOpenedAt /

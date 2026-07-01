@@ -9,6 +9,48 @@ function normalizeTx(t) {
   return { ...t, amount: Number(t.amount), tags: (t.tags || []).slice() };
 }
 
+// Keep a normalized transaction pool's rows for the currently displayed month.
+function _txInViewMonth(list) {
+  const y = appState.view.year;
+  const m = appState.view.month + 1;
+  return list.filter((t) => {
+    const parts = String(t.date).split('-');
+    return Number(parts[0]) === y && Number(parts[1]) === m;
+  });
+}
+
+// Offline fallback for the month view: the per-month request missed the cache
+// (a month never opened online while its own URL was cached), so pull the full
+// history — which the SW caches once fetched and which _warmFullHistoryCache
+// proactively warms — and filter it client-side. Any month ever synced stays
+// browsable offline. Returns [] when even the full history isn't cached yet.
+async function _monthFromFullHistory() {
+  try {
+    const all = await api('GET', '/transactions');
+    return _txInViewMonth(all.map(normalizeTx));
+  } catch (_) {
+    return [];
+  }
+}
+
+// Fire-and-forget: warm the SW's full-history cache so offline month navigation
+// has something to fall back to. Only meaningful online; offline the GET just
+// fails and is ignored. Throttled so rapid month stepping doesn't refetch the
+// whole history each time.
+function _warmFullHistoryCache() {
+  const now = Date.now();
+  if (now - appState.ledger.fullHistoryWarmedAt < 60000) return;
+  appState.ledger.fullHistoryWarmedAt = now;
+  try {
+    api('GET', '/transactions').catch(() => {
+      // Failed (offline): reset so the next online load retries promptly.
+      appState.ledger.fullHistoryWarmedAt = 0;
+    });
+  } catch (_) {
+    appState.ledger.fullHistoryWarmedAt = 0;
+  }
+}
+
 async function loadAndRender() {
   document.getElementById('monthLabelText').textContent =
     `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
@@ -18,9 +60,14 @@ async function loadAndRender() {
       `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`,
     );
     appState.ledger.transactions = raw.map(normalizeTx);
+    // Warm the full history in the background so other months stay browsable
+    // offline (the SW caches whatever URL it fetches).
+    _warmFullHistoryCache();
   } catch (e) {
-    console.error('Fehler beim Laden:', e);
-    appState.ledger.transactions = [];
+    // Per-month request failed — offline and this month's own URL wasn't
+    // cached. Fall back to the cached full history, filtered to this month,
+    // so any month we've ever synced still shows instead of blanking out.
+    appState.ledger.transactions = await _monthFromFullHistory();
   }
   renderAll();
   if (appState.nav.searchQuery) {
@@ -444,7 +491,7 @@ function attachSwipeHandlers(container) {
         await api('DELETE', `/transactions/${id}`);
         await loadAndRender();
       } catch (err) {
-        if (await _enqueueOfflineDelete(id)) {
+        if (await _enqueueOfflineDelete(id, err)) {
           row.classList.remove('swiped');
           // Remove optimistically, the SW handles the sync
           appState.ledger.transactions = appState.ledger.transactions.filter((t) => t.id !== id);
@@ -577,7 +624,7 @@ async function bulkApply(op) {
     await Promise.all(tasks);
     toast(tr(`selection.applied.${op.action}`, { n }));
   } catch (e) {
-    if (!navigator.onLine && window.PocketLogOutbox) {
+    if (_isOfflineWriteError(e) && window.PocketLogOutbox) {
       await window.PocketLogOutbox.enqueue({
         method: 'POST',
         path: '/transactions/bulk',

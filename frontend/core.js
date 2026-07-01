@@ -172,6 +172,37 @@ async function _hardResetClientState() {
   location.replace('/?reset=' + Date.now());
 }
 
+// How long a write may block before we abort it and let the caller queue it
+// in the outbox. Without this, a hanging request (iOS airplane mode, "lie-fi")
+// never rejects — the fetch stalls until the OS TCP timeout, the save modal
+// stays open, and when the network returns the late request surfaces an error
+// instead of having been queued. Deliberately LONGER than the service worker's
+// own write timeout (sw.js WRITE_TIMEOUT_MS) so that, on an SW-controlled page,
+// the SW wins the race and returns its 202 "queued" before this page-side
+// abort ever fires; this abort is the fallback for pages with no active SW.
+const WRITE_TIMEOUT_MS = 12000;
+
+// Client-side idempotency key for offline-queued creates. crypto.randomUUID is
+// available in every secure context (the PWA is HTTPS-only); the fallback keeps
+// non-secure dev origins working. The same op-id rides along when the outbox
+// replays a queued create, so the server can dedupe a create that already
+// reached it before the client aborted (see crud.create_transaction).
+function _newOpId() {
+  try {
+    if (self.crypto && crypto.randomUUID) return crypto.randomUUID();
+  } catch (_) {}
+  return 'op-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+// True when an api() rejection is a network-level failure (fetch rejected or
+// the write timed out and was aborted) rather than a real HTTP response. HTTP
+// errors carry `.status` (set below); network/abort failures don't. Callers
+// use this to decide whether to queue the write offline — replacing the old
+// navigator.onLine check, which lies on iOS (reports online in airplane mode).
+function _isOfflineWriteError(e) {
+  return !!e && e.status == null;
+}
+
 async function api(method, path, body) {
   const headers = { 'Content-Type': 'application/json' };
   if (method !== 'GET' && window._csrfToken) {
@@ -179,7 +210,22 @@ async function api(method, path, body) {
   }
   const opts = { method, headers, credentials: 'same-origin' };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(API + path, opts);
+  // Arm an abort timeout for writes so a stalled request fails fast enough to
+  // be queued, instead of hanging until the OS timeout. GETs are left alone —
+  // the service worker races them against its own read timeout and falls back
+  // to the cache.
+  let _writeTimer = null;
+  if (method !== 'GET' && typeof AbortController === 'function') {
+    const controller = new AbortController();
+    opts.signal = controller.signal;
+    _writeTimer = setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS);
+  }
+  let res;
+  try {
+    res = await fetch(API + path, opts);
+  } finally {
+    if (_writeTimer) clearTimeout(_writeTimer);
+  }
   if (res.status === 401) {
     if (!window._suppressAuthReload) {
       _resetAuthClientState();
