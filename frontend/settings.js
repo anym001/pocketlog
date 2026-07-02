@@ -918,7 +918,9 @@ function renderSessions() {
 
   // Current session pinned first; the rest keeps the backend's
   // last-seen ordering.
-  const sessions = [...appState.sessions.list].sort((a, b) => (b.current ? 1 : 0) - (a.current ? 1 : 0));
+  const sessions = [...appState.sessions.list].sort(
+    (a, b) => (b.current ? 1 : 0) - (a.current ? 1 : 0),
+  );
 
   sessions.forEach((s) => {
     const card = document.createElement('div');
