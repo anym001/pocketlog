@@ -63,7 +63,9 @@ async def _unhandled_exception_handler(
     not in a payload a client could see.
     """
     logger.error(
-        "unhandled exception method=%s path=%s", request.method, request.url.path,
+        "unhandled exception method=%s path=%s",
+        request.method,
+        request.url.path,
         exc_info=exc,
     )
     return JSONResponse(status_code=500, content={"detail": "internal_error"})
