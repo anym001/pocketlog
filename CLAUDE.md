@@ -59,7 +59,7 @@ backend/
     database.py        ← engine selection: SQLite | MariaDB
     proxies.py         ← trusted reverse-proxy check (TRUSTED_PROXIES)
     logging_config.py  ← central logging setup
-    cli.py             ← operator CLI (reset-admin-password, backup via VACUUM INTO)
+    cli.py             ← operator CLI (reset-admin-password, backup); launcher: `pocketlog <cmd>` (pocketlog-cli.sh)
 tests/               ← pytest suite (backend)
 ```
 

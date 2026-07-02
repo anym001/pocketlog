@@ -48,7 +48,11 @@ RUN useradd --create-home --uid 1000 pocketlog \
  && chown -R pocketlog:pocketlog /app
 
 COPY backend/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Operator-CLI launcher: `docker exec pocketlog pocketlog <command>` instead
+# of `python -m app.cli <command>`. Drops to PUID:PGID itself (docker exec
+# enters as root, bypassing the entrypoint's gosu).
+COPY backend/pocketlog-cli.sh /usr/local/bin/pocketlog
+RUN chmod +x /docker-entrypoint.sh /usr/local/bin/pocketlog
 
 EXPOSE 8000
 

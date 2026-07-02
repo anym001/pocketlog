@@ -391,15 +391,18 @@ instance is not a valid backup**. Use the CLI, which snapshots via SQLite's
 `VACUUM INTO` and is safe while the app keeps running:
 
 ```bash
-docker exec pocketlog python -m app.cli backup
+docker exec pocketlog pocketlog backup
 # → /config/db/backups/pocketlog-YYYYMMDD-HHMMSS.db
 ```
+
+(The first `pocketlog` is the container name, the second the CLI launcher
+inside the image; `python -m app.cli backup` remains equivalent.)
 
 `--output <file-or-directory>` picks a different target. A cron line on the
 host makes it nightly:
 
 ```cron
-15 3 * * * docker exec pocketlog python -m app.cli backup
+15 3 * * * docker exec pocketlog pocketlog backup
 ```
 
 Restore by stopping the container and replacing `/config/db/pocketlog.db`
@@ -413,7 +416,7 @@ With the **MariaDB option**, back up on the database side instead:
 Forgot the admin password:
 
 ```bash
-docker exec -it pocketlog python -m app.cli reset-admin-password
+docker exec -it pocketlog pocketlog reset-admin-password
 ```
 
 Resets the password and any lockout; a new password must be set on the next login.

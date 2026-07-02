@@ -1,9 +1,15 @@
 """Operator CLI for emergency recovery and backups.
 
-Run inside the running container:
+Run inside the running container via the ``pocketlog`` launcher (a thin
+wrapper installed at /usr/local/bin/pocketlog that drops to PUID:PGID and
+execs ``python -m app.cli``, see backend/pocketlog-cli.sh):
 
-    docker exec -it pocketlog python -m app.cli reset-admin-password
-    docker exec pocketlog python -m app.cli backup
+    docker exec -it pocketlog pocketlog reset-admin-password
+    docker exec pocketlog pocketlog backup
+
+Outside Docker (bare dev checkout) the module form works the same:
+
+    python -m app.cli backup
 
 ``reset-admin-password`` sets a new password for the single admin (or the
 explicitly named user), clears the brute-force counter and sets
@@ -161,7 +167,8 @@ def _cmd_backup(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m app.cli")
+    # Canonical invocation name; `python -m app.cli` remains equivalent.
+    parser = argparse.ArgumentParser(prog="pocketlog")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_reset = sub.add_parser(
