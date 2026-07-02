@@ -52,13 +52,14 @@ backend/
     models.py          ← SQLAlchemy ORM
     schemas.py         ← Pydantic v2
     crud/              ← user_id-scoped queries, one module per domain; __init__ re-exports all
-    auth.py            ← session, CSRF, brute-force
+    auth.py            ← session, CSRF, brute-force (per-user lockout)
+    rate_limit.py      ← per-IP login/setup throttle (in-memory, LOGIN_IP_* env)
     recurring.py       ← catch-up / materialization engine
     recurring_dates.py ← pure occurrence date math (no DB)
     database.py        ← engine selection: SQLite | MariaDB
     proxies.py         ← trusted reverse-proxy check (TRUSTED_PROXIES)
     logging_config.py  ← central logging setup
-    cli.py             ← operator CLI (reset-admin-password)
+    cli.py             ← operator CLI (reset-admin-password, backup via VACUUM INTO)
 tests/               ← pytest suite (backend)
 ```
 
@@ -93,6 +94,8 @@ PUT|DELETE /api/tags/{name}
 GET|PUT  /api/settings
 POST   /api/import/csv               ← ImportUser (session OR Bearer w/ import scope)
 GET    /api/export/csv
+GET    /api/export/json              ← full-account JSON backup (ReadUser)
+POST   /api/import/json              ← restore backup; session-only, requires empty ledger (409 restore_not_empty)
 GET|POST /api/api-keys               ← session-only; POST returns raw plk_ key once
 DELETE /api/api-keys/{id}
 GET|POST /api/recurring
@@ -138,7 +141,7 @@ Tags many-to-many via `transaction_tags`. Goals/budgets: progress/consumption **
 
 ## Auth Concept
 
-Cookie `pocketlog_session` (HttpOnly, SHA256 in DB) + `pocketlog_csrf` (Double-Submit). `get_current_user()`: cookie → lookup → expiry → active → CSRF (`hmac.compare_digest`) → sliding refresh. `Secure` flag via `SESSION_COOKIE_SECURE` (`auto`: reads `X-Forwarded-Proto` from trusted proxies only). `CurrentUser` blocks on `force_change_password` (except `/me`, `/logout`, `/change-password`). Brute-force: exponential lockout from attempt 5 (1 s → 60 s cap). `GET /api/auth/me` also opportunistically runs `auth.maybe_cleanup_expired_sessions` (damped, at most once/hour per process) — no separate cron/scheduler in this deployment.
+Cookie `pocketlog_session` (HttpOnly, SHA256 in DB) + `pocketlog_csrf` (Double-Submit). `get_current_user()`: cookie → lookup → expiry → active → CSRF (`hmac.compare_digest`) → sliding refresh. `Secure` flag via `SESSION_COOKIE_SECURE` (`auto`: reads `X-Forwarded-Proto` from trusted proxies only). `CurrentUser` blocks on `force_change_password` (except `/me`, `/logout`, `/change-password`). Brute-force: exponential per-user lockout from attempt 5 (1 s → 60 s cap) **plus** per-IP throttle on login+setup (`rate_limit.py`: threshold 20 per window, cap 600 s; key = trusted proxy's *rightmost* XFF entry — never `client_ip()`, which is audit-only and client-seedable). `GET /api/auth/me` also opportunistically runs `auth.maybe_cleanup_expired_sessions` (damped, at most once/hour per process) — no separate cron/scheduler in this deployment.
 
 **API keys:** `plk_…` Bearer tokens; raw key shown once, only SHA256 stored. Scopes: `read` < `import` < `write`. Session users bypass scope checks. No `admin` scope — user management and bulk-delete are session-only, never token-reachable.
 
