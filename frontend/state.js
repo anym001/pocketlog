@@ -183,6 +183,11 @@ const appState = {
     list: [],
   },
 
+  // Signed-in devices (account panel): the user's active sessions.
+  sessions: {
+    list: [],
+  },
+
   // Admin views (user list, current me, password-reset target). _adminUsers /
   // _currentMe / _resetPwTargetId.
   admin: {

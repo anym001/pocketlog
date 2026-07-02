@@ -782,6 +782,19 @@
               Abmelden
             </button>
           </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3 data-i18n="sessions.title">Angemeldete Geräte</h3>
+            <div id="sessionList" class="api-key-list"></div>
+            <button
+              class="save-btn"
+              style="margin-top: var(--space-16)"
+              onclick="revokeOtherSessions()"
+              data-i18n="sessions.revokeOthers"
+            >
+              Alle anderen Geräte abmelden
+            </button>
+          </div>
         </div>
 
         <!-- Panel 2f: Info -->

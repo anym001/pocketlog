@@ -152,6 +152,48 @@ function _filterTransactions(pool, { query, categoryFilterId, tagFilterName }, c
   });
 }
 
+// Parse a backend datetime string. The API serialises naive UTC timestamps
+// without a timezone suffix ("2026-07-02T05:22:50"); `new Date()` would read
+// those as *local* time and shift every displayed timestamp by the UTC
+// offset. Appending "Z" pins the parse to UTC; strings that already carry a
+// zone (Z or ±hh:mm) pass through untouched.
+function _parseServerDate(iso) {
+  if (!iso) return new Date(NaN);
+  const hasZone = /[zZ]$|[+-]\d\d:?\d\d$/.test(iso);
+  return new Date(hasZone ? iso : iso + 'Z');
+}
+
+// Human-readable device label ("Browser · OS") from a stored User-Agent
+// string, for the signed-in-devices list. Deliberately coarse — the point is
+// telling one's own devices apart, not UA forensics. Returns '' when nothing
+// recognisable is found so the caller can substitute a localized fallback.
+function _deviceLabelFromUA(ua) {
+  ua = ua || '';
+  let browser = '';
+  // Alternative iOS browsers are all WebKit but carry vendor tokens —
+  // matched before the generic Chrome/Safari patterns (mirrors
+  // settings._detectBrowser for the local device).
+  if (/CriOS\//.test(ua)) browser = 'Chrome';
+  else if (/FxiOS\//.test(ua)) browser = 'Firefox';
+  else if (/EdgiOS\//.test(ua) || /Edg\//.test(ua)) browser = 'Edge';
+  else if (/OPR\//.test(ua)) browser = 'Opera';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Safari\//.test(ua) && /Version\//.test(ua)) browser = 'Safari';
+
+  let os = '';
+  if (/iPad/.test(ua)) os = 'iPadOS';
+  else if (/iPhone|iPod/.test(ua)) os = 'iOS';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/Windows NT/.test(ua)) os = 'Windows';
+  else if (/Mac OS X|Macintosh/.test(ua)) os = 'macOS';
+  else if (/CrOS/.test(ua)) os = 'ChromeOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+
+  if (browser && os) return browser + ' · ' + os;
+  return browser || os || '';
+}
+
 // --- Backend error codes → i18n keys ---------------------------------------
 
 // Map a backend 422 (Pydantic) password error onto an i18n key + params.
@@ -215,6 +257,8 @@ if (typeof module !== 'undefined' && module.exports) {
     _filterTransactions,
     _passwordErrorKey,
     _importReport,
+    _parseServerDate,
+    _deviceLabelFromUA,
     _recurringDaysInMonth,
     _recurringClampDay,
     _recurringAddMonths,

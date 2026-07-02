@@ -477,6 +477,22 @@
     "errorVersion": "Diese Backup-Version wird von der installierten App nicht unterstützt.",
     "errorTooLarge": "Die Datei ist zu groß."
   },
+  "sessions": {
+    "title": "Angemeldete Geräte",
+    "current": "Dieses Gerät",
+    "unknownDevice": "Unbekanntes Gerät",
+    "lastActive": "Zuletzt aktiv: {when}",
+    "signedInSince": "Angemeldet seit: {date}",
+    "revoke": "Abmelden",
+    "revokeTitle": "Gerät abmelden?",
+    "revokeBody": "Die Sitzung auf diesem Gerät wird beendet. Zum Weiterarbeiten ist dort eine neue Anmeldung nötig.",
+    "revokeOthers": "Alle anderen Geräte abmelden",
+    "revokeOthersTitle": "Alle anderen Geräte abmelden?",
+    "revokeOthersBody": "Alle Sitzungen außer dieser werden beendet.",
+    "revokedNone": "Keine anderen Geräte angemeldet.",
+    "revokedOne": "1 Gerät abgemeldet.",
+    "revokedMany": "{n} Geräte abgemeldet."
+  },
   "apiKeys": {
     "title": "API-Schlüssel",
     "empty": "Noch keine Schlüssel erstellt.",
