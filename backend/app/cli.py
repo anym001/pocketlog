@@ -1,13 +1,18 @@
-"""Operator CLI for emergency recovery.
+"""Operator CLI for emergency recovery and backups.
 
 Run inside the running container:
 
     docker exec -it pocketlog python -m app.cli reset-admin-password
+    docker exec pocketlog python -m app.cli backup
 
 ``reset-admin-password`` sets a new password for the single admin (or the
 explicitly named user), clears the brute-force counter and sets
 ``force_change_password=true`` — a personal password must be chosen at next
 login.
+
+``backup`` writes a consistent snapshot of the SQLite database via
+``VACUUM INTO`` — safe while the app is running (a plain file copy of a
+WAL-mode database is not). MariaDB deployments use ``mariadb-dump`` instead.
 
 Output is English only: this is operator tooling, not end-user UI.
 """
@@ -16,10 +21,14 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import os
 import sys
+from datetime import datetime
+
+from sqlalchemy.engine import make_url
 
 from . import auth, crud, schemas
-from .database import SessionLocal
+from .database import DATABASE_URL, SessionLocal, engine
 
 
 def _resolve_target_user(db, username: str | None):
@@ -110,6 +119,47 @@ def _cmd_reset_admin_password(args: argparse.Namespace) -> int:
         db.close()
 
 
+def _cmd_backup(args: argparse.Namespace) -> int:
+    if not DATABASE_URL.startswith("sqlite"):
+        print(
+            "The backup command supports the SQLite backend only. For "
+            "MariaDB, snapshot with: mariadb-dump --single-transaction "
+            "<database>",
+            file=sys.stderr,
+        )
+        return 1
+
+    db_path = make_url(DATABASE_URL).database
+    if not db_path or db_path == ":memory:":
+        print("No file-backed SQLite database configured.", file=sys.stderr)
+        return 1
+
+    dest = args.output
+    if dest is None:
+        dest_dir = os.path.join(os.path.dirname(db_path) or ".", "backups")
+        dest = os.path.join(dest_dir, f"pocketlog-{datetime.now():%Y%m%d-%H%M%S}.db")
+    elif os.path.isdir(dest):
+        dest = os.path.join(dest, f"pocketlog-{datetime.now():%Y%m%d-%H%M%S}.db")
+    if os.path.exists(dest):
+        # VACUUM INTO refuses to overwrite too, but fail with a clear message
+        # instead of an SQL error.
+        print(f"Refusing to overwrite existing file: {dest}", file=sys.stderr)
+        return 1
+    parent = os.path.dirname(dest)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+    # VACUUM INTO produces a compacted, consistent snapshot regardless of
+    # concurrent writers (WAL). It cannot run inside a transaction, so the
+    # connection must be in driver-level autocommit.
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        conn.exec_driver_sql("VACUUM INTO ?", (dest,))
+
+    size = os.path.getsize(dest)
+    print(f"OK: backup written to {dest} ({size} bytes).")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -130,6 +180,19 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     p_reset.set_defaults(func=_cmd_reset_admin_password)
+
+    p_backup = sub.add_parser(
+        "backup",
+        help="Write a consistent SQLite snapshot (VACUUM INTO).",
+    )
+    p_backup.add_argument(
+        "--output",
+        help=(
+            "Target file or directory. Defaults to a timestamped file in a "
+            "'backups' directory next to the database."
+        ),
+    )
+    p_backup.set_defaults(func=_cmd_backup)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -15,6 +15,8 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 
+from . import constants
+
 # Bounds for the tags array on a single transaction. The list cap keeps a
 # rogue payload from filling the JSON column with thousands of items
 # (each tag would then have to be rendered, aggregated and serialised on
@@ -126,6 +128,26 @@ class CategoryOut(CategoryBase):
 # -------- Goals --------
 
 
+def _check_goal_amounts(
+    direction: str, initial_amount: Decimal, target_amount: Decimal
+) -> None:
+    """Direction/amount consistency, shared by GoalBase and BackupGoal."""
+    if direction == "save_up":
+        # There must be room to save into.
+        if target_amount <= initial_amount:
+            raise ValueError(
+                "target_amount must be greater than initial_amount for a savings goal"
+            )
+    else:  # pay_down
+        # There must be a debt, and the target must be below it.
+        if initial_amount <= 0:
+            raise ValueError("initial_amount must be greater than 0 for a debt goal")
+        if target_amount >= initial_amount:
+            raise ValueError(
+                "target_amount must be less than initial_amount for a debt goal"
+            )
+
+
 class GoalBase(BaseModel):
     name: NameStr = Field(min_length=1, max_length=100)
     # 'save_up' counts contributions up to target_amount; 'pay_down'
@@ -149,23 +171,7 @@ class GoalBase(BaseModel):
 
     @model_validator(mode="after")
     def _check_amounts(self) -> "GoalBase":
-        if self.direction == "save_up":
-            # There must be room to save into.
-            if self.target_amount <= self.initial_amount:
-                raise ValueError(
-                    "target_amount must be greater than initial_amount "
-                    "for a savings goal"
-                )
-        else:  # pay_down
-            # There must be a debt, and the target must be below it.
-            if self.initial_amount <= 0:
-                raise ValueError(
-                    "initial_amount must be greater than 0 for a debt goal"
-                )
-            if self.target_amount >= self.initial_amount:
-                raise ValueError(
-                    "target_amount must be less than initial_amount for a debt goal"
-                )
+        _check_goal_amounts(self.direction, self.initial_amount, self.target_amount)
         return self
 
 
@@ -353,6 +359,40 @@ class TransactionBulkResult(BaseModel):
 # frontend can map each failure to a stable i18n key.
 
 
+def _check_recurring_cross_fields(
+    frequency: str,
+    weekday: int | None,
+    day_of_month: int | None,
+    start_date: date_type,
+    end_date: date_type | None,
+) -> None:
+    """Cross-field rules shared by RecurringRuleBase and BackupRecurringRule.
+
+    Stable machine codes for the frontend to translate, mirroring
+    ``validate_password_complexity``. Bare ValueError would surface as
+    ``type=value_error`` with the message embedded in prose, which the
+    frontend can't reliably map to i18n.
+    """
+    if frequency == "weekly" and weekday is None:
+        raise PydanticCustomError(
+            "recurring_cross_field",
+            "weekday is required for weekly frequency",
+            {"missing": "weekday"},
+        )
+    if frequency in ("monthly", "quarterly", "yearly") and day_of_month is None:
+        raise PydanticCustomError(
+            "recurring_cross_field",
+            "day_of_month is required for monthly/quarterly/yearly",
+            {"missing": "day_of_month"},
+        )
+    if end_date is not None and end_date < start_date:
+        raise PydanticCustomError(
+            "recurring_cross_field",
+            "end_date must not precede start_date",
+            {"missing": "end_after_start"},
+        )
+
+
 class RecurringRuleBase(BaseModel):
     name: NameStr = Field(min_length=1, max_length=100)
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
@@ -378,31 +418,13 @@ class RecurringRuleBase(BaseModel):
 
     @model_validator(mode="after")
     def _check_cross_fields(self) -> "RecurringRuleBase":
-        # Stable machine codes for the frontend to translate, mirroring
-        # ``validate_password_complexity``. Bare ValueError would
-        # surface as ``type=value_error`` with the message embedded
-        # in prose, which the frontend can't reliably map to i18n.
-        if self.frequency == "weekly" and self.weekday is None:
-            raise PydanticCustomError(
-                "recurring_cross_field",
-                "weekday is required for weekly frequency",
-                {"missing": "weekday"},
-            )
-        if (
-            self.frequency in ("monthly", "quarterly", "yearly")
-            and self.day_of_month is None
-        ):
-            raise PydanticCustomError(
-                "recurring_cross_field",
-                "day_of_month is required for monthly/quarterly/yearly",
-                {"missing": "day_of_month"},
-            )
-        if self.end_date is not None and self.end_date < self.start_date:
-            raise PydanticCustomError(
-                "recurring_cross_field",
-                "end_date must not precede start_date",
-                {"missing": "end_after_start"},
-            )
+        _check_recurring_cross_fields(
+            self.frequency,
+            self.weekday,
+            self.day_of_month,
+            self.start_date,
+            self.end_date,
+        )
         return self
 
 
@@ -543,6 +565,157 @@ class ImportResult(BaseModel):
     skipped: int
     deduped: int = 0
     errors: list[ImportRowError]
+
+
+# -------- Backup (JSON full export / restore) --------
+# One versioned file that carries the complete account: settings, categories,
+# tags, transactions, goals, budgets and recurring rules. The same schema
+# validates both directions — GET /api/export/json serialises it, POST
+# /api/import/json parses an uploaded file back through it, so restore
+# accepts exactly what export produces. References between objects use the
+# user-visible unique names (category/rule names), never database ids —
+# names survive the move to a fresh install, ids don't.
+
+BACKUP_FORMAT = "pocketlog-backup"
+BACKUP_VERSION = 1
+
+# A backup tag entry: same bounds as TagCreate.name.
+BackupTagName = Annotated[
+    str,
+    Field(min_length=1, max_length=MAX_TAG_LENGTH),
+    AfterValidator(_strip_control_required),
+]
+
+
+class BackupSettings(BaseModel):
+    theme: Literal["system", "light", "dark"] = "system"
+    default_view: Literal["transactions", "categories"] = "transactions"
+    locale: Locale = "de-DE"
+    currency: Currency = "EUR"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BackupCategory(BaseModel):
+    name: NameStr = Field(min_length=1, max_length=100)
+    icon: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$", default="package")
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", default="#9e9b96")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BackupTransaction(BaseModel):
+    date: date_type
+    type: Literal["in", "out"]
+    amount: Decimal = Field(gt=0, decimal_places=2, max_digits=12)
+    description: FreeText = Field(default="", max_length=255, alias="desc")
+    category: NameStr = Field(min_length=1, max_length=100)
+    tags: TagList = None
+    # Name of the recurring rule this row was materialized from, so the
+    # recurring badge and the rule↔transaction link survive a restore.
+    # Null for manual rows and rows whose rule was deleted before export.
+    rule: NameStr | None = Field(default=None, max_length=100)
+    # CSV-import fingerprint, preserved so re-importing the same bank CSV
+    # after a restore still dedupes. Null for manually created rows.
+    import_hash: str | None = Field(default=None, max_length=64)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class BackupGoal(BaseModel):
+    name: NameStr = Field(min_length=1, max_length=100)
+    direction: Literal["save_up", "pay_down"]
+    category: NameStr = Field(min_length=1, max_length=100)
+    initial_amount: Decimal = Field(
+        ge=0, max_digits=12, decimal_places=2, default=Decimal("0")
+    )
+    target_amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    start_date: date_type
+    icon: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$", default="piggy-bank")
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", default="#9e9b96")
+
+    @model_validator(mode="after")
+    def _check_amounts(self) -> "BackupGoal":
+        _check_goal_amounts(self.direction, self.initial_amount, self.target_amount)
+        return self
+
+
+class BackupBudget(BaseModel):
+    category: NameStr = Field(min_length=1, max_length=100)
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    frequency: Literal["monthly", "quarterly", "yearly"]
+
+
+class BackupRecurringRule(BaseModel):
+    name: NameStr = Field(min_length=1, max_length=100)
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    type: Literal["in", "out"]
+    category: NameStr = Field(min_length=1, max_length=100)
+    description: FreeText = Field(default="", max_length=255, alias="desc")
+    tags: TagList = None
+    frequency: Literal["daily", "weekly", "monthly", "quarterly", "yearly"]
+    interval: int = Field(default=1, ge=1, le=365)
+    weekday: int | None = Field(default=None, ge=0, le=6)
+    day_of_month: int | None = Field(default=None, ge=1, le=31)
+    start_date: date_type
+    end_date: date_type | None = None
+    max_occurrences: int | None = Field(default=None, ge=1, le=10_000)
+    active: bool = True
+    # Cursor state, preserved verbatim: restoring it prevents the catch-up
+    # from re-materializing occurrences that are already part of the
+    # restored transaction history. Null = rule already terminated.
+    next_occurrence_date: date_type | None = None
+    occurrences_count: int = Field(default=0, ge=0)
+    skips: list[date_type] = Field(default_factory=list, max_length=1_000)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @model_validator(mode="after")
+    def _check_cross_fields(self) -> "BackupRecurringRule":
+        _check_recurring_cross_fields(
+            self.frequency,
+            self.weekday,
+            self.day_of_month,
+            self.start_date,
+            self.end_date,
+        )
+        return self
+
+
+class BackupFile(BaseModel):
+    format: Literal["pocketlog-backup"]
+    version: Literal[1]
+    # Metadata only — informational on export, ignored on restore.
+    exported_at: datetime | None = None
+    app_version: str | None = Field(default=None, max_length=64)
+    settings: BackupSettings | None = None
+    categories: list[BackupCategory] = Field(
+        default_factory=list, max_length=constants.MAX_BACKUP_ITEMS
+    )
+    tags: list[BackupTagName] = Field(
+        default_factory=list, max_length=constants.MAX_BACKUP_TAGS
+    )
+    transactions: list[BackupTransaction] = Field(
+        default_factory=list, max_length=constants.MAX_BACKUP_TRANSACTIONS
+    )
+    goals: list[BackupGoal] = Field(
+        default_factory=list, max_length=constants.MAX_BACKUP_ITEMS
+    )
+    budgets: list[BackupBudget] = Field(
+        default_factory=list, max_length=constants.MAX_BACKUP_ITEMS
+    )
+    recurring_rules: list[BackupRecurringRule] = Field(
+        default_factory=list, max_length=constants.MAX_BACKUP_ITEMS
+    )
+
+
+class BackupRestoreResult(BaseModel):
+    categories: int
+    tags: int
+    transactions: int
+    goals: int
+    budgets: int
+    recurring_rules: int
 
 
 # -------- API Keys --------
