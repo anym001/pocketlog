@@ -68,6 +68,29 @@ def verify_password(plain: str, hashed: str | None) -> bool:
         return False
 
 
+def maybe_rehash_password(db: DbSession, user: models.User, plain: str) -> bool:
+    """Transparenter Hash-Upgrade nach einem *erfolgreichen* Verify.
+
+    ``check_needs_rehash`` vergleicht die im Hash eingebetteten Parameter
+    (time/memory cost, Parallelität, Salz-/Hash-Länge) mit den aktuellen
+    Library-Defaults. Hebt argon2-cffi seine Defaults an, wandern Bestands-
+    Hashes so beim nächsten Login auf die neuen Kosten — ohne diesen Hook
+    blieben sie für immer auf den alten. Nur hier ist das Klartext-Passwort
+    legitim verfügbar. Gibt zurück, ob neu gehasht wurde."""
+    if user.password_hash is None:
+        return False
+    try:
+        if not _hasher.check_needs_rehash(user.password_hash):
+            return False
+    except InvalidHash:
+        # Kaputtes Format hätte verify_password bereits abgelehnt; hier
+        # defensiv, damit der Login-Pfad nie an Housekeeping scheitert.
+        return False
+    user.password_hash = _hasher.hash(plain)
+    db.commit()
+    return True
+
+
 def verify_password_dummy() -> None:
     """Konstante-Zeit Argon2-Verify gegen einen Dummy-Hash. Wird beim
     Login-Versuch gegen nicht existente User aufgerufen, damit der
@@ -237,6 +260,36 @@ def refresh_session_if_needed(db: DbSession, session: models.Session) -> bool:
         db.rollback()
         return False
     return changed
+
+
+def list_user_sessions(db: DbSession, user_id: int) -> list[models.Session]:
+    """Alle (nicht abgelaufenen) Sessions eines Users, jüngste Aktivität
+    zuerst. Abgelaufene Rows blendet die Query aus statt sie zu löschen —
+    das Aufräumen bleibt beim gedämpften Cleanup bzw. beim Lookup."""
+    now = _utcnow()
+    return list(
+        db.scalars(
+            select(models.Session)
+            .where(
+                models.Session.user_id == user_id,
+                models.Session.expires_at > now,
+                models.Session.absolute_expires_at > now,
+            )
+            .order_by(models.Session.last_seen_at.desc(), models.Session.id.desc())
+        )
+    )
+
+
+def get_user_session(
+    db: DbSession, user_id: int, session_id: int
+) -> models.Session | None:
+    """User-scoped Lookup einer einzelnen Session-Row (für den Self-Service-
+    Revoke). Fremde IDs liefern None — derselbe 404-Pfad wie eine unbekannte,
+    damit die Existenz fremder Sessions nicht leakt."""
+    session = db.get(models.Session, session_id)
+    if session is None or session.user_id != user_id:
+        return None
+    return session
 
 
 def revoke_session(db: DbSession, session: models.Session) -> None:

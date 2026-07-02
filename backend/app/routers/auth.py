@@ -15,6 +15,7 @@ from ..deps import (
     CSRF_HEADER_NAME,
     DB,
     SESSION_COOKIE_NAME,
+    CurrentUser,
     RawCurrentUser,
     clear_session_cookies,
     set_session_cookies,
@@ -201,6 +202,11 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
     auth.clear_failed_login(db, user)
+    # Opportunistic hash upgrade: if argon2-cffi's default parameters have
+    # moved since this hash was written, re-hash with the (only here
+    # legitimately available) plaintext. Never fails the login.
+    if auth.maybe_rehash_password(db, user, payload.password):
+        audit.info("auth.password.rehashed id=%s", user.id)
     session, plain = auth.create_session(
         db, user, remember_me=payload.remember_me, user_agent=user_agent
     )
@@ -260,7 +266,7 @@ def _lockout_response(response: Response, seconds: int) -> Response:
 
 
 @router.post("/api/auth/logout", status_code=204)
-def logout(request: Request, response: Response, db: DB):
+def logout(request: Request, db: DB):
     plain = request.cookies.get(SESSION_COOKIE_NAME)
     if plain:
         session = auth.get_session_by_token(db, plain)
@@ -272,8 +278,14 @@ def logout(request: Request, response: Response, db: DB):
             user_id = session.user_id
             auth.revoke_session(db, session)
             audit.info("auth.logout id=%s ip=%s", user_id, client_ip(request))
-    clear_session_cookies(response, request)
-    return Response(status_code=204)
+    # Cookies auf der *zurückgegebenen* Response löschen: Header, die auf der
+    # injizierten Sub-Response gesetzt werden, gehen verloren, sobald ein
+    # Endpoint eine Response direkt zurückgibt (FastAPI merged sie nur beim
+    # serialisierten Pfad). Vorher blieb der tote Session-Cookie im Browser
+    # und wurde bei jedem Request weiter mitgeschickt.
+    resp = Response(status_code=204)
+    clear_session_cookies(resp, request)
+    return resp
 
 
 @router.get("/api/auth/me", response_model=schemas.UserMe)
@@ -309,6 +321,76 @@ def auth_me(request: Request, response: Response, db: DB, user: RawCurrentUser):
         csrf_token=csrf,
         recurring_materialized_count=materialized,
     )
+
+
+# ---------------------------------------------------------------------
+# Session self-service ("signed-in devices")
+# ---------------------------------------------------------------------
+# Session-only by construction: CurrentUser rides on the session cookie, and
+# there is no bearer-token path to these routes — an API key must never be
+# able to enumerate or kill browser sessions.
+
+
+@router.get("/api/auth/sessions", response_model=list[schemas.SessionOut])
+def list_sessions(request: Request, db: DB, user: CurrentUser):
+    current_id = getattr(request.state, "session_id", None)
+    return [
+        schemas.SessionOut(
+            id=s.id,
+            created_at=s.created_at,
+            last_seen_at=s.last_seen_at,
+            remember_me=s.remember_me,
+            user_agent=s.user_agent,
+            current=s.id == current_id,
+        )
+        for s in auth.list_user_sessions(db, user.id)
+    ]
+
+
+@router.delete("/api/auth/sessions", response_model=schemas.SessionsRevokeResult)
+def revoke_other_sessions(request: Request, db: DB, user: CurrentUser):
+    """Revoke every session except the one making this request."""
+    current_id = getattr(request.state, "session_id", None)
+    revoked = auth.revoke_all_user_sessions(db, user.id, except_id=current_id)
+    audit.info(
+        "auth.session.revoked_others id=%s count=%s ip=%s",
+        user.id,
+        revoked,
+        client_ip(request),
+    )
+    return schemas.SessionsRevokeResult(revoked=revoked)
+
+
+@router.delete("/api/auth/sessions/{session_id}", status_code=204)
+def revoke_session_by_id(
+    session_id: int,
+    request: Request,
+    db: DB,
+    user: CurrentUser,
+):
+    target = auth.get_user_session(db, user.id, session_id)
+    if target is None:
+        # Foreign and unknown ids share the 404 so other users' session ids
+        # are not probeable.
+        raise errors.not_found()
+    current_id = getattr(request.state, "session_id", None)
+    is_current = target.id == current_id
+    auth.revoke_session(db, target)
+    audit.info(
+        "auth.session.revoked id=%s session=%s current=%s ip=%s",
+        user.id,
+        session_id,
+        is_current,
+        client_ip(request),
+    )
+    resp = Response(status_code=204)
+    if is_current:
+        # Revoking the session this request rides on is a logout — clear the
+        # cookies on the *returned* response so the browser doesn't replay a
+        # dead token (headers set on the injected sub-response are not merged
+        # when a Response is returned directly).
+        clear_session_cookies(resp, request)
+    return resp
 
 
 @router.post("/api/auth/change-password", status_code=204)

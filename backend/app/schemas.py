@@ -890,6 +890,23 @@ class UserMe(BaseModel):
     recurring_materialized_count: int = 0
 
 
+class SessionOut(BaseModel):
+    """One row in the user's "signed-in devices" list. ``current`` marks the
+    session the request itself rode in on, so the UI can pin it first and
+    hide its revoke button (the current session ends via logout)."""
+
+    id: int
+    created_at: datetime
+    last_seen_at: datetime
+    remember_me: bool
+    user_agent: str | None = None
+    current: bool = False
+
+
+class SessionsRevokeResult(BaseModel):
+    revoked: int
+
+
 class ChangePasswordRequest(BaseModel):
     # ``None`` whenever the user is in force-change-password state: the
     # backend ignores the value there because the existing password is

@@ -81,6 +81,8 @@ POST   /api/auth/setup | /api/auth/login | /api/auth/logout
 # User (session cookie + X-CSRF-Token on non-GET)
 GET    /api/auth/me
 POST   /api/auth/change-password
+GET    /api/auth/sessions            ← own sessions, current marked (session-only)
+DELETE /api/auth/sessions            ← revoke all others; /{id} revokes one (own; current ⇒ logout)
 GET    /api/transactions?year=&month=&from=&to=
 POST|PUT|DELETE /api/transactions/{id}
 POST   /api/transactions/bulk        ← set_category | add_tags | remove_tags | delete
@@ -141,7 +143,7 @@ Tags many-to-many via `transaction_tags`. Goals/budgets: progress/consumption **
 
 ## Auth Concept
 
-Cookie `pocketlog_session` (HttpOnly, SHA256 in DB) + `pocketlog_csrf` (Double-Submit). `get_current_user()`: cookie → lookup → expiry → active → CSRF (`hmac.compare_digest`) → sliding refresh. `Secure` flag via `SESSION_COOKIE_SECURE` (`auto`: reads `X-Forwarded-Proto` from trusted proxies only). `CurrentUser` blocks on `force_change_password` (except `/me`, `/logout`, `/change-password`). Brute-force: exponential per-user lockout from attempt 5 (1 s → 60 s cap) **plus** per-IP throttle on login+setup (`rate_limit.py`: threshold 20 per window, cap 600 s; key = trusted proxy's *rightmost* XFF entry — never `client_ip()`, which is audit-only and client-seedable). `GET /api/auth/me` also opportunistically runs `auth.maybe_cleanup_expired_sessions` (damped, at most once/hour per process) — no separate cron/scheduler in this deployment.
+Cookie `pocketlog_session` (HttpOnly, SHA256 in DB) + `pocketlog_csrf` (Double-Submit). Argon2-Hashes werden beim Login opportunistisch auf aktuelle Library-Parameter re-gehasht (`auth.maybe_rehash_password`). Session-Self-Service („Angemeldete Geräte") über `/api/auth/sessions` — session-only, nie Bearer-erreichbar. Achtung Response-Muster: Header auf der injizierten Sub-Response gehen verloren, wenn ein Endpoint eine `Response` direkt zurückgibt — Cookies dann auf der zurückgegebenen Response setzen (siehe `logout`). `get_current_user()`: cookie → lookup → expiry → active → CSRF (`hmac.compare_digest`) → sliding refresh. `Secure` flag via `SESSION_COOKIE_SECURE` (`auto`: reads `X-Forwarded-Proto` from trusted proxies only). `CurrentUser` blocks on `force_change_password` (except `/me`, `/logout`, `/change-password`). Brute-force: exponential per-user lockout from attempt 5 (1 s → 60 s cap) **plus** per-IP throttle on login+setup (`rate_limit.py`: threshold 20 per window, cap 600 s; key = trusted proxy's *rightmost* XFF entry — never `client_ip()`, which is audit-only and client-seedable). `GET /api/auth/me` also opportunistically runs `auth.maybe_cleanup_expired_sessions` (damped, at most once/hour per process) — no separate cron/scheduler in this deployment.
 
 **API keys:** `plk_…` Bearer tokens; raw key shown once, only SHA256 stored. Scopes: `read` < `import` < `write`. Session users bypass scope checks. No `admin` scope — user management and bulk-delete are session-only, never token-reachable.
 
