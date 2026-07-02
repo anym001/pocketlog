@@ -265,6 +265,31 @@ def cleanup_expired_sessions(db: DbSession) -> int:
     return result.rowcount or 0
 
 
+# An expired session is also pruned lazily the moment it's looked up again
+# (get_session_by_token), but a device that's simply never used again would
+# otherwise sit in the table forever. There's no separate cron/scheduler in
+# this deployment (single container, see CLAUDE.md), so this runs
+# opportunistically on the request path instead — damped like the sliding
+# refresh above, so it's one DELETE per process per interval, not per request.
+SESSION_CLEANUP_INTERVAL_SECONDS = 60 * 60
+_last_session_cleanup_at: datetime | None = None
+
+
+def maybe_cleanup_expired_sessions(db: DbSession) -> int:
+    """Runs ``cleanup_expired_sessions`` at most once per
+    ``SESSION_CLEANUP_INTERVAL_SECONDS`` for this process."""
+    global _last_session_cleanup_at
+    now = _utcnow()
+    if (
+        _last_session_cleanup_at is not None
+        and (now - _last_session_cleanup_at).total_seconds()
+        < SESSION_CLEANUP_INTERVAL_SECONDS
+    ):
+        return 0
+    _last_session_cleanup_at = now
+    return cleanup_expired_sessions(db)
+
+
 # ---------------------------------------------------------------------
 # Brute-Force-Backoff
 # ---------------------------------------------------------------------

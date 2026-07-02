@@ -138,7 +138,7 @@ Tags many-to-many via `transaction_tags`. Goals/budgets: progress/consumption **
 
 ## Auth Concept
 
-Cookie `pocketlog_session` (HttpOnly, SHA256 in DB) + `pocketlog_csrf` (Double-Submit). `get_current_user()`: cookie → lookup → expiry → active → CSRF (`hmac.compare_digest`) → sliding refresh. `Secure` flag via `SESSION_COOKIE_SECURE` (`auto`: reads `X-Forwarded-Proto` from trusted proxies only). `CurrentUser` blocks on `force_change_password` (except `/me`, `/logout`, `/change-password`). Brute-force: exponential lockout from attempt 5 (1 s → 60 s cap).
+Cookie `pocketlog_session` (HttpOnly, SHA256 in DB) + `pocketlog_csrf` (Double-Submit). `get_current_user()`: cookie → lookup → expiry → active → CSRF (`hmac.compare_digest`) → sliding refresh. `Secure` flag via `SESSION_COOKIE_SECURE` (`auto`: reads `X-Forwarded-Proto` from trusted proxies only). `CurrentUser` blocks on `force_change_password` (except `/me`, `/logout`, `/change-password`). Brute-force: exponential lockout from attempt 5 (1 s → 60 s cap). `GET /api/auth/me` also opportunistically runs `auth.maybe_cleanup_expired_sessions` (damped, at most once/hour per process) — no separate cron/scheduler in this deployment.
 
 **API keys:** `plk_…` Bearer tokens; raw key shown once, only SHA256 stored. Scopes: `read` < `import` < `write`. Session users bypass scope checks. No `admin` scope — user management and bulk-delete are session-only, never token-reachable.
 

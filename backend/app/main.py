@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -18,6 +19,8 @@ from .logging_config import configure_logging
 # Configure the pocketlog logger namespace at import time, so it applies under
 # uvicorn (which imports app.main:app) as well as under pytest and the CLI.
 configure_logging()
+
+logger = logging.getLogger("pocketlog.api")
 
 # Swagger UI and the OpenAPI schema are off by default. Both leak the full
 # API surface and Swagger's "Try it out" issues real requests against this
@@ -43,6 +46,29 @@ async def _domain_error_handler(
     frontend's machine-readable error contract is unchanged.
     """
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    """Catch-all for anything not already mapped to a response.
+
+    Starlette's exception middleware picks the most specific registered
+    handler for the raised type, so this only fires when neither FastAPI's
+    built-ins (HTTPException, RequestValidationError) nor DomainError above
+    matched — i.e. a genuine bug. Without it, such an error would still 500,
+    but silently, with nothing in the pocketlog.* log namespace to find it by.
+    The response stays a generic message: the real detail belongs in the log,
+    not in a payload a client could see.
+    """
+    logger.error(
+        "unhandled exception method=%s path=%s",
+        request.method,
+        request.url.path,
+        exc_info=exc,
+    )
+    return JSONResponse(status_code=500, content={"detail": "internal_error"})
 
 
 # Content-Security-Policy — set in the backend because SWAG's ssl.conf does
