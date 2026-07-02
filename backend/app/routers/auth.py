@@ -10,11 +10,12 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .. import auth, crud, errors, models, recurring, schemas
+from .. import auth, crud, errors, models, rate_limit, recurring, schemas
 from ..deps import (
     CSRF_HEADER_NAME,
     DB,
     SESSION_COOKIE_NAME,
+    CurrentUser,
     RawCurrentUser,
     clear_session_cookies,
     set_session_cookies,
@@ -62,10 +63,22 @@ def setup_admin(
     response: Response,
     db: DB,
 ):
+    # Per-IP throttle: setup shares the login limiter — an attacker probing
+    # for a half-initialised install (or racing the operator for the first
+    # admin) burns the same per-IP budget as failed logins.
+    throttle_ip = rate_limit.limiter_ip(request)
+    blocked = rate_limit.check_blocked(throttle_ip)
+    if blocked is not None:
+        audit.warning(
+            "auth.setup.ip_throttled ip=%s seconds=%s", client_ip(request), blocked
+        )
+        return _lockout_response(response, blocked)
+
     needs, suggested = _needs_setup(db)
     if not needs:
         # Setup ist bereits abgeschlossen — kein Admin-Override-Pfad
         # offen lassen.
+        rate_limit.record_failure(throttle_ip)
         raise errors.conflict("setup_already_done")
 
     if suggested is not None:
@@ -75,6 +88,7 @@ def setup_admin(
         if user is None or not user.is_admin or user.password_hash is not None:
             # Race: zwischen status-check und setup hat sich der State
             # geändert. Sauber abbrechen.
+            rate_limit.record_failure(throttle_ip)
             raise errors.conflict("setup_already_done")
         crud.set_user_password(db, user, payload.password, force_change=False)
         # Locale aus dem Setup-Screen auch für den migrierten Admin
@@ -97,6 +111,7 @@ def setup_admin(
             # Race mit einem parallelen Setup-Versuch — Username
             # existiert schon. Aus Sicht des zweiten Setup-Versuchs ist
             # die DB jetzt initialisiert.
+            rate_limit.record_failure(throttle_ip)
             raise errors.conflict("setup_already_done")
         mode = "fresh"
 
@@ -123,14 +138,26 @@ def setup_admin(
 def login(payload: schemas.LoginRequest, request: Request, response: Response, db: DB):
     user_agent = request.headers.get("user-agent")
     username = payload.username.strip()
-    user = crud.get_user_by_username(db, username) if username else None
 
     ip = client_ip(request)
+
+    # Per-IP throttle first: an IP that keeps failing gets a 429 before any
+    # user lookup or Argon2 work. Catches what the per-user lockout can't —
+    # guesses distributed across many usernames — and makes hammering one
+    # known username into a lockout-DoS cost the attacker their source IP.
+    throttle_ip = rate_limit.limiter_ip(request)
+    blocked = rate_limit.check_blocked(throttle_ip)
+    if blocked is not None:
+        audit.warning("auth.login.ip_throttled ip=%s seconds=%s", ip, blocked)
+        return _lockout_response(response, blocked)
+
+    user = crud.get_user_by_username(db, username) if username else None
 
     if user is None or not user.is_active or user.password_hash is None:
         # Konstante-Zeit-Verify gegen Dummy-Hash, damit
         # Username-Enumeration via Timing nicht funktioniert.
         auth.verify_password_dummy()
+        rate_limit.record_failure(throttle_ip)
         # reason is logged server-side only — never returned to the client, so
         # it does not enable username enumeration.
         audit.warning(
@@ -143,6 +170,9 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
     locked = auth.current_lockout_seconds(user)
     if locked is not None:
         # Während eines aktiven Lockouts wird gar nicht erst verifiziert.
+        # Zählt auch aufs IP-Budget: Dauerfeuer gegen einen gesperrten
+        # Account ist das Lockout-DoS-Muster.
+        rate_limit.record_failure(throttle_ip)
         audit.warning(
             "auth.login.during_lockout user=%s id=%s ip=%s seconds=%s",
             user.username,
@@ -153,6 +183,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         return _lockout_response(response, locked)
 
     if not auth.verify_password(payload.password, user.password_hash):
+        rate_limit.record_failure(throttle_ip)
         lockout = auth.record_failed_login(db, user)
         if lockout is not None:
             audit.warning(
@@ -171,6 +202,11 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
     auth.clear_failed_login(db, user)
+    # Opportunistic hash upgrade: if argon2-cffi's default parameters have
+    # moved since this hash was written, re-hash with the (only here
+    # legitimately available) plaintext. Never fails the login.
+    if auth.maybe_rehash_password(db, user, payload.password):
+        audit.info("auth.password.rehashed id=%s", user.id)
     session, plain = auth.create_session(
         db, user, remember_me=payload.remember_me, user_agent=user_agent
     )
@@ -230,7 +266,7 @@ def _lockout_response(response: Response, seconds: int) -> Response:
 
 
 @router.post("/api/auth/logout", status_code=204)
-def logout(request: Request, response: Response, db: DB):
+def logout(request: Request, db: DB):
     plain = request.cookies.get(SESSION_COOKIE_NAME)
     if plain:
         session = auth.get_session_by_token(db, plain)
@@ -242,8 +278,14 @@ def logout(request: Request, response: Response, db: DB):
             user_id = session.user_id
             auth.revoke_session(db, session)
             audit.info("auth.logout id=%s ip=%s", user_id, client_ip(request))
-    clear_session_cookies(response, request)
-    return Response(status_code=204)
+    # Cookies auf der *zurückgegebenen* Response löschen: Header, die auf der
+    # injizierten Sub-Response gesetzt werden, gehen verloren, sobald ein
+    # Endpoint eine Response direkt zurückgibt (FastAPI merged sie nur beim
+    # serialisierten Pfad). Vorher blieb der tote Session-Cookie im Browser
+    # und wurde bei jedem Request weiter mitgeschickt.
+    resp = Response(status_code=204)
+    clear_session_cookies(resp, request)
+    return resp
 
 
 @router.get("/api/auth/me", response_model=schemas.UserMe)
@@ -279,6 +321,76 @@ def auth_me(request: Request, response: Response, db: DB, user: RawCurrentUser):
         csrf_token=csrf,
         recurring_materialized_count=materialized,
     )
+
+
+# ---------------------------------------------------------------------
+# Session self-service ("signed-in devices")
+# ---------------------------------------------------------------------
+# Session-only by construction: CurrentUser rides on the session cookie, and
+# there is no bearer-token path to these routes — an API key must never be
+# able to enumerate or kill browser sessions.
+
+
+@router.get("/api/auth/sessions", response_model=list[schemas.SessionOut])
+def list_sessions(request: Request, db: DB, user: CurrentUser):
+    current_id = getattr(request.state, "session_id", None)
+    return [
+        schemas.SessionOut(
+            id=s.id,
+            created_at=s.created_at,
+            last_seen_at=s.last_seen_at,
+            remember_me=s.remember_me,
+            user_agent=s.user_agent,
+            current=s.id == current_id,
+        )
+        for s in auth.list_user_sessions(db, user.id)
+    ]
+
+
+@router.delete("/api/auth/sessions", response_model=schemas.SessionsRevokeResult)
+def revoke_other_sessions(request: Request, db: DB, user: CurrentUser):
+    """Revoke every session except the one making this request."""
+    current_id = getattr(request.state, "session_id", None)
+    revoked = auth.revoke_all_user_sessions(db, user.id, except_id=current_id)
+    audit.info(
+        "auth.session.revoked_others id=%s count=%s ip=%s",
+        user.id,
+        revoked,
+        client_ip(request),
+    )
+    return schemas.SessionsRevokeResult(revoked=revoked)
+
+
+@router.delete("/api/auth/sessions/{session_id}", status_code=204)
+def revoke_session_by_id(
+    session_id: int,
+    request: Request,
+    db: DB,
+    user: CurrentUser,
+):
+    target = auth.get_user_session(db, user.id, session_id)
+    if target is None:
+        # Foreign and unknown ids share the 404 so other users' session ids
+        # are not probeable.
+        raise errors.not_found()
+    current_id = getattr(request.state, "session_id", None)
+    is_current = target.id == current_id
+    auth.revoke_session(db, target)
+    audit.info(
+        "auth.session.revoked id=%s session=%s current=%s ip=%s",
+        user.id,
+        session_id,
+        is_current,
+        client_ip(request),
+    )
+    resp = Response(status_code=204)
+    if is_current:
+        # Revoking the session this request rides on is a logout — clear the
+        # cookies on the *returned* response so the browser doesn't replay a
+        # dead token (headers set on the injected sub-response are not merged
+        # when a Response is returned directly).
+        clear_session_cookies(resp, request)
+    return resp
 
 
 @router.post("/api/auth/change-password", status_code=204)

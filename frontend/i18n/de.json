@@ -463,6 +463,36 @@
       "row_invalid": "Zeile konnte nicht verarbeitet werden"
     }
   },
+  "backup": {
+    "title": "Backup",
+    "hint": "Sichert alle Daten dieses Kontos als JSON-Datei – Buchungen, Kategorien, Tags, Ziele, Budgets, Daueraufträge und Einstellungen. Die Wiederherstellung ist nur in einem leeren Konto möglich.",
+    "export": "Backup erstellen",
+    "restore": "Backup wiederherstellen…",
+    "restoring": "Wird wiederhergestellt …",
+    "restored": "Backup wiederhergestellt – {n} Buchungen. Die App wird neu geladen …",
+    "restoreFailed": "Wiederherstellen fehlgeschlagen – Verbindung prüfen",
+    "errorNotEmpty": "Wiederherstellen ist nur in einem leeren Konto möglich. Lösche zuerst die vorhandenen Daten.",
+    "errorConflict": "Die Datei enthält widersprüchliche Daten und wurde nicht übernommen.",
+    "errorInvalid": "Keine gültige PocketLog-Backup-Datei.",
+    "errorVersion": "Diese Backup-Version wird von der installierten App nicht unterstützt.",
+    "errorTooLarge": "Die Datei ist zu groß."
+  },
+  "sessions": {
+    "title": "Angemeldete Geräte",
+    "current": "Dieses Gerät",
+    "unknownDevice": "Unbekanntes Gerät",
+    "lastActive": "Zuletzt aktiv: {when}",
+    "signedInSince": "Angemeldet seit: {date}",
+    "revoke": "Abmelden",
+    "revokeTitle": "Gerät abmelden?",
+    "revokeBody": "Die Sitzung auf diesem Gerät wird beendet. Zum Weiterarbeiten ist dort eine neue Anmeldung nötig.",
+    "revokeOthers": "Alle anderen Geräte abmelden",
+    "revokeOthersTitle": "Alle anderen Geräte abmelden?",
+    "revokeOthersBody": "Alle Sitzungen außer dieser werden beendet.",
+    "revokedNone": "Keine anderen Geräte angemeldet.",
+    "revokedOne": "1 Gerät abgemeldet.",
+    "revokedMany": "{n} Geräte abgemeldet."
+  },
   "apiKeys": {
     "title": "API-Schlüssel",
     "empty": "Noch keine Schlüssel erstellt.",

@@ -574,6 +574,7 @@ function drawerNav(panelId) {
   if (panelId === 'dpInfo') renderInfoPanel();
   if (panelId === 'dpAdminUsers') loadAdminUsers();
   if (panelId === 'dpApiKeys') loadApiKeys();
+  if (panelId === 'dpAccount') loadSessions();
 }
 
 function drawerBack() {

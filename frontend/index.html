@@ -581,6 +581,35 @@
               <div class="status-msg" id="importStatus"></div>
             </div>
           </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3 data-i18n="backup.title">Backup</h3>
+            <div class="settings-section">
+              <p class="form-hint" data-i18n="backup.hint">
+                Sichert alle Daten dieses Kontos als JSON-Datei – Buchungen,
+                Kategorien, Tags, Ziele, Budgets, Daueraufträge und
+                Einstellungen. Die Wiederherstellung ist nur in einem leeren
+                Konto möglich.
+              </p>
+              <button class="save-btn" onclick="exportBackup()" data-i18n="backup.export">Backup erstellen</button>
+              <button
+                class="save-btn"
+                style="margin-top: var(--space-8)"
+                onclick="document.getElementById('backupFile').click()"
+                data-i18n="backup.restore"
+              >
+                Backup wiederherstellen…
+              </button>
+              <input
+                type="file"
+                id="backupFile"
+                accept=".json,application/json"
+                style="display: none"
+                onchange="restoreBackup(event)"
+              />
+              <div class="status-msg" id="backupStatus"></div>
+            </div>
+          </div>
         </div>
 
         <!-- Panel 2d: API Keys -->
@@ -751,6 +780,19 @@
               data-i18n="account.logout"
             >
               Abmelden
+            </button>
+          </div>
+          <div class="drawer-section-divider"></div>
+          <div class="drawer-section">
+            <h3 data-i18n="sessions.title">Angemeldete Geräte</h3>
+            <div id="sessionList" class="api-key-list"></div>
+            <button
+              class="save-btn"
+              style="margin-top: var(--space-16)"
+              onclick="revokeOtherSessions()"
+              data-i18n="sessions.revokeOthers"
+            >
+              Alle anderen Geräte abmelden
             </button>
           </div>
         </div>

@@ -15,6 +15,7 @@ Submodules:
 - ``transactions``  transaction CRUD
 - ``settings``      user-settings CRUD + bulk data reset
 - ``imexport``      CSV import
+- ``backup``        JSON full-account export + restore
 - ``api_keys``      API key management (create, list, revoke)
 """
 
@@ -23,6 +24,11 @@ from .api_keys import (
     get_api_key_by_hash,
     list_api_keys,
     revoke_api_key,
+)
+from .backup import (
+    export_backup,
+    has_ledger_data,
+    restore_backup,
 )
 from .budgets import (
     create_budget,
@@ -195,6 +201,10 @@ __all__ = [
     "delete_all_user_data",
     "get_or_create_settings",
     "update_settings",
+    # backup
+    "export_backup",
+    "has_ledger_data",
+    "restore_backup",
     # imexport
     "CsvRowError",
     "_build_transaction",

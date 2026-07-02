@@ -463,6 +463,36 @@
       "row_invalid": "Row could not be processed"
     }
   },
+  "backup": {
+    "title": "Backup",
+    "hint": "Saves all data in this account as a JSON file — transactions, categories, tags, goals, budgets, recurring bookings, and settings. Restoring is only possible into an empty account.",
+    "export": "Create Backup",
+    "restore": "Restore Backup…",
+    "restoring": "Restoring…",
+    "restored": "Backup restored — {n} transactions. Reloading the app…",
+    "restoreFailed": "Restore failed — check your connection",
+    "errorNotEmpty": "Restoring is only possible into an empty account. Delete the existing data first.",
+    "errorConflict": "The file contains conflicting data and wasn’t applied.",
+    "errorInvalid": "Not a valid PocketLog backup file.",
+    "errorVersion": "This backup version isn’t supported by the installed app.",
+    "errorTooLarge": "The file is too large."
+  },
+  "sessions": {
+    "title": "Signed-In Devices",
+    "current": "This Device",
+    "unknownDevice": "Unknown device",
+    "lastActive": "Last active: {when}",
+    "signedInSince": "Signed in since: {date}",
+    "revoke": "Sign Out",
+    "revokeTitle": "Sign out device?",
+    "revokeBody": "The session on this device will end. Signing in again is required to continue there.",
+    "revokeOthers": "Sign Out All Other Devices",
+    "revokeOthersTitle": "Sign out all other devices?",
+    "revokeOthersBody": "All sessions except this one will end.",
+    "revokedNone": "No other devices are signed in.",
+    "revokedOne": "1 device signed out.",
+    "revokedMany": "{n} devices signed out."
+  },
   "apiKeys": {
     "title": "API Keys",
     "empty": "No keys created yet.",

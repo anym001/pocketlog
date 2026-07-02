@@ -134,3 +134,46 @@ def test_cli_output_is_english(db_session, monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "not found" in err
     assert "nicht gefunden" not in err
+
+
+def test_cli_backup_writes_consistent_snapshot(tmp_path, db_session):
+    """`backup` produces a valid SQLite file via VACUUM INTO that contains
+    the current data — safe while the app keeps the WAL open."""
+    import sqlite3
+
+    marker = f"backup-marker-{uuid.uuid4().hex[:8]}"
+    crud.create_user(
+        db_session,
+        username=marker,
+        password="Backup-password-2026",
+        is_admin=False,
+        force_change_password=False,
+    )
+
+    dest = tmp_path / "snapshot.db"
+    rc = cli.main(["backup", "--output", str(dest)])
+    assert rc == 0
+    assert dest.exists() and dest.stat().st_size > 0
+
+    con = sqlite3.connect(dest)
+    try:
+        row = con.execute(
+            "SELECT username FROM users WHERE username = ?", (marker,)
+        ).fetchone()
+    finally:
+        con.close()
+    assert row == (marker,)
+
+
+def test_cli_backup_directory_target_and_no_overwrite(tmp_path, capsys):
+    rc = cli.main(["backup", "--output", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "OK: backup written to" in out
+
+    files = list(tmp_path.glob("pocketlog-*.db"))
+    assert len(files) == 1
+
+    rc = cli.main(["backup", "--output", str(files[0])])
+    assert rc == 1
+    assert "Refusing to overwrite" in capsys.readouterr().err

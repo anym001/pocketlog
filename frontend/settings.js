@@ -630,7 +630,7 @@ async function exportCSV() {
       _triggerDownload(blob, 'pocketlog.csv');
     }
   } catch (e) {
-    if (e.name !== 'AbortError') showToast(tr('importExport.exportFailed'), 'error');
+    if (e.name !== 'AbortError') toast(tr('importExport.exportFailed'), 'error');
   }
 }
 
@@ -653,7 +653,7 @@ async function downloadExampleCSV() {
       _triggerDownload(blob, filename);
     }
   } catch (e) {
-    if (e.name !== 'AbortError') showToast(tr('common.downloadFailed'), 'error');
+    if (e.name !== 'AbortError') toast(tr('common.downloadFailed'), 'error');
   }
 }
 
@@ -728,6 +728,75 @@ async function importCSV(ev) {
     status.className = 'status-msg err';
   } finally {
     ev.target.value = ''; // allow re-importing the same file
+  }
+}
+
+// ── BACKUP (JSON full export / restore) ───────────────────────────────────────
+async function exportBackup() {
+  try {
+    const res = await fetch(API + '/export/json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const file = new File([blob], 'pocketlog-backup.json', { type: 'application/json' });
+    if (navigator.canShare?.({ files: [file] })) {
+      // No title/text — see exportCSV: avoids an extra Text.txt.
+      await navigator.share({ files: [file] });
+    } else {
+      _triggerDownload(blob, 'pocketlog-backup.json');
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') toast(tr('importExport.exportFailed'), 'error');
+  }
+}
+
+// Stable backend error codes → i18n keys. Anything else falls back to the
+// generic failure message.
+const BACKUP_ERROR_KEYS = {
+  restore_not_empty: 'backup.errorNotEmpty',
+  restore_conflict: 'backup.errorConflict',
+  backup_invalid: 'backup.errorInvalid',
+  backup_unsupported_version: 'backup.errorVersion',
+  backup_too_large: 'backup.errorTooLarge',
+};
+
+async function restoreBackup(ev) {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('backupStatus');
+  status.textContent = tr('backup.restoring');
+  status.className = 'status-msg';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    // Multipart body — same CSRF handling as importCSV: the double-submit
+    // header is required on every non-GET session request.
+    const res = await fetch(API + '/import/json', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin',
+      headers: window._csrfToken ? { 'X-CSRF-Token': window._csrfToken } : {},
+    });
+    if (!res.ok) {
+      let code = '';
+      try {
+        code = (await res.json()).detail || '';
+      } catch (_) {}
+      status.textContent = tr(BACKUP_ERROR_KEYS[code] || 'backup.restoreFailed');
+      status.className = 'status-msg err';
+      return;
+    }
+    const r = await res.json();
+    status.textContent = tr('backup.restored', { n: r.transactions });
+    status.className = 'status-msg ok';
+    // A restore touches every domain (settings incl. locale and theme,
+    // categories, rules, …) — a full reload rebuilds the app from server
+    // state instead of chasing every cached piece individually.
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    status.textContent = tr('backup.restoreFailed');
+    status.className = 'status-msg err';
+  } finally {
+    ev.target.value = ''; // allow re-selecting the same file
   }
 }
 
@@ -811,6 +880,135 @@ function renderApiKeys() {
 
     list.appendChild(card);
   });
+}
+
+// ── SIGNED-IN DEVICES (session self-service) ─────────────────────────────────
+// Relative "last active" for the device list. Coarse units are enough — the
+// point is "gerade eben" vs. "vor 3 Wochen", not a stopwatch.
+function _fmtRelativeTime(date) {
+  const t = date.getTime();
+  if (!isFinite(t)) return '';
+  const deltaSeconds = Math.round((t - Date.now()) / 1000); // past = negative
+  const rtf = new Intl.RelativeTimeFormat(I18N.getLocale(), { numeric: 'auto' });
+  const units = [
+    ['year', 31536000],
+    ['month', 2592000],
+    ['week', 604800],
+    ['day', 86400],
+    ['hour', 3600],
+    ['minute', 60],
+  ];
+  for (const [unit, secs] of units) {
+    if (Math.abs(deltaSeconds) >= secs) return rtf.format(Math.trunc(deltaSeconds / secs), unit);
+  }
+  return rtf.format(0, 'minute'); // "in diesem Moment" / "this minute"
+}
+
+async function loadSessions() {
+  try {
+    appState.sessions.list = await api('GET', '/auth/sessions');
+    renderSessions();
+  } catch (_) {}
+}
+
+function renderSessions() {
+  const list = document.getElementById('sessionList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  // Current session pinned first; the rest keeps the backend's
+  // last-seen ordering.
+  const sessions = [...appState.sessions.list].sort(
+    (a, b) => (b.current ? 1 : 0) - (a.current ? 1 : 0),
+  );
+
+  sessions.forEach((s) => {
+    const card = document.createElement('div');
+    card.className = 'api-key-card';
+
+    const name = document.createElement('div');
+    name.className = 'api-key-card-name';
+    name.textContent = _deviceLabelFromUA(s.user_agent) || tr('sessions.unknownDevice');
+    card.appendChild(name);
+
+    if (s.current) {
+      const chips = document.createElement('div');
+      chips.className = 'api-key-card-scopes';
+      const chip = document.createElement('span');
+      chip.className = 'api-key-scope-chip';
+      chip.textContent = tr('sessions.current');
+      chips.appendChild(chip);
+      card.appendChild(chips);
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'api-key-card-footer';
+
+    const meta = document.createElement('div');
+    meta.className = 'api-key-card-meta';
+    const lastActive = document.createElement('span');
+    lastActive.textContent = tr('sessions.lastActive', {
+      when: _fmtRelativeTime(_parseServerDate(s.last_seen_at)),
+    });
+    meta.appendChild(lastActive);
+    const since = document.createElement('span');
+    since.textContent = tr('sessions.signedInSince', {
+      date: _parseServerDate(s.created_at).toLocaleDateString(I18N.getLocale()),
+    });
+    meta.appendChild(since);
+    footer.appendChild(meta);
+
+    if (!s.current) {
+      // The current session ends via the regular logout button above —
+      // hiding its revoke action avoids an accidental self-logout here.
+      const revokeBtn = document.createElement('button');
+      revokeBtn.className = 'api-key-revoke-btn';
+      revokeBtn.textContent = tr('sessions.revoke');
+      revokeBtn.onclick = () => revokeSessionById(s.id);
+      footer.appendChild(revokeBtn);
+    }
+
+    card.appendChild(footer);
+    list.appendChild(card);
+  });
+}
+
+async function revokeSessionById(id) {
+  const ok = await confirmAction({
+    title: tr('sessions.revokeTitle'),
+    message: tr('sessions.revokeBody'),
+    confirmLabel: tr('sessions.revoke'),
+  });
+  if (!ok) return;
+  try {
+    await api('DELETE', '/auth/sessions/' + id);
+    await loadSessions();
+  } catch (_) {
+    toast(tr('common.actionFailed'), 'error');
+  }
+}
+
+async function revokeOtherSessions() {
+  const ok = await confirmAction({
+    title: tr('sessions.revokeOthersTitle'),
+    message: tr('sessions.revokeOthersBody'),
+    confirmLabel: tr('sessions.revokeOthers'),
+  });
+  if (!ok) return;
+  try {
+    const r = await api('DELETE', '/auth/sessions');
+    const n = (r && r.revoked) || 0;
+    toast(
+      n === 0
+        ? tr('sessions.revokedNone')
+        : n === 1
+          ? tr('sessions.revokedOne')
+          : tr('sessions.revokedMany', { n }),
+    );
+    await loadSessions();
+  } catch (_) {
+    toast(tr('common.actionFailed'), 'error');
+  }
 }
 
 function openApiKeyModal() {

@@ -26,6 +26,10 @@ def test_logout_removes_session_and_clears_cookies(app, regular_user, db_session
 
     res = client.post("/api/auth/logout", headers={"X-CSRF-Token": csrf})
     assert res.status_code == 204
+    # The response must actually carry the cookie-clearing headers — a
+    # directly returned Response does not inherit headers set on the
+    # injected sub-response (regression: the dead cookie used to linger).
+    assert res.headers.get_list("set-cookie")
 
     # Session-Row in der DB ist weg.
     db_session.expire_all()
