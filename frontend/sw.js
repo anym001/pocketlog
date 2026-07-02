@@ -35,6 +35,7 @@ const SHELL_CRITICAL = [
   '/',
   '/index.html',
   '/styles.css',
+  '/theme-boot.js',
   '/app.js',
   '/core.js',
   '/ledger.js',
@@ -86,6 +87,7 @@ function isNetworkFirstShell(url) {
     url.pathname === '/' ||
     url.pathname === '/index.html' ||
     url.pathname === '/styles.css' ||
+    url.pathname === '/theme-boot.js' ||
     url.pathname === '/app.js' ||
     url.pathname === '/core.js' ||
     url.pathname === '/ledger.js' ||

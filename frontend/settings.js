@@ -1513,23 +1513,23 @@ function renderAdminUserList() {
         tags.push(`<span class="admin-user-tag">${tr('users.pwPending')}</span>`);
       const actions = [];
       actions.push(
-        `<button type="button" onclick="openAdminResetPwModal(${u.id})">${tr('users.resetPw')}</button>`,
+        `<button type="button" data-action="openAdminResetPwModal" data-args="[${u.id}]">${tr('users.resetPw')}</button>`,
       );
       if (!u.is_admin) {
         if (u.is_active) {
           actions.push(
             `<button type="button" ${isSelf ? 'disabled' : ''} ` +
-              `onclick="adminToggleActive(${u.id}, false)">${tr('users.deactivate')}</button>`,
+              `data-action="adminToggleActive" data-args="[${u.id}, false]">${tr('users.deactivate')}</button>`,
           );
         } else {
           actions.push(
-            `<button type="button" onclick="adminToggleActive(${u.id}, true)">${tr('users.reactivate')}</button>`,
+            `<button type="button" data-action="adminToggleActive" data-args="[${u.id}, true]">${tr('users.reactivate')}</button>`,
           );
         }
       }
       actions.push(
         `<button type="button" class="btn-destructive" ${isSelf ? 'disabled' : ''} ` +
-          `onclick="adminDeleteUserConfirm(${u.id})">${tr('common.delete')}</button>`,
+          `data-action="adminDeleteUserConfirm" data-args="[${u.id}]">${tr('common.delete')}</button>`,
       );
       return `
               <div class="admin-user-row">

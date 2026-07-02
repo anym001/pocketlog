@@ -559,11 +559,11 @@ function _colorSwatchesMarkup(currentColor, pickFnName) {
     presets
       .map((p) => {
         const isActive = p.hex.toLowerCase() === currentColor.toLowerCase();
-        return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" onclick="${pickFnName}('${p.hex}')"></button>`;
+        return `<button type="button" class="color-swatch${isActive ? ' active' : ''}" style="background:${p.hex}" aria-label="${_escAttr(tr('categories.pickColorAria', { name: p.name }))}" aria-pressed="${isActive}" data-action="${pickFnName}" data-args='["${p.hex}"]'></button>`;
       })
       .join('') +
     `<label class="color-swatch-custom" title="${_escAttr(tr('categories.customColorName'))}">
-     <input type="color" value="${currentColor}" onchange="${pickFnName}(this.value)" aria-label="${_escAttr(tr('categories.customColor'))}">
+     <input type="color" value="${currentColor}" data-action-change="${pickFnName}" data-args='["@value"]' aria-label="${_escAttr(tr('categories.customColor'))}">
    </label>`
   );
 }
@@ -621,7 +621,7 @@ function renderIconPicker() {
         const pressed = active ? 'true' : 'false';
         return `<button type="button" class="icon-picker-cell${active}"
               aria-pressed="${pressed}" aria-label="${id}"
-              onclick="pickIcon('${id}')">${catIconSvg(id)}</button>`;
+              data-action="pickIcon" data-args='["${id}"]'>${catIconSvg(id)}</button>`;
       })
       .join('');
     return `<section class="icon-picker-section">
