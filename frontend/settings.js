@@ -630,7 +630,7 @@ async function exportCSV() {
       _triggerDownload(blob, 'pocketlog.csv');
     }
   } catch (e) {
-    if (e.name !== 'AbortError') showToast(tr('importExport.exportFailed'), 'error');
+    if (e.name !== 'AbortError') toast(tr('importExport.exportFailed'), 'error');
   }
 }
 
@@ -653,7 +653,7 @@ async function downloadExampleCSV() {
       _triggerDownload(blob, filename);
     }
   } catch (e) {
-    if (e.name !== 'AbortError') showToast(tr('common.downloadFailed'), 'error');
+    if (e.name !== 'AbortError') toast(tr('common.downloadFailed'), 'error');
   }
 }
 
@@ -728,6 +728,75 @@ async function importCSV(ev) {
     status.className = 'status-msg err';
   } finally {
     ev.target.value = ''; // allow re-importing the same file
+  }
+}
+
+// ── BACKUP (JSON full export / restore) ───────────────────────────────────────
+async function exportBackup() {
+  try {
+    const res = await fetch(API + '/export/json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const file = new File([blob], 'pocketlog-backup.json', { type: 'application/json' });
+    if (navigator.canShare?.({ files: [file] })) {
+      // No title/text — see exportCSV: avoids an extra Text.txt.
+      await navigator.share({ files: [file] });
+    } else {
+      _triggerDownload(blob, 'pocketlog-backup.json');
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') toast(tr('importExport.exportFailed'), 'error');
+  }
+}
+
+// Stable backend error codes → i18n keys. Anything else falls back to the
+// generic failure message.
+const BACKUP_ERROR_KEYS = {
+  restore_not_empty: 'backup.errorNotEmpty',
+  restore_conflict: 'backup.errorConflict',
+  backup_invalid: 'backup.errorInvalid',
+  backup_unsupported_version: 'backup.errorVersion',
+  backup_too_large: 'backup.errorTooLarge',
+};
+
+async function restoreBackup(ev) {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('backupStatus');
+  status.textContent = tr('backup.restoring');
+  status.className = 'status-msg';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    // Multipart body — same CSRF handling as importCSV: the double-submit
+    // header is required on every non-GET session request.
+    const res = await fetch(API + '/import/json', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin',
+      headers: window._csrfToken ? { 'X-CSRF-Token': window._csrfToken } : {},
+    });
+    if (!res.ok) {
+      let code = '';
+      try {
+        code = (await res.json()).detail || '';
+      } catch (_) {}
+      status.textContent = tr(BACKUP_ERROR_KEYS[code] || 'backup.restoreFailed');
+      status.className = 'status-msg err';
+      return;
+    }
+    const r = await res.json();
+    status.textContent = tr('backup.restored', { n: r.transactions });
+    status.className = 'status-msg ok';
+    // A restore touches every domain (settings incl. locale and theme,
+    // categories, rules, …) — a full reload rebuilds the app from server
+    // state instead of chasing every cached piece individually.
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    status.textContent = tr('backup.restoreFailed');
+    status.className = 'status-msg err';
+  } finally {
+    ev.target.value = ''; // allow re-selecting the same file
   }
 }
 

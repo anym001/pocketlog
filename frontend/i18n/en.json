@@ -463,6 +463,20 @@
       "row_invalid": "Row could not be processed"
     }
   },
+  "backup": {
+    "title": "Backup",
+    "hint": "Saves all data in this account as a JSON file — transactions, categories, tags, goals, budgets, recurring bookings, and settings. Restoring is only possible into an empty account.",
+    "export": "Create Backup",
+    "restore": "Restore Backup…",
+    "restoring": "Restoring…",
+    "restored": "Backup restored — {n} transactions. Reloading the app…",
+    "restoreFailed": "Restore failed — check your connection",
+    "errorNotEmpty": "Restoring is only possible into an empty account. Delete the existing data first.",
+    "errorConflict": "The file contains conflicting data and wasn’t applied.",
+    "errorInvalid": "Not a valid PocketLog backup file.",
+    "errorVersion": "This backup version isn’t supported by the installed app.",
+    "errorTooLarge": "The file is too large."
+  },
   "apiKeys": {
     "title": "API Keys",
     "empty": "No keys created yet.",

@@ -463,6 +463,20 @@
       "row_invalid": "Zeile konnte nicht verarbeitet werden"
     }
   },
+  "backup": {
+    "title": "Backup",
+    "hint": "Sichert alle Daten dieses Kontos als JSON-Datei – Buchungen, Kategorien, Tags, Ziele, Budgets, Daueraufträge und Einstellungen. Die Wiederherstellung ist nur in einem leeren Konto möglich.",
+    "export": "Backup erstellen",
+    "restore": "Backup wiederherstellen…",
+    "restoring": "Wird wiederhergestellt …",
+    "restored": "Backup wiederhergestellt – {n} Buchungen. Die App wird neu geladen …",
+    "restoreFailed": "Wiederherstellen fehlgeschlagen – Verbindung prüfen",
+    "errorNotEmpty": "Wiederherstellen ist nur in einem leeren Konto möglich. Lösche zuerst die vorhandenen Daten.",
+    "errorConflict": "Die Datei enthält widersprüchliche Daten und wurde nicht übernommen.",
+    "errorInvalid": "Keine gültige PocketLog-Backup-Datei.",
+    "errorVersion": "Diese Backup-Version wird von der installierten App nicht unterstützt.",
+    "errorTooLarge": "Die Datei ist zu groß."
+  },
   "apiKeys": {
     "title": "API-Schlüssel",
     "empty": "Noch keine Schlüssel erstellt.",
