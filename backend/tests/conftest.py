@@ -75,6 +75,18 @@ def db_session(app):
         db.close()
 
 
+@pytest.fixture(autouse=True)
+def _reset_ip_rate_limit():
+    """The per-IP login throttle keeps process-global state, and every
+    TestClient request comes from the same synthetic peer ("testclient") —
+    without a reset, failed-login tests would bleed 429s into each other."""
+    from app import rate_limit
+
+    rate_limit.reset()
+    yield
+    rate_limit.reset()
+
+
 @pytest.fixture
 def username():
     """Unique username per test — guarantees data isolation without

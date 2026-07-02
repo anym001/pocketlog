@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .. import auth, crud, errors, models, recurring, schemas
+from .. import auth, crud, errors, models, rate_limit, recurring, schemas
 from ..deps import (
     CSRF_HEADER_NAME,
     DB,
@@ -62,10 +62,22 @@ def setup_admin(
     response: Response,
     db: DB,
 ):
+    # Per-IP throttle: setup shares the login limiter — an attacker probing
+    # for a half-initialised install (or racing the operator for the first
+    # admin) burns the same per-IP budget as failed logins.
+    throttle_ip = rate_limit.limiter_ip(request)
+    blocked = rate_limit.check_blocked(throttle_ip)
+    if blocked is not None:
+        audit.warning(
+            "auth.setup.ip_throttled ip=%s seconds=%s", client_ip(request), blocked
+        )
+        return _lockout_response(response, blocked)
+
     needs, suggested = _needs_setup(db)
     if not needs:
         # Setup ist bereits abgeschlossen — kein Admin-Override-Pfad
         # offen lassen.
+        rate_limit.record_failure(throttle_ip)
         raise errors.conflict("setup_already_done")
 
     if suggested is not None:
@@ -75,6 +87,7 @@ def setup_admin(
         if user is None or not user.is_admin or user.password_hash is not None:
             # Race: zwischen status-check und setup hat sich der State
             # geändert. Sauber abbrechen.
+            rate_limit.record_failure(throttle_ip)
             raise errors.conflict("setup_already_done")
         crud.set_user_password(db, user, payload.password, force_change=False)
         # Locale aus dem Setup-Screen auch für den migrierten Admin
@@ -97,6 +110,7 @@ def setup_admin(
             # Race mit einem parallelen Setup-Versuch — Username
             # existiert schon. Aus Sicht des zweiten Setup-Versuchs ist
             # die DB jetzt initialisiert.
+            rate_limit.record_failure(throttle_ip)
             raise errors.conflict("setup_already_done")
         mode = "fresh"
 
@@ -123,14 +137,26 @@ def setup_admin(
 def login(payload: schemas.LoginRequest, request: Request, response: Response, db: DB):
     user_agent = request.headers.get("user-agent")
     username = payload.username.strip()
-    user = crud.get_user_by_username(db, username) if username else None
 
     ip = client_ip(request)
+
+    # Per-IP throttle first: an IP that keeps failing gets a 429 before any
+    # user lookup or Argon2 work. Catches what the per-user lockout can't —
+    # guesses distributed across many usernames — and makes hammering one
+    # known username into a lockout-DoS cost the attacker their source IP.
+    throttle_ip = rate_limit.limiter_ip(request)
+    blocked = rate_limit.check_blocked(throttle_ip)
+    if blocked is not None:
+        audit.warning("auth.login.ip_throttled ip=%s seconds=%s", ip, blocked)
+        return _lockout_response(response, blocked)
+
+    user = crud.get_user_by_username(db, username) if username else None
 
     if user is None or not user.is_active or user.password_hash is None:
         # Konstante-Zeit-Verify gegen Dummy-Hash, damit
         # Username-Enumeration via Timing nicht funktioniert.
         auth.verify_password_dummy()
+        rate_limit.record_failure(throttle_ip)
         # reason is logged server-side only — never returned to the client, so
         # it does not enable username enumeration.
         audit.warning(
@@ -143,6 +169,9 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
     locked = auth.current_lockout_seconds(user)
     if locked is not None:
         # Während eines aktiven Lockouts wird gar nicht erst verifiziert.
+        # Zählt auch aufs IP-Budget: Dauerfeuer gegen einen gesperrten
+        # Account ist das Lockout-DoS-Muster.
+        rate_limit.record_failure(throttle_ip)
         audit.warning(
             "auth.login.during_lockout user=%s id=%s ip=%s seconds=%s",
             user.username,
@@ -153,6 +182,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
         return _lockout_response(response, locked)
 
     if not auth.verify_password(payload.password, user.password_hash):
+        rate_limit.record_failure(throttle_ip)
         lockout = auth.record_failed_login(db, user)
         if lockout is not None:
             audit.warning(
