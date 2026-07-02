@@ -248,6 +248,11 @@ def logout(request: Request, response: Response, db: DB):
 
 @router.get("/api/auth/me", response_model=schemas.UserMe)
 def auth_me(request: Request, response: Response, db: DB, user: RawCurrentUser):
+    # Opportunistic housekeeping: prune expired sessions system-wide. Damped
+    # internally, so this is a no-op on most requests. /me is called on
+    # every app boot/reload, making it a reliable, traffic-proportional hook
+    # without a separate cron/scheduler.
+    auth.maybe_cleanup_expired_sessions(db)
     # CSRF-Token kommt aus der Session-Row, die get_current_user bereits
     # validiert hat. Wir holen sie noch einmal über die request.state-ID.
     session_id = getattr(request.state, "session_id", None)
