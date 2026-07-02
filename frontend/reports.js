@@ -238,7 +238,7 @@ function renderRangePicker() {
         const cls = ['mp-month'];
         if (y === a.y) cls.push('is-current');
         if (y === today.getFullYear()) cls.push('is-today');
-        return `<button type="button" class="${cls.join(' ')}" onclick="pickRangeYear(${y})"${
+        return `<button type="button" class="${cls.join(' ')}" data-action="pickRangeYear" data-args="[${y}]"${
           y === a.y ? ' aria-current="true"' : ''
         }>${y}</button>`;
       })
@@ -253,7 +253,7 @@ function renderRangePicker() {
         const cls = ['mp-month'];
         if (isCurrent) cls.push('is-current');
         if (isToday) cls.push('is-today');
-        return `<button type="button" class="${cls.join(' ')}" onclick="pickRangeMonth(${m})"${
+        return `<button type="button" class="${cls.join(' ')}" data-action="pickRangeMonth" data-args="[${m}]"${
           isCurrent ? ' aria-current="true"' : ''
         }>${_escText(name)}</button>`;
       })
@@ -370,7 +370,7 @@ function _catRowMarkup(catId, amount, max, opts = {}) {
   if (!cat) return '';
   const pct = max > 0 ? (amount / max) * 100 : 0;
   const drill = opts.drillDown
-    ? `role="button" tabindex="0" onclick="drillDownCategory(${catId})" onkeydown="handleRowActivate(event, () => drillDownCategory(${catId}))"`
+    ? `role="button" tabindex="0" data-action="drillDownCategory" data-args="[${catId}]"`
     : '';
   const amtClass = opts.positive ? 'cat-amount is-positive' : 'cat-amount';
   return `<div class="cat-row" ${drill}>
@@ -393,8 +393,7 @@ function _txRowMarkup(t) {
     .map((tag) => `<span class="t-tag">${_escText(tag)}</span>`)
     .join('');
   return `<div class="report-tx-row" role="button" tabindex="0"
-          onclick="editTransaction(${t.id})"
-          onkeydown="handleRowActivate(event, () => editTransaction(${t.id}))">
+          data-action="editTransaction" data-args="[${t.id}]">
           <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="report-tx-main">
             <div class="report-tx-desc">${_escText(t.desc || cat.name)}</div>
@@ -615,8 +614,8 @@ async function _renderCourseMonthly(body, txs) {
 function _breakdownSegmentedMarkup() {
   const dir = appState.reports.breakdownDir;
   return `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.breakdownSelect'))}">
-            <button type="button" role="tab" aria-selected="${dir === 'out'}" class="${dir === 'out' ? 'is-active' : ''}" onclick="setBreakdownDir('out')">${tr('reports.expenses')}</button>
-            <button type="button" role="tab" aria-selected="${dir === 'in'}" class="${dir === 'in' ? 'is-active' : ''}" onclick="setBreakdownDir('in')">${tr('reports.income')}</button>
+            <button type="button" role="tab" aria-selected="${dir === 'out'}" class="${dir === 'out' ? 'is-active' : ''}" data-action="setBreakdownDir" data-args='["out"]'>${tr('reports.expenses')}</button>
+            <button type="button" role="tab" aria-selected="${dir === 'in'}" class="${dir === 'in' ? 'is-active' : ''}" data-action="setBreakdownDir" data-args='["in"]'>${tr('reports.income')}</button>
           </div>`;
 }
 
@@ -632,8 +631,8 @@ function setBreakdownDir(dir) {
 function _breakdownKindSegmentedMarkup() {
   const kind = appState.reports.breakdownKind;
   return `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.trendSelect'))}">
-            <button type="button" role="tab" aria-selected="${kind === 'category'}" class="${kind === 'category' ? 'is-active' : ''}" onclick="setBreakdownKind('category')">${tr('reports.kindCategories')}</button>
-            <button type="button" role="tab" aria-selected="${kind === 'tag'}" class="${kind === 'tag' ? 'is-active' : ''}" onclick="setBreakdownKind('tag')">${tr('reports.kindTags')}</button>
+            <button type="button" role="tab" aria-selected="${kind === 'category'}" class="${kind === 'category' ? 'is-active' : ''}" data-action="setBreakdownKind" data-args='["category"]'>${tr('reports.kindCategories')}</button>
+            <button type="button" role="tab" aria-selected="${kind === 'tag'}" class="${kind === 'tag' ? 'is-active' : ''}" data-action="setBreakdownKind" data-args='["tag"]'>${tr('reports.kindTags')}</button>
           </div>`;
 }
 
@@ -1115,11 +1114,11 @@ async function renderReportTrend(body, txs) {
   const yearPickerMarkup = `<div class="range-custom trend-year-picker">
             <label class="range-custom-field">
               <span>${tr('reports.rangeFrom')}</span>
-              <select aria-label="${_escAttr(tr('reports.fromYear'))}" onchange="setTrendYear('from', +this.value)">${yearOptions(appState.trend.yearFrom || today)}</select>
+              <select aria-label="${_escAttr(tr('reports.fromYear'))}" data-action-change="setTrendYear" data-args='["from", "@value#"]'>${yearOptions(appState.trend.yearFrom || today)}</select>
             </label>
             <label class="range-custom-field">
               <span>${tr('reports.rangeTo')}</span>
-              <select aria-label="${_escAttr(tr('reports.toYear'))}" onchange="setTrendYear('to', +this.value)">${yearOptions(appState.trend.yearTo || today)}</select>
+              <select aria-label="${_escAttr(tr('reports.toYear'))}" data-action-change="setTrendYear" data-args='["to", "@value#"]'>${yearOptions(appState.trend.yearTo || today)}</select>
             </label>
           </div>`;
 
@@ -1136,8 +1135,8 @@ async function renderReportTrend(body, txs) {
     appState.trend.kind === 'category' ? tr('reports.searchCategory') : tr('reports.searchTag');
 
   const segmentedMarkup = `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.trendSelect'))}">
-            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'category'}" class="${appState.trend.kind === 'category' ? 'is-active' : ''}" onclick="setTrendKind('category')">${tr('reports.kindCategories')}</button>
-            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'tag'}" class="${appState.trend.kind === 'tag' ? 'is-active' : ''}" onclick="setTrendKind('tag')">${tr('reports.kindTags')}</button>
+            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'category'}" class="${appState.trend.kind === 'category' ? 'is-active' : ''}" data-action="setTrendKind" data-args='["category"]'>${tr('reports.kindCategories')}</button>
+            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'tag'}" class="${appState.trend.kind === 'tag' ? 'is-active' : ''}" data-action="setTrendKind" data-args='["tag"]'>${tr('reports.kindTags')}</button>
           </div>`;
 
   const activeMarkup = selected
@@ -1149,14 +1148,14 @@ async function renderReportTrend(body, txs) {
                   <span class="trend-active-sub">${tr('reports.largestItem')}</span>
                 </div>
               </div>
-              <button type="button" class="trend-switch-btn" onclick="toggleTrendPicker(true)">${tr('reports.switch')}</button>
+              <button type="button" class="trend-switch-btn" data-action="toggleTrendPicker" data-args="[true]">${tr('reports.switch')}</button>
             </div>`
     : '';
 
   const pickerOpenMarkup = `<div class="trend-picker-open" id="trendPickerOpen"${appState.trend.pickerOpen || !selected ? '' : ' hidden'}>
             <div class="search-wrap">
               <svg class="ui-icon" aria-hidden="true"><use href="#icon-search" /></svg>
-              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(appState.trend.pickerFilter)}" oninput="filterTrendChips(this.value)" autocomplete="off" />
+              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(appState.trend.pickerFilter)}" data-action-input="filterTrendChips" data-args='["@value"]' autocomplete="off" />
             </div>
             <div class="tag-picker-chips" id="trendPickerChips">${chipsMarkup}</div>
           </div>`;
@@ -1405,8 +1404,7 @@ async function renderReportForecast(body, rangeTxs) {
                     if (!cat) return '';
                     const s = statusFor(r.current, r.avg);
                     return `<tr class="is-clickable" role="button" tabindex="0"
-                    onclick="drillDownCategory(${r.catId}, '${rangeFromIso}', '${rangeToIso}')"
-                    onkeydown="handleRowActivate(event, () => drillDownCategory(${r.catId}, '${rangeFromIso}', '${rangeToIso}'))">
+                    data-action="drillDownCategory" data-args='[${r.catId}, "${rangeFromIso}", "${rangeToIso}"]'>
                     <td><span class="forecast-cat-name"><span class="forecast-cat-dot" style="background:${cat.color}"></span>${_escText(cat.name)}</span></td>
                     <td class="num">${fmtCurrency(r.avg)}</td>
                     <td class="num">${fmtCurrency(r.current)}</td>

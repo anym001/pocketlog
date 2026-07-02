@@ -20,6 +20,7 @@ PWA (Browser / Homescreen)
 ```
 frontend/
   index.html         ← PWA shell
+  theme-boot.js      ← blocking head script: theme + sidebar state before first paint
   styles.css         ← complete CSS (tokens, layout, components)
   core.js            ← API/CSRF plumbing, formatting, toast/confirm, navigation
   ledger.js          ← transaction list, swipe-to-delete, bulk actions
@@ -177,6 +178,7 @@ Two static bundles (`i18n/de.json`, `i18n/en.json`); `i18n.js` provides `window.
 - **Money** (`DECIMAL(12,2)`): never `SQL SUM()` — SQLite rounds through float. Sum in Python over ORM `Decimal` values. `tests/test_money_precision.py` pins this.
 
 **Frontend:**
+- **No inline scripts / no inline handler attributes** — the CSP is `script-src 'self'` *without* `unsafe-inline`, the browser drops them silently. Handlers are declared via `data-action`/`data-action-change`/`-input`/`-submit`/`-blur`/`-keydown` + `data-args` (JSON; tokens `"@event"`, `"@el"`, `"@value"`, `"@value#"`; `data-stop` = stopPropagation) and dispatched by the delegation engine in `core.js`. `role="button"` + `data-action` gets Enter/Space activation automatically. Early-boot code belongs in `theme-boot.js`. Details: `DESIGN_CONVENTIONS.md` → "Event Wiring (CSP)".
 - **Classic scripts, no bundler** (CSP `script-src 'self'`). Script order: `i18n.js`, `utils.js`, `reportsData.js`, `state.js`, feature modules (`core.js` → … → `settings.js`), `app.js` last. Top-level statements may only call functions from the same file or an earlier one (hoisting doesn't cross script boundaries). Any new `.js` must be added in **four places**: `index.html` (script tag), `sw.js` (SHELL precache), `sw.js` (network-first list), `Dockerfile` (static COPY).
 - **App state in `state.js`** as `appState` — no loose module-global `let`s in feature modules.
 - **Pure helpers** (`utils.js`, `reportsData.js`): no DOM/state/I18N; unit-tested with Vitest (`frontend/unit/*.test.js`).

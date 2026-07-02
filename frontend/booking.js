@@ -55,11 +55,17 @@ function closeModal() {
   releaseFocusTrap('booking');
   restoreModalFocus('booking');
 }
-// Backdrop dismiss shared by every modal overlay: the overlay's inline
-// onclick passes its own event, so the click counts as "outside" exactly
-// when it landed on the overlay itself rather than the dialog inside it.
+// Backdrop dismiss shared by every modal overlay. The delegation engine
+// (core.js) binds `this` to the overlay carrying the data-action attribute —
+// the click counts as "outside" exactly when it landed on the overlay itself
+// rather than the dialog inside it. `closeFn` arrives as a global function
+// name (data-args is JSON and can't carry a function reference); a direct
+// function still works for JS callers like closeModalOutside.
 function closeOnBackdrop(e, closeFn) {
-  if (e.target === e.currentTarget) closeFn();
+  const overlay = this instanceof Element ? this : e.currentTarget;
+  if (e.target !== overlay) return;
+  const fn = typeof closeFn === 'string' ? window[closeFn] : closeFn;
+  if (typeof fn === 'function') fn();
 }
 // Ledger rows open this modal on `pointerup` (the swipe handler).
 // The browser then synthesizes a trailing `click` at the same spot,
@@ -69,7 +75,8 @@ function closeOnBackdrop(e, closeFn) {
 // opening so only a deliberate later tap dismisses it.
 function closeModalOutside(e) {
   if (Date.now() - appState.nav.bookingModalOpenedAt < 400) return;
-  closeOnBackdrop(e, closeModal);
+  // Forward `this` (the overlay) — closeOnBackdrop's outside check needs it.
+  closeOnBackdrop.call(this, e, closeModal);
 }
 function editTransaction(id) {
   const num = Number(id);

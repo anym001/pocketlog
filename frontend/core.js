@@ -11,6 +11,109 @@ const ICON_SVG = {
   close: '<svg class="ui-icon" aria-hidden="true"><use href="#icon-close"/></svg>',
 };
 
+// ── DECLARATIVE EVENT DELEGATION ──────────────────────────────────────────────
+// The CSP is script-src 'self': inline handler attributes (onclick="…") are
+// blocked. Instead, elements declare their handler with data attributes and
+// the document-level listeners below dispatch them:
+//
+//   data-action          → click        data-action-change → change
+//   data-action-input    → input        data-action-submit → submit
+//   data-action-blur     → blur (via focusout)
+//   data-action-keydown  → keydown
+//
+// The attribute value is a global function name, resolved on window at event
+// time — so declaration order between modules doesn't matter, and markup
+// inserted via innerHTML is covered without per-render wiring. Arguments come
+// from `data-args`, a JSON array with three magic tokens:
+//
+//   "@event"  → the DOM event        "@el"     → the element carrying the
+//   "@value"  → el.value               data-action attribute
+//   "@value#" → Number(el.value)
+//
+// `data-stop` additionally stops propagation (for actions nested inside other
+// clickable rows). Submit dispatch always calls preventDefault() — every form
+// in this app is JS-driven. The handler runs with `this` bound to the
+// declaring element, mirroring inline-handler semantics (closeOnBackdrop
+// relies on that).
+function _resolveActionArgs(el, event) {
+  const raw = el.getAttribute('data-args');
+  if (!raw) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    console.error('data-args is not valid JSON:', raw, el);
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [parsed];
+  return parsed.map((a) => {
+    if (a === '@event') return event;
+    if (a === '@el') return el;
+    if (a === '@value') return el.value;
+    if (a === '@value#') return Number(el.value);
+    return a;
+  });
+}
+
+function _dispatchAction(el, attr, event) {
+  const name = el.getAttribute(attr);
+  if (!name) return; // declared but intentionally empty (e.g. submit no-op)
+  const fn = window[name];
+  if (typeof fn !== 'function') {
+    console.error('Unknown action handler:', name, el);
+    return;
+  }
+  if (el.hasAttribute('data-stop')) event.stopPropagation();
+  fn.apply(el, _resolveActionArgs(el, event));
+}
+
+[
+  ['click', 'data-action'],
+  ['change', 'data-action-change'],
+  ['input', 'data-action-input'],
+  ['submit', 'data-action-submit'],
+  // Native blur doesn't bubble; focusout is its bubbling twin.
+  ['focusout', 'data-action-blur'],
+  ['keydown', 'data-action-keydown'],
+].forEach(([type, attr]) => {
+  document.addEventListener(type, (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const el = target.closest(`[${attr}]`);
+    if (!el) return;
+    if (type === 'submit') event.preventDefault();
+    _dispatchAction(el, attr, event);
+  });
+});
+
+// Keyboard activation for non-native interactive elements (rows with
+// role="button" + data-action). Mirrors native button semantics: Enter and
+// Space trigger the action; Space is prevented from scrolling; `!e.repeat`
+// avoids re-firing while held. `.is-key-active` gives the keyboard press the
+// same visual feedback that mouse `:active` does. Native form controls are
+// excluded — they already translate Enter/Space to click themselves (and a
+// row's nested <button> must not double-fire).
+const _NATIVE_ACTIVATION_TAGS = new Set(['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA']);
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+  if (event.repeat) return;
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target || _NATIVE_ACTIVATION_TAGS.has(target.tagName)) return;
+  const el = target.closest('[data-action]');
+  if (!el || el !== target) return; // only the focused element itself
+  event.preventDefault();
+  el.classList.add('is-key-active');
+  setTimeout(() => el.classList.remove('is-key-active'), 150);
+  _dispatchAction(el, 'data-action', event);
+});
+
+// Proxy for the hidden <input type="file"> pickers: the visible button sits
+// in the layout, the input itself stays display:none.
+function clickHiddenInput(id) {
+  const el = document.getElementById(id);
+  if (el) el.click();
+}
+
 // ── i18n SHORTHAND ────────────────────────────────────────────────────────────
 // `tr()` (not `t()`) is the translation helper: `t` is used pervasively
 // as the transaction loop variable in .map((t) => …) callbacks, so a
@@ -820,7 +923,7 @@ function renderMonthPicker() {
       const cls = ['mp-month'];
       if (isSelected) cls.push('is-current');
       if (isToday) cls.push('is-today');
-      return `<button type="button" class="${cls.join(' ')}" onclick="pickMonth(${m})"${
+      return `<button type="button" class="${cls.join(' ')}" data-action="pickMonth" data-args="[${m}]"${
         isSelected ? ' aria-current="true"' : ''
       }>${_escText(name)}</button>`;
     })

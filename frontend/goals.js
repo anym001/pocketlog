@@ -86,8 +86,7 @@ async function renderGoalsView() {
           : tr('goals.progressSaved', { pct: pctLabel });
       return `<div class="goal-card${stateClass}${dirClass}" role="button" tabindex="0"
               aria-label="${_escAttr(tr('goals.editAria', { name: g.name }))}"
-              onclick="openGoalModal(${g.id})"
-              onkeydown="handleRowActivate(event, () => openGoalModal(${g.id}))">
+              data-action="openGoalModal" data-args="[${g.id}]">
               <div class="goal-card-head">
                 <span class="goal-card-icon" style="--cat-color:${g.color}">${catIconSvg(g.icon)}</span>
                 <span class="goal-card-name">${_escText(g.name)}</span>

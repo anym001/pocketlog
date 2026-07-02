@@ -167,7 +167,7 @@ async function renderRecurringView() {
       return `<div class="recurring-card${inactiveCls}">
               <button type="button" class="recurring-card-main"
                 aria-label="${_escAttr(r.name)}"
-                onclick="openRecurringModal(${r.id})">
+                data-action="openRecurringModal" data-args="[${r.id}]">
                 <span class="recurring-card-icon" style="--cat-color:${_escAttr(catColor)}" aria-hidden="true">
                   ${catIconSvg(cat?.icon)}
                 </span>
@@ -231,7 +231,7 @@ function _renderRecurringSkipsList(rule) {
       (iso) =>
         `<li>
                 <span>${_escText(_recurringFormatDate(iso))}</span>
-                <button type="button" aria-label="${_escAttr(tr('recurring.unskip'))}" onclick="unskipRecurringOccurrence('${_escAttr(iso)}')">
+                <button type="button" aria-label="${_escAttr(tr('recurring.unskip'))}" data-action="unskipRecurringOccurrence" data-args='["${_escAttr(iso)}"]'>
                   <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-counter-clockwise"/></svg>
                 </button>
               </li>`,

@@ -64,6 +64,29 @@ permanently hidden (`.drawer-panel` had no `display`; JS toggled only
 `data-state`, and the `hidden` attribute caused the browser to apply
 `display:none`).
 
+## Event Wiring (CSP)
+
+The backend sends `Content-Security-Policy: script-src 'self'` — **inline
+scripts and inline handler attributes do not execute**. Hard rules:
+
+- **Never** write `onclick="…"`, `onchange="…"`, `onsubmit="…"` etc. — not in
+  `index.html` and not in JS template strings. The browser silently drops
+  them under the CSP.
+- Declare handlers with the data attributes dispatched by the delegation
+  engine in `core.js`: `data-action` (click), `data-action-change`,
+  `data-action-input`, `data-action-submit` (auto-`preventDefault`),
+  `data-action-blur`, `data-action-keydown`. The value is a **global
+  function name**; arguments go into `data-args` as a JSON array. Tokens:
+  `"@event"` (DOM event), `"@el"` (declaring element), `"@value"`
+  (`el.value`), `"@value#"` (`Number(el.value)`). `data-stop` stops
+  propagation for actions nested inside clickable rows.
+- Elements with `role="button"` + `data-action` get Enter/Space keyboard
+  activation from the engine automatically — no separate `onkeydown`.
+- Listeners attached from JS (`addEventListener`, `el.onclick = …`) remain
+  fine; the CSP only blocks *markup* handlers.
+- No inline `<script>` blocks in `index.html`. Early-boot code (theme,
+  sidebar state) belongs in `theme-boot.js` (blocking, in `<head>`).
+
 ## Adaptive Layout (Tablet & Desktop)
 
 Mobile-first remains doctrine. iPad and Mac are progressive enhancements
@@ -418,7 +441,7 @@ Reference: [HIG: Accessibility](https://developer.apple.com/design/human-interfa
 
 Required — no exceptions "because PWA":
 
-- **Semantic HTML first.** `<button>` instead of `<div onclick>`,
+- **Semantic HTML first.** `<button>` instead of `<div data-action>`,
   `<nav>`, `<main>`, `<section>`, `<h1…h3>` in correct hierarchy.
 - **Icon-only buttons:** `aria-label` with purpose, not appearance.
 - **Live regions:** `aria-live="polite"` for sync status,

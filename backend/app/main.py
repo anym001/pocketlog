@@ -79,10 +79,16 @@ async def _unhandled_exception_handler(
 # upstream headers, not replaces).
 #
 # CSP notes:
-# - 'unsafe-inline' for script/style is required because index.html ships an
-#   inline theme-bootstrap script and the app uses `onclick="..."` attributes
-#   plus inline `style="--cat-color:..."`. A nonce-based policy would be
-#   stricter but requires refactoring every inline handler.
+# - script-src 'self' (NO 'unsafe-inline'): inline scripts and inline handler
+#   attributes are blocked, which is the main XSS mitigation this header
+#   buys. The frontend is built for it — the former inline theme bootstrap
+#   lives in /theme-boot.js, and all former onclick="..." attributes are
+#   declarative data-action attributes dispatched by the delegation engine
+#   in core.js. Never reintroduce inline <script> or on*= attributes.
+# - style-src keeps 'unsafe-inline': the markup uses inline style attributes
+#   (e.g. `style="--cat-color:..."`) extensively. CSS injection is a far
+#   weaker primitive than script injection; dropping it would require
+#   removing every style attribute for little practical gain.
 # - frame-ancestors 'none' tightens SWAG's X-Frame-Options SAMEORIGIN for
 #   PocketLog only and is the modern, authoritative anti-clickjacking
 #   directive (browsers honour it over X-Frame-Options when both are present).
@@ -91,7 +97,7 @@ async def _unhandled_exception_handler(
 #   the supported same-origin deployment.
 CSP_POLICY = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline'; "
+    "script-src 'self'; "
     "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data:; "
     "font-src 'self'; "
@@ -109,6 +115,7 @@ _SHELL_NO_CACHE_PATHS = frozenset(
     {
         "/",
         "/index.html",
+        "/theme-boot.js",
         "/app.js",
         "/utils.js",
         "/reportsData.js",

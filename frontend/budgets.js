@@ -79,8 +79,7 @@ async function renderBudgetsView() {
       const periodLabel = _escText(_budgetPeriodLabel(b.frequency, year, month));
       return `<div class="goal-card budget-card${overClass}" role="button" tabindex="0"
               aria-label="${_escAttr(tr('budget.editAria', { name: cat.name }))}"
-              onclick="openBudgetModal(${b.id})"
-              onkeydown="handleRowActivate(event, () => openBudgetModal(${b.id}))">
+              data-action="openBudgetModal" data-args="[${b.id}]">
               <div class="goal-card-head">
                 <span class="goal-card-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</span>
                 <span class="goal-card-name">${_escText(cat.name)}</span>

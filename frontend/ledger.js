@@ -304,8 +304,7 @@ function renderCategoryView() {
       (r) => `
     <div class="cat-view-row" role="button" tabindex="0"
       aria-label="${_escAttr(tr('categories.editAria', { name: r.name }))}"
-      onclick="openModalForCategory(${r.id})"
-      onkeydown="handleRowActivate(event, () => openModalForCategory(${r.id}))">
+      data-action="openModalForCategory" data-args="[${r.id}]">
       <span class="cat-view-icon" style="--cat-color:${r.color}">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${_escText(r.name)}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(Math.abs(r.net))}</span>
@@ -313,7 +312,7 @@ function renderCategoryView() {
         type="button"
         class="cat-view-more"
         aria-label="${_escAttr(tr('categories.viewTxAria', { name: r.name }))}"
-        onclick="event.stopPropagation(); showTransactionsForCategory(${r.id})"
+        data-action="showTransactionsForCategory" data-args="[${r.id}]" data-stop
       ><svg class="ui-icon" aria-hidden="true"><use href="#icon-more-vertical"/></svg></button>
     </div>
   `,
