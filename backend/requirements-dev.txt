@@ -2,8 +2,8 @@
 # `pip install -r requirements-dev.txt` gives a ready-to-run dev/test env.
 -r requirements.txt
 
-pytest==9.0.3
+pytest==9.1.1
 httpx==0.28.1
 
 # Lint + format. Pinned so CI and local runs agree on formatting decisions.
-ruff==0.15.16
+ruff==0.15.20
