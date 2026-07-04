@@ -8,7 +8,7 @@ PWA (Browser / Homescreen)
         ↓
   ┌─────────────────────────────────────┐
   │  FastAPI Container :8000            │  /        → static PWA files
-  │  (uvicorn, Python 3.12)             │  /api/*   → Python API
+  │  (uvicorn, Python)                  │  /api/*   → Python API
   │  App auth: pocketlog_session cookie + X-CSRF-Token header (Double-Submit).
   └──────────────────┬──────────────────┘
                      ↓
