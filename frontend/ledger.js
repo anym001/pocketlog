@@ -125,7 +125,6 @@ function applySearch() {
 }
 
 async function _setSearchPanelActive(active) {
-  const fab = document.querySelector('.fab');
   if (active) {
     document.body.classList.add('searching');
     // The search panel is chrome-less (no PANELS bodyClass). When entered via a
@@ -138,10 +137,7 @@ async function _setSearchPanelActive(active) {
     }
     document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
     document.getElementById('panel-search').classList.add('active');
-    fab.innerHTML = ICON_SVG.close;
-    fab.classList.add('search-exit');
-    fab.setAttribute('aria-label', tr('fab.exitSearch'));
-    fab.onclick = clearSearch;
+    syncFab();
     // Only load the global pool for text search — category drill-down
     // stays month-scoped via the already-loaded `transactions`.
     if (appState.nav.searchQuery && !appState.ledger.all) {
@@ -158,10 +154,7 @@ async function _setSearchPanelActive(active) {
     document.body.classList.remove('searching');
     document.getElementById('panel-search').classList.remove('active');
     document.getElementById('panel-' + appState.nav.activePanel).classList.add('active');
-    fab.innerHTML = ICON_SVG.plus;
-    fab.classList.remove('search-exit');
-    fab.setAttribute('aria-label', tr('fab.newTransaction'));
-    fab.onclick = () => openModal();
+    syncFab();
   }
 }
 
@@ -362,10 +355,10 @@ function renderCategoryView() {
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtSignedCurrency(r.net, _netDirection(r.net))}</span>
       <button
         type="button"
-        class="cat-view-more"
+        class="cat-view-list"
         aria-label="${_escAttr(tr('categories.viewTxAria', { name: r.name }))}"
         data-action="showTransactionsForCategory" data-args="[${r.id}]" data-stop
-      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-more-vertical"/></svg></button>
+      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-receipt"/></svg></button>
     </div>
   `,
     )
@@ -378,6 +371,9 @@ function openModalForCategory(catId) {
   // was tapped *because* of its category, so that choice wins.
   resetCatChooser('transaction', catId);
   remeasureCatChooser('transaction');
+  // The preset is part of the opening state, not a user edit: re-take the
+  // pristine snapshot so an untouched form closes without "Discard?".
+  appState.form.pristine = _bookingFormSnapshot();
 }
 
 async function showTransactionsForCategory(catId) {

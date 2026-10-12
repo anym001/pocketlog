@@ -402,6 +402,22 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
   in a menu. Infrequent actions (export, settings) may go in a "…" menu.
 - **Consistency:** same toolbar style on all screens — position, height,
   material identical.
+- **View scaffold (every main view):**
+  - **Large title** below the top bar: `#viewTitle` (`.view-title`, DM Serif
+    Display, `--fs-title`), set by `showPanel()` from `PANELS[id].titleKey`
+    (`core.js`). Reports render the same look in their own `.report-head`.
+  - **One create action, always the FAB** at the same bottom-right spot. Its
+    target and `aria-label` come from `PANELS[id].fab` (default: new
+    booking); `syncFab()` derives icon/label/target from state — never patch
+    the FAB per mode. No full-width "Create …" buttons inside views.
+  - The search field appears only where it filters (ledger, categories);
+    elsewhere the bottom bar shrinks to the FAB alone. Scope bottom-bar rules
+    with `.bottom-bar …` — editors reuse `.search-wrap` for their choosers.
+  - A list row's tap runs the row's primary action (usually open/drill-in;
+    the category view is a quick-entry launcher, so its row books into the
+    category). A trailing button is a distinct secondary action with a glyph
+    that names it (category view: receipt = "show bookings"). Never use a ⋮
+    glyph for anything but a menu.
 - **Content scrolls under the bar.** Do not hide/show the bar on scroll
   — it disorients more than it saves space.
 

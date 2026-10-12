@@ -674,6 +674,18 @@ document.addEventListener('keydown', (e) => {
     closeCatModal();
     return;
   }
+  // The three editors the FAB opens on their views (goals / budgets /
+  // recurring). The category modal above can stack on top of them.
+  for (const [id, close] of [
+    ['goalModalOverlay', closeGoalModal],
+    ['budgetModalOverlay', closeBudgetModal],
+    ['recurringModalOverlay', closeRecurringModal],
+  ]) {
+    if (document.getElementById(id).classList.contains('open')) {
+      close();
+      return;
+    }
+  }
   if (document.getElementById('modalOverlay').classList.contains('open')) {
     closeModal();
     return;
