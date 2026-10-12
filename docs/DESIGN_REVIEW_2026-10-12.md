@@ -201,6 +201,12 @@ Update the FAB's `aria-label` per view ("Ziel erstellen"). The settings panels (
 **Fix:** Use grouped list rows with a leading icon and an optional caption: Export (CSV, Backup) / Import (CSV…, Backup wiederherstellen…, Beispieldatei). Show „Abmelden" as its own group in `--red` text, as in iOS Settings.
 **Criterion:** all settings sub-panels use the same row component.
 
+### [ ] 26. Report KPI cards clip five-digit amounts on narrow phones
+**Where:** `styles.css` `.report-kpis` (3 equal columns) + `.report-kpis .summary-card .amount` (`--fs-headline`).
+**Problem:** Found while doing phase 1. At 360 px, year totals such as „14.019,68 €" are cut off at the card edge, signed or not. A container-query shrink (`min(--fs-headline, 17cqi)`) fixed the clipping, but it also shrank ordinary amounts at 390 px from 18 to 14.5 px, so it was reverted.
+**Fix:** Change the layout, not the type size. Below ~380 px, put Einnahmen + Ausgaben on the first row and the Bilanz card at full width on the second (`grid-template-columns: 1fr 1fr` with `.summary-card:last-child { grid-column: 1 / -1 }`). Alternatively, drop the `€` symbol in the KPI cards and keep the currency in the label.
+**Criterion:** at 320 / 360 / 390 px, `−12.345,67 €` fits without clipping, and amounts stay at `--fs-headline`.
+
 ---
 
 ## Low / polish
@@ -254,7 +260,7 @@ All main destinations sit behind ☰. Switching between Buchungen → Ziele → 
 |---|---|---|
 | Critical | 1 | 1 |
 | High | 6 | 2–7 |
-| Medium | 13 | 8–20 |
+| Medium | 14 | 8–20, 26 |
 | Low | 5 | 21–25 |
 | Strategic | 1 | navigation |
 
@@ -263,7 +269,7 @@ All main destinations sit behind ☰. Switching between Buchungen → Ziele → 
 1. **Ledger readability:** #1, #2, #3 (`fmtSignedCurrency`, row title + meta line). Highest daily impact, small diff, mostly `ledger.js` + `utils.js` + Vitest.
 2. **View scaffold:** #4, #5, #6. Shared title + context FAB. Touches `index.html`, `core.js`, `styles.css`; run `ui-review` + `copy-review`.
 3. **Visual system:** #8, #9, #10, #11, #12, #13. Amount rule, colours, category tile, nav icons and labels, date helpers. Update `DESIGN_CONVENTIONS.md` in the same PR.
-4. **Controls & chrome:** #14–#19.
+4. **Controls & chrome:** #14–#19, #26.
 5. **Settings:** #7, #20, #21, #25 (desktop split view + unified rows).
 6. **Polish / optional:** #22–#24, then decide the navigation question.
 
