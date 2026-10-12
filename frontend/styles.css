@@ -60,7 +60,9 @@
         --bg-canvas: #ffffff;
 
         /* Glass materials — light (white-based to match the neutral canvas) */
-        --glass-thin: rgba(255, 255, 255, 0.45);
+        /* Bottom-bar strip (search, FAB, selection bar). Dense enough that
+           list text scrolling underneath can't read through the placeholder. */
+        --glass-thin: rgba(255, 255, 255, 0.82);
         --glass-chrome: rgba(255, 255, 255, 0.92);
         /* Header material — a translucent tint of the grouped canvas so the
            sticky header blends into the page (separated only by a hairline, no
@@ -256,7 +258,7 @@
         --bg-grouped: #0f0e0c;
         --bg-canvas: #221e19;
 
-        --glass-thin: rgba(38, 35, 30, 0.45);
+        --glass-thin: rgba(38, 35, 30, 0.82);
         --glass-chrome: rgba(22, 20, 17, 0.88);
 
         --hairline: rgba(209, 207, 197, 0.14);
@@ -636,12 +638,33 @@
         outline: none;
         box-shadow: var(--focus-ring);
       }
+      /* Status dot with a glyph, so the state never rests on colour alone:
+         check = synced, arrows = syncing, ! = offline / failed (the pending
+         count rides on .sync-badge). Glyphs are CSS masks over --on-accent;
+         the state classes are unchanged (settings.js). */
       .sync-dot {
-        width: var(--space-14);
-        height: var(--space-14);
+        position: relative;
+        width: var(--space-16);
+        height: var(--space-16);
         border-radius: 50%;
         background: var(--green);
         box-shadow: 0 0 var(--space-8) var(--green);
+      }
+      .sync-dot::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: var(--on-accent);
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / var(--space-10) no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / var(--space-10) no-repeat;
+      }
+      .sync-dot.syncing::after {
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.5 10a8 8 0 0 0-14-3.5M4.5 14a8 8 0 0 0 14 3.5'/%3E%3Cpath d='M5 3v4h4M19 21v-4h-4'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.5 10a8 8 0 0 0-14-3.5M4.5 14a8 8 0 0 0 14 3.5'/%3E%3Cpath d='M5 3v4h4M19 21v-4h-4'/%3E%3C/svg%3E");
+      }
+      .sync-dot.error::after {
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5.5v8'/%3E%3Cpath d='M12 18.5v.01'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5.5v8'/%3E%3Cpath d='M12 18.5v.01'/%3E%3C/svg%3E");
       }
       .sync-dot.syncing {
         background: var(--accent);
@@ -704,26 +727,27 @@
         background: var(--bg-canvas);
         border: var(--border-hairline);
         border-radius: var(--r-md);
-        padding: var(--space-10) var(--space-14);
         box-shadow: var(--shadow-soft);
+        /* One summary-card layout app-wide (ledger + report KPIs): label on
+           top, amount below. Side by side the amount ran into the padding
+           from 390 px down and was visibly clipped at 360 px. */
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--space-8);
+        flex-direction: column;
+        gap: var(--space-4);
+        padding: var(--space-10) var(--space-12);
       }
       .summary-card .label {
         font-size: var(--fs-micro);
-        color: var(--text);
+        color: var(--text3);
         font-weight: 600;
-        flex-shrink: 0;
       }
       .summary-card .amount {
+        white-space: nowrap;
         font-family: var(--font-display);
         font-size: var(--fs-headline);
         color: var(--text);
         line-height: 1.25;
         letter-spacing: -0.02em;
-        text-align: right;
         font-variant-numeric: tabular-nums;
       }
       .summary-card .amount.positive {
@@ -1376,6 +1400,13 @@
         font-size: var(--fs-callout);
         color: var(--text);
         min-width: 0;
+      }
+      /* No native clear (×) in the bottom-bar field: while searching the FAB
+         becomes the one ✕ that clears and exits (syncFab), and the native
+         one rendered in system blue right next to it. */
+      .bottom-bar .search-input::-webkit-search-cancel-button {
+        -webkit-appearance: none;
+        appearance: none;
       }
       .search-input::placeholder {
         color: var(--text3);
@@ -2675,6 +2706,24 @@
         appearance: none;
         transition: all var(--dur-base) var(--ease-spring);
       }
+      /* Pop-up affordance: a trailing chevron, the same glyph the month and
+         range pickers use, so a select never reads as a static card. */
+      .settings-select-wrap {
+        position: relative;
+      }
+      .settings-select-wrap .settings-select {
+        padding-right: calc(var(--space-16) * 2 + var(--btn-icon-size));
+      }
+      .settings-select-chevron {
+        position: absolute;
+        right: var(--space-16);
+        top: 50%;
+        transform: translateY(-50%);
+        width: var(--btn-icon-size);
+        height: var(--btn-icon-size);
+        color: var(--text3);
+        pointer-events: none;
+      }
       .settings-select:focus {
         border-color: var(--accent);
         box-shadow:
@@ -2908,9 +2957,12 @@
       }
       /* Breakdown report: two segmented controls (entity + direction) sharing
          one row, each taking half the width. */
+      /* Two toggles (Categories|Tags, Expenses|Income). Stacked on phones —
+         side by side four look-alike pills crowd 390 px and the second one
+         touched the card edge; the 768 px block puts them back in a row. */
       .breakdown-controls {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         gap: var(--space-8);
       }
       .breakdown-controls .segmented {
@@ -2918,7 +2970,6 @@
         min-width: 0;
       }
       .breakdown-controls .segmented button {
-        padding: var(--space-8) var(--space-4);
         white-space: nowrap;
       }
       .segmented button {
@@ -3148,25 +3199,19 @@
         font-weight: 600;
       }
 
+      /* Three equal cards while they fit; when a card's amount no longer does
+         (360 px, five-digit totals) the row wraps and the last card takes the
+         full second line. Equal growth from a zero basis, floored at the
+         content width — no breakpoint, no shrinking type. */
       .report-kpis {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: var(--space-8);
         margin-bottom: var(--space-14);
       }
       .report-kpis .summary-card {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--space-4);
-        padding: var(--space-10) var(--space-12);
-      }
-      .report-kpis .summary-card .label {
-        font-size: var(--fs-micro);
-        color: var(--text3);
-      }
-      .report-kpis .summary-card .amount {
-        font-size: var(--fs-headline);
-        text-align: left;
+        flex: 1 1 0;
+        min-width: min-content;
       }
 
       .report-canvas-wrap {
@@ -4070,6 +4115,9 @@
       }
 
       @media (min-width: 768px) {
+        .breakdown-controls {
+          flex-direction: row;
+        }
         /* Body lets the shell take over centering; the flat grouped canvas
            lives on <html>, so it always fills the viewport regardless of the
            body box width. */

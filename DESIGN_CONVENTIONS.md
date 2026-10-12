@@ -296,6 +296,11 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   inside a sentence ("2.376,64 € von 3.000,00 €") or a table cell stay DM Sans.
   Expense colour is always `--accent`, income `--green`; `--red` is for
   destructive actions only.
+- **Summary cards (one layout):** the ledger's Ausgaben/Einnahmen cards and
+  the report KPI cards share `.summary-card`: label (`--fs-micro`, `--text3`)
+  on top, amount below. Report KPIs sit in a wrapping flex row (equal widths
+  while they fit; the last card takes a full second line when an amount
+  would not fit). No side-by-side label/amount and no shrinking type.
 - **Numeric tables:** `font-variant-numeric: tabular-nums` for columns with
   amounts, so digits align vertically.
 - **Dynamic type (web equivalent):** no fixed `px` values for text — use `rem`
@@ -434,6 +439,13 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
     category). A trailing button is a distinct secondary action with a glyph
     that names it (category view: receipt = "show bookings"). Never use a ⋮
     glyph for anything but a menu.
+- **Pickers:** every `<select>` styled with `appearance: none` gets a trailing
+  `chevron-down` (`.settings-select-wrap`), the same glyph as the month and
+  range pickers, so it never reads as a static card.
+- **Report range control:** five reports share the Monat/Quartal/Jahr/Eigen
+  control plus stepper. Trend is the deliberate exception, with a Von/Bis year
+  pair: it compares several years month by month, which a single-period
+  control cannot express.
 - **Content scrolls under the bar.** Do not hide/show the bar on scroll
   — it disorients more than it saves space.
 
@@ -457,11 +469,12 @@ FAB). Rules:
   use the i18n key for "Search transactions", not a vague "Search…".
 - **Behaviour:** live filter from the first character, `debounce` 150 ms.
   No submit required, no explicit search button.
-- **Cancel / Clear:**
-  - The browser's native `×` button for `type="search"` is sufficient;
-    do not render an additional custom button.
-  - With an active filter, a separate "Cancel" button on the right clears
-    the field and releases focus.
+- **Cancel / Clear:** exactly one ✕. While a search or drill-down is
+  active, the FAB turns into the ✕ that clears the field and leaves the
+  search (`syncFab`). The native `type="search"` clear button is hidden in
+  the bottom bar (`.bottom-bar .search-input::-webkit-search-cancel-button`),
+  because it duplicated that ✕ in system blue. Choosers inside modals keep
+  their native clear.
 - **Scope / Filter:** when a category filter is needed, render it as a chip
   row **below** the field; no dropdowns inside the field itself.
 - **Recent searches / suggestions:** optional as a list below the field,
@@ -500,7 +513,9 @@ Required — no exceptions "because PWA":
   transitions to `0.01ms`, no animations, no parallax.
 - **Transparency:** `@media (prefers-reduced-transparency: reduce)` →
   replace material with opaque surface.
-- **Colour never the only signal:** sign, icon, text supplement it.
+- **Colour never the only signal:** sign, icon, text supplement it. The
+  header sync dot carries a glyph per state (✓ synced, ⟳ syncing, ! offline
+  or failed; CSS masks on `.sync-dot`).
 - **Screen-reader text:** no directional references (no "button top right"),
   no "image of…", no "click here".
 - **Images / charts:** charts have a text summary below them

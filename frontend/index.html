@@ -662,38 +662,50 @@
           <div class="drawer-section">
             <div class="settings-field">
               <label class="settings-field-label" for="selTheme" data-i18n="display.theme">Erscheinungsbild</label>
-              <select id="selTheme" class="settings-select" data-action-change="saveTheme" data-args='["@value"]'>
-                <option value="system" data-i18n="display.themeSystem">System</option>
-                <option value="light" data-i18n="display.themeLight">Hell</option>
-                <option value="dark" data-i18n="display.themeDark">Dunkel</option>
-              </select>
+              <div class="settings-select-wrap">
+                <select id="selTheme" class="settings-select" data-action-change="saveTheme" data-args='["@value"]'>
+                  <option value="system" data-i18n="display.themeSystem">System</option>
+                  <option value="light" data-i18n="display.themeLight">Hell</option>
+                  <option value="dark" data-i18n="display.themeDark">Dunkel</option>
+                </select>
+                <svg class="ui-icon settings-select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
             <div class="settings-field">
               <label class="settings-field-label" for="selDefaultView" data-i18n="display.startView">Startansicht</label>
-              <select id="selDefaultView" class="settings-select" data-action-change="saveDefaultView" data-args='["@value"]'>
-                <option value="transactions" data-i18n="display.startTransactions">Buchungsübersicht</option>
-                <option value="categories" data-i18n="display.startCategories">Kategorienübersicht</option>
-              </select>
+              <div class="settings-select-wrap">
+                <select id="selDefaultView" class="settings-select" data-action-change="saveDefaultView" data-args='["@value"]'>
+                  <option value="transactions" data-i18n="display.startTransactions">Buchungsübersicht</option>
+                  <option value="categories" data-i18n="display.startCategories">Kategorienübersicht</option>
+                </select>
+                <svg class="ui-icon settings-select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
             <div class="settings-field">
               <label class="settings-field-label" for="selLocale" data-i18n="display.language">Sprache &amp; Region</label>
-              <select id="selLocale" class="settings-select" data-action-change="saveLocale" data-args='["@value"]'>
-                <option value="de-DE">Deutsch (Deutschland)</option>
-                <option value="de-AT">Deutsch (Österreich)</option>
-                <option value="de-CH">Deutsch (Schweiz)</option>
-                <option value="en-GB">English (UK)</option>
-                <option value="en-US">English (US)</option>
-              </select>
+              <div class="settings-select-wrap">
+                <select id="selLocale" class="settings-select" data-action-change="saveLocale" data-args='["@value"]'>
+                  <option value="de-DE">Deutsch (Deutschland)</option>
+                  <option value="de-AT">Deutsch (Österreich)</option>
+                  <option value="de-CH">Deutsch (Schweiz)</option>
+                  <option value="en-GB">English (UK)</option>
+                  <option value="en-US">English (US)</option>
+                </select>
+                <svg class="ui-icon settings-select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
             <div class="settings-field">
               <label class="settings-field-label" for="selCurrency" data-i18n="display.currency">Währung</label>
-              <select id="selCurrency" class="settings-select" data-action-change="saveCurrency" data-args='["@value"]'>
-                <option value="EUR">EUR – €</option>
-                <option value="USD">USD – $</option>
-                <option value="GBP">GBP – £</option>
-                <option value="CHF">CHF – Fr.</option>
-                <option value="JPY">JPY – ¥</option>
-              </select>
+              <div class="settings-select-wrap">
+                <select id="selCurrency" class="settings-select" data-action-change="saveCurrency" data-args='["@value"]'>
+                  <option value="EUR">EUR – €</option>
+                  <option value="USD">USD – $</option>
+                  <option value="GBP">GBP – £</option>
+                  <option value="CHF">CHF – Fr.</option>
+                  <option value="JPY">JPY – ¥</option>
+                </select>
+                <svg class="ui-icon settings-select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
           </div>
         </div>
