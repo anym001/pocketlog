@@ -2893,14 +2893,14 @@
       }
 
       /* ====== REPORTS ====== */
-      /* Reports, the Goals view and the Recurring view are not month-scoped,
-         so the month switcher and the income/expense summary are hidden for
-         all of them. */
+      /* Reports, Goals and Recurring are not month-scoped, so the month
+         switcher and the income/expense summary are hidden for them. Budgets
+         keep the switcher (their period follows the viewed month, so past
+         periods are one tap back) but not the ledger summary. */
       body.in-report .month-nav,
       body.in-report .summary,
       body.on-goals .month-nav,
       body.on-goals .summary,
-      body.on-budgets .month-nav,
       body.on-budgets .summary,
       body.on-recurring .month-nav,
       body.on-recurring .summary {
@@ -4242,6 +4242,27 @@
       }
 
       @media (min-width: 1024px) {
+        /* Card views (goals, budgets, recurring) become a grid: full-width
+           cards with 1500-px progress bars were hard to compare. The one
+           exception to "content fills the pane" (DESIGN_CONVENTIONS.md). */
+        #goalsViewList,
+        #budgetsViewList,
+        #recurringViewList {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: var(--space-12);
+          align-items: start;
+        }
+        #goalsViewList > *,
+        #budgetsViewList > *,
+        #recurringViewList > * {
+          margin-bottom: 0;
+        }
+        #goalsViewList > .empty-state,
+        #budgetsViewList > .empty-state,
+        #recurringViewList > .empty-state {
+          grid-column: 1 / -1;
+        }
         /* On larger displays the chart canvas gets a bit more vertical
            breathing room; the list / bar widths are unrestricted from
            the 768 px block onwards. */

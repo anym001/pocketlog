@@ -13,7 +13,37 @@ const {
   _budgetUsage,
   _monthSpan,
   _autoGranularity,
+  _cumulativeByDay,
 } = reportsData;
+
+describe('_cumulativeByDay', () => {
+  const txs = [
+    { date: '2026-10-01', type: 'out', amount: 10.1 },
+    { date: '2026-10-01', type: 'in', amount: 100 },
+    { date: '2026-10-03', type: 'out', amount: 0.2 },
+    { date: '2026-10-05', type: 'out', amount: 5 },
+  ];
+
+  it('accumulates per type, day by day', () => {
+    const r = _cumulativeByDay(txs, 5, 5);
+    expect(r.out).toEqual([10.1, 10.1, 10.3, 10.3, 15.3]);
+    expect(r.in).toEqual([100, 100, 100, 100, 100]);
+  });
+
+  it('stops at lastDay (current month) with nulls after it', () => {
+    const r = _cumulativeByDay(txs, 5, 3);
+    expect(r.out).toEqual([10.1, 10.1, 10.3, null, null]);
+  });
+
+  it('reads the day from the ISO string, not a UTC Date', () => {
+    const r = _cumulativeByDay([{ date: '2026-10-01', type: 'out', amount: 1 }], 3, 3);
+    expect(r.out).toEqual([1, 1, 1]);
+  });
+
+  it('is all null for a future month', () => {
+    expect(_cumulativeByDay(txs, 3, 0).out).toEqual([null, null, null]);
+  });
+});
 
 describe('_tagColor', () => {
   it('is deterministic — same name, same color', () => {

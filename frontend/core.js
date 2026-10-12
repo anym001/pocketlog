@@ -679,16 +679,22 @@ function _resetSearch() {
 // ledger chrome (month nav, summary tiles, search field) while the panel is
 // active — styles.css keys off it. `fab` (optional) names the create action
 // the FAB runs on that view and its aria-label key; without it the FAB books
-// a new transaction. `render` (optional) is the view renderer, run on switch. The
+// a new transaction. `monthScoped` views show the header month switcher and
+// re-render when the viewed month changes (renderAll). `render` (optional) is
+// the view renderer, run on switch. The
 // render bodies are arrow-wrapped so the later-loaded feature modules supply
 // the functions at call time (cross-file calls are fine at runtime). Add a new
 // panel here and its body class + renderer wire up automatically — no more
 // scattered if-chains for showPanel to drift out of sync with (the missing
 // on-budgets CSS once shipped because the toggle lived apart from its CSS).
 const PANELS = {
-  transactions: { titleKey: 'nav.transactions' },
+  transactions: { titleKey: 'nav.transactions', monthScoped: true },
   charts: { bodyClass: 'in-report', render: () => renderReport() },
-  categories: { titleKey: 'nav.categories', render: () => renderCategoryView() },
+  categories: {
+    titleKey: 'nav.categories',
+    monthScoped: true,
+    render: () => renderCategoryView(),
+  },
   goals: {
     titleKey: 'nav.goals',
     bodyClass: 'on-goals',
@@ -697,6 +703,7 @@ const PANELS = {
   },
   budgets: {
     titleKey: 'nav.budgets',
+    monthScoped: true,
     bodyClass: 'on-budgets',
     fab: { action: 'openBudgetModal', labelKey: 'budget.create' },
     render: () => renderBudgetsView(),

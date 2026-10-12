@@ -469,18 +469,21 @@ function _courseChartScales(c) {
   };
 }
 
+// Month range: running totals of expenses and income across the days. One
+// month of sparse daily bars (a single salary spike set the scale, labels had
+// to rotate) said little; the cumulative lines show how the month builds up
+// and where income and spending stand on any day. Expenses solid, income
+// dashed — the two direction colours sit too close for colour-blind readers
+// to carry identity alone.
 function _renderCourseDaily(body, txs) {
   const a = appState.reports.range.anchor;
   const days = _daysInMonth(a.y, a.m);
   const labels = Array.from({ length: days }, (_, i) => i + 1);
-  const byDay = {};
-  txs.forEach((t) => {
-    const d = new Date(t.date).getDate();
-    if (!byDay[d]) byDay[d] = { out: 0, in: 0 };
-    byDay[d][t.type] += t.amount;
-  });
-  const outData = labels.map((d) => byDay[d]?.out || 0);
-  const inData = labels.map((d) => byDay[d]?.in || 0);
+  const now = new Date();
+  const thisMonth = a.y === now.getFullYear() && a.m === now.getMonth();
+  const isFuture = a.y > now.getFullYear() || (a.y === now.getFullYear() && a.m > now.getMonth());
+  const lastDay = isFuture ? 0 : thisMonth ? now.getDate() : days;
+  const cum = _cumulativeByDay(txs, days, lastDay);
   const totals = _sumByType(txs);
 
   body.innerHTML = `
@@ -492,31 +495,51 @@ function _renderCourseDaily(body, txs) {
         `;
 
   const c = getChartColors();
+  const line = (label, data, color, dash) => ({
+    label,
+    data,
+    borderColor: color,
+    backgroundColor: color,
+    borderWidth: 2,
+    borderDash: dash,
+    pointRadius: 0,
+    pointHoverRadius: 4,
+    pointHitRadius: 12,
+    tension: 0,
+    spanGaps: false,
+  });
+  const scales = _courseChartScales(c);
+  scales.x.ticks = { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 };
+  scales.y.beginAtZero = true;
   chartInsts.course = new Chart(document.getElementById('courseChart'), {
-    type: 'bar',
+    type: 'line',
     data: {
       labels,
       datasets: [
-        {
-          label: tr('reports.expenses'),
-          data: outData,
-          backgroundColor: cssColor('--accent', 0.7),
-          borderRadius: 4,
-          borderSkipped: false,
-        },
-        {
-          label: tr('reports.income'),
-          data: inData,
-          backgroundColor: cssColor('--green', 0.7),
-          borderRadius: 4,
-          borderSkipped: false,
-        },
+        line(tr('reports.expenses'), cum.out, cssColor('--accent'), []),
+        line(tr('reports.income'), cum.in, cssColor('--green'), [6, 4]),
       ],
     },
     options: {
       responsive: true,
-      plugins: { legend: { labels: { color: c.text, font: { family: 'DM Sans', size: 11 } } } },
-      scales: _courseChartScales(c),
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: c.text,
+            font: { family: 'DM Sans', size: 11 },
+            usePointStyle: true,
+            pointStyle: 'line',
+          },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => (items.length ? fmtDate(_iso(a.y, a.m, Number(items[0].label))) : ''),
+            label: (ctx) => `${ctx.dataset.label}: ${fmtCurrency(ctx.parsed.y)}`,
+          },
+        },
+      },
+      scales,
     },
   });
 }

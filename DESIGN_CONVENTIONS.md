@@ -170,6 +170,10 @@ via two breakpoints — the breakpoint value lives literally in `@media`
   collapsed state, each minus the 16-px inset for the bottom bar). The
   header top is a 3-column grid (`chrome 1fr chrome`) so the month
   navigator stays visually centred regardless of pane width.
+- **Card views are the one exception:** from 1024 px the goal, budget and
+  recurring lists become a grid (`repeat(auto-fill, minmax(320px, 1fr))`).
+  Full-width cards with 1500-px progress bars could not be compared side by
+  side. Rows stay full-width.
 - **Body-text caps** (modal body, empty states) remain useful — the HIG
   rationale "restrict text for readability" applies there. Currently
   PocketLog has only the centred modal (`max-width: 560px`).
@@ -442,6 +446,11 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
 - **Pickers:** every `<select>` styled with `appearance: none` gets a trailing
   `chevron-down` (`.settings-select-wrap`), the same glyph as the month and
   range pickers, so it never reads as a static card.
+- **Month-scoped views** (`PANELS[id].monthScoped`): Buchungsübersicht,
+  Kategorienübersicht and Budgets show the header month switcher, re-render
+  on a month change, and are the only views where ←/→ change the month.
+  A budget's period (month, quarter or year) follows the viewed month, so
+  past periods are one step back.
 - **Report range control:** five reports share the Monat/Quartal/Jahr/Eigen
   control plus stepper. Trend is the deliberate exception, with a Von/Bis year
   pair: it compares several years month by month, which a single-period
@@ -516,6 +525,10 @@ Required — no exceptions "because PWA":
 - **Colour never the only signal:** sign, icon, text supplement it. The
   header sync dot carries a glyph per state (✓ synced, ⟳ syncing, ! offline
   or failed; CSS masks on `.sync-dot`).
+- **Charts with both directions:** expenses are solid, income is dashed
+  (`borderDash`). Checked with the dataviz palette validator, `--accent` and
+  `--green` are nearly identical for protan readers (ΔE 0.7, target ≥ 8), so
+  hue alone never carries which line is which.
 - **Screen-reader text:** no directional references (no "button top right"),
   no "image of…", no "click here".
 - **Images / charts:** charts have a text summary below them
