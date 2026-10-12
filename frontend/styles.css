@@ -3660,9 +3660,13 @@
       .drawer-section .action-list + .drawer-search,
       .drawer-section .action-list + .api-key-list,
       .drawer-section .drawer-chip-list + .action-list,
-      .drawer-section .drawer-search[hidden] + .drawer-chip-list,
-      .drawer-section .form-hint + .action-list {
+      .drawer-section .drawer-search[hidden] + .drawer-chip-list {
         margin-top: var(--space-12);
+      }
+      /* Explanatory text above an action card (Backup): the card-to-card
+         rhythm, so the card doesn't sit on the paragraph. */
+      .drawer-section .form-hint + .action-list {
+        margin-top: var(--space-16);
       }
       /* [hidden] has to beat .search-wrap's display:flex. */
       .drawer-search[hidden] {
