@@ -210,6 +210,20 @@ Update the FAB's `aria-label` per view ("Ziel erstellen"). The settings panels (
 **Fix:** Change the layout, not the type size. Below ~380 px, put Einnahmen + Ausgaben on the first row and the Bilanz card at full width on the second (`grid-template-columns: 1fr 1fr` with `.summary-card:last-child { grid-column: 1 / -1 }`). Alternatively, drop the `€` symbol in the KPI cards and keep the currency in the label.
 **Criterion:** at 320 / 360 / 390 px, `−12.345,67 €` fits without clipping, and amounts stay at `--fs-headline`.
 
+### [ ] 27. Expense and income colours fail colour-vision checks
+**Where:** `--accent` (expenses) / `--green` (income), light and dark tokens in `styles.css`.
+**Found:** during phase 6, running the dataviz palette validator.
+**Problem:**
+- Light: `#D97757` vs `#788C5D` has a protan ΔE of 0.7 (target ≥ 8), so the two are effectively the same colour for red-green colour-blind readers. `#788C5D` is also below the chroma floor and reads as grey.
+- Dark: `#E8926E` vs `#9AB07A` reaches ΔE 13.2 even for normal vision (floor 15), so the pair is hard to tell apart for everyone.
+- Signs (phase 1) and dashed income lines (phase 6) already carry direction everywhere it matters, but the colour pair itself stays weak.
+
+**Options:**
+- **A.** Keep the colours. Signs and line styles are the guaranteed cue; no visual change.
+- **B.** Shift income towards a cooler or bluer green, or expenses towards red, until the validator passes. This changes the brand look app-wide.
+
+**Decision needed (product owner).**
+
 ---
 
 ## Low / polish
@@ -263,7 +277,7 @@ All main destinations sit behind ☰. Switching between Buchungen → Ziele → 
 |---|---|---|
 | Critical | 1 | 1 |
 | High | 6 | 2–7 |
-| Medium | 14 | 8–20, 26 |
+| Medium | 15 | 8–20, 26, 27 |
 | Low | 5 | 21–25 |
 | Strategic | 1 | navigation |
 
