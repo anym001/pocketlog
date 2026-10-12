@@ -290,6 +290,12 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
 
 - **Line height:** `1.25` for DM Serif Display, `1.4` for DM Sans body.
 - **Letter spacing:** leave at default; do not artificially widen.
+- **Amounts — one rule:** a standalone amount at the end of a list row
+  (ledger, category view, recurring cards) is DM Serif Display at
+  `--fs-headline` (shared selector with `.t-amount` in `styles.css`). Amounts
+  inside a sentence ("2.376,64 € von 3.000,00 €") or a table cell stay DM Sans.
+  Expense colour is always `--accent`, income `--green`; `--red` is for
+  destructive actions only.
 - **Numeric tables:** `font-variant-numeric: tabular-nums` for columns with
   amounts, so digits align vertically.
 - **Dynamic type (web equivalent):** no fixed `px` values for text — use `rem`
@@ -371,6 +377,14 @@ Two icon systems, strictly separated:
   - `<use href="#icon-menu|chevron-left|chevron-right|close|search|plus">`.
   - 24×24 viewport, `stroke="currentColor"` — icons inherit text colour.
   - New chrome glyph → as `<symbol id="icon-…">` in the sprite block in `index.html`.
+- **A category looks the same everywhere:** tinted tile (`--cat-color` at
+  13 %, glyph in `--cat-color`, `--text` in dark mode) in the ledger, the
+  category view, choosers and the settings list (`.drawer-nav-icon-wrap.cat-tile`).
+  Solid tiles with a white glyph are reserved for navigation chrome.
+- **Drawer navigation tiles:** one glyph per destination (no duplicates), tile
+  colour by group — record (Categories, Transactions) `--accent`, plan (Goals,
+  Budgets, Recurring) `--green`, analyse (Reports) `--blue`, Settings `--text3`.
+  Labels are single nouns that match the view title.
 - **Semantics:** icon without label only when universally understood (plus = new, bin = delete).
 - **Accessibility:** `aria-label` with purpose, not appearance.
 - **Stroke style:** outline only — no mixing.
@@ -498,6 +512,6 @@ Quick rules:
 - **Verb-first** for action buttons: use i18n keys for "Save", "Delete" — not "OK".
 - **Direct and active:** use the i18n key for "Amount invalid." — not "Invalid input."
 - **No "Please" / no "Sorry"** — phrase directly.
-- **Amounts** via `fmtCurrency(n)` — locale and currency come from user settings (`I18N.getLocale()` / `I18N.getCurrency()`), never hardcoded. Dates internally ISO 8601, displayed with `toLocaleDateString(I18N.getLocale())`.
+- **Amounts** via `fmtCurrency(n)` — locale and currency come from user settings (`I18N.getLocale()` / `I18N.getCurrency()`), never hardcoded. Dates internally ISO 8601, displayed only via `fmtDate(value, style)` (`core.js`) in one of two styles: `'day'` for list day headers ("Samstag, 10. Oktober", year only when not the current one) and `'medium'` everywhere else ("10. Okt. 2026"). No ad-hoc `toLocaleDateString` / `split('-')` formatting.
 - Destructive actions always paired with a "Cancel" option; dialog openers end with `…`.
 - **No hardcoded inline text strings:** static text gets `data-i18n` / `data-i18n-attr`, dynamic text goes through `tr('key')`. New strings go into **both** catalogs (`i18n/de.json`, `i18n/en.json`) with matching keys.

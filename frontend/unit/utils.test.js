@@ -18,6 +18,8 @@ const {
   _txTitle,
   _withSign,
   _netDirection,
+  _isoToLocalDate,
+  _fmtDate,
   _passwordErrorKey,
   _importReport,
   _recurringDaysInMonth,
@@ -386,6 +388,36 @@ describe('_netDirection', () => {
     expect(_netDirection(0)).toBe(null);
     expect(_netDirection(0.1 + 0.2 - 0.3)).toBe(null);
     expect(_netDirection(-0.004)).toBe(null);
+  });
+});
+
+describe('_isoToLocalDate', () => {
+  it('builds a local date without a UTC shift', () => {
+    const d = _isoToLocalDate('2026-10-01');
+    expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 9, 1]);
+  });
+});
+
+describe('_fmtDate', () => {
+  const today = new Date(2026, 9, 12);
+
+  it("'day' drops the current year and keeps the weekday", () => {
+    expect(_fmtDate(new Date(2026, 9, 10), 'day', 'de-DE', today)).toBe('Samstag, 10. Oktober');
+  });
+
+  it("'day' shows the year for another year", () => {
+    expect(_fmtDate(new Date(2025, 9, 10), 'day', 'de-DE', today)).toBe(
+      'Freitag, 10. Oktober 2025',
+    );
+  });
+
+  it("'medium' is day, short month, year", () => {
+    expect(_fmtDate(new Date(2026, 9, 3), 'medium', 'de-DE', today)).toBe('3. Okt. 2026');
+    expect(_fmtDate(new Date(2026, 9, 3), 'medium', 'en-GB', today)).toBe('3 Oct 2026');
+  });
+
+  it('falls back to medium for an unknown style', () => {
+    expect(_fmtDate(new Date(2026, 9, 3), 'nope', 'de-DE', today)).toBe('3. Okt. 2026');
   });
 });
 

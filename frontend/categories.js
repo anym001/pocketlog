@@ -886,8 +886,8 @@ function renderCategories() {
     row.onclick = () => openCatModal(c.id);
     row.onkeydown = (e) => handleRowActivate(e, () => openCatModal(c.id));
     const iconWrap = document.createElement('div');
-    iconWrap.className = 'drawer-nav-icon-wrap';
-    iconWrap.style.setProperty('--nav-icon-bg', c.color);
+    iconWrap.className = 'drawer-nav-icon-wrap cat-tile';
+    iconWrap.style.setProperty('--cat-color', c.color);
     iconWrap.innerHTML = catIconSvg(c.icon);
     const label = document.createElement('span');
     label.className = 'drawer-nav-label';

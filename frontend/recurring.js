@@ -49,12 +49,7 @@ function _recurringSummary(rule) {
 function _recurringFormatDate(iso) {
   if (!iso) return '';
   try {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(_locale(), {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    return fmtDate(iso);
   } catch (e) {
     return iso;
   }

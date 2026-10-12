@@ -139,11 +139,7 @@ function _rangeStepperLabel() {
 function _rangeSubtitle(txCount) {
   const noun = txCount === 1 ? tr('tx.countOne') : tr('tx.countOther');
   if (appState.reports.range.kind === 'custom') {
-    const fmt = (iso) => {
-      const [y, m, d] = iso.split('-');
-      return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(_locale());
-    };
-    return `${fmt(appState.reports.range.from)} – ${fmt(appState.reports.range.to)} · ${txCount} ${noun}`;
+    return `${fmtDate(appState.reports.range.from)} – ${fmtDate(appState.reports.range.to)} · ${txCount} ${noun}`;
   }
   return `${_rangeStepperLabel()} · ${txCount} ${noun}`;
 }
@@ -385,10 +381,7 @@ function _catRowMarkup(catId, amount, max, opts = {}) {
 
 function _txRowMarkup(t) {
   const cat = getCatById(t.category_id);
-  const dateLbl = (() => {
-    const [y, m, d] = t.date.split('-');
-    return `${d}.${m}.${y}`;
-  })();
+  const dateLbl = fmtDate(t.date);
   const tagsHtml = (t.tags || [])
     .map((tag) => `<span class="t-tag">${_escText(tag)}</span>`)
     .join('');
@@ -1380,15 +1373,7 @@ async function renderReportForecast(body, rangeTxs) {
           ? tr('forecast.avgYear')
           : tr('forecast.avgPeriod');
   const periodLabel =
-    kind === 'custom'
-      ? (() => {
-          const fmt = (iso) => {
-            const [y, m, d] = iso.split('-');
-            return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(_locale());
-          };
-          return `${fmt(rangeFromIso)} – ${fmt(rangeToIso)}`;
-        })()
-      : _rangeStepperLabel();
+    kind === 'custom' ? `${fmtDate(rangeFromIso)} – ${fmtDate(rangeToIso)}` : _rangeStepperLabel();
 
   body.innerHTML = `
           <div class="report-section">

@@ -222,7 +222,6 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
   });
   el.innerHTML = Object.entries(groups)
     .map(([date, list]) => {
-      const d = new Date(date + 'T12:00:00');
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const dDay = new Date(date + 'T00:00:00');
@@ -231,12 +230,7 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
           ? tr('date.today')
           : dDay.getTime() === today.getTime() - 86400000
             ? tr('date.yesterday')
-            : d.toLocaleDateString(_locale(), {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              });
+            : fmtDate(date, 'day');
       return (
         `<div class="section-title">${label}</div>` +
         list

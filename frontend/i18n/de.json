@@ -25,20 +25,13 @@
     "close": "Menü schließen"
   },
   "nav": {
-    "categories": "Kategorienübersicht",
-    "transactions": "Buchungsübersicht",
+    "categories": "Kategorien",
+    "transactions": "Buchungen",
     "goals": "Ziele",
     "budgets": "Budgets",
     "recurring": "Wiederkehrend",
     "reports": "Auswertungen",
-    "settings": "Einstellungen",
-    "title": {
-      "transactions": "Buchungen",
-      "categories": "Kategorien",
-      "goals": "Ziele",
-      "budgets": "Budgets",
-      "recurring": "Wiederkehrend"
-    }
+    "settings": "Einstellungen"
   },
   "header": {
     "prevMonth": "Vorheriger Monat",
@@ -118,8 +111,8 @@
     "themeLight": "Hell",
     "themeDark": "Dunkel",
     "startView": "Startansicht",
-    "startTransactions": "Buchungsübersicht",
-    "startCategories": "Kategorienübersicht",
+    "startTransactions": "Buchungen",
+    "startCategories": "Kategorien",
     "language": "Sprache & Region",
     "currency": "Währung"
   },

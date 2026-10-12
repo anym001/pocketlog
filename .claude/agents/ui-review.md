@@ -37,6 +37,11 @@ Flag obvious hardcoded hex/rgba/px values you notice during visual review. For a
 - New views register in `PANELS` (core.js) with a `titleKey`; their create action is the FAB via `PANELS[id].fab`, not an in-view button
 - Row tap = the row's primary action; trailing buttons are distinct secondary actions with a glyph that names them; ⋮ only for real menus
 
+**Visual system**
+- Row-end amounts share `.t-amount`'s look (DM Serif Display, `--fs-headline`); expense colour `--accent`, never `--red`
+- Category tiles are the tinted style everywhere; solid tiles only for navigation
+- Dates only via `fmtDate(value, 'day' | 'medium')`
+
 **Copy & language**
 - Apple Style Guide for German UI text (see DESIGN_CONVENTIONS.md)
 - App name always „PocketLog" (one word, capital P and L)

@@ -194,6 +194,27 @@ function _withSign(formatted, direction) {
   return formatted;
 }
 
+// Local Date for a date-only ISO string (YYYY-MM-DD). new Date('2026-10-12')
+// would parse as UTC midnight and show the previous day west of Greenwich.
+function _isoToLocalDate(iso) {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// The app's two display date styles — every visible date uses one of them:
+//   'day'    → list day headers: "Samstag, 10. Oktober" (+ year only when it
+//              is not the current one)
+//   'medium' → dates inside rows, cards, ranges, settings: "10. Okt. 2026"
+const _DATE_STYLES = {
+  day: { weekday: 'long', day: 'numeric', month: 'long' },
+  medium: { day: 'numeric', month: 'short', year: 'numeric' },
+};
+function _fmtDate(date, style, locale, today = new Date()) {
+  const opts = { ...(_DATE_STYLES[style] || _DATE_STYLES.medium) };
+  if (style === 'day' && date.getFullYear() !== today.getFullYear()) opts.year = 'numeric';
+  return date.toLocaleDateString(locale, opts);
+}
+
 // Direction of a net amount for _withSign: 'in' above zero, 'out' below,
 // null (unsigned) at zero. Judged on whole cents so a float residue from
 // summing (1e-13) can't print a signed "+0,00 €".
@@ -423,6 +444,8 @@ if (typeof module !== 'undefined' && module.exports) {
     _txTitle,
     _withSign,
     _netDirection,
+    _isoToLocalDate,
+    _fmtDate,
     _passwordErrorKey,
     _importReport,
     _parseServerDate,

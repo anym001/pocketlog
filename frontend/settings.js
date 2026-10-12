@@ -281,7 +281,6 @@ async function updateFailedNotice() {
 // and formats (locale currency/date), so it stays out of the unit tests.
 function _recoverEntryLines(entry) {
   const s = _failedEntrySummary(entry);
-  const locale = I18N.getLocale();
   const entityText =
     s.entity === 'bulk'
       ? tr('sync.entityBulk', { n: s.label || '?' })
@@ -291,7 +290,7 @@ function _recoverEntryLines(entry) {
   if (s.amount != null && !Number.isNaN(Number(s.amount))) {
     parts.push(fmtCurrency(Number(s.amount)));
   }
-  if (s.date) parts.push(_parseServerDate(s.date).toLocaleDateString(locale));
+  if (s.date) parts.push(fmtDate(s.date));
   const reason =
     s.code === 'csrf_mismatch'
       ? tr('sync.reasonSession')
@@ -948,18 +947,15 @@ function renderApiKeys() {
 
     const meta = document.createElement('div');
     meta.className = 'api-key-card-meta';
-    const locale = I18N.getLocale();
     const created = document.createElement('span');
     created.textContent =
-      tr('apiKeys.createdAt') + ': ' + new Date(key.created_at).toLocaleDateString(locale);
+      tr('apiKeys.createdAt') + ': ' + fmtDate(_parseServerDate(key.created_at));
     meta.appendChild(created);
     const used = document.createElement('span');
     used.textContent =
       tr('apiKeys.lastUsed') +
       ': ' +
-      (key.last_used_at
-        ? new Date(key.last_used_at).toLocaleDateString(locale)
-        : tr('apiKeys.never'));
+      (key.last_used_at ? fmtDate(_parseServerDate(key.last_used_at)) : tr('apiKeys.never'));
     meta.appendChild(used);
     footer.appendChild(meta);
 
@@ -1047,7 +1043,7 @@ function renderSessions() {
     meta.appendChild(lastActive);
     const since = document.createElement('span');
     since.textContent = tr('sessions.signedInSince', {
-      date: _parseServerDate(s.created_at).toLocaleDateString(I18N.getLocale()),
+      date: fmtDate(_parseServerDate(s.created_at)),
     });
     meta.appendChild(since);
     footer.appendChild(meta);

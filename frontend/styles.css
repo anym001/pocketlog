@@ -340,7 +340,9 @@
       html[data-dark='true'] .t-icon,
       html[data-dark='true'] .cat-view-icon,
       html[data-dark='true'] .cat-icon,
-      html[data-dark='true'] .goal-card-icon {
+      html[data-dark='true'] .goal-card-icon,
+      html[data-dark='true'] .recurring-card-icon,
+      html[data-dark='true'] .drawer-nav-icon-wrap.cat-tile {
         color: var(--text);
       }
 
@@ -823,9 +825,7 @@
         color: var(--text);
       }
       .cat-view-amount {
-        font-size: var(--fs-callout);
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
       }
       .cat-view-amount.negative {
         color: var(--accent);
@@ -1243,7 +1243,12 @@
         outline: none;
         box-shadow: var(--focus-ring);
       }
-      .t-amount {
+      /* Row-end amount — one look on every list (ledger, category view,
+         recurring cards): DM Serif Display at --fs-headline. Amounts inside a
+         sentence ("2.376,64 € von 3.000,00 €") or a table cell stay DM Sans. */
+      .t-amount,
+      .cat-view-amount,
+      .recurring-card-amount {
         font-family: var(--font-display);
         font-size: var(--fs-headline);
         font-weight: 400;
@@ -1827,6 +1832,14 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+      }
+      /* A category listed in settings wears the same tinted tile as in the
+         ledger and the category view — the solid tile above is navigation
+         chrome, and a category must look the same wherever it appears. */
+      .drawer-nav-icon-wrap.cat-tile {
+        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
+        color: var(--cat-color, var(--text));
+        border: var(--border-hairline);
       }
       .drawer-nav-label {
         flex: 1;
@@ -3779,16 +3792,15 @@
         max-width: 100%;
       }
       .recurring-card-amount {
-        font-variant-numeric: tabular-nums;
-        font-weight: 600;
         white-space: nowrap;
       }
-      /* Colour the amount by direction — no +/− sign needed. */
+      /* Direction colours match every other list (sign carries it too);
+         --red stays reserved for destructive actions. */
       .recurring-card-amount.in {
         color: var(--green);
       }
       .recurring-card-amount.out {
-        color: var(--red);
+        color: var(--accent);
       }
       .tx-recurring-badge {
         display: inline-flex;

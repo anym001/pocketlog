@@ -12,9 +12,9 @@ const { loginViaApi, bootIntoApp, gotoPanel, modalSettled } = require('./helpers
 // Titles and labels are compared through the app's own tr(): the suite
 // account's language is whatever an earlier spec left it at.
 const FAB_TARGETS = [
-  { panel: 'goals', title: 'nav.title.goals', overlay: 'goalModalOverlay' },
-  { panel: 'budgets', title: 'nav.title.budgets', overlay: 'budgetModalOverlay' },
-  { panel: 'recurring', title: 'nav.title.recurring', overlay: 'recurringModalOverlay' },
+  { panel: 'goals', title: 'nav.goals', overlay: 'goalModalOverlay' },
+  { panel: 'budgets', title: 'nav.budgets', overlay: 'budgetModalOverlay' },
+  { panel: 'recurring', title: 'nav.recurring', overlay: 'recurringModalOverlay' },
 ];
 
 const t = (page, key) => page.evaluate((k) => window.I18N.t(k), key);
@@ -26,7 +26,7 @@ test('each view has its title and the FAB creates what the view lists', async ({
   await bootIntoApp(page);
 
   await gotoPanel(page, 'transactions');
-  await expect(page.locator('#viewTitle')).toHaveText(await t(page, 'nav.title.transactions'));
+  await expect(page.locator('#viewTitle')).toHaveText(await t(page, 'nav.transactions'));
 
   for (const v of FAB_TARGETS) {
     await gotoPanel(page, v.panel);
@@ -63,7 +63,7 @@ test('category view: the row books into it, the receipt button lists its booking
   await bootIntoApp(page);
 
   await gotoPanel(page, 'categories');
-  await expect(page.locator('#viewTitle')).toHaveText(await t(page, 'nav.title.categories'));
+  await expect(page.locator('#viewTitle')).toHaveText(await t(page, 'nav.categories'));
   const row = page.locator('#categoryViewList .cat-view-row').first();
   const catId = Number(JSON.parse(await row.getAttribute('data-args'))[0]);
 

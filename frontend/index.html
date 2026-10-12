@@ -167,6 +167,13 @@
           <path d="M4 20V12M8 20V6M12 20V10M16 20V4M20 20V9"/>
           <path d="M2 20h20"/>
         </symbol>
+        <!-- Budgets: a spending gauge (cap + how far along), so it no longer
+             shares the chart-bar glyph with Reports. -->
+        <symbol id="icon-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.2 19.4A9 9 0 1 1 17.8 19.4"/>
+          <path d="M12 12.5l4-4"/>
+          <circle cx="12" cy="12.5" r="1.2"/>
+        </symbol>
         <symbol id="icon-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/>
           <circle cx="12" cy="12" r="6"/>
@@ -369,28 +376,30 @@
       <div class="drawer-content">
         <!-- Panel 0: main menu -->
         <div class="drawer-panel" id="dpMain" data-state="active">
+          <!-- Tile colour = group (DESIGN_CONVENTIONS.md → Icons in the UI):
+               record (accent) · plan (green) · analyse (blue) · settings (neutral). -->
           <nav class="drawer-nav" style="--sep-left: calc(var(--nav-icon-size) + var(--space-12) + var(--space-16))">
-            <button class="drawer-nav-item" data-panel="categories" data-action="showPanel" data-args='["categories"]' style="--nav-icon-bg: var(--blue)">
+            <button class="drawer-nav-item" data-panel="categories" data-action="showPanel" data-args='["categories"]' style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-squares-four" /></svg></span>
-              <span class="drawer-nav-label" data-i18n="nav.categories">Kategorienübersicht</span>
+              <span class="drawer-nav-label" data-i18n="nav.categories">Kategorien</span>
             </button>
-            <button class="drawer-nav-item" data-panel="transactions" data-action="showPanel" data-args='["transactions"]' style="--nav-icon-bg: var(--green)">
+            <button class="drawer-nav-item" data-panel="transactions" data-action="showPanel" data-args='["transactions"]' style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-receipt" /></svg></span>
-              <span class="drawer-nav-label" data-i18n="nav.transactions">Buchungsübersicht</span>
+              <span class="drawer-nav-label" data-i18n="nav.transactions">Buchungen</span>
             </button>
-            <button class="drawer-nav-item" data-panel="goals" data-action="showPanel" data-args='["goals"]' style="--nav-icon-bg: var(--blue)">
+            <button class="drawer-nav-item" data-panel="goals" data-action="showPanel" data-args='["goals"]' style="--nav-icon-bg: var(--green)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-target" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.goals">Ziele</span>
             </button>
             <button class="drawer-nav-item" data-panel="budgets" data-action="showPanel" data-args='["budgets"]' style="--nav-icon-bg: var(--green)">
-              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-gauge" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.budgets">Budgets</span>
             </button>
-            <button class="drawer-nav-item" data-panel="recurring" data-action="showPanel" data-args='["recurring"]' style="--nav-icon-bg: var(--accent)">
+            <button class="drawer-nav-item" data-panel="recurring" data-action="showPanel" data-args='["recurring"]' style="--nav-icon-bg: var(--green)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-arrows-clockwise" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.recurring">Wiederkehrend</span>
             </button>
-            <button class="drawer-nav-item" data-action="drawerNav" data-args='["dpReports"]' style="--nav-icon-bg: var(--accent)">
+            <button class="drawer-nav-item" data-action="drawerNav" data-args='["dpReports"]' style="--nav-icon-bg: var(--blue)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.reports">Auswertungen</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
@@ -662,8 +671,8 @@
             <div class="settings-field">
               <label class="settings-field-label" for="selDefaultView" data-i18n="display.startView">Startansicht</label>
               <select id="selDefaultView" class="settings-select" data-action-change="saveDefaultView" data-args='["@value"]'>
-                <option value="transactions" data-i18n="display.startTransactions">Buchungsübersicht</option>
-                <option value="categories" data-i18n="display.startCategories">Kategorienübersicht</option>
+                <option value="transactions" data-i18n="display.startTransactions">Buchungen</option>
+                <option value="categories" data-i18n="display.startCategories">Kategorien</option>
               </select>
             </div>
             <div class="settings-field">
@@ -998,7 +1007,7 @@
          showPanel() from PANELS[id].titleKey. Reports keep their own
          .report-head (title + range subtitle) in the same spot and style. -->
     <div class="view-head" id="viewHead">
-      <h2 class="view-title" id="viewTitle" data-i18n="nav.title.transactions">Buchungen</h2>
+      <h2 class="view-title" id="viewTitle" data-i18n="nav.transactions">Buchungen</h2>
     </div>
 
     <!-- SUMMARY -->
