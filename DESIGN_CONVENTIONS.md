@@ -212,6 +212,15 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   a category colour in CSS — always reference `var(--cat-color)`.
 - **Colour is never the only signal.** Income/expenses additionally carry
   a `+` or `−` (U+2212). Error states carry text, not just a red border.
+  Row-end amounts (ledger, category view, recurring cards, report booking
+  lists, balance) go through `fmtSignedCurrency(n, 'in' | 'out')`
+  (`core.js`; net values via `_netDirection(net)`). Only amounts whose label
+  already names the direction (summary cards "Expenses"/"Income", "Top
+  expenses" sections, the breakdown with its in/out toggle) stay unsigned
+  via `fmtCurrency`, which also renders negatives with U+2212.
+- **A booking row is never blank.** Its title falls back description →
+  source recurring rule name → category name (`_txTitle` in `utils.js`); the
+  category name shows as the caption line unless it already is the title.
 - **No hard black/white backgrounds.** Page canvas always `--bg-grouped`,
   cards/surfaces `--bg-canvas`, text `--text` — so light/dark look consistent.
 - **Use accent colour sparingly:** at most one primary action per screen

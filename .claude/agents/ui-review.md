@@ -36,7 +36,7 @@ Flag obvious hardcoded hex/rgba/px values you notice during visual review. For a
 **Copy & language**
 - Apple Style Guide for German UI text (see DESIGN_CONVENTIONS.md)
 - App name always „PocketLog" (one word, capital P and L)
-- Amounts via `fmtCurrency(n)` or `fmtSignedCurrency(n)`, not manual formatting
+- Amounts via `fmtCurrency(n)` or `fmtSignedCurrency(n, direction)` (row-end amounts must be signed — colour is never the only signal), not manual formatting
 
 **Code quality**
 - Repeated inline `style="…"` or duplicated style blocks → extract a CSS class

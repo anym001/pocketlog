@@ -524,8 +524,16 @@ function _passwordErrorMessage(data) {
 // next render without rebuilding cached formatters.
 const _locale = () => (window.I18N ? I18N.getLocale() : 'de-DE');
 const _currencyCode = () => (window.I18N ? I18N.getCurrency() : 'EUR');
+// Intl emits an ASCII hyphen for negatives; display text uses the
+// typographic minus (U+2212) everywhere, matching fmtSignedCurrency.
 const fmtCurrency = (n) =>
-  new Intl.NumberFormat(_locale(), { style: 'currency', currency: _currencyCode() }).format(n);
+  new Intl.NumberFormat(_locale(), { style: 'currency', currency: _currencyCode() })
+    .format(n)
+    .replace('-', '\u2212');
+// Row-end amount with its direction sign ('in' / 'out'; anything else stays
+// unsigned) — colour alone must never carry the direction. Summary cards and
+// sections whose label already names the direction keep fmtCurrency.
+const fmtSignedCurrency = (n, direction) => _withSign(fmtCurrency(Math.abs(n)), direction);
 // Month names are derived from the active locale via Intl rather than
 // hardcoded, so they follow the language setting. Rebuilt on startup
 // and on every i18n:changed (see registerI18nListener).

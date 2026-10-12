@@ -177,17 +177,53 @@ function _compareUsage(a, b, type) {
 
 // --- Search / drill-down filtering -----------------------------------------
 
+// Display title of a booking row: its own description, else the name of the
+// recurring rule that produced it, else its category name. Rule-materialised
+// bookings carry no description, and an empty title would render the row as
+// a blank card with only an icon and an amount.
+function _txTitle(desc, ruleName, catName) {
+  return [desc, ruleName, catName].map((s) => String(s ?? '').trim()).find(Boolean) || '';
+}
+
+// Prefix a formatted, absolute amount with its direction so it never relies
+// on colour alone: U+2212 MINUS SIGN for 'out', '+' for 'in'. Any other
+// direction (a zero net, an unknown type) leaves the amount unsigned.
+function _withSign(formatted, direction) {
+  if (direction === 'out') return '\u2212' + formatted;
+  if (direction === 'in') return '+' + formatted;
+  return formatted;
+}
+
+// Direction of a net amount for _withSign: 'in' above zero, 'out' below,
+// null (unsigned) at zero. Judged on whole cents so a float residue from
+// summing (1e-13) can't print a signed "+0,00 €".
+function _netDirection(net) {
+  const cents = Math.round(net * 100);
+  return cents > 0 ? 'in' : cents < 0 ? 'out' : null;
+}
+
 // Filter a transaction pool by an active drill-down (category or tag) or a
-// pre-lowercased text query (description, category name, tags). Mirrors the
-// search panel's behaviour: a drill-down filter short-circuits the text
+// pre-lowercased text query (displayed title, category name, tags). Mirrors
+// the search panel's behaviour: a drill-down filter short-circuits the text
 // match. `catNameById` supplies the category display name (including the
-// localized fallback for a missing category) — passed in as a function so
-// this stays free of app state and I18N.
-function _filterTransactions(pool, { query, categoryFilterId, tagFilterName }, catNameById) {
+// localized fallback for a missing category) and the optional `ruleNameById`
+// the name of a booking's source rule — passed in as functions so this stays
+// free of app state and I18N. A booking without a description is matched on
+// its rule name, because that is the title the row shows (see _txTitle).
+function _filterTransactions(
+  pool,
+  { query, categoryFilterId, tagFilterName },
+  catNameById,
+  ruleNameById = () => '',
+) {
   return pool.filter((t) => {
     if (categoryFilterId != null) return t.category_id === categoryFilterId;
     if (tagFilterName != null) return Array.isArray(t.tags) && t.tags.includes(tagFilterName);
-    if ((t.desc || '').toLowerCase().includes(query)) return true;
+    const desc = (t.desc || '').trim();
+    if (desc.toLowerCase().includes(query)) return true;
+    if (!desc && t.source_rule_id != null) {
+      if ((ruleNameById(t.source_rule_id) || '').toLowerCase().includes(query)) return true;
+    }
     if (catNameById(t.category_id).toLowerCase().includes(query)) return true;
     if (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(query))) return true;
     return false;
@@ -384,6 +420,9 @@ if (typeof module !== 'undefined' && module.exports) {
     _compareUsage,
     _defaultBookingDate,
     _filterTransactions,
+    _txTitle,
+    _withSign,
+    _netDirection,
     _passwordErrorKey,
     _importReport,
     _parseServerDate,
