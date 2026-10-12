@@ -396,11 +396,11 @@ function _txRowMarkup(t) {
           data-action="editTransaction" data-args="[${t.id}]">
           <div class="cat-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
           <div class="report-tx-main">
-            <div class="report-tx-desc">${_escText(t.desc || cat.name)}</div>
+            <div class="report-tx-desc">${_escText(txTitle(t, cat))}</div>
             <div class="t-tags">${tagsHtml}</div>
             <div class="report-tx-meta">${dateLbl}</div>
           </div>
-          <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtCurrency(Math.abs(t.amount))}</div>
+          <div class="report-tx-amount ${t.type === 'out' ? 'negative' : 'positive'}">${fmtSignedCurrency(t.amount, t.type)}</div>
         </div>`;
 }
 
@@ -426,7 +426,7 @@ async function renderReportOverview(body, txs) {
           <div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(balance))}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(balance, _netDirection(balance))}</div></div>
           </div>
 
           <div class="report-section">
@@ -462,7 +462,7 @@ function _courseKpisMarkup(totals) {
   return `<div class="report-kpis">
             <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
-            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtCurrency(Math.abs(totals.in - totals.out))}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out, _netDirection(totals.in - totals.out))}</div></div>
           </div>`;
 }
 

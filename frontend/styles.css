@@ -1173,7 +1173,7 @@
         gap: var(--space-4);
       }
       .t-note {
-        font-size: var(--fs-micro);
+        font-size: var(--fs-callout);
         font-weight: 500;
         color: var(--text);
         white-space: nowrap;
@@ -1200,6 +1200,19 @@
       .t-note-row .tx-recurring-badge {
         flex: 0 0 auto;
         margin-inline-start: 0;
+      }
+      /* Category name on the row's second line, ahead of the tag pills —
+         the row's quiet secondary text (title carries the weight). */
+      .t-meta {
+        font-size: var(--fs-caption);
+        color: var(--text2);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+      .t-tags:empty {
+        display: none;
       }
       .t-tags {
         display: flex;

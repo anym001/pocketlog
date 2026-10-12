@@ -158,9 +158,9 @@ async function renderRecurringView() {
         r.active && _nextDate
           ? tr('recurring.nextRunCard', { date: _recurringFormatDate(_nextDate) })
           : tr('recurring.inactive');
-      // No +/− sign — the colour (green income / red expense) carries
-      // the direction, matching the ledger summary cards.
-      const amount = fmtCurrency(Math.abs(r.amount));
+      // Signed like every list row — colour alone must not carry the
+      // direction (DESIGN_CONVENTIONS.md → Colour & Theming).
+      const amount = fmtSignedCurrency(r.amount, r.type);
       const inactiveCls = r.active ? '' : ' is-inactive';
       const cat = appState.ledger.categories.find((c) => c.id === r.category_id);
       const catColor = cat?.color || 'var(--accent)';
