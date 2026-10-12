@@ -126,16 +126,6 @@
           <path d="M4 13h4l1 2h6l1-2h4" />
         </symbol>
         <symbol
-          id="icon-more-vertical"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          stroke="none"
-        >
-          <circle cx="12" cy="5" r="2" />
-          <circle cx="12" cy="12" r="2" />
-          <circle cx="12" cy="19" r="2" />
-        </symbol>
-        <symbol
           id="icon-arrows-in"
           viewBox="0 0 24 24"
           fill="none"
@@ -1004,6 +994,13 @@
       <span class="sync-banner-action" data-i18n="sync.recoverFix">Beheben</span>
     </button>
 
+    <!-- VIEW TITLE — one large title for every view except reports, set by
+         showPanel() from PANELS[id].titleKey. Reports keep their own
+         .report-head (title + range subtitle) in the same spot and style. -->
+    <div class="view-head" id="viewHead">
+      <h2 class="view-title" id="viewTitle" data-i18n="nav.title.transactions">Buchungen</h2>
+    </div>
+
     <!-- SUMMARY -->
     <div class="summary">
       <div class="summary-card">
@@ -1090,25 +1087,16 @@
 
     <!-- GOALS VIEW (savings + debt trackers) -->
     <div class="panel" id="panel-goals">
-      <div class="goals-toolbar">
-        <button class="save-btn" data-action="openGoalModal" data-i18n="goals.create">Ziel erstellen</button>
-      </div>
       <div id="goalsViewList"></div>
     </div>
 
     <!-- BUDGETS VIEW (per-category spending caps) -->
     <div class="panel" id="panel-budgets">
-      <div class="goals-toolbar">
-        <button class="save-btn" data-action="openBudgetModal" data-i18n="budget.create">Budget erstellen</button>
-      </div>
       <div id="budgetsViewList"></div>
     </div>
 
     <!-- RECURRING TRANSACTIONS VIEW -->
     <div class="panel" id="panel-recurring">
-      <div class="goals-toolbar">
-        <button class="save-btn" data-action="openRecurringModal" data-i18n="recurring.create">Regel erstellen</button>
-      </div>
       <div id="recurringViewList"></div>
     </div>
 
@@ -1136,7 +1124,9 @@
           />
         </div>
       </form>
-      <button class="fab" data-action="openModal" aria-label="Neue Buchung" data-i18n-attr="aria-label:fab.newTransaction">
+      <!-- The view's one create action; target + label follow the active
+           panel (PANELS[id].fab, syncFab in core.js). -->
+      <button class="fab" data-action="onFabTap" aria-label="Neue Buchung" data-i18n-attr="aria-label:fab.newTransaction">
         <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
       </button>
 

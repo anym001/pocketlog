@@ -833,18 +833,18 @@
       .cat-view-amount.positive {
         color: var(--green);
       }
-      .cat-view-more {
+      /* Quick-add for the row's category. The row itself drills into the
+         category's bookings, so this trailing button carries a plus — the
+         same glyph and tone as the FAB, one size down. */
+      .cat-view-add {
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         margin-right: calc(-1 * var(--space-10));
         border: none;
         background: transparent;
         border-radius: 50%;
-        /* Match the chrome buttons (hamburger etc.): full --text color
-           and --fs-title icon size, so the drill-down affordance has
-           the same visual weight as the rest of the toolbar chrome. */
-        color: var(--text);
-        font-size: var(--fs-title);
+        color: var(--text3);
+        font-size: var(--fs-icon-md);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -853,18 +853,15 @@
         -webkit-tap-highlight-color: transparent;
         transition: background var(--dur-base) var(--ease-spring);
       }
-      .cat-view-more:active {
+      .cat-view-add:active {
         background: var(--surface-tint);
       }
-      .cat-view-more:focus-visible {
+      .cat-view-add:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
       }
 
       /* ====== GOALS VIEW (savings + debt trackers) ====== */
-      .goals-toolbar {
-        margin-bottom: var(--space-12);
-      }
       .goal-card {
         position: relative;
         background: var(--bg-canvas);
@@ -1327,15 +1324,22 @@
         gap: var(--space-10);
         z-index: var(--z-floating);
       }
-      /* Search + FAB only make sense in the transactions/categories ledger
-         views. Reports (charts), the Goals view and the Recurring view have
-         neither searchable rows nor a "new transaction" affordance, so hide
-         the whole bar there. Body classes are toggled in showPanel(). */
+      /* The FAB is on every view — it is the view's one create action
+         (PANELS[id].fab in core.js). Search only filters the ledger, so the
+         views without searchable rows drop the field and the bar shrinks
+         to the FAB alone, kept at the same right-hand spot. Body classes
+         are toggled in showPanel(). */
+      body.in-report .bottom-bar .search-wrap,
+      body.on-goals .bottom-bar .search-wrap,
+      body.on-budgets .bottom-bar .search-wrap,
+      body.on-recurring .bottom-bar .search-wrap {
+        display: none;
+      }
       body.in-report .bottom-bar,
       body.on-goals .bottom-bar,
       body.on-budgets .bottom-bar,
       body.on-recurring .bottom-bar {
-        display: none;
+        justify-content: flex-end;
       }
       .search-wrap {
         flex: 1;
@@ -2848,6 +2852,17 @@
       .report-head {
         padding: var(--space-4) 0 0;
       }
+      /* Large view title (Apple "large title"): the same type and spot on
+         every view. .view-head sits above the summary for the ledger
+         views; reports render the same look in their own .report-head. */
+      .view-head {
+        padding: var(--space-12) var(--space-20) var(--space-4);
+      }
+      body.in-report .view-head,
+      body.searching .view-head {
+        display: none;
+      }
+      .view-title,
       .report-title {
         font-family: var(--font-display);
         font-size: var(--fs-title);

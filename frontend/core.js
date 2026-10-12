@@ -651,8 +651,8 @@ function confirmAction({
 // Navigation / cross-cutting UI state lives in appState.nav (state.js):
 //   activePanel; bookingModalOpenedAt (timestamp of the last booking-modal
 //   open, guards closeModalOutside against the ghost click that trails the tap
-//   which opened it); searchQuery; categoryFilterId (set when the user taps the
-//   "more" icon on a category row — mutually exclusive with text search, which
+//   which opened it); searchQuery; categoryFilterId (set when the user taps a
+//   category-view row — mutually exclusive with text search, which
 //   clears it in onSearch); tagFilterName (drill-down from the tag analysis,
 //   mutually exclusive with text search and category filter); infoPanelSeq;
 //   goalRelayoutTimer.
@@ -665,31 +665,78 @@ function _resetSearch() {
   appState.reports.searchExitTarget = null;
   document.body.classList.remove('searching');
   document.getElementById('searchInput').value = '';
-  const fab = document.querySelector('.fab');
-  if (fab) {
-    fab.innerHTML = ICON_SVG.plus;
-    fab.classList.remove('search-exit');
-    fab.setAttribute('aria-label', tr('fab.newTransaction'));
-    fab.onclick = () => openModal();
-  }
+  syncFab();
 }
 
-// Panel registry: the single source of truth for every non-ledger panel.
-// `bodyClass` (optional) is the class that hides the ledger chrome (month
-// nav, summary tiles, search bar, FAB) while the panel is active — styles.css
-// keys off it. `render` (optional) is the view renderer, run on switch. The
+// Panel registry: the single source of truth for every panel's chrome.
+// `titleKey` is the i18n key of the view's large title (#viewTitle; reports
+// render their own). `bodyClass` (optional) is the class that hides the
+// ledger chrome (month nav, summary tiles, search field) while the panel is
+// active — styles.css keys off it. `fab` (optional) names the create action
+// the FAB runs on that view and its aria-label key; without it the FAB books
+// a new transaction. `render` (optional) is the view renderer, run on switch. The
 // render bodies are arrow-wrapped so the later-loaded feature modules supply
 // the functions at call time (cross-file calls are fine at runtime). Add a new
 // panel here and its body class + renderer wire up automatically — no more
 // scattered if-chains for showPanel to drift out of sync with (the missing
 // on-budgets CSS once shipped because the toggle lived apart from its CSS).
 const PANELS = {
+  transactions: { titleKey: 'nav.title.transactions' },
   charts: { bodyClass: 'in-report', render: () => renderReport() },
-  categories: { render: () => renderCategoryView() },
-  goals: { bodyClass: 'on-goals', render: () => renderGoalsView() },
-  budgets: { bodyClass: 'on-budgets', render: () => renderBudgetsView() },
-  recurring: { bodyClass: 'on-recurring', render: () => renderRecurringView() },
+  categories: { titleKey: 'nav.title.categories', render: () => renderCategoryView() },
+  goals: {
+    titleKey: 'nav.title.goals',
+    bodyClass: 'on-goals',
+    fab: { action: 'openGoalModal', labelKey: 'goals.create' },
+    render: () => renderGoalsView(),
+  },
+  budgets: {
+    titleKey: 'nav.title.budgets',
+    bodyClass: 'on-budgets',
+    fab: { action: 'openBudgetModal', labelKey: 'budget.create' },
+    render: () => renderBudgetsView(),
+  },
+  recurring: {
+    titleKey: 'nav.title.recurring',
+    bodyClass: 'on-recurring',
+    fab: { action: 'openRecurringModal', labelKey: 'recurring.create' },
+    render: () => renderRecurringView(),
+  },
 };
+
+// Set an element's text from an i18n key and keep the key on the node, so a
+// later language switch (i18n.js re-applies data-i18n) re-translates it.
+function _setI18nText(el, key) {
+  el.setAttribute('data-i18n', key);
+  el.textContent = tr(key);
+}
+
+// The FAB is the active view's single create action. While a search or
+// drill-down is open it turns into the "exit search" button instead. Icon,
+// label and target all derive from state here (one data-action, no onclick
+// swapped in per mode), so they can't drift apart.
+function syncFab() {
+  const fab = document.querySelector('.fab');
+  if (!fab) return;
+  const searching = document.body.classList.contains('searching');
+  const labelKey = searching
+    ? 'fab.exitSearch'
+    : PANELS[appState.nav.activePanel]?.fab?.labelKey || 'fab.newTransaction';
+  fab.innerHTML = searching ? ICON_SVG.close : ICON_SVG.plus;
+  fab.classList.toggle('search-exit', searching);
+  fab.setAttribute('data-i18n-attr', 'aria-label:' + labelKey);
+  fab.setAttribute('aria-label', tr(labelKey));
+}
+
+function onFabTap() {
+  if (document.body.classList.contains('searching')) {
+    clearSearch();
+    return;
+  }
+  const action = PANELS[appState.nav.activePanel]?.fab?.action;
+  if (action) window[action]();
+  else openModal();
+}
 
 // `opts.keepDrawer` is for the one caller that is not a navigation: boot's own
 // panel restore. Everything else lands here because the user picked a
@@ -713,6 +760,8 @@ function showPanel(id, opts) {
     btn.classList.toggle('active', btn.dataset.panel === id);
   });
   const cfg = PANELS[id];
+  if (cfg && cfg.titleKey) _setI18nText(document.getElementById('viewTitle'), cfg.titleKey);
+  syncFab();
   if (cfg && cfg.render) cfg.render();
   if (!opts || !opts.keepDrawer) closeDrawer();
 }

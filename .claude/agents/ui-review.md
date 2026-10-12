@@ -33,6 +33,10 @@ Flag obvious hardcoded hex/rgba/px values you notice during visual review. For a
 - Focus ring visible via `--focus-ring` token
 - Liquid Glass / blur effects degrade gracefully when `prefers-reduced-motion` or low-end device
 
+**View scaffold**
+- New views register in `PANELS` (core.js) with a `titleKey`; their create action is the FAB via `PANELS[id].fab`, not an in-view button
+- Row tap = open/drill-in; trailing buttons are distinct secondary actions; ⋮ only for real menus
+
 **Copy & language**
 - Apple Style Guide for German UI text (see DESIGN_CONVENTIONS.md)
 - App name always „PocketLog" (one word, capital P and L)
