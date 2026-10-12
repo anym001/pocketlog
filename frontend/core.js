@@ -530,6 +530,11 @@ const fmtCurrency = (n) =>
   new Intl.NumberFormat(_locale(), { style: 'currency', currency: _currencyCode() })
     .format(n)
     .replace('-', '\u2212');
+// Display date in one of the app's two styles ('day' for list day headers,
+// 'medium' everywhere else — see _fmtDate in utils.js). Accepts a date-only
+// ISO string (read as a local date) or a Date.
+const fmtDate = (value, style = 'medium') =>
+  _fmtDate(typeof value === 'string' ? _isoToLocalDate(value) : value, style, _locale());
 // Row-end amount with its direction sign ('in' / 'out'; anything else stays
 // unsigned) — colour alone must never carry the direction. Summary cards and
 // sections whose label already names the direction keep fmtCurrency.
@@ -681,23 +686,23 @@ function _resetSearch() {
 // scattered if-chains for showPanel to drift out of sync with (the missing
 // on-budgets CSS once shipped because the toggle lived apart from its CSS).
 const PANELS = {
-  transactions: { titleKey: 'nav.title.transactions' },
+  transactions: { titleKey: 'nav.transactions' },
   charts: { bodyClass: 'in-report', render: () => renderReport() },
-  categories: { titleKey: 'nav.title.categories', render: () => renderCategoryView() },
+  categories: { titleKey: 'nav.categories', render: () => renderCategoryView() },
   goals: {
-    titleKey: 'nav.title.goals',
+    titleKey: 'nav.goals',
     bodyClass: 'on-goals',
     fab: { action: 'openGoalModal', labelKey: 'goals.create' },
     render: () => renderGoalsView(),
   },
   budgets: {
-    titleKey: 'nav.title.budgets',
+    titleKey: 'nav.budgets',
     bodyClass: 'on-budgets',
     fab: { action: 'openBudgetModal', labelKey: 'budget.create' },
     render: () => renderBudgetsView(),
   },
   recurring: {
-    titleKey: 'nav.title.recurring',
+    titleKey: 'nav.recurring',
     bodyClass: 'on-recurring',
     fab: { action: 'openRecurringModal', labelKey: 'recurring.create' },
     render: () => renderRecurringView(),

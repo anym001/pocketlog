@@ -19,7 +19,7 @@ You are a code reviewer for PocketLog, a household budget PWA. Your job is to re
 - No hardcoded hex/rgba — use CSS tokens (`var(--accent)`, `var(--text)`, etc.)
 - Spacing only via `--space-*` tokens, font sizes only via `--fs-*` scale
 - Amounts formatted via the currency helper functions in `core.js` (`fmtCurrency`/`fmtSignedCurrency`); row-end amounts signed per DESIGN_CONVENTIONS.md → Colour & Theming, not manually
-- Dates stored/passed as ISO 8601, displayed with locale helpers
+- Dates stored/passed as ISO 8601, displayed only via `fmtDate(value, 'day' | 'medium')` (core.js)
 - Touch targets ≥ 44×44 px
 - New icons added as `<symbol>` to the SVG sprite, not inline ad-hoc SVG or Unicode
 

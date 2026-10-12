@@ -237,8 +237,8 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | Token      | CSS variable      | Usage                                | Size |
   |---|---|---|---|
   | `display`  | `--fs-display`    | Balance display                      | `2.25rem` (36 px), DM Serif Display |
-  | `title`    | `--fs-title`      | Screen / modal title                 | `1.5rem` (24 px), DM Serif Display |
-  | `title-sm` | `--fs-title-sm`   | Compact title, stat number           | `1.25rem` (20 px), DM Sans 600 |
+  | `title`    | `--fs-title`      | Modal title                          | `1.5rem` (24 px), DM Serif Display |
+  | `title-sm` | `--fs-title-sm`   | View title (DM Serif Display); compact title, stat number (DM Sans 600) | `1.25rem` (20 px) |
   | `headline` | `--fs-headline`   | Card heading                         | `1.125rem` (18 px), DM Sans 600 |
   | `body`     | `--fs-body`       | Body text, form inputs               | `1rem` (16 px), DM Sans 400 |
   | `callout`  | `--fs-callout`    | Secondary buttons, labels            | `0.9375rem` (15 px), DM Sans 500 |
@@ -290,6 +290,12 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
 
 - **Line height:** `1.25` for DM Serif Display, `1.4` for DM Sans body.
 - **Letter spacing:** leave at default; do not artificially widen.
+- **Amounts — one rule:** a standalone amount at the end of a list row
+  (ledger, category view, recurring cards) is DM Serif Display at
+  `--fs-headline` (shared selector with `.t-amount` in `styles.css`). Amounts
+  inside a sentence ("2.376,64 € von 3.000,00 €") or a table cell stay DM Sans.
+  Expense colour is always `--accent`, income `--green`; `--red` is for
+  destructive actions only.
 - **Numeric tables:** `font-variant-numeric: tabular-nums` for columns with
   amounts, so digits align vertically.
 - **Dynamic type (web equivalent):** no fixed `px` values for text — use `rem`
@@ -371,6 +377,16 @@ Two icon systems, strictly separated:
   - `<use href="#icon-menu|chevron-left|chevron-right|close|search|plus">`.
   - 24×24 viewport, `stroke="currentColor"` — icons inherit text colour.
   - New chrome glyph → as `<symbol id="icon-…">` in the sprite block in `index.html`.
+- **A category looks the same everywhere:** tinted tile (`--cat-color` at
+  13 %, glyph in `--cat-color`, `--text` in dark mode) in the ledger, the
+  category view, choosers and the settings list (`.drawer-nav-icon-wrap.cat-tile`).
+  Solid tiles with a white glyph are reserved for navigation chrome.
+- **Drawer navigation tiles:** one glyph per destination (no duplicates), tile
+  colour by group — record (Categories, Transactions) `--accent`, plan (Goals,
+  Budgets, Recurring) `--green`, analyse (Reports) `--blue`, Settings `--text3`.
+  The label is also the view's large title. The two ledger views are named
+  "Buchungsübersicht" / "Kategorienübersicht" so they never collide with the
+  "Kategorien" / "Tags" entries one level down in Settings.
 - **Semantics:** icon without label only when universally understood (plus = new, bin = delete).
 - **Accessibility:** `aria-label` with purpose, not appearance.
 - **Stroke style:** outline only — no mixing.
@@ -404,7 +420,7 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
   material identical.
 - **View scaffold (every main view):**
   - **Large title** below the top bar: `#viewTitle` (`.view-title`, DM Serif
-    Display, `--fs-title`), set by `showPanel()` from `PANELS[id].titleKey`
+    Display, `--fs-title-sm`), set by `showPanel()` from `PANELS[id].titleKey`
     (`core.js`). Reports render the same look in their own `.report-head`.
   - **One create action, always the FAB** at the same bottom-right spot. Its
     target and `aria-label` come from `PANELS[id].fab` (default: new
@@ -498,6 +514,6 @@ Quick rules:
 - **Verb-first** for action buttons: use i18n keys for "Save", "Delete" — not "OK".
 - **Direct and active:** use the i18n key for "Amount invalid." — not "Invalid input."
 - **No "Please" / no "Sorry"** — phrase directly.
-- **Amounts** via `fmtCurrency(n)` — locale and currency come from user settings (`I18N.getLocale()` / `I18N.getCurrency()`), never hardcoded. Dates internally ISO 8601, displayed with `toLocaleDateString(I18N.getLocale())`.
+- **Amounts** via `fmtCurrency(n)` — locale and currency come from user settings (`I18N.getLocale()` / `I18N.getCurrency()`), never hardcoded. Dates internally ISO 8601, displayed only via `fmtDate(value, style)` (`core.js`) in one of two styles: `'day'` for list day headers ("Samstag, 10. Oktober", year only when not the current one) and `'medium'` everywhere else ("10. Okt. 2026"). No ad-hoc `toLocaleDateString` / `split('-')` formatting.
 - Destructive actions always paired with a "Cancel" option; dialog openers end with `…`.
 - **No hardcoded inline text strings:** static text gets `data-i18n` / `data-i18n-attr`, dynamic text goes through `tr('key')`. New strings go into **both** catalogs (`i18n/de.json`, `i18n/en.json`) with matching keys.

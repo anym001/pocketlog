@@ -31,14 +31,7 @@
     "budgets": "Budgets",
     "recurring": "Wiederkehrend",
     "reports": "Auswertungen",
-    "settings": "Einstellungen",
-    "title": {
-      "transactions": "Buchungen",
-      "categories": "Kategorien",
-      "goals": "Ziele",
-      "budgets": "Budgets",
-      "recurring": "Wiederkehrend"
-    }
+    "settings": "Einstellungen"
   },
   "header": {
     "prevMonth": "Vorheriger Monat",
