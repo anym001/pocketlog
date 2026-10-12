@@ -48,11 +48,19 @@ test('detail report: drill-down, breakdown, sorting, ledger link and the way bac
   await expect(page.locator('#reportBack')).toBeVisible();
   await expect(page.locator('#reportBackLabel')).toHaveText(await t(page, 'reports.breakdown'));
   await expect(page.locator('#detailActiveRow')).toContainText(CAT);
-  await expect(page.locator('#reportRangeLabel')).toContainText('3');
+  // The subtitle counts the entity's bookings, not the whole period's.
+  await expect(page.locator('#reportRangeLabel')).toHaveText(
+    await page.evaluate(() => _rangeSubtitle(3)),
+  );
   await expectNoRawKeys(page, 'detail report');
 
-  // Both directions present → expenses, income, balance and the average.
-  await expect(page.locator('#reportBody .report-kpis .summary-card')).toHaveCount(4);
+  // Both directions present → expenses, income, balance and the average,
+  // which covers the dominant direction only: (20 + 5) / 2, the refund
+  // stays out.
+  const kpis = page.locator('#reportBody .report-kpis .summary-card');
+  await expect(kpis).toHaveCount(4);
+  await expect(kpis.last()).toContainText(await t(page, 'reports.avgPerOut'));
+  await expect(kpis.last()).toContainText(await page.evaluate(() => fmtCurrency(12.5)));
   // Spending breakdown by tag: the tagged expense and the untagged rest; the
   // refund stays out of it.
   const inner = page.locator('#reportBody .report-section').filter({
@@ -99,14 +107,32 @@ test('detail report: drill-down, breakdown, sorting, ledger link and the way bac
   await expect(page.locator('#detailChart')).toBeVisible();
   expect(await page.evaluate(() => chartInsts.detail.config.type)).toBe('bar');
 
-  // "Trend": a tap on a month opens that month's detail for the entity.
+  // A tap on this month's bar narrows the period to that month.
+  await page.click('#detailChart', {
+    position: await page.evaluate(() => {
+      const bar = chartInsts.detail.getDatasetMeta(0).data[new Date().getMonth()];
+      return { x: bar.x, y: (bar.y + bar.base) / 2 };
+    }),
+  });
+  await expect.poll(() => page.evaluate(() => appState.reports.range.kind)).toBe('month');
+  await expect
+    .poll(() => page.evaluate(() => chartInsts.detail && chartInsts.detail.config.type))
+    .toBe('line');
+
+  // "Trend": a tap on a month opens that month's detail for the entity. The
+  // real click pins the point → month mapping in the chart's onClick.
   await page.evaluate(() => window.openReport('trend'));
   await expect(page.locator('#reportTitle')).toHaveText(await t(page, 'reports.trend'));
-  await page.evaluate((id) => {
-    const now = new Date();
-    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    _drillTrendMonth(`cat:${id}`, key);
-  }, catId);
+  await page.evaluate((id) => window.selectEntity('trend', `cat:${id}`), catId);
+  await expect(page.locator('#trendActiveRow')).toContainText(CAT);
+  await page.click('#trendChart', {
+    position: await page.evaluate(() => {
+      // The axis ends at the current month.
+      const pts = chartInsts.trend.getDatasetMeta(0).data;
+      const p = pts[pts.length - 1];
+      return { x: p.x, y: p.y };
+    }),
+  });
   await expect(page.locator('#reportTitle')).toHaveText(await t(page, 'reports.detail'));
   await expect(page.locator('#reportBackLabel')).toHaveText(await t(page, 'reports.trend'));
   expect(await page.evaluate(() => appState.reports.range.kind)).toBe('month');

@@ -324,7 +324,7 @@ async function renderReport(id = appState.reports.current) {
   document.body.setAttribute('data-report', id);
   if (id === 'trend') {
     await _ensureTrendDefaultRange();
-    if (gen !== appState.reports.renderGen) return;
+    if (_staleRender(gen)) return;
   }
   // No report pins the period any more — "course" adapts its granularity to
   // whatever the picker is set to, so the picker stays fully free everywhere.
@@ -353,7 +353,7 @@ async function renderReport(id = appState.reports.current) {
   const txs = await loadRangeTxs(rangeFrom, rangeTo);
   // A newer render (another report or period picked while this one loaded)
   // owns the body now; drawing this one would overwrite it.
-  if (gen !== appState.reports.renderGen) return;
+  if (_staleRender(gen)) return;
   appState.reports.txPool = txs;
   document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
 
@@ -364,6 +364,13 @@ async function renderReport(id = appState.reports.current) {
   else if (id === 'detail') renderReportDetail(body, txs);
   else if (id === 'forecast') await renderReportForecast(body, txs);
   else if (id === 'top') renderReportTop(body, txs);
+}
+
+// True once a newer renderReport started. A renderer that awaits more data
+// captures appState.reports.renderGen on entry and checks this after every
+// await, before it touches the body or the chart instances.
+function _staleRender(gen) {
+  return gen !== appState.reports.renderGen;
 }
 
 // ── REPORTS — SHARED HELPERS ──────────────────────────────────────────────────
@@ -563,6 +570,7 @@ function _cumulativeChart(canvas, txs, a, dirs) {
 }
 
 async function _renderCourseMonthly(body, txs) {
+  const gen = appState.reports.renderGen;
   const bucketKeys = _bucketAxis(appState.reports.range.from, appState.reports.range.to, 'month');
   const labels = bucketKeys.map((k) => _bucketLabel(k, 'month'));
   const slots = new Map(bucketKeys.map((k) => [k, { out: 0, in: 0 }]));
@@ -580,10 +588,13 @@ async function _renderCourseMonthly(body, txs) {
   if (isYear) {
     const y = appState.reports.range.anchor.y;
     const prevTxs = await _loadYearTxs(y - 1);
+    if (_staleRender(gen)) return;
     if (prevTxs.length) {
       prevOut = Array.from({ length: 12 }, () => 0);
       for (const t of prevTxs) {
-        if (t.type === 'out') prevOut[new Date(t.date).getMonth()] += t.amount;
+        // Month from the ISO string: new Date('YYYY-MM-01') parses as UTC
+        // and lands in the previous month west of Greenwich.
+        if (t.type === 'out') prevOut[Number(t.date.slice(5, 7)) - 1] += t.amount;
       }
     }
   }
@@ -1077,7 +1088,9 @@ function _detailKpisMarkup(sum) {
       ),
     );
   }
-  cards.push(card(tr('reports.avgPerTx'), fmtCurrency(sum.avg), ''));
+  cards.push(
+    card(tr(sum.dir === 'in' ? 'reports.avgPerIn' : 'reports.avgPerOut'), fmtCurrency(sum.avg), ''),
+  );
   return `<div class="report-kpis">${cards.join('')}</div>`;
 }
 
@@ -1224,7 +1237,11 @@ function renderReportDetail(body, txs) {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       onClick: (_evt, items) => {
-        if (items.length) _narrowToMonth(bucketKeys[items[0].index]);
+        // Deferred for the same reason as the trend's onClick.
+        if (items.length) {
+          const key = bucketKeys[items[0].index];
+          setTimeout(() => _narrowToMonth(key), 0);
+        }
       },
       onHover: (evt, items) => {
         evt.native.target.style.cursor = items.length ? 'pointer' : 'default';
@@ -1571,12 +1588,13 @@ async function renderReportTrend(body, txs) {
     datasets.push({
       label: tr('reports.smoothing', { label: series.label }),
       data: smoothed,
-      borderColor: series.color,
-      borderDash: [4, 3],
+      // Solid and translucent: dashed lines mean "income" in the course
+      // and detail charts (DESIGN_CONVENTIONS.md → Charts).
+      borderColor: _colorWithAlpha(series.color, 0.45),
       backgroundColor: 'transparent',
       tension: 0,
       pointRadius: 0,
-      borderWidth: 1.5,
+      borderWidth: 2,
       fill: false,
     });
   }
@@ -1589,7 +1607,12 @@ async function renderReportTrend(body, txs) {
       interaction: { mode: 'index', intersect: false },
       // A tap on a month opens the entity's detail for that month.
       onClick: (_evt, items) => {
-        if (items.length) _drillTrendMonth(selected.id, bucketKeys[items[0].index]);
+        // Deferred: the navigation destroys this chart, and Chart.js keeps
+        // handling the event after onClick returns.
+        if (items.length) {
+          const key = bucketKeys[items[0].index];
+          setTimeout(() => _drillTrendMonth(selected.id, key), 0);
+        }
       },
       onHover: (evt, items) => {
         evt.native.target.style.cursor = items.length ? 'pointer' : 'default';
@@ -1627,6 +1650,7 @@ async function renderReportTrend(body, txs) {
 // ── REPORTS — FORECAST ────────────────────────────────────────────────────────
 
 async function renderReportForecast(body, rangeTxs) {
+  const gen = appState.reports.renderGen;
   const today = new Date();
   const todayY = today.getFullYear();
   const todayM = today.getMonth();
@@ -1641,6 +1665,7 @@ async function renderReportForecast(body, rangeTxs) {
   const histStartIso = _iso(histStartDate.getFullYear(), histStartDate.getMonth(), 1);
   const histEndIso = _iso(histEndDate.getFullYear(), histEndDate.getMonth(), histEndDate.getDate());
   const histTxs = await loadRangeTxs(histStartIso, histEndIso);
+  if (_staleRender(gen)) return;
   const histOut = histTxs.filter((t) => t.type === 'out');
 
   if (histOut.length === 0) {

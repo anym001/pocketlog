@@ -103,6 +103,18 @@
         --green: #788c5d;
         --green-2: #96a87a;
         --red: #c0392b;
+        /* Red behind white text (swipe-delete). Not overridden in dark mode,
+           where --red turns lighter for text on the dark surfaces. */
+        --red-fill: #c0392b;
+        /* Text-on-surface variants of the direction colours. --accent and
+           --green stay the fills (bars, lines, icons, buttons); as text on
+           white they reach only ~3.1:1 / 3.7:1. These keep the hue and clear
+           WCAG AA (≥ 4.5:1 on --bg-canvas and --bg-grouped). The -2 stops
+           are the lighter end of the KPI amount gradients. */
+        --accent-text: #a85232;
+        --accent-text-2: #b85a3d;
+        --green-text: #5e7046;
+        --green-text-2: #647a4a;
         --red-2: #ec6b5b;
         --blue: #2a78d8;
 
@@ -190,7 +202,13 @@
         --dur-pulse: 1.2s; /* .sync-dot syncing animation */
 
         /* Focus ring — gleiches Aussehen für alle fokussierten Inputs/Buttons. */
-        --focus-ring: 0 0 0 3px var(--accent-tint);
+        /* A canvas-coloured gap, then a solid accent ring: ≥ 3:1 against
+           the gap on any surface (WCAG 1.4.11 / 2.4.11). The old 15 %
+           tint ring was ~1.1:1 — practically invisible. */
+        --focus-ring: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent);
+        /* Rows that fill a clipped card edge to edge (settings rows, ledger
+           and category rows) draw the ring inside, or the card cuts it off. */
+        --focus-ring-inset: inset 0 0 0 2px var(--accent);
 
         /* Border shortcuts — 0.5px Hairlines sind Standard, 1px nur für
        destruktive Akzent-Outlines. Farbe weiter über --hairline*. */
@@ -287,6 +305,14 @@
         --accent-tint: rgba(232, 146, 110, 0.2);
         --green: #9ab07a;
         --green-2: #b3c895;
+        /* The fills already clear AA as text on the dark surfaces. */
+        --accent-text: var(--accent);
+        --accent-text-2: var(--accent-2);
+        --green-text: var(--green);
+        --green-text-2: var(--green-2);
+        /* Light --red reaches ~3:1 on --bg-canvas here; this one ~5.7:1, and
+           pinker than --accent so destructive rows stay distinct. */
+        --red: #f56a74;
 
         /* Darker specular for dark mode — white at 65% reads as a harsh
            bright edge on near-black glass; 25% keeps the depth cue without glare. */
@@ -576,7 +602,7 @@
         box-shadow: var(--focus-ring);
       }
       .month-picker-grid .mp-month.is-today {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .month-picker-grid .mp-month.is-current {
         background: var(--accent);
@@ -591,7 +617,7 @@
       .month-picker-foot .mp-today {
         background: transparent;
         border: none;
-        color: var(--accent);
+        color: var(--accent-text);
         font-family: var(--font-body);
         font-size: var(--fs-footnote);
         font-weight: 600;
@@ -751,13 +777,13 @@
         font-variant-numeric: tabular-nums;
       }
       .summary-card .amount.positive {
-        background: linear-gradient(135deg, var(--green), var(--green-2));
+        background: linear-gradient(135deg, var(--green-text), var(--green-text-2));
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
       }
       .summary-card .amount.negative {
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        background: linear-gradient(135deg, var(--accent-text), var(--accent-text-2));
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
@@ -821,7 +847,7 @@
       }
       .cat-view-row:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
         border-radius: var(--r-md);
       }
       .cat-view-icon {
@@ -852,10 +878,10 @@
         white-space: nowrap;
       }
       .cat-view-amount.negative {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .cat-view-amount.positive {
-        color: var(--green);
+        color: var(--green-text);
       }
       /* The row itself books into its category (the view doubles as a
          quick-entry launcher); this trailing button lists the category's
@@ -1098,7 +1124,7 @@
         right: 0;
         bottom: 0;
         width: var(--swipe-action-w);
-        background: linear-gradient(135deg, var(--red), var(--red-2));
+        background: linear-gradient(135deg, var(--red-fill), var(--red-2));
         color: var(--on-accent);
         font-weight: 600;
         font-size: var(--fs-footnote);
@@ -1164,7 +1190,7 @@
       }
       .tx-open:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
       }
 
       .t-icon {
@@ -1281,10 +1307,10 @@
         font-variant-numeric: tabular-nums;
       }
       .t-amount.out {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .t-amount.in {
-        color: var(--green);
+        color: var(--green-text);
       }
 
       /* ====== CATEGORY BREAKDOWN ====== */
@@ -1293,6 +1319,11 @@
         align-items: center;
         gap: var(--space-12);
         margin-bottom: var(--space-14);
+      }
+      /* Report rows that drill into the Detailanalyse: a full touch target. */
+      .cat-row[role='button'] {
+        min-height: var(--btn-chrome-size);
+        cursor: pointer;
       }
       .cat-icon {
         width: var(--icon-list-sm);
@@ -1331,14 +1362,14 @@
       .cat-amount {
         font-family: var(--font-display);
         font-size: var(--fs-body);
-        color: var(--accent);
+        color: var(--accent-text);
         letter-spacing: -0.02em;
         font-variant-numeric: tabular-nums;
       }
       /* Income amounts (Top income, income breakdown) read green, matching the
          ledger's direction colours. */
       .cat-amount.is-positive {
-        color: var(--green);
+        color: var(--green-text);
       }
 
       /* ====== BOTTOM BAR (search + FAB) ====== */
@@ -1515,7 +1546,7 @@
       .selection-all {
         border: none;
         background: none;
-        color: var(--accent);
+        color: var(--accent-text);
         font-family: var(--font-body);
         font-size: var(--fs-footnote);
         font-weight: 600;
@@ -1880,14 +1911,14 @@
       }
       .drawer-nav-item:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
       }
       .drawer-nav-item.active {
-        color: var(--accent);
+        color: var(--accent-text);
         font-weight: 600;
       }
       .drawer-nav-item.active:focus-visible {
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
       }
       /* Trailing value in a settings row (e.g. 90-day usage count). */
       .drawer-nav-value {
@@ -1967,7 +1998,7 @@
         margin-top: var(--space-16);
       }
       .drawer-nav-item.is-action {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .drawer-nav-item.is-destructive {
         color: var(--red);
@@ -1999,7 +2030,7 @@
       }
       .info-details-summary:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
         border-radius: var(--r-sm);
       }
 
@@ -2436,7 +2467,7 @@
       }
       .cat-pill-edit:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
       }
 
       .color-swatches {
@@ -2568,7 +2599,7 @@
         margin-top: var(--space-20);
       }
       .icon-picker-section-title {
-        color: var(--accent);
+        color: var(--accent-text);
         font-size: var(--fs-title-sm);
         font-weight: 600;
         margin-bottom: var(--space-12);
@@ -2659,7 +2690,7 @@
       .cat-create {
         border-style: dashed;
         border-color: var(--accent);
-        color: var(--accent);
+        color: var(--accent-text);
         font-weight: 600;
       }
       /* Only the not-yet-added chip reacts — an added one already carries the
@@ -2718,7 +2749,7 @@
       .save-btn.btn-destructive {
         margin-top: var(--space-8);
         background: transparent;
-        color: var(--accent);
+        color: var(--accent-text);
         border: 1px solid var(--accent);
         box-shadow: none;
       }
@@ -2864,7 +2895,7 @@
       }
       @media (hover: hover) and (pointer: fine) {
         .save-btn:hover {
-          color: var(--accent);
+          color: var(--accent-text);
         }
       }
       .save-btn.primary {
@@ -2886,7 +2917,7 @@
         text-align: center;
         margin-top: var(--space-8);
         min-height: 16px;
-        color: var(--green);
+        color: var(--green-text);
         font-weight: 500;
       }
       .status-msg.err,
@@ -2894,7 +2925,7 @@
         color: var(--red);
       }
       .status-msg.ok {
-        color: var(--green);
+        color: var(--green-text);
       }
       /* Per-row CSV import errors (translated from backend codes). Capped in
          JS; scrolls if a file has many failed rows. */
@@ -3274,7 +3305,15 @@
         flex: 0 0 auto;
       }
       .segmented.is-compact button {
+        position: relative;
         padding: var(--space-4) var(--space-12);
+      }
+      /* The compact pills stay ~24 px tall to sit on a title line; the hit
+         area reaches above and below them to the 44 px touch target. */
+      .segmented.is-compact button::after {
+        content: '';
+        position: absolute;
+        inset: calc(-1 * var(--space-10)) 0;
       }
       /* Back to the report a drill-down came from — the same accent text
          button as "Wechseln", sitting above the large title. */
@@ -3284,7 +3323,7 @@
         gap: var(--space-2);
         background: transparent;
         border: 0;
-        color: var(--accent);
+        color: var(--accent-text);
         font-family: inherit;
         font-size: var(--fs-callout);
         font-weight: 600;
@@ -3314,7 +3353,7 @@
         background: transparent;
         border: 0;
         border-top: var(--border-hairline);
-        color: var(--accent);
+        color: var(--accent-text);
         font-family: inherit;
         font-size: var(--fs-callout);
         font-weight: 600;
@@ -3394,7 +3433,7 @@
       .trend-switch-btn {
         background: transparent;
         border: 0;
-        color: var(--accent);
+        color: var(--accent-text);
         font-family: inherit;
         font-size: var(--fs-callout);
         font-weight: 600;
@@ -3574,10 +3613,10 @@
         font-variant-numeric: tabular-nums;
       }
       .report-tx-amount.negative {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .report-tx-amount.positive {
-        color: var(--green);
+        color: var(--green-text);
       }
 
 
@@ -3689,13 +3728,13 @@
         font-weight: 600;
       }
       .forecast-status.is-ok {
-        color: var(--green);
+        color: var(--green-text);
       }
       .forecast-status.is-neutral {
         color: var(--text3);
       }
       .forecast-status.is-warn {
-        color: var(--accent);
+        color: var(--accent-text);
       }
 
       /* iOS-style hidden scrollbar inside modal */
@@ -3873,7 +3912,7 @@
         flex: 0 0 auto;
         font-size: var(--fs-footnote);
         font-weight: 600;
-        color: var(--accent);
+        color: var(--accent-text);
       }
       /* ====== RECURRING — list + badge + skip rows ======
          Mirrors the .goal-card / .t-icon patterns so light/dark themes
@@ -3914,7 +3953,7 @@
       }
       .recurring-card-main:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
         border-radius: var(--r-sm);
       }
       /* iOS Settings-style row: label on the left, switch on the right.
@@ -3983,10 +4022,10 @@
       /* Direction colours match every other list (sign carries it too);
          --red stays reserved for destructive actions. */
       .recurring-card-amount.in {
-        color: var(--green);
+        color: var(--green-text);
       }
       .recurring-card-amount.out {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .tx-recurring-badge {
         display: inline-flex;
@@ -4045,11 +4084,11 @@
         border-radius: var(--r-sm);
       }
       .recurring-skip-list button:active {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       @media (hover: hover) and (pointer: fine) {
         .recurring-skip-list button:hover {
-          color: var(--accent);
+          color: var(--accent-text);
         }
       }
       .recurring-skip-list button:focus-visible {
@@ -4604,7 +4643,7 @@
       }
       .admin-user-tag.admin {
         background: var(--accent-tint);
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .admin-user-tag.inactive {
         opacity: 0.7;
@@ -4698,7 +4737,7 @@
       }
       .api-key-scope-chip.admin {
         background: var(--accent-tint);
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .api-key-revoke-btn {
         font-size: var(--fs-caption);

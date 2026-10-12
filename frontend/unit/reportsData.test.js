@@ -17,6 +17,7 @@ const {
   _detailSummary,
   _monthlyInOut,
   _sortDetailTxs,
+  _colorWithAlpha,
 } = reportsData;
 
 describe('_cumulativeByDay', () => {
@@ -318,8 +319,8 @@ describe('_detailSummary', () => {
   it('totals a category and breaks it down by tag plus an untagged remainder', () => {
     const r = _detailSummary(txs, { kind: 'category', catId: 7 });
     expect(r.txs.map((t) => t.id)).toEqual([1, 2, 3]);
-    expect(r).toMatchObject({ in: 5, out: 50, count: 3, dir: 'out' });
-    expect(r.avg).toBeCloseTo(55 / 3);
+    // The average covers the two expenses only; the refund stays out.
+    expect(r).toMatchObject({ in: 5, out: 50, count: 3, dir: 'out', avg: 25 });
     // The refund (in) stays out of the spending breakdown.
     expect(r.inner).toEqual([
       { kind: 'tag', name: 'urlaub', amount: 40 },
@@ -334,6 +335,18 @@ describe('_detailSummary', () => {
       { kind: 'category', catId: 7, amount: 40 },
       { kind: 'category', catId: 8, amount: 20 },
     ]);
+  });
+
+  it('averages over the income when income dominates', () => {
+    const r = _detailSummary(
+      [
+        { id: 1, date: '2026-10-01', type: 'in', amount: 3000, category_id: 3, tags: [] },
+        { id: 2, date: '2026-10-15', type: 'in', amount: 1000, category_id: 3, tags: [] },
+        { id: 3, date: '2026-10-20', type: 'out', amount: 40, category_id: 3, tags: [] },
+      ],
+      { kind: 'category', catId: 3 },
+    );
+    expect(r).toMatchObject({ dir: 'in', avg: 2000 });
   });
 
   it('leaves the breakdown empty when a category has no tags at all', () => {
@@ -382,5 +395,19 @@ describe('_sortDetailTxs', () => {
     const copy = _sortDetailTxs(txs, 'date');
     expect(copy).not.toBe(txs);
     expect(txs.map((t) => t.id)).toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe('_colorWithAlpha', () => {
+  it('turns a hex category colour into rgba', () => {
+    expect(_colorWithAlpha('#D97757', 0.5)).toBe('rgba(217,119,87,0.5)');
+  });
+
+  it('adds the alpha to an hsl tag colour', () => {
+    expect(_colorWithAlpha('hsl(120deg 55% 50%)', 0.4)).toBe('hsl(120deg 55% 50% / 0.4)');
+  });
+
+  it('leaves anything else unchanged', () => {
+    expect(_colorWithAlpha('red', 0.4)).toBe('red');
   });
 });

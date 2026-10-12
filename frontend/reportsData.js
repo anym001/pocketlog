@@ -356,17 +356,20 @@ function _cumulativeByDay(txs, daysInMonth, lastDay) {
 
 // Everything the "Detailanalyse" shows for one category or tag (an entity as
 // built by _trendEntityFromId): the matching bookings, their in/out totals,
-// count and average size, and the breakdown one level down — the tags inside
-// a category (plus the untagged remainder) or the categories a tag spans.
-// Like the "Aufteilung" donut, the breakdown shows one direction: the
-// entity's dominant one (`dir`), so a refund never inflates a spending row.
-// A booking with two tags counts towards both tag rows.
+// count, and the breakdown one level down — the tags inside a category (plus
+// the untagged remainder) or the categories a tag spans. Like the
+// "Aufteilung" donut, the breakdown and the average booking size use one
+// direction: the entity's dominant one (`dir`), so a refund never skews a
+// spending figure. A booking with two tags counts towards both tag rows.
 function _detailSummary(txs, entity) {
   const matched = txs.filter((t) => _trendMatchesEntity(t, entity));
   const totals = _sumByType(matched);
   const count = matched.length;
-  const avg = count ? (totals.in + totals.out) / count : 0;
   const dir = totals.out >= totals.in ? 'out' : 'in';
+  // Average size of a booking in the dominant direction — a refund mixed
+  // into a spending category would otherwise skew it.
+  const dirCount = matched.filter((t) => t.type === dir).length;
+  const avg = dirCount ? totals[dir] / dirCount : 0;
   let inner;
   if (entity.kind === 'category') {
     inner = _totalsByTag(matched, dir).map((r) => ({
@@ -416,6 +419,19 @@ function _sortDetailTxs(txs, mode) {
   return [...txs].sort((a, b) => first(a, b) || second(a, b) || byId(a, b));
 }
 
+// A chart colour at partial opacity: '#rrggbb' → rgba(), 'hsl(h s l)' →
+// 'hsl(h s l / a)'. Anything else comes back unchanged.
+function _colorWithAlpha(color, alpha) {
+  const c = String(color).trim();
+  if (/^#[0-9a-f]{6}$/i.test(c)) {
+    const n = parseInt(c.slice(1), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  }
+  const hsl = c.match(/^hsl\(([^/)]+)\)$/i);
+  if (hsl) return `hsl(${hsl[1].trim()} / ${alpha})`;
+  return c;
+}
+
 // Node/Vitest only — the browser classic-script load skips this.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -440,5 +456,6 @@ if (typeof module !== 'undefined' && module.exports) {
     _detailSummary,
     _monthlyInOut,
     _sortDetailTxs,
+    _colorWithAlpha,
   };
 }

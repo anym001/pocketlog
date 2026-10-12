@@ -220,7 +220,9 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | `--bg-canvas` | `#FFFFFF` | `#221e19` | Card/surface colour (sits lighter on `--bg-grouped`) |
   | `--accent` | `#D97757` (clay) | `#E8926E` | Expenses, primary action |
   | `--green` | `#788C5D` (olive) | `#9AB07A` | Income, success |
-  | `--red` / `--red-2` | `#C0392B` / `#EC6B5B` | unchanged | Destructive actions (swipe-to-delete gradient) |
+  | `--accent-text` / `--green-text` | `#A85232` / `#5E7046` | = `--accent` / `--green` | The same hues as **text** (amounts, links, action rows): ≥ 4.5 : 1 on both backgrounds. `--accent` / `--green` stay the fills (bars, lines, icons, buttons). `-2` variants are the lighter gradient stop of the KPI amounts. |
+  | `--red` | `#C0392B` | `#F56A74` | Destructive actions and their text |
+  | `--red-fill` / `--red-2` | `#C0392B` / `#EC6B5B` | unchanged | Red behind white text (swipe-to-delete gradient) |
   | `--text` | `#141413` (slate) | `#F0EEE6` | Primary text |
   | `--text2` | `#3D3D3A` | `#B0ADA6` | Secondary text |
   | `--text3` | `#87867F` | `#87867F` | Tertiary text, hints |
@@ -307,7 +309,8 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | Easing         | `--ease-spring`                | `cubic-bezier(0.32, 0.72, 0, 1)` — default transitions |
   |                | `--ease-bounce`                | `cubic-bezier(0.34, 1.56, 0.64, 1)` — FAB + buttons |
   |                | `--ease-soft`                  | `cubic-bezier(0.4, 0, 0.2, 1)` — fades + overlays |
-  | Focus          | `--focus-ring`                 | `0 0 0 3px var(--accent-tint)` |
+  | Focus          | `--focus-ring`                 | `0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent)` (gap + solid ring, ≥ 3 : 1) |
+  |                | `--focus-ring-inset`           | `inset 0 0 0 2px var(--accent)` — rows that fill a clipped card edge to edge |
   | Border         | `--border-hairline`            | `0.5px solid var(--hairline-soft)` |
   |                | `--border-hairline-strong`     | `0.5px solid var(--hairline)` |
 
@@ -317,8 +320,9 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   (ledger, category view, recurring cards) is DM Serif Display at
   `--fs-headline` (shared selector with `.t-amount` in `styles.css`). Amounts
   inside a sentence ("2.376,64 € von 3.000,00 €") or a table cell stay DM Sans.
-  Expense colour is always `--accent`, income `--green`; `--red` is for
-  destructive actions only.
+  Expense colour is always `--accent-text`, income `--green-text` (the text
+  variants of `--accent` / `--green`); `--red` is for destructive actions
+  only.
 - **Summary cards (one layout):** the ledger's Ausgaben/Einnahmen cards and
   the report KPI cards share `.summary-card`: label (`--fs-micro`, `--text3`)
   on top, amount below. Report KPIs sit in a wrapping flex row (equal widths
@@ -552,9 +556,11 @@ Required — no exceptions "because PWA":
   header sync dot carries a glyph per state (✓ synced, ⟳ syncing, ! offline
   or failed; CSS masks on `.sync-dot`).
 - **Charts with both directions:** expenses are solid, income is dashed
-  (`borderDash`); in bar charts expenses are filled, income outlined. Checked with the dataviz palette validator, `--accent` and
-  `--green` are nearly identical for protan readers (ΔE 0.7, target ≥ 8), so
-  hue alone never carries which line is which.
+  (`borderDash`); in bar charts expenses are filled, income outlined.
+  Checked with the dataviz palette validator, `--accent` and `--green` are
+  nearly identical for protan readers (ΔE 0.7, target ≥ 8), so hue alone
+  never carries which line is which. Dashes mean "income" only — a helper
+  line such as the trend's smoothing is a translucent solid line.
 - **Screen-reader text:** no directional references (no "button top right"),
   no "image of…", no "click here".
 - **Images / charts:** charts have a text summary below them

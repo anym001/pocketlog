@@ -838,9 +838,24 @@ const _drawerSubs = ['dpReports', 'dpSettings', ..._SETTINGS_DETAILS];
 // take this path.
 const _settingsDetail = { id: null, home: null, next: null };
 
+// The settings list row that opens `panelId` (its data-args is ["dpX"]).
+function _settingsItem(panelId) {
+  return [...document.querySelectorAll('#dpSettings .drawer-nav-item')].find((btn) => {
+    try {
+      return JSON.parse(btn.dataset.args || 'null')?.[0] === panelId;
+    } catch (e) {
+      return false;
+    }
+  });
+}
+
 function _markSettingsItem(panelId) {
+  const current = panelId ? _settingsItem(panelId) : null;
   document.querySelectorAll('#dpSettings .drawer-nav-item').forEach((btn) => {
-    btn.classList.toggle('active', !!panelId && btn.dataset.args === `["${panelId}"]`);
+    const on = btn === current;
+    btn.classList.toggle('active', on);
+    if (on) btn.setAttribute('aria-current', 'true');
+    else btn.removeAttribute('aria-current');
   });
 }
 
@@ -856,14 +871,22 @@ function _openSettingsDetail(panelId) {
 }
 
 // Returns true when a detail was open (and is now closed).
-function _closeSettingsDetail() {
+// opts.focusItem: the user closed the pane from inside it (back button, Esc).
+// Its node moves back into the hidden drawer, which would drop focus to
+// <body>; the settings row that opened it takes the focus instead.
+function _closeSettingsDetail(opts = {}) {
   if (!_settingsDetail.id) return false;
-  const el = document.getElementById(_settingsDetail.id);
+  const id = _settingsDetail.id;
+  const el = document.getElementById(id);
   el.dataset.state = 'right';
   _settingsDetail.home.insertBefore(el, _settingsDetail.next);
   Object.assign(_settingsDetail, { id: null, home: null, next: null });
   document.body.classList.remove('settings-detail');
   _markSettingsItem(null);
+  if (opts.focusItem) {
+    const item = _settingsItem(id);
+    if (item) item.focus();
+  }
   return true;
 }
 
@@ -890,7 +913,7 @@ function drawerBack() {
   // The back button inside the settings host just closes the detail; the
   // sidebar's own back button closes it too and then leaves Settings.
   const fromHost = this instanceof Element && !!this.closest('#settingsHost');
-  if (_closeSettingsDetail() && fromHost) return;
+  if (_closeSettingsDetail({ focusItem: fromHost }) && fromHost) return;
   if (!_drawerStack.length) return;
   const current = _drawerStack.pop();
   const prev = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';

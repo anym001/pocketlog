@@ -18,7 +18,8 @@
     "nameRequired": "Name is required.",
     "loading": "Loading …",
     "queuedOffline": "Saved offline. Will sync once you’re back online.",
-    "usage90": "Used {n} times in the last 90 days"
+    "usage90": "Used {n} times in the last 90 days",
+    "usage90One": "Used once in the last 90 days"
   },
   "menu": {
     "title": "Menu",
@@ -447,7 +448,8 @@
     "courseSummary": "Income {income}, expenses {expenses} in this period.",
     "trendSummary": "{label}, mean {mean} per month.",
     "detailSelect": "Detail analysis selection",
-    "avgPerTx": "Avg. per transaction",
+    "avgPerOut": "Avg. per expense",
+    "avgPerIn": "Avg. per income",
     "untagged": "No tag",
     "expensesByTag": "Expenses by tag",
     "incomeByTag": "Income by tag",

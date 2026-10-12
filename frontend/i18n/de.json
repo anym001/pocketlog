@@ -18,7 +18,8 @@
     "nameRequired": "Name ist ein Pflichtfeld.",
     "loading": "Wird geladen …",
     "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist.",
-    "usage90": "{n}-mal in den letzten 90 Tagen verwendet"
+    "usage90": "{n}-mal in den letzten 90 Tagen verwendet",
+    "usage90One": "Einmal in den letzten 90 Tagen verwendet"
   },
   "menu": {
     "title": "Menü",
@@ -447,7 +448,8 @@
     "courseSummary": "Einnahmen {income}, Ausgaben {expenses} im Zeitraum.",
     "trendSummary": "{label}, Mittelwert {mean} pro Monat.",
     "detailSelect": "Auswahl für die Detailanalyse",
-    "avgPerTx": "Ø pro Buchung",
+    "avgPerOut": "Ø pro Ausgabe",
+    "avgPerIn": "Ø pro Einnahme",
     "untagged": "Ohne Tag",
     "expensesByTag": "Ausgaben nach Tag",
     "incomeByTag": "Einnahmen nach Tag",
