@@ -35,7 +35,7 @@ Flag obvious hardcoded hex/rgba/px values you notice during visual review. For a
 
 **View scaffold**
 - New views register in `PANELS` (core.js) with a `titleKey`; their create action is the FAB via `PANELS[id].fab`, not an in-view button
-- Row tap = open/drill-in; trailing buttons are distinct secondary actions; ⋮ only for real menus
+- Row tap = the row's primary action; trailing buttons are distinct secondary actions with a glyph that names them; ⋮ only for real menus
 
 **Copy & language**
 - Apple Style Guide for German UI text (see DESIGN_CONVENTIONS.md)

@@ -348,17 +348,17 @@ function renderCategoryView() {
     .map(
       (r) => `
     <div class="cat-view-row" role="button" tabindex="0"
-      aria-label="${_escAttr(tr('categories.viewTxAria', { name: r.name }))}"
-      data-action="showTransactionsForCategory" data-args="[${r.id}]">
+      aria-label="${_escAttr(tr('categories.addTxAria', { name: r.name }))}"
+      data-action="openModalForCategory" data-args="[${r.id}]">
       <span class="cat-view-icon" style="--cat-color:${r.color}">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${_escText(r.name)}</span>
       <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtSignedCurrency(r.net, _netDirection(r.net))}</span>
       <button
         type="button"
-        class="cat-view-add"
-        aria-label="${_escAttr(tr('categories.addTxAria', { name: r.name }))}"
-        data-action="openModalForCategory" data-args="[${r.id}]" data-stop
-      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"/></svg></button>
+        class="cat-view-list"
+        aria-label="${_escAttr(tr('categories.viewTxAria', { name: r.name }))}"
+        data-action="showTransactionsForCategory" data-args="[${r.id}]" data-stop
+      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-receipt"/></svg></button>
     </div>
   `,
     )

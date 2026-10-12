@@ -413,9 +413,11 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
   - The search field appears only where it filters (ledger, categories);
     elsewhere the bottom bar shrinks to the FAB alone. Scope bottom-bar rules
     with `.bottom-bar …` — editors reuse `.search-wrap` for their choosers.
-  - A list row's tap opens or drills into the row's object; a trailing
-    button is a distinct secondary action with its own glyph (e.g. `+`).
-    Never use a ⋮ glyph for anything but a menu.
+  - A list row's tap runs the row's primary action (usually open/drill-in;
+    the category view is a quick-entry launcher, so its row books into the
+    category). A trailing button is a distinct secondary action with a glyph
+    that names it (category view: receipt = "show bookings"). Never use a ⋮
+    glyph for anything but a menu.
 - **Content scrolls under the bar.** Do not hide/show the bar on scroll
   — it disorients more than it saves space.
 

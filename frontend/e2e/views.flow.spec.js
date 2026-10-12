@@ -1,12 +1,11 @@
 // View scaffold: every view has the same large title and one create action in
-// the same spot (the FAB), and a category-view row drills in rather than
-// creating data.
+// the same spot (the FAB); the category view stays a quick-entry launcher.
 //
 // The regressions it pins: goals/budgets/recurring used to carry their own
-// full-width "Create …" button and hid the bottom bar, the category view's row
-// tap opened a *new booking* while its ⋮ showed the bookings, and hiding the
-// bottom-bar search field must not hide the category search inside the editors
-// (both use .search-wrap).
+// full-width "Create …" button and hid the bottom bar; hiding the bottom-bar
+// search field must not hide the category search inside the editors (both use
+// .search-wrap); and a category-view quick entry must close untouched without
+// a "Discard?" prompt (the category preset used to count as an edit).
 const { test, expect } = require('@playwright/test');
 const { loginViaApi, bootIntoApp, gotoPanel, modalSettled } = require('./helpers');
 
@@ -55,7 +54,9 @@ test('each view has its title and the FAB creates what the view lists', async ({
   expect(pageErrors).toEqual([]);
 });
 
-test('category view: the row drills in, the plus books into that category', async ({ page }) => {
+test('category view: the row books into it, the receipt button lists its bookings', async ({
+  page,
+}) => {
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(e.message));
   await loginViaApi(page.context());
@@ -66,23 +67,28 @@ test('category view: the row drills in, the plus books into that category', asyn
   const row = page.locator('#categoryViewList .cat-view-row').first();
   const catId = Number(JSON.parse(await row.getAttribute('data-args'))[0]);
 
-  // Row → that category's bookings, with the FAB turned into "exit search".
+  // Row → a new booking preset to the row's category…
   await row.click({ position: { x: 24, y: 24 } });
+  await expect(page.locator('#modalOverlay')).toHaveClass(/open/);
+  expect(await page.evaluate(() => appState.catChooser.transaction.selectedId)).toBe(catId);
+  // …that closes untouched without asking to discard anything. Not awaited:
+  // a dirty form would park closeModal on its confirm dialog.
+  await page.evaluate(() => {
+    window.closeModal();
+  });
+  await expect(page.locator('#modalOverlay')).not.toHaveClass(/open/);
+  await expect(page.locator('.confirm-modal')).toHaveCount(0);
+
+  // Receipt button → that category's bookings; the FAB turns into "exit search".
+  await page.locator('#categoryViewList .cat-view-list').first().click();
   await expect(page.locator('#panel-search')).toHaveClass(/active/);
   expect(await page.evaluate(() => appState.nav.categoryFilterId)).toBe(catId);
-  await expect(page.locator('#modalOverlay')).not.toHaveClass(/open/);
   await expect(page.locator('.fab')).toHaveAttribute('aria-label', await t(page, 'fab.exitSearch'));
 
-  // Exiting search must not open a booking on the way out.
+  // Exiting search returns to the view without opening a booking.
   await page.click('.fab');
   await expect(page.locator('#panel-categories')).toHaveClass(/active/);
   await expect(page.locator('#modalOverlay')).not.toHaveClass(/open/);
-
-  // Plus → a new booking preset to the row's category.
-  await page.locator('#categoryViewList .cat-view-add').first().click();
-  await expect(page.locator('#modalOverlay')).toHaveClass(/open/);
-  expect(await page.evaluate(() => appState.catChooser.transaction.selectedId)).toBe(catId);
-  await page.evaluate(() => window.closeModal());
 
   expect(pageErrors).toEqual([]);
 });

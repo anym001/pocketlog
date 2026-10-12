@@ -651,8 +651,8 @@ function confirmAction({
 // Navigation / cross-cutting UI state lives in appState.nav (state.js):
 //   activePanel; bookingModalOpenedAt (timestamp of the last booking-modal
 //   open, guards closeModalOutside against the ghost click that trails the tap
-//   which opened it); searchQuery; categoryFilterId (set when the user taps a
-//   category-view row — mutually exclusive with text search, which
+//   which opened it); searchQuery; categoryFilterId (set when the user taps the
+//   bookings button on a category-view row — mutually exclusive with text search, which
 //   clears it in onSearch); tagFilterName (drill-down from the tag analysis,
 //   mutually exclusive with text search and category filter); infoPanelSeq;
 //   goalRelayoutTimer.

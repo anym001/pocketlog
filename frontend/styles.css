@@ -833,10 +833,11 @@
       .cat-view-amount.positive {
         color: var(--green);
       }
-      /* Quick-add for the row's category. The row itself drills into the
-         category's bookings, so this trailing button carries a plus — the
-         same glyph and tone as the FAB, one size down. */
-      .cat-view-add {
+      /* The row itself books into its category (the view doubles as a
+         quick-entry launcher); this trailing button lists the category's
+         bookings. Receipt glyph = the drawer's "Transactions" icon, so it
+         reads as "bookings", not as a ⋮ menu it isn't. */
+      .cat-view-list {
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         margin-right: calc(-1 * var(--space-10));
@@ -853,10 +854,10 @@
         -webkit-tap-highlight-color: transparent;
         transition: background var(--dur-base) var(--ease-spring);
       }
-      .cat-view-add:active {
+      .cat-view-list:active {
         background: var(--surface-tint);
       }
-      .cat-view-add:focus-visible {
+      .cat-view-list:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
       }
