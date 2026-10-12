@@ -161,7 +161,8 @@ Update the FAB's `aria-label` per view ("Ziel erstellen"). The settings panels (
 **Fix:** Add three pure helpers in `utils.js` (unit-tested): `fmtDateLong` (day headers: „Samstag, 10. Okt.", year only when ≠ current year), `fmtDateMedium` („10. Okt. 2026", for lists and cards) and `fmtDateShort` (numeric, tables only). Replace all ad-hoc formatting.
 **Criterion:** `grep "split('-')" frontend/*.js` finds no display-formatting call sites.
 
-### [ ] 14. Trend uses a different period control than the other reports
+### [x] 14. Trend uses a different period control than the other reports
+> **Decision 2026-10-12:** kept as a documented exception (phase 4). The trend compares several years month by month; the single-period control would either lose that or force date fields. The rule is in `DESIGN_CONVENTIONS.md` → Report range control.
 **Where:** `reports.js` trend: „Von 2026 / Bis 2026" year selects; all other reports use Monat/Quartal/Jahr/Eigen + stepper.
 **Problem:** The reports are one family, so they need one way to pick time.
 **Fix:** Reuse the shared range control. Restrict it to `Jahr` + `Eigen` (multi-month) for the trend, but keep the same component and position.
