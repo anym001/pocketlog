@@ -210,7 +210,7 @@ Update the FAB's `aria-label` per view ("Ziel erstellen"). The settings panels (
 **Fix:** Change the layout, not the type size. Below ~380 px, put Einnahmen + Ausgaben on the first row and the Bilanz card at full width on the second (`grid-template-columns: 1fr 1fr` with `.summary-card:last-child { grid-column: 1 / -1 }`). Alternatively, drop the `€` symbol in the KPI cards and keep the currency in the label.
 **Criterion:** at 320 / 360 / 390 px, `−12.345,67 €` fits without clipping, and amounts stay at `--fs-headline`.
 
-### [ ] 27. Expense and income colours fail colour-vision checks
+### [x] 27. Expense and income colours fail colour-vision checks
 **Where:** `--accent` (expenses) / `--green` (income), light and dark tokens in `styles.css`.
 **Found:** during phase 6, running the dataviz palette validator.
 **Problem:**
@@ -222,7 +222,7 @@ Update the FAB's `aria-label` per view ("Ziel erstellen"). The settings panels (
 - **A.** Keep the colours. Signs and line styles are the guaranteed cue; no visual change.
 - **B.** Shift income towards a cooler or bluer green, or expenses towards red, until the validator passes. This changes the brand look app-wide.
 
-**Decision needed (product owner).**
+> **Decision 2026-10-12 (product owner): A.** The colours stay. Direction is carried by the sign, by line style (income dashed) and, in bar charts, by fill (income outlined, #252). The rule is in `DESIGN_CONVENTIONS.md` → Charts with both directions.
 
 ---
 
