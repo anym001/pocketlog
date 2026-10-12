@@ -128,6 +128,25 @@ via two breakpoints — the breakpoint value lives literally in `@media`
 - **Bottom bar clearance:** `var(--bottom-bar-clearance)` (66 px) is a layout
   constant reserved for all panels and scrollable content so nothing is obscured
   by the floating bottom bar. Apply as `padding-bottom` on scrollable containers.
+- **Settings split view:** from 768 px a settings sub-panel (Allgemein,
+  Kategorien, Tags, Import/Export, API-Schlüssel, Konto, Benutzer,
+  Verwaltung, Info) opens in the content pane, as in the iPad Settings app.
+  The sidebar keeps the settings list with the open entry marked.
+  `_openSettingsDetail` (`core.js`) moves the panel node into
+  `#settingsHost` and back, so ids, handlers and loaders stay the same.
+  Closing paths: the in-pane back button, Esc, the sidebar back button, any
+  main destination, and crossing the breakpoint (the panel returns to the
+  drawer). Forms there cap at 640 px. Phones are unchanged.
+- **Settings rows (one component):** every settings panel uses the grouped
+  `.drawer-nav` card.
+  - Navigation rows end in a chevron.
+  - Management rows (categories, tags) show the 90-day usage count, then
+    a chevron.
+  - Actions are `.action-list` rows tinted `--accent` (`.is-action`) or
+    `--red` (`.is-destructive`).
+  - No full-width card buttons inside settings.
+  - Support diagnostics (device, display, environment) sit collapsed under
+    "Diagnose".
 - **JS guards:** `openDrawer()` / `closeDrawer()` are no-ops from 768 px.
   `body.style.overflow = 'hidden'` may still be set in modals
   (background lock is useful on desktop too). The source of truth for the

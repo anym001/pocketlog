@@ -747,6 +747,8 @@ function onFabTap() {
 // panel restore. Everything else lands here because the user picked a
 // destination, and the drawer they picked it from has to get out of the way.
 function showPanel(id, opts) {
+  // Picking a destination closes an open settings detail (split view).
+  _closeSettingsDetail();
   if (
     appState.nav.searchQuery ||
     appState.nav.categoryFilterId != null ||
@@ -785,24 +787,67 @@ function openReport(id) {
 }
 
 const _drawerStack = [];
-const _drawerSubs = [
-  'dpReports',
-  'dpSettings',
+// The settings sub-panels (one level below dpSettings).
+const _SETTINGS_DETAILS = [
+  'dpDisplay',
   'dpCats',
   'dpTags',
   'dpImport',
   'dpApiKeys',
-  'dpDisplay',
+  'dpAccount',
+  'dpAdminUsers',
   'dpAdmin',
   'dpInfo',
 ];
+const _drawerSubs = ['dpReports', 'dpSettings', ..._SETTINGS_DETAILS];
+
+// ≥768 px a settings sub-panel opens in the content pane (iPad Settings
+// split view) instead of squeezing into the 260-px sidebar, which keeps
+// showing the settings list. The panel node itself moves into
+// #settingsHost — ids, delegated handlers and loaders are unchanged — and
+// goes back to its slot in the drawer when the detail closes. Phones never
+// take this path.
+const _settingsDetail = { id: null, home: null, next: null };
+
+function _markSettingsItem(panelId) {
+  document.querySelectorAll('#dpSettings .drawer-nav-item').forEach((btn) => {
+    btn.classList.toggle('active', !!panelId && btn.dataset.args === `["${panelId}"]`);
+  });
+}
+
+function _openSettingsDetail(panelId) {
+  _closeSettingsDetail();
+  const el = document.getElementById(panelId);
+  Object.assign(_settingsDetail, { id: panelId, home: el.parentNode, next: el.nextSibling });
+  document.getElementById('settingsHost').appendChild(el);
+  el.dataset.state = 'active';
+  document.body.classList.add('settings-detail');
+  _markSettingsItem(panelId);
+  window.scrollTo(0, 0);
+}
+
+// Returns true when a detail was open (and is now closed).
+function _closeSettingsDetail() {
+  if (!_settingsDetail.id) return false;
+  const el = document.getElementById(_settingsDetail.id);
+  el.dataset.state = 'right';
+  _settingsDetail.home.insertBefore(el, _settingsDetail.next);
+  Object.assign(_settingsDetail, { id: null, home: null, next: null });
+  document.body.classList.remove('settings-detail');
+  _markSettingsItem(null);
+  return true;
+}
 
 function drawerNav(panelId) {
-  const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
-  document.getElementById(current).dataset.state = 'left';
-  document.getElementById(panelId).dataset.state = 'active';
-  _drawerStack.push(panelId);
-  document.getElementById('drawer').classList.add('sub-active');
+  if (_mqTablet.matches && _SETTINGS_DETAILS.includes(panelId)) {
+    _openSettingsDetail(panelId);
+  } else {
+    const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
+    document.getElementById(current).dataset.state = 'left';
+    document.getElementById(panelId).dataset.state = 'active';
+    _drawerStack.push(panelId);
+    document.getElementById('drawer').classList.add('sub-active');
+  }
   if (panelId === 'dpCats') renderCategories();
   if (panelId === 'dpTags') renderTagList();
   if (panelId === 'dpDisplay') syncDisplaySelects();
@@ -813,6 +858,10 @@ function drawerNav(panelId) {
 }
 
 function drawerBack() {
+  // The back button inside the settings host just closes the detail; the
+  // sidebar's own back button closes it too and then leaves Settings.
+  const fromHost = this instanceof Element && !!this.closest('#settingsHost');
+  if (_closeSettingsDetail() && fromHost) return;
   if (!_drawerStack.length) return;
   const current = _drawerStack.pop();
   const prev = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
@@ -822,6 +871,7 @@ function drawerBack() {
 }
 
 function _drawerResetPanels() {
+  _closeSettingsDetail();
   document.getElementById('dpMain').dataset.state = 'active';
   _drawerSubs.forEach((id) => {
     document.getElementById(id).dataset.state = 'right';
@@ -920,7 +970,24 @@ _mqTablet.addEventListener('change', (e) => {
   // sidebar (reachable) or an off-screen menu (inert), so sync first and
   // leave before the sidebar-mode-only reset below.
   _syncDrawerInert();
-  if (!e.matches) return;
+  if (!e.matches) {
+    // Leaving the split view with a settings detail open: hand the panel
+    // back to the drawer as its active sub-panel, as a phone would show it.
+    const id = _settingsDetail.id;
+    if (id && _closeSettingsDetail()) {
+      document.getElementById('dpSettings').dataset.state = 'left';
+      document.getElementById(id).dataset.state = 'active';
+      _drawerStack.push(id);
+    }
+    return;
+  }
+  // Entering it with a settings sub-panel open in the drawer: move it out.
+  const top = _drawerStack[_drawerStack.length - 1];
+  if (_SETTINGS_DETAILS.includes(top)) {
+    _drawerStack.pop();
+    document.getElementById('dpSettings').dataset.state = 'active';
+    _openSettingsDetail(top);
+  }
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
   releaseFocusTrap('drawer');

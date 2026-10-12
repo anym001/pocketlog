@@ -878,11 +878,15 @@ function renderCategories() {
   }
   box.innerHTML = '';
   shown.forEach((c) => {
+    const uses = Number(c.count) || 0;
     const row = document.createElement('div');
     row.className = 'drawer-nav-item cat-pill-edit';
     row.setAttribute('role', 'button');
     row.setAttribute('tabindex', '0');
-    row.setAttribute('aria-label', tr('categories.editAria', { name: c.name }));
+    row.setAttribute(
+      'aria-label',
+      `${tr('categories.editAria', { name: c.name })}, ${tr('common.usage90', { n: uses })}`,
+    );
     row.onclick = () => openCatModal(c.id);
     row.onkeydown = (e) => handleRowActivate(e, () => openCatModal(c.id));
     const iconWrap = document.createElement('div');
@@ -894,8 +898,19 @@ function renderCategories() {
     label.textContent = c.name;
     row.appendChild(iconWrap);
     row.appendChild(label);
+    row.insertAdjacentHTML('beforeend', mgmtRowTrailer(uses));
     box.appendChild(row);
   });
+}
+
+// Trailing part of a settings management row (categories, tags): the 90-day
+// usage count the list endpoints already deliver, then a drill-in chevron —
+// the row opens an editor, like every other chevron row in settings.
+function mgmtRowTrailer(uses) {
+  return (
+    `<span class="drawer-nav-value" aria-hidden="true">${Number(uses) || 0}</span>` +
+    `<span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right"/></svg></span>`
+  );
 }
 
 const CAT_COLOR_PRESETS = [

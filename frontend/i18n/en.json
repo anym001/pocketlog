@@ -17,7 +17,8 @@
     "downloadFailed": "Download failed",
     "nameRequired": "Name is required.",
     "loading": "Loading …",
-    "queuedOffline": "Saved offline. Will sync once you’re back online."
+    "queuedOffline": "Saved offline. Will sync once you’re back online.",
+    "usage90": "Used {n} times in the last 90 days"
   },
   "menu": {
     "title": "Menu",
@@ -700,6 +701,7 @@
     "pointerMouse": "Mouse/trackpad",
     "pointerUnknown": "Unknown",
     "touchPoints": "max {n} touch points",
-    "noHover": "no hover"
+    "noHover": "no hover",
+    "diagnostics": "Diagnostics"
   }
 }

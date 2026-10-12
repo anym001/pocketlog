@@ -1889,6 +1889,12 @@
       .drawer-nav-item.active:focus-visible {
         box-shadow: var(--focus-ring);
       }
+      /* Trailing value in a settings row (e.g. 90-day usage count). */
+      .drawer-nav-value {
+        color: var(--text3);
+        font-size: var(--fs-callout);
+        font-variant-numeric: tabular-nums;
+      }
       .drawer-nav-chevron {
         color: var(--text3);
         font-size: var(--btn-icon-size);
@@ -1946,6 +1952,60 @@
         font-size: var(--fs-body);
         font-weight: 600;
         color: var(--text);
+      }
+
+      /* Grouped action rows inside a settings section (Import/Export,
+         Account): the settings-list row component, tinted as an action —
+         accent for actions, --red for destructive ones (iOS Settings). */
+      .drawer-section .drawer-nav.action-list {
+        margin: 0;
+      }
+      .drawer-nav.action-list + .drawer-nav.action-list {
+        margin-top: var(--space-16);
+      }
+      .api-key-list + .drawer-nav.action-list {
+        margin-top: var(--space-16);
+      }
+      .drawer-nav-item.is-action {
+        color: var(--accent);
+      }
+      .drawer-nav-item.is-destructive {
+        color: var(--red);
+      }
+
+      /* Info → collapsed diagnostics (device, display, environment). */
+      .info-details-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: var(--btn-chrome-size);
+        padding-bottom: var(--space-16);
+        list-style: none;
+        cursor: pointer;
+        font-size: var(--fs-caption);
+        font-weight: 600;
+        color: var(--text3);
+      }
+      .info-details-summary::-webkit-details-marker {
+        display: none;
+      }
+      .info-details-chevron {
+        width: var(--btn-icon-size);
+        height: var(--btn-icon-size);
+        transition: transform var(--dur-base) var(--ease-soft);
+      }
+      .info-details[open] .info-details-chevron {
+        transform: rotate(180deg);
+      }
+      .info-details-summary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-sm);
+      }
+
+      /* Settings detail host: only used from 768 px (adaptive block). */
+      .settings-host {
+        display: none;
       }
 
       .bn-item {
@@ -3585,7 +3645,8 @@
         padding: var(--space-10) var(--space-16);
       }
       /* No extra top gap when button is the first element in a section */
-      .drawer-section > .save-btn:first-child {
+      .drawer-section > .save-btn:first-child,
+      .drawer-section > .action-list:first-child {
         margin-top: 0;
       }
       /* Spacing between the top button and whatever follows it. The list is no
@@ -3595,8 +3656,17 @@
          selector still covers a section that has no filter field at all. */
       .drawer-section .save-btn + .drawer-chip-list,
       .drawer-section .save-btn + .drawer-search,
+      .drawer-section .action-list + .drawer-chip-list,
+      .drawer-section .action-list + .drawer-search,
+      .drawer-section .action-list + .api-key-list,
+      .drawer-section .drawer-chip-list + .action-list,
       .drawer-section .drawer-search[hidden] + .drawer-chip-list {
         margin-top: var(--space-12);
+      }
+      /* Explanatory text above an action card (Backup): the card-to-card
+         rhythm, so the card doesn't sit on the paragraph. */
+      .drawer-section .form-hint + .action-list {
+        margin-top: var(--space-16);
       }
       /* [hidden] has to beat .search-wrap's display:flex. */
       .drawer-search[hidden] {
@@ -3657,6 +3727,7 @@
         display: flex;
         align-items: center;
         justify-content: flex-start;
+        gap: var(--space-12);
         min-height: 50px;
         border-radius: 0 !important;
         background: none !important;
@@ -4115,6 +4186,61 @@
       }
 
       @media (min-width: 768px) {
+        /* Settings split view (iPad Settings): the sidebar keeps the
+           settings list, the open sub-panel renders in the content pane.
+           _openSettingsDetail (core.js) moves the panel node into
+           #settingsHost and back. */
+        body.settings-detail .panel,
+        body.settings-detail .view-head,
+        body.settings-detail .summary,
+        body.settings-detail .bottom-bar,
+        body.settings-detail .month-nav {
+          display: none;
+        }
+        body.settings-detail .settings-host {
+          display: block;
+          padding: var(--space-8) var(--space-20) var(--space-24);
+        }
+        .settings-host .drawer-panel {
+          position: static;
+          max-width: 640px;
+          overflow: visible;
+          transform: none;
+          opacity: 1;
+          pointer-events: auto;
+          transition: none;
+          padding-bottom: 0;
+        }
+        .settings-host .drawer-sub-head {
+          position: static;
+          justify-content: flex-start;
+          gap: var(--space-8);
+          min-height: 0;
+          padding: 0 0 var(--space-4);
+          background: none;
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+          border-bottom: none;
+        }
+        .settings-host .drawer-back-btn {
+          position: static;
+          margin-left: calc(-1 * var(--space-12));
+        }
+        /* Same large title as every other view. */
+        .settings-host .drawer-sub-title {
+          font-family: var(--font-display);
+          font-size: var(--fs-title-sm);
+          font-weight: 400;
+          letter-spacing: -0.02em;
+        }
+        .settings-host .drawer-section {
+          padding-left: 0;
+          padding-right: 0;
+        }
+        .settings-host .drawer-section-divider {
+          margin-left: 0;
+          margin-right: 0;
+        }
         .breakdown-controls {
           flex-direction: row;
         }

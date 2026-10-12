@@ -17,7 +17,8 @@
     "downloadFailed": "Download fehlgeschlagen",
     "nameRequired": "Name ist ein Pflichtfeld.",
     "loading": "Wird geladen …",
-    "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist."
+    "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist.",
+    "usage90": "{n}-mal in den letzten 90 Tagen verwendet"
   },
   "menu": {
     "title": "Menü",
@@ -700,6 +701,7 @@
     "pointerMouse": "Maus/Trackpad",
     "pointerUnknown": "Unbekannt",
     "touchPoints": "max {n} Touch-Punkte",
-    "noHover": "kein Hover"
+    "noHover": "kein Hover",
+    "diagnostics": "Diagnose"
   }
 }
