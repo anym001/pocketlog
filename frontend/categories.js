@@ -885,7 +885,7 @@ function renderCategories() {
     row.setAttribute('tabindex', '0');
     row.setAttribute(
       'aria-label',
-      `${tr('categories.editAria', { name: c.name })}, ${tr('common.usage90', { n: uses })}`,
+      `${tr('categories.editAria', { name: c.name })}, ${usage90Label(uses)}`,
     );
     row.onclick = () => openCatModal(c.id);
     row.onkeydown = (e) => handleRowActivate(e, () => openCatModal(c.id));
@@ -906,6 +906,11 @@ function renderCategories() {
 // Trailing part of a settings management row (categories, tags): the 90-day
 // usage count the list endpoints already deliver, then a drill-in chevron —
 // the row opens an editor, like every other chevron row in settings.
+// Screen-reader text for the usage count those rows show.
+function usage90Label(uses) {
+  return tr(uses === 1 ? 'common.usage90One' : 'common.usage90', { n: uses });
+}
+
 function mgmtRowTrailer(uses) {
   return (
     `<span class="drawer-nav-value" aria-hidden="true">${Number(uses) || 0}</span>` +

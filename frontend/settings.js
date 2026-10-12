@@ -22,7 +22,7 @@ function renderTagList() {
   box.innerHTML = shown
     .map((t) => {
       const uses = tagCounts.get(t.toLowerCase())?.all || 0;
-      const aria = `${tr('tags.editAria', { name: t })}, ${tr('common.usage90', { n: uses })}`;
+      const aria = `${tr('tags.editAria', { name: t })}, ${usage90Label(uses)}`;
       return `<div class="cat-pill-edit" role="button" tabindex="0" data-tag="${_escAttr(t)}" aria-label="${_escAttr(aria)}"><span class="drawer-nav-label">${_escText(t)}</span>${mgmtRowTrailer(uses)}</div>`;
     })
     .join('');
@@ -640,11 +640,12 @@ document.addEventListener('keydown', (e) => {
   }
   // Only where the month switcher is on screen — elsewhere ←/→ silently moved
   // the ledger month behind a view that doesn't show it.
-  // An open settings detail (split view) covers the view, so it counts as
-  // not showing the switcher either.
+  // An open settings detail (split view) covers the view and a search hides
+  // the switcher, so neither counts as showing it.
   const monthView =
     !!PANELS[appState.nav.activePanel]?.monthScoped &&
-    !document.body.classList.contains('settings-detail');
+    !document.body.classList.contains('settings-detail') &&
+    !document.body.classList.contains('searching');
   if (!modalOpen && !drawerOpenMobile && !inField && monthView) {
     if (e.key === 'ArrowLeft') {
       changeMonth(-1);
@@ -703,7 +704,7 @@ document.addEventListener('keydown', (e) => {
   }
   // Split view (≥768 px): Esc closes the settings detail in the content
   // pane — never from under an open modal the branches above don't own.
-  if (!document.querySelector('.modal-overlay.open')) _closeSettingsDetail();
+  if (!document.querySelector('.modal-overlay.open')) _closeSettingsDetail({ focusItem: true });
 });
 
 if ('serviceWorker' in navigator) {
