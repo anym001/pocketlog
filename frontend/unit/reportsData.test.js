@@ -14,6 +14,9 @@ const {
   _monthSpan,
   _autoGranularity,
   _cumulativeByDay,
+  _detailSummary,
+  _monthlyInOut,
+  _sortDetailTxs,
 } = reportsData;
 
 describe('_cumulativeByDay', () => {
@@ -293,5 +296,91 @@ describe('_budgetUsage', () => {
     ];
     const u = _budgetUsage(budget, pool, '2026-06-01', '2026-06-30');
     expect(u.spentCents).toBe(30); // 0.1 + 0.2 === 30 cents exactly
+  });
+});
+
+describe('_detailSummary', () => {
+  const txs = [
+    { id: 1, date: '2026-10-01', type: 'out', amount: 40, category_id: 7, tags: ['urlaub'] },
+    { id: 2, date: '2026-10-02', type: 'out', amount: 10, category_id: 7, tags: [] },
+    { id: 3, date: '2026-10-03', type: 'in', amount: 5, category_id: 7, tags: ['urlaub'] },
+    {
+      id: 4,
+      date: '2026-10-04',
+      type: 'out',
+      amount: 20,
+      category_id: 8,
+      tags: ['urlaub', 'bahn'],
+    },
+    { id: 5, date: '2026-10-05', type: 'out', amount: 99, category_id: 9, tags: [] },
+  ];
+
+  it('totals a category and breaks it down by tag plus an untagged remainder', () => {
+    const r = _detailSummary(txs, { kind: 'category', catId: 7 });
+    expect(r.txs.map((t) => t.id)).toEqual([1, 2, 3]);
+    expect(r).toMatchObject({ in: 5, out: 50, count: 3, dir: 'out' });
+    expect(r.avg).toBeCloseTo(55 / 3);
+    // The refund (in) stays out of the spending breakdown.
+    expect(r.inner).toEqual([
+      { kind: 'tag', name: 'urlaub', amount: 40 },
+      { kind: 'untagged', amount: 10 },
+    ]);
+  });
+
+  it('breaks a tag down by category in its dominant direction', () => {
+    const r = _detailSummary(txs, { kind: 'tag', name: 'urlaub' });
+    expect(r.txs.map((t) => t.id)).toEqual([1, 3, 4]);
+    expect(r.inner).toEqual([
+      { kind: 'category', catId: 7, amount: 40 },
+      { kind: 'category', catId: 8, amount: 20 },
+    ]);
+  });
+
+  it('leaves the breakdown empty when a category has no tags at all', () => {
+    expect(_detailSummary(txs, { kind: 'category', catId: 9 }).inner).toEqual([]);
+  });
+
+  it('is empty and zero for an entity without bookings', () => {
+    const r = _detailSummary(txs, { kind: 'tag', name: 'nope' });
+    expect(r).toMatchObject({ txs: [], in: 0, out: 0, count: 0, avg: 0, inner: [] });
+  });
+});
+
+describe('_monthlyInOut', () => {
+  it('sums each direction per month and ignores bookings off the axis', () => {
+    const r = _monthlyInOut(
+      [
+        { date: '2026-01-05', type: 'out', amount: 0.1 },
+        { date: '2026-01-20', type: 'out', amount: 0.2 },
+        { date: '2026-02-01', type: 'in', amount: 3 },
+        { date: '2025-12-31', type: 'out', amount: 50 },
+      ],
+      ['2026-01', '2026-02', '2026-03'],
+    );
+    expect(r.out).toEqual([0.3, 0, 0]);
+    expect(r.in).toEqual([0, 3, 0]);
+  });
+});
+
+describe('_sortDetailTxs', () => {
+  const txs = [
+    { id: 1, date: '2026-10-01', amount: 50 },
+    { id: 2, date: '2026-10-03', amount: 5 },
+    { id: 3, date: '2026-10-03', amount: 20 },
+    { id: 4, date: '2026-10-02', amount: 50 },
+  ];
+
+  it('sorts newest first, the larger booking first on the same day', () => {
+    expect(_sortDetailTxs(txs, 'date').map((t) => t.id)).toEqual([3, 2, 4, 1]);
+  });
+
+  it('sorts largest first, the newer booking first on equal amounts', () => {
+    expect(_sortDetailTxs(txs, 'amount').map((t) => t.id)).toEqual([4, 1, 3, 2]);
+  });
+
+  it('returns a copy', () => {
+    const copy = _sortDetailTxs(txs, 'date');
+    expect(copy).not.toBe(txs);
+    expect(txs.map((t) => t.id)).toEqual([1, 2, 3, 4]);
   });
 });

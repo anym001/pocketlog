@@ -101,6 +101,9 @@ const appState = {
       to: '',
     },
     rangeLock: null,
+    // Bumped by every renderReport call; a render whose data arrives after a
+    // newer one started drops itself.
+    renderGen: 0,
     txPool: null,
     searchExitTarget: null,
     // Stepper-label popover for jumping the period further than ±1 (month grid
@@ -115,6 +118,20 @@ const appState = {
     // controls flip these.
     breakdownKind: 'category', // 'category' | 'tag'
     breakdownDir: 'out',
+    // "Detailanalyse": one category or tag over the shared period. kind,
+    // selection (['cat:42'] / ['tag:Urlaub'], same ids as the trend),
+    // pickerOpen and pickerFilter drive the shared entity picker; sort orders
+    // the booking list ('date' | 'amount'); returnTo is the report a drill-down
+    // came from, offered as the back link (null when opened from the menu).
+    detail: {
+      kind: 'category',
+      selection: [],
+      pickerOpen: false,
+      pickerFilter: '',
+      sort: 'date',
+      returnTo: null,
+      summaryTxs: null, // the rendered entity's bookings, re-sorted in place
+    },
   },
 
   // Spending-trend chart state (entity selection + year range + picker UI).

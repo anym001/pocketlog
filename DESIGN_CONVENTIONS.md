@@ -470,10 +470,17 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
   on a month change, and are the only views where ←/→ change the month.
   A budget's period (month, quarter or year) follows the viewed month, so
   past periods are one step back.
-- **Report range control:** five reports share the Monat/Quartal/Jahr/Eigen
+- **Report range control:** six reports share the Monat/Quartal/Jahr/Eigen
   control plus stepper. Trend is the deliberate exception, with a Von/Bis year
   pair: it compares several years month by month, which a single-period
   control cannot express.
+- **Report drill-downs:** a category or tag row in a report (Übersicht,
+  Aufteilung, Prognose) or a month in the Trend opens the **Detailanalyse**
+  for that entity over the period. It shows a back link to the origin
+  report above the title (`#reportBack`, only after a drill-down). The ledger
+  search with its bulk actions is the detail's closing link
+  ("In der Buchungsübersicht zeigen"), not the first stop. Trend and
+  Detailanalyse share one category/tag picker (`_entityPickerMarkup`).
 - **Content scrolls under the bar.** Do not hide/show the bar on scroll
   — it disorients more than it saves space.
 
@@ -545,7 +552,7 @@ Required — no exceptions "because PWA":
   header sync dot carries a glyph per state (✓ synced, ⟳ syncing, ! offline
   or failed; CSS masks on `.sync-dot`).
 - **Charts with both directions:** expenses are solid, income is dashed
-  (`borderDash`). Checked with the dataviz palette validator, `--accent` and
+  (`borderDash`); in bar charts expenses are filled, income outlined. Checked with the dataviz palette validator, `--accent` and
   `--green` are nearly identical for protan readers (ΔE 0.7, target ≥ 8), so
   hue alone never carries which line is which.
 - **Screen-reader text:** no directional references (no "button top right"),
