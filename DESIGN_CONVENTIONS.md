@@ -237,8 +237,8 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | Token      | CSS variable      | Usage                                | Size |
   |---|---|---|---|
   | `display`  | `--fs-display`    | Balance display                      | `2.25rem` (36 px), DM Serif Display |
-  | `title`    | `--fs-title`      | Screen / modal title                 | `1.5rem` (24 px), DM Serif Display |
-  | `title-sm` | `--fs-title-sm`   | Compact title, stat number           | `1.25rem` (20 px), DM Sans 600 |
+  | `title`    | `--fs-title`      | Modal title                          | `1.5rem` (24 px), DM Serif Display |
+  | `title-sm` | `--fs-title-sm`   | View title (DM Serif Display); compact title, stat number (DM Sans 600) | `1.25rem` (20 px) |
   | `headline` | `--fs-headline`   | Card heading                         | `1.125rem` (18 px), DM Sans 600 |
   | `body`     | `--fs-body`       | Body text, form inputs               | `1rem` (16 px), DM Sans 400 |
   | `callout`  | `--fs-callout`    | Secondary buttons, labels            | `0.9375rem` (15 px), DM Sans 500 |
@@ -420,7 +420,7 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
   material identical.
 - **View scaffold (every main view):**
   - **Large title** below the top bar: `#viewTitle` (`.view-title`, DM Serif
-    Display, `--fs-title`), set by `showPanel()` from `PANELS[id].titleKey`
+    Display, `--fs-title-sm`), set by `showPanel()` from `PANELS[id].titleKey`
     (`core.js`). Reports render the same look in their own `.report-head`.
   - **One create action, always the FAB** at the same bottom-right spot. Its
     target and `aria-label` come from `PANELS[id].fab` (default: new
