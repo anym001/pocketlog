@@ -107,7 +107,8 @@ const FAB_ACTIONS = { goals: 'openGoalModal', budgets: 'openBudgetModal', recurr
 Update the FAB's `aria-label` per view ("Ziel erstellen"). The settings panels (categories, tags) keep an inline "add" row as the first row of the grouped list, styled like iOS "＋ Kategorie hinzufügen" in `--accent` text, not as a separate card button.
 **Criterion:** on every list view, the primary create action sits in the same screen position with the same look.
 
-### [ ] 6. Category view: tap and ⋮ do the opposite of what users expect
+### [x] 6. Category view: tap and ⋮ do the opposite of what users expect
+> **Decision 2026-10-12 (product owner):** the row keeps booking into its category, because the view is a quick-entry launcher. Only the ⋮ glyph is replaced by the receipt glyph ("show bookings"), shipped in #247. The swap proposed below is **not** done.
 **Where:** `categories.js` `renderCategoryView()` — the row's `data-action="openModalForCategory"` and `.cat-view-more` (⋮) → `showTransactionsForCategory`.
 **Problem:** Tapping a category opens a *new booking*, and the ⋮ "more" glyph opens a *transaction list*. A vertical ellipsis universally means "more actions" (a menu). Drilling into a list row means "show me what's inside". Users will create accidental bookings.
 **Fix:** Swap the two. Row tap → filtered transactions (drill-down, show a `chevron-right`). The trailing button becomes a `+` icon with `aria-label="Buchung in „{name}" anlegen"`. Swap the two i18n aria keys accordingly.
