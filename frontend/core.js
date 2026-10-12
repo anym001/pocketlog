@@ -140,7 +140,7 @@ try {
 // Which report is currently active (source of truth for panel-charts).
 // Persisted in localStorage so a reload shows the last state.
 const REPORT_STORAGE_KEY = 'pocketlog.report';
-const REPORT_IDS = ['overview', 'course', 'breakdown', 'trend', 'forecast', 'top'];
+const REPORT_IDS = ['overview', 'course', 'breakdown', 'trend', 'detail', 'forecast', 'top'];
 // Report id → i18n key. Resolved through t() at render time so the
 // titles follow the active language.
 const REPORT_TITLE_KEYS = {
@@ -148,6 +148,7 @@ const REPORT_TITLE_KEYS = {
   course: 'reports.course',
   breakdown: 'reports.breakdown',
   trend: 'reports.trend',
+  detail: 'reports.detail',
   forecast: 'reports.forecast',
   top: 'reports.top',
 };
@@ -172,7 +173,7 @@ appState.reports.current = (() => {
   return REPORT_IDS.includes(v) ? v : 'overview';
 })();
 // Chart.js instances per report, kept separate so destroy() never hits a foreign instance.
-const chartInsts = { course: null, breakdown: null, trend: null };
+const chartInsts = { course: null, breakdown: null, trend: null, detail: null };
 
 // ── TREND-STATE ───────────────────────────────────────────────────────────────
 const TREND_STORAGE_KEY = 'pocketlog.trend';
@@ -203,6 +204,24 @@ const TREND_RANGE_KEY = 'pocketlog.trend.range';
         appState.trend.yearTo = r.yearTo;
       }
     }
+  } catch (e) {}
+})();
+// "Detailanalyse" state (appState.reports.detail, state.js): kind, selection
+// and list sort survive a reload; the picker's open state and the drill-down
+// origin do not.
+const DETAIL_STORAGE_KEY = 'pocketlog.detail';
+(function _restoreDetailState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(DETAIL_STORAGE_KEY) || 'null');
+    if (!s) return;
+    const d = appState.reports.detail;
+    if (s.kind === 'category' || s.kind === 'tag') d.kind = s.kind;
+    if (Array.isArray(s.selection)) {
+      d.selection = s.selection
+        .filter((e) => typeof e === 'string' && (e.startsWith('cat:') || e.startsWith('tag:')))
+        .slice(0, 1);
+    }
+    if (s.sort === 'date' || s.sort === 'amount') d.sort = s.sort;
   } catch (e) {}
 })();
 // Per-year transaction cache. Cleared on every write.
@@ -786,6 +805,9 @@ function showPanel(id, opts) {
 function openReport(id) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
   if (id === 'trend') appState.trend.pickerOpen = false;
+  // From the menu the detail report has no drill-down origin to go back to.
+  appState.reports.detail.returnTo = null;
+  appState.reports.detail.pickerOpen = false;
   appState.reports.current = id;
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);

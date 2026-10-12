@@ -354,6 +354,68 @@ function _cumulativeByDay(txs, daysInMonth, lastDay) {
   return { out: run(perDay.out), in: run(perDay.in) };
 }
 
+// Everything the "Detailanalyse" shows for one category or tag (an entity as
+// built by _trendEntityFromId): the matching bookings, their in/out totals,
+// count and average size, and the breakdown one level down — the tags inside
+// a category (plus the untagged remainder) or the categories a tag spans.
+// Like the "Aufteilung" donut, the breakdown shows one direction: the
+// entity's dominant one (`dir`), so a refund never inflates a spending row.
+// A booking with two tags counts towards both tag rows.
+function _detailSummary(txs, entity) {
+  const matched = txs.filter((t) => _trendMatchesEntity(t, entity));
+  const totals = _sumByType(matched);
+  const count = matched.length;
+  const avg = count ? (totals.in + totals.out) / count : 0;
+  const dir = totals.out >= totals.in ? 'out' : 'in';
+  let inner;
+  if (entity.kind === 'category') {
+    inner = _totalsByTag(matched, dir).map((r) => ({
+      kind: 'tag',
+      name: r.name,
+      amount: r.amount,
+    }));
+    let untagged = 0;
+    for (const t of matched) {
+      if (t.type === dir && !(Array.isArray(t.tags) && t.tags.length)) untagged += t.amount;
+    }
+    if (inner.length && untagged > 0) inner.push({ kind: 'untagged', amount: untagged });
+  } else {
+    inner = _totalsByCategory(matched, dir).map((r) => ({
+      kind: 'category',
+      catId: r.catId,
+      amount: r.amount,
+    }));
+  }
+  return { txs: matched, in: totals.in, out: totals.out, count, avg, dir, inner };
+}
+
+// In/out totals per month bucket ('YYYY-MM', see _bucketAxis) for the
+// "Detailanalyse" bar chart, rounded to cents (display only). Bookings outside
+// the axis are ignored.
+function _monthlyInOut(txs, bucketKeys) {
+  const slots = new Map(bucketKeys.map((k) => [k, { in: 0, out: 0 }]));
+  for (const t of txs) {
+    const slot = slots.get(String(t.date).slice(0, 7));
+    if (slot && (t.type === 'in' || t.type === 'out')) slot[t.type] += Number(t.amount);
+  }
+  const cents = (v) => Math.round(v * 100) / 100;
+  return {
+    in: bucketKeys.map((k) => cents(slots.get(k).in)),
+    out: bucketKeys.map((k) => cents(slots.get(k).out)),
+  };
+}
+
+// Booking list order for the "Detailanalyse": 'date' = newest first,
+// 'amount' = largest first (either direction). Ties fall back to the other
+// key, then the id, so the order is stable across renders. Returns a copy.
+function _sortDetailTxs(txs, mode) {
+  const byDate = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+  const byAmount = (a, b) => b.amount - a.amount;
+  const byId = (a, b) => (b.id || 0) - (a.id || 0);
+  const [first, second] = mode === 'amount' ? [byAmount, byDate] : [byDate, byAmount];
+  return [...txs].sort((a, b) => first(a, b) || second(a, b) || byId(a, b));
+}
+
 // Node/Vitest only — the browser classic-script load skips this.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -375,5 +437,8 @@ if (typeof module !== 'undefined' && module.exports) {
     _monthlyTotals,
     _trendStats,
     _cumulativeByDay,
+    _detailSummary,
+    _monthlyInOut,
+    _sortDetailTxs,
   };
 }

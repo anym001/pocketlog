@@ -78,8 +78,8 @@ connections at all.
   tags can be assigned to a rule so every auto-booked transaction inherits them.
   A small icon marks auto-booked transactions in the list; a notification reports
   how many were added since the last visit
-- **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view
-  and forecast
+- **Reports & Charts** — monthly/yearly overview, category and tag reports, trend view,
+  a detail analysis of one category or tag over any period, and forecast
 - **Bulk actions** — select multiple transactions at once to reassign a category, add or
   remove tags, or delete them in one step
 - **Search** — full-text, category, and tag filtering in the transaction list

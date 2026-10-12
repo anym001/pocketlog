@@ -1,5 +1,5 @@
 // Reports: Chart.js wiring, range/data plumbing and the report renderers
-// (overview, month, year, categories, tags, trend, forecast, top).
+// (overview, course, breakdown, trend, detail, forecast, top).
 // Classic script — see index.html for load order.
 
 // ── CHARTS ────────────────────────────────────────────────────────────────────
@@ -316,6 +316,7 @@ async function loadRangeTxs(from, to) {
 
 async function renderReport(id = appState.reports.current) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
+  const gen = ++appState.reports.renderGen;
   appState.reports.current = id;
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
@@ -323,12 +324,17 @@ async function renderReport(id = appState.reports.current) {
   document.body.setAttribute('data-report', id);
   if (id === 'trend') {
     await _ensureTrendDefaultRange();
+    if (gen !== appState.reports.renderGen) return;
   }
   // No report pins the period any more — "course" adapts its granularity to
   // whatever the picker is set to, so the picker stays fully free everywhere.
   setRangeLock(null);
   updatePickerUI();
   document.getElementById('reportTitle').textContent = reportTitle(id);
+  // A drill-down into the detail report offers the way back to its origin.
+  const returnTo = id === 'detail' ? appState.reports.detail.returnTo : null;
+  document.getElementById('reportBack').hidden = !returnTo;
+  if (returnTo) document.getElementById('reportBackLabel').textContent = reportTitle(returnTo);
 
   Object.keys(chartInsts).forEach((k) => {
     if (chartInsts[k]) {
@@ -345,6 +351,9 @@ async function renderReport(id = appState.reports.current) {
     id === 'trend' ? `${appState.trend.yearFrom}-01-01` : appState.reports.range.from;
   const rangeTo = id === 'trend' ? `${appState.trend.yearTo}-12-31` : appState.reports.range.to;
   const txs = await loadRangeTxs(rangeFrom, rangeTo);
+  // A newer render (another report or period picked while this one loaded)
+  // owns the body now; drawing this one would overwrite it.
+  if (gen !== appState.reports.renderGen) return;
   appState.reports.txPool = txs;
   document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
 
@@ -352,6 +361,7 @@ async function renderReport(id = appState.reports.current) {
   else if (id === 'course') await renderReportCourse(body, txs);
   else if (id === 'breakdown') renderReportBreakdown(body, txs);
   else if (id === 'trend') await renderReportTrend(body, txs);
+  else if (id === 'detail') renderReportDetail(body, txs);
   else if (id === 'forecast') await renderReportForecast(body, txs);
   else if (id === 'top') renderReportTop(body, txs);
 }
@@ -366,7 +376,7 @@ function _catRowMarkup(catId, amount, max, opts = {}) {
   if (!cat) return '';
   const pct = max > 0 ? (amount / max) * 100 : 0;
   const drill = opts.drillDown
-    ? `role="button" tabindex="0" data-action="drillDownCategory" data-args="[${catId}]"`
+    ? `role="button" tabindex="0" data-action="openDetail" data-args='["cat:${catId}"]'`
     : '';
   const amtClass = opts.positive ? 'cat-amount is-positive' : 'cat-amount';
   return `<div class="cat-row" ${drill}>
@@ -477,13 +487,6 @@ function _courseChartScales(c) {
 // to carry identity alone.
 function _renderCourseDaily(body, txs) {
   const a = appState.reports.range.anchor;
-  const days = _daysInMonth(a.y, a.m);
-  const labels = Array.from({ length: days }, (_, i) => i + 1);
-  const now = new Date();
-  const thisMonth = a.y === now.getFullYear() && a.m === now.getMonth();
-  const isFuture = a.y > now.getFullYear() || (a.y === now.getFullYear() && a.m > now.getMonth());
-  const lastDay = isFuture ? 0 : thisMonth ? now.getDate() : days;
-  const cum = _cumulativeByDay(txs, days, lastDay);
   const totals = _sumByType(txs);
 
   body.innerHTML = `
@@ -493,6 +496,22 @@ function _renderCourseDaily(body, txs) {
           </div>
           ${_courseKpisMarkup(totals)}
         `;
+  chartInsts.course = _cumulativeChart(document.getElementById('courseChart'), txs, a, {
+    out: true,
+    in: true,
+  });
+}
+
+// Running expense/income lines across the days of the anchor month (shared by
+// "Verlauf" and the detail report). `dirs` picks the lines to draw.
+function _cumulativeChart(canvas, txs, a, dirs) {
+  const days = _daysInMonth(a.y, a.m);
+  const labels = Array.from({ length: days }, (_, i) => i + 1);
+  const now = new Date();
+  const thisMonth = a.y === now.getFullYear() && a.m === now.getMonth();
+  const isFuture = a.y > now.getFullYear() || (a.y === now.getFullYear() && a.m > now.getMonth());
+  const lastDay = isFuture ? 0 : thisMonth ? now.getDate() : days;
+  const cum = _cumulativeByDay(txs, days, lastDay);
 
   const c = getChartColors();
   const line = (label, data, color, dash) => ({
@@ -508,23 +527,22 @@ function _renderCourseDaily(body, txs) {
     tension: 0,
     spanGaps: false,
   });
+  const datasets = [];
+  if (dirs.out) datasets.push(line(tr('reports.expenses'), cum.out, cssColor('--accent'), []));
+  if (dirs.in) datasets.push(line(tr('reports.income'), cum.in, cssColor('--green'), [6, 4]));
   const scales = _courseChartScales(c);
   scales.x.ticks = { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 };
   scales.y.beginAtZero = true;
-  chartInsts.course = new Chart(document.getElementById('courseChart'), {
+  return new Chart(canvas, {
     type: 'line',
-    data: {
-      labels,
-      datasets: [
-        line(tr('reports.expenses'), cum.out, cssColor('--accent'), []),
-        line(tr('reports.income'), cum.in, cssColor('--green'), [6, 4]),
-      ],
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       plugins: {
+        // One line needs no legend: the report names what it shows.
         legend: {
+          display: datasets.length > 1,
           labels: {
             color: c.text,
             font: { family: 'DM Sans', size: 11 },
@@ -725,6 +743,8 @@ function _breakdownCategories(body, txs, controls) {
   });
 }
 
+// The ledger search filtered to one category or tag over the report range —
+// the detail report's "show in the ledger" link, where bulk actions live.
 async function drillDownCategory(catId, fromIso, toIso) {
   appState.reports.searchExitTarget = 'charts';
   appState.nav.categoryFilterId = catId;
@@ -811,10 +831,16 @@ function _breakdownTags(body, txs, controls) {
     },
   });
 
-  body.querySelectorAll('[data-tag-drill]').forEach((el) => {
-    const name = el.dataset.tagDrill;
-    el.addEventListener('click', () => drillDownTag(name));
-    el.addEventListener('keydown', (ev) => handleRowActivate(ev, () => drillDownTag(name)));
+  _bindTagDrill(body);
+}
+
+// Tag rows carry their name in data-tag-drill (bound here rather than through
+// data-args: a tag name may hold any character). A tap opens the tag's detail.
+function _bindTagDrill(scope) {
+  scope.querySelectorAll('[data-tag-drill]').forEach((el) => {
+    const id = `tag:${el.dataset.tagDrill}`;
+    el.addEventListener('click', () => openDetail(id));
+    el.addEventListener('keydown', (ev) => handleRowActivate(ev, () => openDetail(id)));
   });
 }
 
@@ -827,6 +853,408 @@ async function drillDownTag(name, fromIso, toIso) {
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);
   applySearch();
+}
+
+// ── REPORTS — ENTITY PICKER ───────────────────────────────────────────────────
+// One category-or-tag picker shared by the trend and the detail report: a
+// Kategorien|Tags toggle, the active entity with "Wechseln", and a searchable
+// chip list. `key` names the owner; its state object carries kind, selection
+// (['cat:42'] / ['tag:Urlaub']), pickerOpen and pickerFilter. Element ids are
+// `${key}ActiveRow`, `${key}PickerOpen` and `${key}PickerChips`.
+const _ENTITY_PICKERS = {
+  trend: {
+    state: () => appState.trend,
+    persist: () => _persistTrendState(),
+    selectLabel: 'reports.trendSelect',
+    sub: 'reports.largestItem',
+  },
+  detail: {
+    state: () => appState.reports.detail,
+    persist: () => _persistDetailState(),
+    selectLabel: 'reports.detailSelect',
+    sub: null,
+  },
+};
+
+function _entityChipMarkup(id, name, color, selected) {
+  const sel = selected ? 'is-selected' : '';
+  return `<button type="button" class="trend-chip ${sel}" data-entity-id="${_escAttr(id)}">
+          <span class="dot" style="background:${color}"></span>${_escText(name)}
+        </button>`;
+}
+
+function _entityPickerMarkup(key, txs, selected) {
+  const cfg = _ENTITY_PICKERS[key];
+  const st = cfg.state();
+  const options = _trendPickerOptions(txs, st.kind, selected && selected.id, st.pickerFilter);
+  const chips = options
+    .map((o) => _entityChipMarkup(o.id, o.label, o.color, selected && o.id === selected.id))
+    .join('');
+  const isCat = st.kind === 'category';
+  const searchPlaceholder = isCat ? tr('reports.searchCategory') : tr('reports.searchTag');
+  // Empty-state copy for .tag-picker-chips:empty::after, which reads data-empty.
+  const emptyLabel = isCat ? tr('reports.searchNoneCategory') : tr('reports.searchNoneTag');
+
+  const segmented = `<div class="segmented" role="tablist" aria-label="${_escAttr(tr(cfg.selectLabel))}">
+            <button type="button" role="tab" aria-selected="${isCat}" class="${isCat ? 'is-active' : ''}" data-action="setEntityKind" data-args='["${key}", "category"]'>${tr('reports.kindCategories')}</button>
+            <button type="button" role="tab" aria-selected="${!isCat}" class="${!isCat ? 'is-active' : ''}" data-action="setEntityKind" data-args='["${key}", "tag"]'>${tr('reports.kindTags')}</button>
+          </div>`;
+
+  const active = selected
+    ? `<div class="trend-active-row" id="${key}ActiveRow"${st.pickerOpen ? ' hidden' : ''}>
+              <div class="trend-active-info">
+                <span class="trend-active-dot" style="background:${selected.color}"></span>
+                <div class="trend-active-text">
+                  <div class="trend-active-label">${_escText(selected.name)}</div>
+                  ${cfg.sub ? `<span class="trend-active-sub">${tr(cfg.sub)}</span>` : ''}
+                </div>
+              </div>
+              <button type="button" class="trend-switch-btn" data-action="toggleEntityPicker" data-args='["${key}", true]'>${tr('reports.switch')}</button>
+            </div>`
+    : '';
+
+  const open = `<div class="trend-picker-open" id="${key}PickerOpen"${st.pickerOpen || !selected ? '' : ' hidden'}>
+            <div class="search-wrap">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-search" /></svg>
+              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(st.pickerFilter)}" data-action-input="filterEntityChips" data-args='["${key}", "@value"]' autocomplete="off" />
+            </div>
+            <div class="tag-picker-chips" id="${key}PickerChips" data-empty="${_escAttr(emptyLabel)}">${chips}</div>
+          </div>`;
+
+  return { segmented, active, open };
+}
+
+function setEntityKind(key, kind) {
+  const cfg = _ENTITY_PICKERS[key];
+  if (!cfg || (kind !== 'category' && kind !== 'tag')) return;
+  const st = cfg.state();
+  if (st.kind === kind) return;
+  st.kind = kind;
+  st.selection = [];
+  st.pickerOpen = false;
+  st.pickerFilter = '';
+  cfg.persist();
+  renderReport();
+}
+
+function selectEntity(key, id) {
+  const cfg = _ENTITY_PICKERS[key];
+  if (!cfg) return;
+  const st = cfg.state();
+  st.selection = [id];
+  st.pickerOpen = false;
+  st.pickerFilter = '';
+  cfg.persist();
+  renderReport();
+}
+
+function toggleEntityPicker(key, open) {
+  const cfg = _ENTITY_PICKERS[key];
+  if (!cfg) return;
+  const st = cfg.state();
+  st.pickerOpen = open === undefined ? !st.pickerOpen : !!open;
+  const activeRow = document.getElementById(`${key}ActiveRow`);
+  const picker = document.getElementById(`${key}PickerOpen`);
+  if (activeRow) activeRow.hidden = st.pickerOpen;
+  if (picker) picker.hidden = !st.pickerOpen;
+  if (st.pickerOpen && picker) {
+    const input = picker.querySelector('input');
+    if (input) input.focus();
+  }
+}
+
+function filterEntityChips(key, value) {
+  const cfg = _ENTITY_PICKERS[key];
+  if (!cfg) return;
+  const st = cfg.state();
+  st.pickerFilter = value;
+  const container = document.getElementById(`${key}PickerChips`);
+  if (!container) return;
+  const selectedId = st.selection[0] || null;
+  const options = _trendPickerOptions(appState.reports.txPool || [], st.kind, selectedId, value);
+  container.innerHTML = options
+    .map((o) => _entityChipMarkup(o.id, o.label, o.color, selectedId && o.id === selectedId))
+    .join('');
+  _bindEntityChips(container, key);
+}
+
+// Chips carry their id in data-entity-id (bound here rather than through
+// data-args: a tag name may hold any character).
+function _bindEntityChips(scope, key) {
+  scope.querySelectorAll('[data-entity-id]').forEach((el) => {
+    const pick = () => selectEntity(key, el.dataset.entityId);
+    el.addEventListener('click', pick);
+    el.addEventListener('keydown', (ev) => handleRowActivate(ev, pick));
+  });
+}
+
+// ── REPORTS — DETAIL ──────────────────────────────────────────────────────────
+// "Detailanalyse": one category or tag over the shared period — totals, its
+// course, the breakdown one level down and every booking. The drill-down
+// target of the other reports; the ledger search (with bulk actions) is one
+// link further.
+
+function _persistDetailState() {
+  const d = appState.reports.detail;
+  try {
+    localStorage.setItem(
+      DETAIL_STORAGE_KEY,
+      JSON.stringify({ kind: d.kind, selection: d.selection, sort: d.sort }),
+    );
+  } catch (e) {}
+}
+
+// Opens the detail report for an entity id ('cat:42' / 'tag:Urlaub') over the
+// current period. From another report it remembers that report for the back
+// link; inside the detail report (a breakdown row) the origin stays.
+function openDetail(id) {
+  if (!_trendEntityFromId(id)) return;
+  const d = appState.reports.detail;
+  if (appState.reports.current !== 'detail') d.returnTo = appState.reports.current;
+  d.kind = id.startsWith('cat:') ? 'category' : 'tag';
+  d.selection = [id];
+  d.pickerOpen = false;
+  d.pickerFilter = '';
+  _persistDetailState();
+  renderReport('detail');
+  _scrollReportTop();
+}
+
+function detailBack() {
+  const to = appState.reports.detail.returnTo;
+  appState.reports.detail.returnTo = null;
+  renderReport(REPORT_IDS.includes(to) ? to : 'overview');
+  _scrollReportTop();
+}
+
+function _scrollReportTop() {
+  const panel = document.getElementById('panel-charts');
+  if (panel) panel.scrollIntoView({ block: 'start' });
+}
+
+// A tap on a trend month: that month becomes the period, then the detail.
+function _drillTrendMonth(id, bucketKey) {
+  _narrowToMonth(bucketKey, { skipRender: true });
+  openDetail(id);
+}
+
+function setDetailSort(mode) {
+  if (mode !== 'date' && mode !== 'amount') return;
+  const d = appState.reports.detail;
+  if (d.sort === mode) return;
+  d.sort = mode;
+  _persistDetailState();
+  const list = document.getElementById('detailTxList');
+  if (list && d.summaryTxs)
+    list.innerHTML = _sortDetailTxs(d.summaryTxs, mode).map(_txRowMarkup).join('');
+  document.querySelectorAll('#detailSort button').forEach((b) => {
+    const on = b.dataset.sort === mode;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function detailToLedger() {
+  const entity = _trendEntityFromId(appState.reports.detail.selection[0]);
+  if (!entity) return;
+  if (entity.kind === 'category') drillDownCategory(entity.catId);
+  else drillDownTag(entity.name);
+}
+
+function _detailKpisMarkup(sum) {
+  const card = (label, value, cls) =>
+    `<div class="summary-card"><div class="label">${label}</div><div class="amount ${cls}">${value}</div></div>`;
+  const cards = [];
+  if (sum.out > 0) cards.push(card(tr('reports.expenses'), fmtCurrency(sum.out), 'negative'));
+  if (sum.in > 0) cards.push(card(tr('reports.income'), fmtCurrency(sum.in), 'positive'));
+  if (sum.out > 0 && sum.in > 0) {
+    const bal = sum.in - sum.out;
+    cards.push(
+      card(
+        tr('reports.balance'),
+        fmtSignedCurrency(bal, _netDirection(bal)),
+        bal >= 0 ? 'positive' : 'negative',
+      ),
+    );
+  }
+  cards.push(card(tr('reports.avgPerTx'), fmtCurrency(sum.avg), ''));
+  return `<div class="report-kpis">${cards.join('')}</div>`;
+}
+
+function _detailInnerMarkup(sum, entity) {
+  if (!sum.inner.length) return '';
+  const max = sum.inner[0].amount;
+  const positive = sum.dir === 'in';
+  const rows = sum.inner
+    .map((r) => {
+      if (r.kind === 'category')
+        return _catRowMarkup(r.catId, r.amount, max, { drillDown: true, positive });
+      if (r.kind === 'tag')
+        return _tagRowMarkup(r.name, r.amount, max, { drillDown: true, positive });
+      // Untagged remainder: same row, no drill target.
+      const pct = max > 0 ? (r.amount / max) * 100 : 0;
+      return `<div class="cat-row">
+          <div class="cat-icon" style="--cat-color:var(--text3)">#</div>
+          <div class="cat-info">
+            <div class="cat-name">${tr('reports.untagged')}</div>
+            <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:var(--text3)"></div></div>
+          </div>
+          <div class="${positive ? 'cat-amount is-positive' : 'cat-amount'}">${fmtCurrency(r.amount)}</div>
+        </div>`;
+    })
+    .join('');
+  const titleKey =
+    entity.kind === 'category'
+      ? positive
+        ? 'reports.incomeByTag'
+        : 'reports.expensesByTag'
+      : positive
+        ? 'reports.incomeByCategory'
+        : 'reports.expensesByCategory';
+  return `<div class="report-section">
+            <h3 class="report-section-title">${tr(titleKey)}</h3>
+            ${rows}
+          </div>`;
+}
+
+function _detailListMarkup(sum) {
+  const sort = appState.reports.detail.sort;
+  const btn = (mode, key) =>
+    `<button type="button" data-sort="${mode}" aria-pressed="${sort === mode}" class="${sort === mode ? 'is-active' : ''}" data-action="setDetailSort" data-args='["${mode}"]'>${tr(key)}</button>`;
+  return `<div class="report-section">
+            <div class="report-section-head">
+              <h3 class="report-section-title">${tr('reports.detailBookings')}</h3>
+              <div class="segmented is-compact" id="detailSort" role="group" aria-label="${_escAttr(tr('reports.sortBy'))}">${btn('date', 'reports.sortDate')}${btn('amount', 'reports.sortAmount')}</div>
+            </div>
+            <div id="detailTxList">${_sortDetailTxs(sum.txs, sort).map(_txRowMarkup).join('')}</div>
+            <button type="button" class="report-link" data-action="detailToLedger">
+              <span>${tr('reports.showInLedger')}</span>
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-right" /></svg>
+            </button>
+          </div>`;
+}
+
+function renderReportDetail(body, txs) {
+  const d = appState.reports.detail;
+  let selected = d.selection[0] ? _trendEntityFromId(d.selection[0]) : null;
+  if (selected && selected.kind !== d.kind) selected = null;
+  if (!selected) {
+    // First open (or the entity is gone): the period's largest one.
+    const def = _pickDefaultTrendEntity(txs, d.kind);
+    d.selection = def ? [def] : [];
+    if (def) _persistDetailState();
+    selected = def ? _trendEntityFromId(def) : null;
+  }
+  const picker = _entityPickerMarkup('detail', txs, selected);
+  const controls = `<div class="report-section">${picker.segmented}${picker.active}${picker.open}</div>`;
+  const sum = selected ? _detailSummary(txs, selected) : null;
+  d.summaryTxs = sum ? sum.txs : null;
+  // The subtitle counts the entity's bookings, not the whole period's.
+  document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(sum ? sum.count : 0);
+
+  if (!sum || !sum.count) {
+    body.innerHTML = `${controls}<div class="report-section">${_emptyState(tr('reports.noTransactions'))}</div>`;
+    _bindEntityChips(body, 'detail');
+    return;
+  }
+
+  const range = appState.reports.range;
+  const daily = range.kind === 'month';
+  const summary = tr('reports.detailSummary', {
+    label: _escText(selected.name),
+    income: fmtCurrency(sum.in),
+    expenses: fmtCurrency(sum.out),
+  });
+  body.innerHTML = `
+          ${controls}
+          ${_detailKpisMarkup(sum)}
+          <div class="report-section">
+            <div class="report-canvas-wrap"><canvas id="detailChart" role="img" aria-labelledby="reportTitle" aria-describedby="detailChartSummary"></canvas></div>
+            <p id="detailChartSummary" class="visually-hidden">${summary}</p>
+          </div>
+          ${_detailInnerMarkup(sum, selected)}
+          ${_detailListMarkup(sum)}
+        `;
+  _bindEntityChips(body, 'detail');
+  _bindTagDrill(body);
+
+  const canvas = document.getElementById('detailChart');
+  const dirs = { out: sum.out > 0, in: sum.in > 0 };
+  if (daily) {
+    chartInsts.detail = _cumulativeChart(canvas, sum.txs, range.anchor, dirs);
+    return;
+  }
+  // Wider periods: one bar pair per month. Expenses filled, income outlined —
+  // the two direction colours sit too close for colour-blind readers to carry
+  // identity alone. A tap on a month narrows the period to it.
+  const bucketKeys = _bucketAxis(range.from, range.to, 'month');
+  const monthly = _monthlyInOut(sum.txs, bucketKeys);
+  const c = getChartColors();
+  const datasets = [];
+  if (dirs.out) {
+    datasets.push({
+      label: tr('reports.expenses'),
+      data: monthly.out,
+      backgroundColor: cssColor('--accent'),
+      borderColor: cssColor('--accent'),
+      borderWidth: 0,
+      borderRadius: 4,
+      maxBarThickness: 28,
+    });
+  }
+  if (dirs.in) {
+    datasets.push({
+      label: tr('reports.income'),
+      data: monthly.in,
+      backgroundColor: cssColor('--green', 0.12),
+      borderColor: cssColor('--green'),
+      borderWidth: 2,
+      borderRadius: 4,
+      maxBarThickness: 28,
+    });
+  }
+  const scales = _courseChartScales(c);
+  scales.x.ticks = { ...scales.x.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 };
+  scales.x.grid = { display: false };
+  scales.y.beginAtZero = true;
+  chartInsts.detail = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: bucketKeys.map((k) => _bucketLabel(k, 'month')), datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      onClick: (_evt, items) => {
+        if (items.length) _narrowToMonth(bucketKeys[items[0].index]);
+      },
+      onHover: (evt, items) => {
+        evt.native.target.style.cursor = items.length ? 'pointer' : 'default';
+      },
+      plugins: {
+        legend: {
+          display: datasets.length > 1,
+          labels: { color: c.text, font: { family: 'DM Sans', size: 11 } },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => (items.length ? _trendPeakLabel(bucketKeys[items[0].dataIndex]) : ''),
+            label: (ctx) => `${ctx.dataset.label}: ${fmtCurrency(ctx.parsed.y)}`,
+          },
+        },
+      },
+      scales,
+    },
+  });
+}
+
+// Makes the month of a chart bucket ('YYYY-MM') the report period — a tap on
+// a month in the detail bars, or the first step of a trend drill-down.
+function _narrowToMonth(bucketKey, opts = {}) {
+  const [y, m] = bucketKey.split('-').map((v) => parseInt(v, 10));
+  const a = appState.reports.range.anchor;
+  a.y = y;
+  a.m = m - 1;
+  a.q = Math.floor(a.m / 3);
+  setRangeKind('month', opts);
 }
 
 // ── REPORTS — TREND ───────────────────────────────────────────────────────────
@@ -954,13 +1382,6 @@ function _trendPeakLabel(key) {
   return `${appState.calendar.months[parseInt(m, 10) - 1]} ${y}`;
 }
 
-function _trendChipMarkup(id, name, color, selected) {
-  const sel = selected ? 'is-selected' : '';
-  return `<button type="button" class="trend-chip ${sel}" data-trend-id="${_escAttr(id)}">
-          <span class="dot" style="background:${color}"></span>${_escText(name)}
-        </button>`;
-}
-
 function _trendPickerOptions(txs, kind, selectedId, filter) {
   const options = [];
   if (kind === 'category') {
@@ -1031,54 +1452,6 @@ function _trendStatsMarkup(stats) {
   return `<div class="trend-stats">${meanCard}${peakCard}${yoyCard}</div>`;
 }
 
-function setTrendKind(kind) {
-  if (kind !== 'category' && kind !== 'tag') return;
-  if (appState.trend.kind === kind) return;
-  appState.trend.kind = kind;
-  appState.trend.selection = [];
-  appState.trend.pickerOpen = false;
-  appState.trend.pickerFilter = '';
-  _persistTrendState();
-  renderReport();
-}
-
-function selectTrendEntity(id) {
-  appState.trend.selection = [id];
-  appState.trend.pickerOpen = false;
-  appState.trend.pickerFilter = '';
-  _persistTrendState();
-  renderReport();
-}
-
-function toggleTrendPicker(open) {
-  appState.trend.pickerOpen = open === undefined ? !appState.trend.pickerOpen : !!open;
-  const activeRow = document.getElementById('trendActiveRow');
-  const picker = document.getElementById('trendPickerOpen');
-  if (activeRow) activeRow.hidden = appState.trend.pickerOpen;
-  if (picker) picker.hidden = !appState.trend.pickerOpen;
-  if (appState.trend.pickerOpen && picker) {
-    const input = picker.querySelector('input');
-    if (input) input.focus();
-  }
-}
-
-function filterTrendChips(value) {
-  appState.trend.pickerFilter = value;
-  const container = document.getElementById('trendPickerChips');
-  if (!container) return;
-  const selectedId = appState.trend.selection[0] || null;
-  const options = _trendPickerOptions(
-    appState.reports.txPool || [],
-    appState.trend.kind,
-    selectedId,
-    value,
-  );
-  container.innerHTML = options
-    .map((o) => _trendChipMarkup(o.id, o.label, o.color, selectedId && o.id === selectedId))
-    .join('');
-  _bindTrendChipHandlers(container);
-}
-
 async function setTrendYear(field, value) {
   const today = new Date().getFullYear();
   const minYear = appState.trend.earliestTxDate
@@ -1138,56 +1511,15 @@ async function renderReportTrend(body, txs) {
             </label>
           </div>`;
 
-  const options = _trendPickerOptions(
-    txs,
-    appState.trend.kind,
-    selected && selected.id,
-    appState.trend.pickerFilter,
-  );
-  const chipsMarkup = options
-    .map((o) => _trendChipMarkup(o.id, o.label, o.color, selected && o.id === selected.id))
-    .join('');
-  const searchPlaceholder =
-    appState.trend.kind === 'category' ? tr('reports.searchCategory') : tr('reports.searchTag');
-  // Empty-state copy for .tag-picker-chips:empty::after, which reads data-empty.
-  const emptyLabel =
-    appState.trend.kind === 'category'
-      ? tr('reports.searchNoneCategory')
-      : tr('reports.searchNoneTag');
-
-  const segmentedMarkup = `<div class="segmented" role="tablist" aria-label="${_escAttr(tr('reports.trendSelect'))}">
-            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'category'}" class="${appState.trend.kind === 'category' ? 'is-active' : ''}" data-action="setTrendKind" data-args='["category"]'>${tr('reports.kindCategories')}</button>
-            <button type="button" role="tab" aria-selected="${appState.trend.kind === 'tag'}" class="${appState.trend.kind === 'tag' ? 'is-active' : ''}" data-action="setTrendKind" data-args='["tag"]'>${tr('reports.kindTags')}</button>
-          </div>`;
-
-  const activeMarkup = selected
-    ? `<div class="trend-active-row" id="trendActiveRow"${appState.trend.pickerOpen ? ' hidden' : ''}>
-              <div class="trend-active-info">
-                <span class="trend-active-dot" style="background:${selected.color}"></span>
-                <div class="trend-active-text">
-                  <div class="trend-active-label">${_escText(selected.name)}</div>
-                  <span class="trend-active-sub">${tr('reports.largestItem')}</span>
-                </div>
-              </div>
-              <button type="button" class="trend-switch-btn" data-action="toggleTrendPicker" data-args="[true]">${tr('reports.switch')}</button>
-            </div>`
-    : '';
-
-  const pickerOpenMarkup = `<div class="trend-picker-open" id="trendPickerOpen"${appState.trend.pickerOpen || !selected ? '' : ' hidden'}>
-            <div class="search-wrap">
-              <svg class="ui-icon" aria-hidden="true"><use href="#icon-search" /></svg>
-              <input type="search" placeholder="${searchPlaceholder}" value="${_escAttr(appState.trend.pickerFilter)}" data-action-input="filterTrendChips" data-args='["@value"]' autocomplete="off" />
-            </div>
-            <div class="tag-picker-chips" id="trendPickerChips" data-empty="${_escAttr(emptyLabel)}">${chipsMarkup}</div>
-          </div>`;
+  const picker = _entityPickerMarkup('trend', txs, selected);
 
   if (!selected) {
     body.innerHTML = `
             ${yearPickerMarkup}
-            <div class="report-section">${segmentedMarkup}${pickerOpenMarkup}</div>
+            <div class="report-section">${picker.segmented}${picker.open}</div>
             <div class="report-section">${_emptyState(appState.trend.kind === 'category' ? tr('reports.noCategoriesInRange') : tr('reports.noTagsInRange'))}</div>
           `;
-    _bindTrendChipHandlers(body);
+    _bindEntityChips(body, 'trend');
     return;
   }
 
@@ -1209,14 +1541,14 @@ async function renderReportTrend(body, txs) {
 
   body.innerHTML = `
           ${yearPickerMarkup}
-          <div class="report-section">${segmentedMarkup}${activeMarkup}${pickerOpenMarkup}</div>
+          <div class="report-section">${picker.segmented}${picker.active}${picker.open}</div>
           <div class="report-section">
             <div class="report-canvas-wrap"><canvas id="trendChart" role="img" aria-labelledby="reportTitle" aria-describedby="trendChartSummary"></canvas></div>
             <p id="trendChartSummary" class="visually-hidden" aria-live="polite">${tr('reports.trendSummary', { label: _escText(series.label), mean: fmtCurrency(stats?.mean || 0) })}</p>
           </div>
           ${_trendStatsMarkup(stats)}
         `;
-  _bindTrendChipHandlers(body);
+  _bindEntityChips(body, 'trend');
 
   const c = getChartColors();
   const datasets = [
@@ -1255,6 +1587,13 @@ async function renderReportTrend(body, txs) {
     options: {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
+      // A tap on a month opens the entity's detail for that month.
+      onClick: (_evt, items) => {
+        if (items.length) _drillTrendMonth(selected.id, bucketKeys[items[0].index]);
+      },
+      onHover: (evt, items) => {
+        evt.native.target.style.cursor = items.length ? 'pointer' : 'default';
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -1282,15 +1621,6 @@ async function renderReportTrend(body, txs) {
         },
       },
     },
-  });
-}
-
-function _bindTrendChipHandlers(scope) {
-  scope.querySelectorAll('[data-trend-id]').forEach((el) => {
-    el.addEventListener('click', () => selectTrendEntity(el.dataset.trendId));
-    el.addEventListener('keydown', (ev) =>
-      handleRowActivate(ev, () => selectTrendEntity(el.dataset.trendId)),
-    );
   });
 }
 
@@ -1417,7 +1747,7 @@ async function renderReportForecast(body, rangeTxs) {
                     if (!cat) return '';
                     const s = statusFor(r.current, r.avg);
                     return `<tr class="is-clickable" role="button" tabindex="0"
-                    data-action="drillDownCategory" data-args='[${r.catId}, "${rangeFromIso}", "${rangeToIso}"]'>
+                    data-action="openDetail" data-args='["cat:${r.catId}"]'>
                     <td><span class="forecast-cat-name"><span class="forecast-cat-dot" style="background:${cat.color}"></span>${_escText(cat.name)}</span></td>
                     <td class="num">${fmtCurrency(r.avg)}</td>
                     <td class="num">${fmtCurrency(r.current)}</td>

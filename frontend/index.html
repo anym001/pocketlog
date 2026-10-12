@@ -425,6 +425,7 @@
             <button class="drawer-nav-item" data-action="openReport" data-args='["course"]' data-i18n="reports.course">Verlauf</button>
             <button class="drawer-nav-item" data-action="openReport" data-args='["breakdown"]' data-i18n="reports.breakdown">Aufteilung</button>
             <button class="drawer-nav-item" data-action="openReport" data-args='["trend"]' data-i18n="reports.trend">Trend</button>
+            <button class="drawer-nav-item" data-action="openReport" data-args='["detail"]' data-i18n="reports.detail">Detailanalyse</button>
             <button class="drawer-nav-item" data-action="openReport" data-args='["forecast"]' data-i18n="reports.forecast">Ausgaben-Prognose</button>
             <button class="drawer-nav-item" data-action="openReport" data-args='["top"]' data-i18n="reports.top">Größte Buchungen</button>
           </nav>
@@ -1038,6 +1039,11 @@
     <!-- CHARTS PANEL -->
     <div class="panel" id="panel-charts">
       <div class="report-head">
+        <!-- Back to the report a drill-down came from (Detailanalyse only). -->
+        <button type="button" class="report-back" id="reportBack" data-action="detailBack" hidden>
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          <span id="reportBackLabel"></span>
+        </button>
         <h2 class="report-title" id="reportTitle" data-i18n="reports.overview">Übersicht</h2>
         <p class="report-subtitle" id="reportRangeLabel" aria-live="polite"></p>
       </div>
