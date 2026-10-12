@@ -148,7 +148,8 @@ Update the FAB's `aria-label` per view ("Ziel erstellen"). The settings panels (
 **Fix:** Give each entry its own glyph (Budgets → `gauge` or `wallet`, Phosphor Regular). Colour either by group (data views one hue, planning one hue, reports/settings neutral) or make all tiles one neutral hue. Then update the token comment.
 **Criterion:** no duplicate glyph in the drawer, and the colour rule is documented in one sentence in `DESIGN_CONVENTIONS.md`.
 
-### [ ] 12. Navigation labels are long, unparallel and collide with settings
+### [x] 12. Navigation labels are long, unparallel and collide with settings
+> **Decision 2026-10-12 (product owner):** keep „Buchungsübersicht" / „Kategorienübersicht". The short form „Kategorien" would collide with the Settings entry one level down. The view titles use the same labels (#248); the rename below is **not** done.
 **Where:** `i18n` `nav.categories` = „Kategorienübersicht", `nav.transactions` = „Buchungsübersicht"; settings has „Kategorien" too.
 **Problem:** Two compound "…übersicht" labels sit next to short ones („Ziele", „Budgets"). „Kategorien" also means two different things (statistics view vs management).
 **Fix:** Drawer: „Buchungen", „Kategorien". Settings entry: „Kategorien verwalten". Mirror the change in `en.json` and run `copy-review`.
@@ -204,7 +205,7 @@ Update the FAB's `aria-label` per view ("Ziel erstellen"). The settings panels (
 
 ### [ ] 26. Report KPI cards clip five-digit amounts on narrow phones
 **Where:** `styles.css` `.report-kpis` (3 equal columns) + `.report-kpis .summary-card .amount` (`--fs-headline`).
-**Problem:** Found while doing phase 1. At 360 px, year totals such as „14.019,68 €" are cut off at the card edge, signed or not. A container-query shrink (`min(--fs-headline, 17cqi)`) fixed the clipping, but it also shrank ordinary amounts at 390 px from 18 to 14.5 px, so it was reverted.
+**Problem:** Found while doing phase 1. The ledger's two summary cards clip the same way at 360 px ("2.838,65 €" cut off in „Einnahmen"). At 360 px, year totals such as „14.019,68 €" are cut off at the card edge, signed or not. A container-query shrink (`min(--fs-headline, 17cqi)`) fixed the clipping, but it also shrank ordinary amounts at 390 px from 18 to 14.5 px, so it was reverted.
 **Fix:** Change the layout, not the type size. Below ~380 px, put Einnahmen + Ausgaben on the first row and the Bilanz card at full width on the second (`grid-template-columns: 1fr 1fr` with `.summary-card:last-child { grid-column: 1 / -1 }`). Alternatively, drop the `€` symbol in the KPI cards and keep the currency in the label.
 **Criterion:** at 320 / 360 / 390 px, `−12.345,67 €` fits without clipping, and amounts stay at `--fs-headline`.
 
