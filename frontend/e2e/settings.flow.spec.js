@@ -31,17 +31,16 @@ test('settings sub-panels open in the content pane and return to the drawer', as
   expect(await inHost(page)).toEqual(['dpInfo']);
   await expect(page.locator('#drawer #dpAccount')).toHaveCount(1);
 
-  // The in-pane back button closes the detail and stays in Settings.
-  await page.click('#settingsHost .drawer-back-btn');
+  // The pane has no back button of its own (iPad Settings): the sidebar
+  // switches the selection and Esc closes the pane, staying in Settings
+  // with focus back on the row that opened it.
+  await expect(page.locator('#settingsHost .drawer-back-btn')).toBeHidden();
+  await page.keyboard.press('Escape');
   expect(await inHost(page)).toEqual([]);
   await expect(page.locator('#drawer #dpInfo')).toHaveCount(1);
   await expect(page.locator('#dpSettings')).toHaveAttribute('data-state', 'active');
-
-  // Esc closes it too.
-  await page.click('#dpSettings [data-args=\'["dpTags"]\']');
-  await page.keyboard.press('Escape');
-  expect(await inHost(page)).toEqual([]);
   await expect(page.locator('body')).not.toHaveClass(/settings-detail/);
+  await expect(page.locator('#dpSettings [data-args=\'["dpInfo"]\']')).toBeFocused();
 
   // Shrinking to a phone hands the open panel back to the drawer as its
   // active sub-panel; widening again moves it back out. The breakpoint
@@ -57,6 +56,42 @@ test('settings sub-panels open in the content pane and return to the drawer', as
   await page.evaluate(() => window.showPanel('transactions'));
   expect(await inHost(page)).toEqual([]);
   await expect(page.locator('#panel-transactions')).toBeVisible();
+
+  expect(pageErrors).toEqual([]);
+});
+
+test('records are settings rows: a key revokes through the app confirm, devices list as rows', async ({
+  page,
+}) => {
+  const pageErrors = [];
+  page.on('pageerror', (e) => pageErrors.push(e.message));
+  await loginViaApi(page.context());
+  await bootIntoApp(page);
+  const name = `FlowKey ${Date.now()}`;
+  await page.evaluate((n) => api('POST', '/api-keys', { name: n, scopes: ['import'] }), name);
+
+  // API keys: the create row comes first, each key is a row with its scope
+  // and dates in the caption and one trailing destructive action.
+  await page.evaluate(() => window.drawerNav('dpSettings'));
+  await page.click('#dpSettings [data-args=\'["dpApiKeys"]\']');
+  const pane = page.locator('#settingsHost #dpApiKeys');
+  await expect(pane.locator('.action-list + #apiKeyList.record-list')).toHaveCount(1);
+  const row = pane.locator('.record-row', { hasText: name });
+  await expect(row.locator('.record-meta').first()).toHaveText(
+    await page.evaluate(() => window.I18N.t('apiKeys.scope.import')),
+  );
+  await row.locator('.record-action.is-destructive').click();
+  // The app's own confirm sheet (not the browser's confirm()).
+  await page.click('.confirm-modal .confirm-yes');
+  await expect(pane.locator('.record-row', { hasText: name })).toHaveCount(0);
+
+  // Devices: this session is a row without an action (it ends via "Abmelden").
+  await page.click('#dpSettings [data-args=\'["dpAccount"]\']');
+  const current = page
+    .locator('#settingsHost #sessionList .record-row')
+    .filter({ hasText: await page.evaluate(() => window.I18N.t('sessions.current')) });
+  await expect(current).toHaveCount(1);
+  await expect(current.locator('.record-action')).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
 });
