@@ -331,6 +331,29 @@ function _trendStats(monthlyMap, fromIso, toIso) {
   return { mean, peak, yoy, monthCount: months.length };
 }
 
+// Running totals per day of one month for the "Verlauf" month chart: index i
+// is day i + 1. Days after `lastDay` are null, so in the current month the
+// lines stop at today instead of running flat into the future. The day comes
+// from the ISO string itself — new Date('YYYY-MM-DD') parses as UTC and lands
+// on the previous day west of Greenwich. Rounded to cents per step (display
+// only; money totals elsewhere stay Decimal-exact on the server).
+function _cumulativeByDay(txs, daysInMonth, lastDay) {
+  const perDay = { out: Array(daysInMonth).fill(0), in: Array(daysInMonth).fill(0) };
+  for (const t of txs) {
+    const d = Number(String(t.date).slice(8, 10));
+    if (d >= 1 && d <= daysInMonth && perDay[t.type]) perDay[t.type][d - 1] += Number(t.amount);
+  }
+  const run = (arr) => {
+    let sum = 0;
+    return arr.map((v, i) => {
+      if (i >= lastDay) return null;
+      sum += v;
+      return Math.round(sum * 100) / 100;
+    });
+  };
+  return { out: run(perDay.out), in: run(perDay.in) };
+}
+
 // Node/Vitest only — the browser classic-script load skips this.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -351,5 +374,6 @@ if (typeof module !== 'undefined' && module.exports) {
     _signedTrendAmount,
     _monthlyTotals,
     _trendStats,
+    _cumulativeByDay,
   };
 }

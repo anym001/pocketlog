@@ -97,7 +97,9 @@ function renderAll() {
   document.getElementById('totalOut').textContent = fmtCurrency(out);
   document.getElementById('totalIn').textContent = fmtCurrency(inc);
   applySearch();
-  if (appState.nav.activePanel === 'categories') renderCategoryView();
+  // Month-scoped views follow the header month switcher (PANELS.monthScoped).
+  const cfg = PANELS[appState.nav.activePanel];
+  if (cfg && cfg.monthScoped && cfg.render) cfg.render();
 }
 
 function applySearch() {

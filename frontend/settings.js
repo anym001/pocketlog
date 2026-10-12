@@ -638,7 +638,14 @@ document.addEventListener('keydown', (e) => {
     if (s) s.focus();
     return;
   }
-  if (!modalOpen && !drawerOpenMobile && !inField) {
+  // Only where the month switcher is on screen — elsewhere ←/→ silently moved
+  // the ledger month behind a view that doesn't show it.
+  // An open settings detail (split view) covers the view, so it counts as
+  // not showing the switcher either.
+  const monthView =
+    !!PANELS[appState.nav.activePanel]?.monthScoped &&
+    !document.body.classList.contains('settings-detail');
+  if (!modalOpen && !drawerOpenMobile && !inField && monthView) {
     if (e.key === 'ArrowLeft') {
       changeMonth(-1);
       return;

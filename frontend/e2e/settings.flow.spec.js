@@ -44,13 +44,14 @@ test('settings sub-panels open in the content pane and return to the drawer', as
   await expect(page.locator('body')).not.toHaveClass(/settings-detail/);
 
   // Shrinking to a phone hands the open panel back to the drawer as its
-  // active sub-panel; widening again moves it back out.
+  // active sub-panel; widening again moves it back out. The breakpoint
+  // listener fires asynchronously after a resize, so these checks poll.
   await page.click('#dpSettings [data-args=\'["dpImport"]\']');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('#drawer #dpImport')).toHaveAttribute('data-state', 'active');
-  expect(await inHost(page)).toEqual([]);
+  await expect.poll(() => inHost(page)).toEqual([]);
   await page.setViewportSize({ width: 1280, height: 800 });
-  expect(await inHost(page)).toEqual(['dpImport']);
+  await expect.poll(() => inHost(page)).toEqual(['dpImport']);
 
   // Picking a destination closes the detail.
   await page.evaluate(() => window.showPanel('transactions'));
