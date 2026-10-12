@@ -20,10 +20,11 @@ function renderTagList() {
   // :focus-visible states styled for #tagList could never fire — the row was
   // pointer-only while its neighbour was not.
   box.innerHTML = shown
-    .map(
-      (t) =>
-        `<div class="cat-pill-edit" role="button" tabindex="0" data-tag="${_escAttr(t)}" aria-label="${_escAttr(tr('tags.editAria', { name: t }))}">${_escText(t)}</div>`,
-    )
+    .map((t) => {
+      const uses = tagCounts.get(t.toLowerCase())?.all || 0;
+      const aria = `${tr('tags.editAria', { name: t })}, ${tr('common.usage90', { n: uses })}`;
+      return `<div class="cat-pill-edit" role="button" tabindex="0" data-tag="${_escAttr(t)}" aria-label="${_escAttr(aria)}"><span class="drawer-nav-label">${_escText(t)}</span>${mgmtRowTrailer(uses)}</div>`;
+    })
     .join('');
   box.querySelectorAll('[data-tag]').forEach((el) => {
     const open = () => openTagModal(el.dataset.tag);
@@ -691,7 +692,11 @@ document.addEventListener('keydown', (e) => {
   }
   if (document.getElementById('drawer').classList.contains('open')) {
     closeDrawer();
+    return;
   }
+  // Split view (≥768 px): Esc closes the settings detail in the content
+  // pane — never from under an open modal the branches above don't own.
+  if (!document.querySelector('.modal-overlay.open')) _closeSettingsDetail();
 });
 
 if ('serviceWorker' in navigator) {

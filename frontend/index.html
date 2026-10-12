@@ -492,7 +492,9 @@
             <span class="drawer-sub-title" data-i18n="categories.title">Kategorien</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" data-action="openCatModal" data-i18n="categories.create">Kategorie erstellen</button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openCatModal" data-i18n="categories.create">Kategorie erstellen</button>
+            </div>
             <div class="search-wrap drawer-search" id="dpCatSearchWrap" hidden>
               <span class="search-icon" aria-hidden="true">
                 <svg class="ui-icon"><use href="#icon-search" /></svg>
@@ -530,7 +532,9 @@
             <span class="drawer-sub-title" data-i18n="tags.title">Tags</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" data-action="openTagModal" data-i18n="tags.create">Tag erstellen</button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openTagModal" data-i18n="tags.create">Tag erstellen</button>
+            </div>
             <div class="search-wrap drawer-search" id="dpTagSearchWrap" hidden>
               <span class="search-icon" aria-hidden="true">
                 <svg class="ui-icon"><use href="#icon-search" /></svg>
@@ -569,15 +573,13 @@
           </div>
           <div class="drawer-section">
             <div class="settings-section">
-              <button class="save-btn" data-action="exportCSV" data-i18n="importExport.export">Als CSV exportieren</button>
-              <button
-                class="save-btn"
-                style="margin-top: var(--space-8)"
-                data-action="clickHiddenInput" data-args='["importFile"]'
-                data-i18n="importExport.import"
-              >
-                Aus CSV importieren…
-              </button>
+              <!-- Grouped action rows (same component as the settings list),
+                   tinted as actions; see DESIGN_CONVENTIONS.md → settings. -->
+              <div class="drawer-nav action-list">
+                <button class="drawer-nav-item is-action" data-action="exportCSV" data-i18n="importExport.export">Als CSV exportieren</button>
+                <button class="drawer-nav-item is-action" data-action="clickHiddenInput" data-args='["importFile"]' data-i18n="importExport.import">Aus CSV importieren…</button>
+                <button class="drawer-nav-item is-action" data-action="downloadExampleCSV" data-i18n="importExport.example">Beispieldatei herunterladen</button>
+              </div>
               <input
                 type="file"
                 id="importFile"
@@ -585,12 +587,6 @@
                 style="display: none"
                 data-action-change="importCSV" data-args='["@event"]'
               />
-              <button
-                class="save-btn"
-                style="margin-top: var(--space-8)"
-                data-action="downloadExampleCSV"
-                data-i18n="importExport.example"
-              >Beispieldatei herunterladen</button>
               <div class="status-msg" id="importStatus"></div>
             </div>
           </div>
@@ -604,15 +600,10 @@
                 Einstellungen. Die Wiederherstellung ist nur in einem leeren
                 Konto möglich.
               </p>
-              <button class="save-btn" data-action="exportBackup" data-i18n="backup.export">Backup erstellen</button>
-              <button
-                class="save-btn"
-                style="margin-top: var(--space-8)"
-                data-action="clickHiddenInput" data-args='["backupFile"]'
-                data-i18n="backup.restore"
-              >
-                Backup wiederherstellen…
-              </button>
+              <div class="drawer-nav action-list">
+                <button class="drawer-nav-item is-action" data-action="exportBackup" data-i18n="backup.export">Backup erstellen</button>
+                <button class="drawer-nav-item is-action" data-action="clickHiddenInput" data-args='["backupFile"]' data-i18n="backup.restore">Backup wiederherstellen…</button>
+              </div>
               <input
                 type="file"
                 id="backupFile"
@@ -640,7 +631,9 @@
           </div>
           <div class="drawer-section">
             <div class="settings-section">
-              <button class="save-btn" data-action="openApiKeyModal" data-i18n="apiKeys.create">Neuen Schlüssel erstellen</button>
+              <div class="drawer-nav action-list">
+                <button class="drawer-nav-item is-action" data-action="openApiKeyModal" data-i18n="apiKeys.create">Neuen Schlüssel erstellen</button>
+              </div>
               <div id="apiKeyList" class="api-key-list"></div>
             </div>
           </div>
@@ -724,9 +717,9 @@
             <span class="drawer-sub-title" data-i18n="settings.admin">Verwaltung</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" data-action="openCacheModal" data-i18n="admin.cacheClear">
-              Cache leeren
-            </button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openCacheModal" data-i18n="admin.cacheClear">Cache leeren</button>
+            </div>
             <p
               data-i18n="admin.cacheHint"
               style="
@@ -738,9 +731,9 @@
               Verwirft den API-Cache und nicht synchronisierte Änderungen. Server-Daten bleiben
               unverändert.
             </p>
-            <button class="save-btn btn-destructive" data-action="openResetModal" data-i18n="admin.dataDelete">
-              Daten löschen
-            </button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-destructive" data-action="openResetModal" data-i18n="admin.dataDelete">Daten löschen</button>
+            </div>
             <p
               data-i18n="admin.dataHint"
               style="
@@ -770,9 +763,9 @@
           </div>
           <div class="drawer-section">
             <div id="adminUserList" class="drawer-chip-list"></div>
-            <button class="save-btn" data-action="openAdminCreateUserModal" data-i18n="users.add">
-              Benutzer hinzufügen
-            </button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openAdminCreateUserModal" data-i18n="users.add">Benutzer hinzufügen</button>
+            </div>
           </div>
         </div>
 
@@ -795,30 +788,20 @@
               color: var(--text2);
               margin: 0 0 var(--space-16);
             "></p>
-            <button class="save-btn" data-action="openChangePasswordModal" data-i18n="account.changePassword">
-              Passwort ändern
-            </button>
-            <button
-              class="save-btn"
-              style="margin-top: var(--space-16)"
-              data-action="logoutWithConfirm"
-              data-i18n="account.logout"
-            >
-              Abmelden
-            </button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openChangePasswordModal" data-i18n="account.changePassword">Passwort ändern</button>
+            </div>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-destructive" data-action="logoutWithConfirm" data-i18n="account.logout">Abmelden</button>
+            </div>
           </div>
           <div class="drawer-section-divider"></div>
           <div class="drawer-section">
             <h3 data-i18n="sessions.title">Angemeldete Geräte</h3>
             <div id="sessionList" class="api-key-list"></div>
-            <button
-              class="save-btn"
-              style="margin-top: var(--space-16)"
-              data-action="revokeOtherSessions"
-              data-i18n="sessions.revokeOthers"
-            >
-              Alle anderen Geräte abmelden
-            </button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-destructive" data-action="revokeOtherSessions" data-i18n="sessions.revokeOthers">Alle anderen Geräte abmelden</button>
+            </div>
           </div>
         </div>
 
@@ -867,67 +850,75 @@
             </dl>
           </div>
           <div class="drawer-section-divider"></div>
-          <div class="drawer-section">
-            <h3 data-i18n="info.device">Gerät</h3>
-            <dl class="info-list">
-              <div class="info-row">
-                <dt data-i18n="info.platform">Plattform</dt>
-                <dd id="infoPlatform">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.browser">Browser</dt>
-                <dd id="infoBrowser">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.mode">Modus</dt>
-                <dd id="infoDisplayMode">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.pointer">Eingabe</dt>
-                <dd id="infoPointer">–</dd>
-              </div>
-            </dl>
-          </div>
-          <div class="drawer-section-divider"></div>
-          <div class="drawer-section">
-            <h3 data-i18n="info.displayHead">Anzeige</h3>
-            <dl class="info-list">
-              <div class="info-row">
-                <dt data-i18n="info.viewport">Viewport</dt>
-                <dd id="infoViewport">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.screen">Bildschirm</dt>
-                <dd id="infoScreen">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.dpr">Pixel-Dichte</dt>
-                <dd id="infoDpr">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.zoom">Zoom</dt>
-                <dd id="infoZoom">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.physical">Physisch</dt>
-                <dd id="infoPhysical">–</dd>
-              </div>
-            </dl>
-          </div>
-          <div class="drawer-section-divider"></div>
-          <div class="drawer-section">
-            <h3 data-i18n="info.environment">Umgebung</h3>
-            <dl class="info-list">
-              <div class="info-row">
-                <dt data-i18n="info.language">Sprache</dt>
-                <dd id="infoLang">–</dd>
-              </div>
-              <div class="info-row info-row-stack">
-                <dt data-i18n="info.userAgent">Browser-Kennung</dt>
-                <dd id="infoUserAgent">–</dd>
-              </div>
-            </dl>
-          </div>
+          <!-- Device / display / environment are diagnostics for support,
+               not something a user reads every visit: collapsed by default. -->
+          <details class="info-details">
+            <summary class="drawer-section info-details-summary">
+              <span data-i18n="info.diagnostics">Diagnose</span>
+              <svg class="ui-icon info-details-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+            </summary>
+            <div class="drawer-section">
+              <h3 data-i18n="info.device">Gerät</h3>
+              <dl class="info-list">
+                <div class="info-row">
+                  <dt data-i18n="info.platform">Plattform</dt>
+                  <dd id="infoPlatform">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.browser">Browser</dt>
+                  <dd id="infoBrowser">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.mode">Modus</dt>
+                  <dd id="infoDisplayMode">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.pointer">Eingabe</dt>
+                  <dd id="infoPointer">–</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="drawer-section-divider"></div>
+            <div class="drawer-section">
+              <h3 data-i18n="info.displayHead">Anzeige</h3>
+              <dl class="info-list">
+                <div class="info-row">
+                  <dt data-i18n="info.viewport">Viewport</dt>
+                  <dd id="infoViewport">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.screen">Bildschirm</dt>
+                  <dd id="infoScreen">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.dpr">Pixel-Dichte</dt>
+                  <dd id="infoDpr">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.zoom">Zoom</dt>
+                  <dd id="infoZoom">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.physical">Physisch</dt>
+                  <dd id="infoPhysical">–</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="drawer-section-divider"></div>
+            <div class="drawer-section">
+              <h3 data-i18n="info.environment">Umgebung</h3>
+              <dl class="info-list">
+                <div class="info-row">
+                  <dt data-i18n="info.language">Sprache</dt>
+                  <dd id="infoLang">–</dd>
+                </div>
+                <div class="info-row info-row-stack">
+                  <dt data-i18n="info.userAgent">Browser-Kennung</dt>
+                  <dd id="infoUserAgent">–</dd>
+                </div>
+              </dl>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -1120,6 +1111,11 @@
     <div class="panel" id="panel-recurring">
       <div id="recurringViewList"></div>
     </div>
+
+    <!-- SETTINGS DETAIL HOST (≥768 px): the open settings sub-panel is moved
+         here so it gets the content pane instead of the 260-px sidebar
+         (_openSettingsDetail in core.js). Empty and hidden on phones. -->
+    <section class="settings-host" id="settingsHost"></section>
 
     <!-- BOTTOM BAR -->
     <div class="bottom-bar">
