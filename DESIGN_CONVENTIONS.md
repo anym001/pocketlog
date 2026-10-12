@@ -384,7 +384,9 @@ Two icon systems, strictly separated:
 - **Drawer navigation tiles:** one glyph per destination (no duplicates), tile
   colour by group — record (Categories, Transactions) `--accent`, plan (Goals,
   Budgets, Recurring) `--green`, analyse (Reports) `--blue`, Settings `--text3`.
-  Labels are single nouns that match the view title.
+  The label is also the view's large title. The two ledger views are named
+  "Buchungsübersicht" / "Kategorienübersicht" so they never collide with the
+  "Kategorien" / "Tags" entries one level down in Settings.
 - **Semantics:** icon without label only when universally understood (plus = new, bin = delete).
 - **Accessibility:** `aria-label` with purpose, not appearance.
 - **Stroke style:** outline only — no mixing.

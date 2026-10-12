@@ -381,11 +381,11 @@
           <nav class="drawer-nav" style="--sep-left: calc(var(--nav-icon-size) + var(--space-12) + var(--space-16))">
             <button class="drawer-nav-item" data-panel="categories" data-action="showPanel" data-args='["categories"]' style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-squares-four" /></svg></span>
-              <span class="drawer-nav-label" data-i18n="nav.categories">Kategorien</span>
+              <span class="drawer-nav-label" data-i18n="nav.categories">Kategorienübersicht</span>
             </button>
             <button class="drawer-nav-item" data-panel="transactions" data-action="showPanel" data-args='["transactions"]' style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-receipt" /></svg></span>
-              <span class="drawer-nav-label" data-i18n="nav.transactions">Buchungen</span>
+              <span class="drawer-nav-label" data-i18n="nav.transactions">Buchungsübersicht</span>
             </button>
             <button class="drawer-nav-item" data-panel="goals" data-action="showPanel" data-args='["goals"]' style="--nav-icon-bg: var(--green)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-target" /></svg></span>
@@ -671,8 +671,8 @@
             <div class="settings-field">
               <label class="settings-field-label" for="selDefaultView" data-i18n="display.startView">Startansicht</label>
               <select id="selDefaultView" class="settings-select" data-action-change="saveDefaultView" data-args='["@value"]'>
-                <option value="transactions" data-i18n="display.startTransactions">Buchungen</option>
-                <option value="categories" data-i18n="display.startCategories">Kategorien</option>
+                <option value="transactions" data-i18n="display.startTransactions">Buchungsübersicht</option>
+                <option value="categories" data-i18n="display.startCategories">Kategorienübersicht</option>
               </select>
             </div>
             <div class="settings-field">
@@ -1007,7 +1007,7 @@
          showPanel() from PANELS[id].titleKey. Reports keep their own
          .report-head (title + range subtitle) in the same spot and style. -->
     <div class="view-head" id="viewHead">
-      <h2 class="view-title" id="viewTitle" data-i18n="nav.transactions">Buchungen</h2>
+      <h2 class="view-title" id="viewTitle" data-i18n="nav.transactions">Buchungsübersicht</h2>
     </div>
 
     <!-- SUMMARY -->
