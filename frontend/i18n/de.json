@@ -18,8 +18,9 @@
     "nameRequired": "Name ist ein Pflichtfeld.",
     "loading": "Wird geladen …",
     "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist.",
-    "usage90": "{n}-mal in den letzten 90 Tagen verwendet",
-    "usage90One": "Einmal in den letzten 90 Tagen verwendet"
+    "usageNone": "Nicht verwendet",
+    "usageOne": "Einmal verwendet",
+    "usageMany": "{n}-mal verwendet"
   },
   "menu": {
     "title": "Menü",

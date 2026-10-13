@@ -21,8 +21,8 @@ function renderTagList() {
   // pointer-only while its neighbour was not.
   box.innerHTML = shown
     .map((t) => {
-      const uses = tagCounts.get(t.toLowerCase())?.all || 0;
-      const aria = `${tr('tags.editAria', { name: t })}, ${usage90Label(uses)}`;
+      const uses = tagCounts.get(t.toLowerCase())?.total || 0;
+      const aria = `${tr('tags.editAria', { name: t })}, ${usageLabel(uses)}`;
       return `<div class="cat-pill-edit" role="button" tabindex="0" data-tag="${_escAttr(t)}" aria-label="${_escAttr(aria)}"><span class="drawer-nav-label">${_escText(t)}</span>${mgmtRowTrailer(uses)}</div>`;
     })
     .join('');

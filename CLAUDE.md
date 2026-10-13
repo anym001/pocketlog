@@ -87,7 +87,7 @@ DELETE /api/auth/sessions            ← revoke all others; /{id} revokes one (o
 GET    /api/transactions?year=&month=&from=&to=
 POST|PUT|DELETE /api/transactions/{id}
 POST   /api/transactions/bulk        ← set_category | add_tags | remove_tags | delete
-GET|POST|PUT|DELETE /api/categories/{id}   ← GET carries 90-day usage counts (count/count_in/count_out)
+GET|POST|PUT|DELETE /api/categories/{id}   ← GET carries 90-day usage counts (count/count_in/count_out, chooser ranking) + all-time count_total (settings list)
 GET|POST /api/goals
 PUT|DELETE /api/goals/{id}
 GET|POST /api/budgets

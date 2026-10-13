@@ -87,7 +87,7 @@ def list_tags(db: Session, user_id: int) -> list[dict]:
 
     # Single grouped query: LEFT JOIN keeps standalone tags with count 0;
     # the CASE ... date >= cutoff windows the count without filtering
-    # out unused tags. Returned as (name, count, count_in, count_out) rows
+    # out unused tags. Returned as (name, count, count_in, count_out, total) rows
     # sorted case-insensitively to match the alphabetical UI.
     #
     # The per-type split lets the frontend rank suggestions against the form's
@@ -106,8 +106,11 @@ def list_tags(db: Session, user_id: int) -> list[dict]:
     count_expr = func.coalesce(func.sum(recent), 0)
     in_expr = func.coalesce(func.sum(recent_in), 0)
     out_expr = func.coalesce(func.sum(recent_out), 0)
+    # All-time, unwindowed: what the tag list shows, so a 0 there means
+    # "never used". COUNT of a column skips the LEFT JOIN's NULLs.
+    total_expr = func.count(models.Transaction.id)
     rows = db.execute(
-        select(models.Tag.name, count_expr, in_expr, out_expr)
+        select(models.Tag.name, count_expr, in_expr, out_expr, total_expr)
         .select_from(models.Tag)
         .join(
             models.transaction_tags,
@@ -129,8 +132,9 @@ def list_tags(db: Session, user_id: int) -> list[dict]:
             "count": int(count or 0),
             "count_in": int(c_in or 0),
             "count_out": int(c_out or 0),
+            "count_total": int(total or 0),
         }
-        for name, count, c_in, c_out in rows
+        for name, count, c_in, c_out, total in rows
     ]
 
 
