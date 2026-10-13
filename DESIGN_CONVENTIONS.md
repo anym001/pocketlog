@@ -142,9 +142,19 @@ via two breakpoints — the breakpoint value lives literally in `@media`
   - Navigation rows end in a chevron.
   - Management rows (categories, tags) show the 90-day usage count, then
     a chevron.
-  - Actions are `.action-list` rows tinted `--accent` (`.is-action`) or
-    `--red` (`.is-destructive`).
+  - Actions are `.action-list` rows tinted `--accent-text` (`.is-action`)
+    or `--red` (`.is-destructive`). A row that opens a dialog asking for
+    more input ends in "…" ("Passwort ändern…"); one that only asks to
+    confirm does not ("Abmelden").
+  - Records (API keys, signed-in devices, users) are `.record-list` rows:
+    name, caption lines in `--text3`, actions as text buttons — trailing
+    for one, on their own line for several. No outlined buttons, no chips.
+  - A group's explanation is a `.settings-footnote` below the group (iOS
+    group footer), never inline-styled text above it.
+  - Create rows come first, above the list they add to.
   - No full-width card buttons inside settings.
+  - Split view (≥ 768 px): the pane has no back button of its own — the
+    sidebar shows and switches the selection, Esc closes the pane.
   - Support diagnostics (device, display, environment) sit collapsed under
     "Diagnose".
 - **JS guards:** `openDrawer()` / `closeDrawer()` are no-ops from 768 px.
@@ -190,7 +200,7 @@ via two breakpoints — the breakpoint value lives literally in `@media`
   header top is a 3-column grid (`chrome 1fr chrome`) so the month
   navigator stays visually centred regardless of pane width.
 - **Card views are the one exception:** from 1024 px the goal, budget and
-  recurring lists become a grid (`repeat(auto-fill, minmax(320px, 1fr))`).
+  recurring lists become a grid (`repeat(auto-fill, minmax(var(--card-min), 1fr))`).
   Full-width cards with 1500-px progress bars could not be compared side by
   side. Rows stay full-width.
 - **Body-text caps** (modal body, empty states) remain useful — the HIG
@@ -283,6 +293,8 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | `--btn-fab-size`    | FAB, search bar height                                 | `50px`    |
   | `--btn-icon-size`   | Glyph in chrome buttons (`‹ ✕ ⌕ …`)                    | `1.25rem` |
   | `--nav-icon-size`   | Icon container in drawer navigation rows               | `30px`    |
+  | `--settings-pane-max` | Settings detail width in the split view (≥ 768 px)   | `640px`   |
+  | `--card-min`        | Narrowest card in the wide-screen card grid (≥ 1024 px) | `320px`   |
 
 - **Adjusting a single instance:** override the token call in the CSS block
   of the relevant class, e.g. `font-size: 1rem` locally instead of
@@ -317,9 +329,13 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
 - **Line height:** `1.25` for DM Serif Display, `1.4` for DM Sans body.
 - **Letter spacing:** leave at default; do not artificially widen.
 - **Amounts — one rule:** a standalone amount at the end of a list row
-  (ledger, category view, recurring cards) is DM Serif Display at
+  (ledger, category view, recurring cards, report booking rows) is DM Serif Display at
   `--fs-headline` (shared selector with `.t-amount` in `styles.css`). Amounts
   inside a sentence ("2.376,64 € von 3.000,00 €") or a table cell stay DM Sans.
+  Report bar rows (`.cat-amount`, Aufteilung/Übersicht) stay at `--fs-body`:
+  the bar carries the comparison, the number is secondary. A budget over its
+  limit shows its amount in `--red` — a status, always with the over-limit
+  label and bar, the one exception to "red = destructive".
   Expense colour is always `--accent-text`, income `--green-text` (the text
   variants of `--accent` / `--green`); `--red` is for destructive actions
   only.
@@ -328,6 +344,10 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   on top, amount below. Report KPIs sit in a wrapping flex row (equal widths
   while they fit; the last card takes a full second line when an amount
   would not fit). No side-by-side label/amount and no shrinking type.
+  **Order everywhere:** Ausgaben → Einnahmen → Bilanz (then any extra stat
+  such as the detail's average) — spending is what a household ledger is
+  about. Four cards sit in a 2 × 2 grid on phones (`.report-kpis.is-quad`),
+  in one row from 768 px.
 - **Numeric tables:** `font-variant-numeric: tabular-nums` for columns with
   amounts, so digits align vertically.
 - **Dynamic type (web equivalent):** no fixed `px` values for text — use `rem`
@@ -467,7 +487,7 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
     that names it (category view: receipt = "show bookings"). Never use a ⋮
     glyph for anything but a menu.
 - **Pickers:** every `<select>` styled with `appearance: none` gets a trailing
-  `chevron-down` (`.settings-select-wrap`), the same glyph as the month and
+  `chevron-down` (`.select-wrap` + `.select-chevron`), the same glyph as the month and
   range pickers, so it never reads as a static card.
 - **Month-scoped views** (`PANELS[id].monthScoped`): Buchungsübersicht,
   Kategorienübersicht and Budgets show the header month switcher, re-render
@@ -481,7 +501,9 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
 - **Report drill-downs:** a category or tag row in a report (Übersicht,
   Aufteilung, Prognose) or a month in the Trend opens the **Detailanalyse**
   for that entity over the period. It shows a back link to the origin
-  report above the title (`#reportBack`, only after a drill-down). The ledger
+  report above the title (`#reportBack`, only after a drill-down) — like
+  the back button above an iOS large title, so the title moving down by
+  that row is accepted. The ledger
   search with its bulk actions is the detail's closing link
   ("In der Buchungsübersicht zeigen"), not the first stop. Trend and
   Detailanalyse share one category/tag picker (`_entityPickerMarkup`).
@@ -553,8 +575,13 @@ Required — no exceptions "because PWA":
 - **Transparency:** `@media (prefers-reduced-transparency: reduce)` →
   replace material with opaque surface.
 - **Colour never the only signal:** sign, icon, text supplement it. The
-  header sync dot carries a glyph per state (✓ synced, ⟳ syncing, ! offline
-  or failed; CSS masks on `.sync-dot`).
+  header sync dot carries a glyph per state (✓ synced, ⟳ syncing,
+  cloud-slash offline on grey, ! failed; CSS masks on `.sync-dot` — a mask
+  cannot reference the inline sprite, so these four stay data URIs).
+  The pending-writes badge beside it is the dot's height and wears the
+  dot's state colour (accent saving/syncing, grey offline, red failed), so
+  the pair never shows two statuses; digits white in light mode on the
+  darker text variants, dark in dark mode — the same rule as the glyph.
 - **Charts with both directions:** expenses are solid, income is dashed
   (`borderDash`); in bar charts expenses are filled, income outlined.
   Checked with the dataviz palette validator, `--accent` and `--green` are

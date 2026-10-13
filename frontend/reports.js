@@ -144,6 +144,14 @@ function _rangeSubtitle(txCount) {
   return `${_rangeStepperLabel()} · ${txCount} ${noun}`;
 }
 
+// The trend ignores the shared period: its subtitle names its own year range.
+function _trendSubtitle(txCount) {
+  const noun = txCount === 1 ? tr('tx.countOne') : tr('tx.countOther');
+  const { yearFrom, yearTo } = appState.trend;
+  const years = yearFrom === yearTo ? `${yearFrom}` : `${yearFrom} – ${yearTo}`;
+  return `${years} · ${txCount} ${noun}`;
+}
+
 function updatePickerUI() {
   document.querySelectorAll('#rangeKindTabs button').forEach((b) => {
     const active = b.dataset.kind === appState.reports.range.kind;
@@ -355,7 +363,8 @@ async function renderReport(id = appState.reports.current) {
   // owns the body now; drawing this one would overwrite it.
   if (_staleRender(gen)) return;
   appState.reports.txPool = txs;
-  document.getElementById('reportRangeLabel').textContent = _rangeSubtitle(txs.length);
+  document.getElementById('reportRangeLabel').textContent =
+    id === 'trend' ? _trendSubtitle(txs.length) : _rangeSubtitle(txs.length);
 
   if (id === 'overview') await renderReportOverview(body, txs);
   else if (id === 'course') await renderReportCourse(body, txs);
@@ -434,8 +443,8 @@ async function renderReportOverview(body, txs) {
 
   body.innerHTML = `
           <div class="report-kpis">
-            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${balance >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(balance, _netDirection(balance))}</div></div>
           </div>
 
@@ -470,8 +479,8 @@ async function renderReportCourse(body, txs) {
 
 function _courseKpisMarkup(totals) {
   return `<div class="report-kpis">
-            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.expenses')}</div><div class="amount negative">${fmtCurrency(totals.out)}</div></div>
+            <div class="summary-card"><div class="label">${tr('reports.income')}</div><div class="amount positive">${fmtCurrency(totals.in)}</div></div>
             <div class="summary-card"><div class="label">${tr('reports.balance')}</div><div class="amount ${totals.in - totals.out >= 0 ? 'positive' : 'negative'}">${fmtSignedCurrency(totals.in - totals.out, _netDirection(totals.in - totals.out))}</div></div>
           </div>`;
 }
@@ -1091,7 +1100,8 @@ function _detailKpisMarkup(sum) {
   cards.push(
     card(tr(sum.dir === 'in' ? 'reports.avgPerIn' : 'reports.avgPerOut'), fmtCurrency(sum.avg), ''),
   );
-  return `<div class="report-kpis">${cards.join('')}</div>`;
+  const quad = cards.length === 4 ? ' is-quad' : '';
+  return `<div class="report-kpis${quad}">${cards.join('')}</div>`;
 }
 
 function _detailInnerMarkup(sum, entity) {
@@ -1106,11 +1116,11 @@ function _detailInnerMarkup(sum, entity) {
         return _tagRowMarkup(r.name, r.amount, max, { drillDown: true, positive });
       // Untagged remainder: same row, no drill target.
       const pct = max > 0 ? (r.amount / max) * 100 : 0;
-      return `<div class="cat-row">
-          <div class="cat-icon" style="--cat-color:var(--text3)">#</div>
+      return `<div class="cat-row is-untagged">
+          <div class="cat-icon">#</div>
           <div class="cat-info">
             <div class="cat-name">${tr('reports.untagged')}</div>
-            <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:var(--text3)"></div></div>
+            <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%"></div></div>
           </div>
           <div class="${positive ? 'cat-amount is-positive' : 'cat-amount'}">${fmtCurrency(r.amount)}</div>
         </div>`;
@@ -1520,11 +1530,11 @@ async function renderReportTrend(body, txs) {
   const yearPickerMarkup = `<div class="range-custom trend-year-picker">
             <label class="range-custom-field">
               <span>${tr('reports.rangeFrom')}</span>
-              <select aria-label="${_escAttr(tr('reports.fromYear'))}" data-action-change="setTrendYear" data-args='["from", "@value#"]'>${yearOptions(appState.trend.yearFrom || today)}</select>
+              <span class="select-wrap"><select aria-label="${_escAttr(tr('reports.fromYear'))}" data-action-change="setTrendYear" data-args='["from", "@value#"]'>${yearOptions(appState.trend.yearFrom || today)}</select><svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg></span>
             </label>
             <label class="range-custom-field">
               <span>${tr('reports.rangeTo')}</span>
-              <select aria-label="${_escAttr(tr('reports.toYear'))}" data-action-change="setTrendYear" data-args='["to", "@value#"]'>${yearOptions(appState.trend.yearTo || today)}</select>
+              <span class="select-wrap"><select aria-label="${_escAttr(tr('reports.toYear'))}" data-action-change="setTrendYear" data-args='["to", "@value#"]'>${yearOptions(appState.trend.yearTo || today)}</select><svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg></span>
             </label>
           </div>`;
 

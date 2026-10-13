@@ -131,7 +131,7 @@
   },
   "categories": {
     "title": "Categories",
-    "create": "Create category",
+    "create": "Create category…",
     "editTitle": "Edit category",
     "newTitle": "New category",
     "name": "Name",
@@ -304,7 +304,7 @@
   },
   "tags": {
     "title": "Tags",
-    "create": "Create tag",
+    "create": "Create tag…",
     "editAria": "Edit tag “{name}”",
     "editTitle": "Edit tag",
     "newTitle": "New tag",
@@ -529,7 +529,7 @@
     "unknownDevice": "Unknown device",
     "lastActive": "Last active: {when}",
     "signedInSince": "Signed in since: {date}",
-    "revoke": "Sign Out",
+    "revoke": "Sign out device",
     "revokeTitle": "Sign out device?",
     "revokeBody": "The session on this device will end. Signing in again is required to continue there.",
     "revokeOthers": "Sign Out All Other Devices",
@@ -542,7 +542,7 @@
   "apiKeys": {
     "title": "API Keys",
     "empty": "No keys created yet.",
-    "create": "New key",
+    "create": "Create key…",
     "name": "Name",
     "scopes": "Permissions",
     "scope.import": "Import",
@@ -563,7 +563,7 @@
   "admin": {
     "cacheClear": "Clear cache",
     "cacheHint": "Discards the API cache and unsynced changes. Server data stays unchanged.",
-    "dataDelete": "Delete data",
+    "dataDelete": "Delete data…",
     "dataHint": "Removes transactions, categories, or both on the server. This action can’t be undone.",
     "cacheConfirmTitle": "Really clear the cache?",
     "cacheCleared": "Cache cleared.",
@@ -581,7 +581,7 @@
     "txDeleted": "All transactions deleted."
   },
   "users": {
-    "add": "Add user",
+    "add": "Add user…",
     "addTitle": "Add user",
     "username": "Username",
     "startPassword": "Initial password",
@@ -622,7 +622,8 @@
     "deactivate": "Deactivate"
   },
   "account": {
-    "changePassword": "Change password",
+    "changePassword": "Change password…",
+    "changePasswordTitle": "Change password",
     "currentPassword": "Current password",
     "logout": "Sign out",
     "logoutTitle": "Sign out anyway?",

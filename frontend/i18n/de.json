@@ -131,7 +131,7 @@
   },
   "categories": {
     "title": "Kategorien",
-    "create": "Kategorie erstellen",
+    "create": "Kategorie erstellen…",
     "editTitle": "Kategorie bearbeiten",
     "newTitle": "Neue Kategorie",
     "name": "Name",
@@ -304,7 +304,7 @@
   },
   "tags": {
     "title": "Tags",
-    "create": "Tag erstellen",
+    "create": "Tag erstellen…",
     "editAria": "Tag „{name}“ bearbeiten",
     "editTitle": "Tag bearbeiten",
     "newTitle": "Neuer Tag",
@@ -529,7 +529,7 @@
     "unknownDevice": "Unbekanntes Gerät",
     "lastActive": "Zuletzt aktiv: {when}",
     "signedInSince": "Angemeldet seit: {date}",
-    "revoke": "Abmelden",
+    "revoke": "Gerät abmelden",
     "revokeTitle": "Gerät abmelden?",
     "revokeBody": "Die Sitzung auf diesem Gerät wird beendet. Zum Weiterarbeiten ist dort eine neue Anmeldung nötig.",
     "revokeOthers": "Alle anderen Geräte abmelden",
@@ -542,7 +542,7 @@
   "apiKeys": {
     "title": "API-Schlüssel",
     "empty": "Noch keine Schlüssel erstellt.",
-    "create": "Neuer Schlüssel",
+    "create": "Schlüssel erstellen…",
     "name": "Name",
     "scopes": "Berechtigungen",
     "scope.import": "Importieren",
@@ -563,7 +563,7 @@
   "admin": {
     "cacheClear": "Cache leeren",
     "cacheHint": "Verwirft den API-Cache und nicht synchronisierte Änderungen. Server-Daten bleiben unverändert.",
-    "dataDelete": "Daten löschen",
+    "dataDelete": "Daten löschen…",
     "dataHint": "Entfernt Buchungen, Kategorien oder beides serverseitig. Aktion lässt sich nicht rückgängig machen.",
     "cacheConfirmTitle": "Cache wirklich leeren?",
     "cacheCleared": "Cache geleert.",
@@ -581,7 +581,7 @@
     "txDeleted": "Alle Buchungen gelöscht."
   },
   "users": {
-    "add": "Benutzer hinzufügen",
+    "add": "Benutzer hinzufügen…",
     "addTitle": "Benutzer hinzufügen",
     "username": "Benutzername",
     "startPassword": "Startpasswort",
@@ -622,7 +622,8 @@
     "deactivate": "Deaktivieren"
   },
   "account": {
-    "changePassword": "Passwort ändern",
+    "changePassword": "Passwort ändern…",
+    "changePasswordTitle": "Passwort ändern",
     "currentPassword": "Aktuelles Passwort",
     "logout": "Abmelden",
     "logoutTitle": "Trotzdem abmelden?",
