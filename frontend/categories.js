@@ -27,6 +27,7 @@ async function loadTags() {
         all: Number(t.count) || 0,
         in: Number(t.count_in) || 0,
         out: Number(t.count_out) || 0,
+        total: Number(t.count_total) || 0,
       });
     }
   } catch (e) {
@@ -878,14 +879,14 @@ function renderCategories() {
   }
   box.innerHTML = '';
   shown.forEach((c) => {
-    const uses = Number(c.count) || 0;
+    const uses = Number(c.count_total) || 0;
     const row = document.createElement('div');
     row.className = 'drawer-nav-item cat-pill-edit';
     row.setAttribute('role', 'button');
     row.setAttribute('tabindex', '0');
     row.setAttribute(
       'aria-label',
-      `${tr('categories.editAria', { name: c.name })}, ${usage90Label(uses)}`,
+      `${tr('categories.editAria', { name: c.name })}, ${usageLabel(uses)}`,
     );
     row.onclick = () => openCatModal(c.id);
     row.onkeydown = (e) => handleRowActivate(e, () => openCatModal(c.id));
@@ -903,12 +904,15 @@ function renderCategories() {
   });
 }
 
-// Trailing part of a settings management row (categories, tags): the 90-day
-// usage count the list endpoints already deliver, then a drill-in chevron —
-// the row opens an editor, like every other chevron row in settings.
+// Trailing part of a settings management row (categories, tags): how often it
+// was ever used (count_total — all bookings, no window, so a 0 really means
+// "never used" when tidying up), then a drill-in chevron — the row opens an
+// editor, like every other chevron row in settings. The 90-day counts stay
+// behind the choosers' ranking only.
 // Screen-reader text for the usage count those rows show.
-function usage90Label(uses) {
-  return tr(uses === 1 ? 'common.usage90One' : 'common.usage90', { n: uses });
+function usageLabel(uses) {
+  if (uses === 0) return tr('common.usageNone');
+  return tr(uses === 1 ? 'common.usageOne' : 'common.usageMany', { n: uses });
 }
 
 function mgmtRowTrailer(uses) {
