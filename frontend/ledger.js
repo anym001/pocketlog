@@ -51,14 +51,17 @@ function _warmFullHistoryCache() {
   }
 }
 
-async function loadAndRender() {
+// The visible month's transactions. Boot fetches this alongside its other
+// loads and hands the request to loadAndRender as `prefetched`.
+function _monthTransactionsPath() {
+  return `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`;
+}
+
+async function loadAndRender({ prefetched } = {}) {
   document.getElementById('monthLabelText').textContent =
     `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
   try {
-    const raw = await api(
-      'GET',
-      `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`,
-    );
+    const raw = await (prefetched || api('GET', _monthTransactionsPath()));
     appState.ledger.transactions = raw.map(normalizeTx);
     // Warm the full history in the background so other months stay browsable
     // offline (the SW caches whatever URL it fetches).

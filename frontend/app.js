@@ -250,6 +250,23 @@ async function _afterAuthSuccess(me) {
 // (listeners in init).
 async function _loadBootData(me) {
   appState.boot.ready = false;
+  // The loads are independent of one another, so they run side by side: one
+  // round trip instead of seven in a row, which on a phone reaching the server
+  // through a proxy was most of the start-up time. Each slice still lands in
+  // its own state and renders nothing that needs the others; the month's
+  // transactions are fetched alongside but rendered last (loadAndRender),
+  // once the categories they display are in.
+  const others = Promise.all([
+    loadCategoryIconSprite(),
+    loadTags(),
+    loadGoals(),
+    loadBudgets(),
+    loadRecurringRules(),
+  ]);
+  const monthTx = api('GET', _monthTransactionsPath());
+  // Rejections are handled where these are awaited; on the boot-failed path
+  // below nothing awaits them, which must not surface as unhandled.
+  monthTx.catch(() => {});
   try {
     await loadCategories({ rethrow: true });
   } catch (e) {
@@ -260,12 +277,8 @@ async function _loadBootData(me) {
     _setBootError(true);
     return;
   }
-  await loadCategoryIconSprite();
-  await loadTags();
-  await loadGoals();
-  await loadBudgets();
-  await loadRecurringRules();
-  await loadAndRender();
+  await others;
+  await loadAndRender({ prefetched: monthTx });
   _setBootError(false);
   // Not a navigation: the auth overlay came down at the top of
   // _afterAuthSuccess, so the menu has been tappable for the whole load chain
@@ -408,6 +421,16 @@ async function init() {
     if (document.visibilityState === 'visible') retryBoot();
   });
 
+  // Both auth bootstrap requests go out at once, before the i18n wait below:
+  // in a row they cost two extra round trips on every start. /auth/me simply
+  // answers 401 on a fresh instance, where its result goes unused.
+  const setupStatus = _bootstrapFetch('/auth/setup-status');
+  const meReq = _bootstrapFetch('/auth/me');
+  // Awaited (and their rejections caught) further down; until then a fast
+  // failure must not count as an unhandled rejection (js_error breadcrumb).
+  setupStatus.catch(() => {});
+  meReq.catch(() => {});
+
   // Wait for the i18n bundle so the first render is already in the
   // active language (i18n.js kicked the load off synchronously).
   if (window.I18N && I18N.ready) {
@@ -432,7 +455,7 @@ async function init() {
   let suggested = null;
   let defaultLocale = null;
   try {
-    const res = await _bootstrapFetch('/auth/setup-status');
+    const res = await setupStatus;
     if (res.ok) {
       const data = await res.json();
       needsSetup = !!data.needs_setup;
@@ -475,7 +498,7 @@ async function init() {
   window._suppressAuthReload = true;
   let me = null;
   try {
-    const res = await _bootstrapFetch('/auth/me');
+    const res = await meReq;
     if (res.ok) me = await res.json();
   } catch (e) {}
   window._suppressAuthReload = false;
