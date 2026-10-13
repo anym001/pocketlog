@@ -717,15 +717,20 @@
         background: var(--red);
         box-shadow: 0 0 var(--space-8) var(--red);
       }
+      /* Pending-writes count. Same height as the dot and the dot's state
+         colour, so the pair never shows two statuses at once: accent while
+         saving / syncing, grey offline, red on failure. Light mode uses the
+         darker text variants so the white digits clear 4.5:1; dark mode
+         takes the light fills with dark digits, like the dot's glyph. */
       .sync-badge {
         position: absolute;
         top: calc(var(--space-2) * -1);
         right: calc(var(--space-2) * -1);
-        min-width: var(--space-20);
-        height: var(--space-20);
+        min-width: var(--space-16);
+        height: var(--space-16);
         padding: 0 var(--space-4);
         border-radius: var(--r-pill);
-        background: var(--accent);
+        background: var(--accent-text);
         color: var(--on-accent);
         font-size: var(--fs-micro);
         font-weight: 700;
@@ -738,6 +743,24 @@
       }
       .sync-badge[hidden] {
         display: none;
+      }
+      .sync-dot.offline ~ .sync-badge {
+        /* Between --text3 (the dot, 3.7:1 under white) and --text2 (near
+           black): the dot's grey, dark enough for the digits. */
+        background: color-mix(in oklab, var(--text3), var(--text2));
+      }
+      .sync-dot.error ~ .sync-badge {
+        background: var(--red);
+      }
+      html[data-dark='true'] .sync-badge {
+        background: var(--accent);
+        color: var(--bg-canvas);
+      }
+      html[data-dark='true'] .sync-dot.offline ~ .sync-badge {
+        background: var(--text2);
+      }
+      html[data-dark='true'] .sync-dot.error ~ .sync-badge {
+        background: var(--red);
       }
       @keyframes pulse {
         0%,

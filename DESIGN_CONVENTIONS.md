@@ -578,6 +578,10 @@ Required — no exceptions "because PWA":
   header sync dot carries a glyph per state (✓ synced, ⟳ syncing,
   cloud-slash offline on grey, ! failed; CSS masks on `.sync-dot` — a mask
   cannot reference the inline sprite, so these four stay data URIs).
+  The pending-writes badge beside it is the dot's height and wears the
+  dot's state colour (accent saving/syncing, grey offline, red failed), so
+  the pair never shows two statuses; digits white in light mode on the
+  darker text variants, dark in dark mode — the same rule as the glyph.
 - **Charts with both directions:** expenses are solid, income is dashed
   (`borderDash`); in bar charts expenses are filled, income outlined.
   Checked with the dataviz palette validator, `--accent` and `--green` are
