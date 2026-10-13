@@ -1734,6 +1734,21 @@
       .drawer.sub-active .drawer-head {
         display: none;
       }
+      /* Phone: a settings detail page (tags, categories, import …) is a page
+         of its own and takes the full width, like a pushed iOS settings
+         page; the menus stay a narrow sheet over the app (core.js:
+         _syncDrawerDetail). ≥768 px details open in the content pane. */
+      @media (max-width: 767.98px) {
+        .drawer {
+          transition:
+            transform 0.35s var(--ease-spring),
+            width 0.32s var(--ease-spring);
+        }
+        .drawer.detail-active {
+          width: 100%;
+          border-right: none;
+        }
+      }
       .drawer-content {
         position: relative;
         flex: 1;

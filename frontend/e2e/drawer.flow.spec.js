@@ -199,3 +199,27 @@ test('the drawer keeps focus to itself while open, and out of the way while clos
 
   expect(pageErrors, `Uncaught page errors: ${pageErrors.join(' | ')}`).toEqual([]);
 });
+
+// Phone widths: the menus stay a narrow sheet over the app, a settings detail
+// page takes the full width (DESIGN_CONVENTIONS "menus narrow, pages wide").
+test('on a phone, menus stay narrow and settings detail pages use the full width', async ({
+  page,
+}) => {
+  await loginViaApi(page.context());
+  await bootIntoApp(page);
+  const drawerWidth = () => page.evaluate(() => document.getElementById('drawer').offsetWidth);
+  const viewport = page.viewportSize().width;
+
+  await page.evaluate(() => window.openDrawer());
+  await page.evaluate(() => window.drawerNav('dpSettings'));
+  await expect.poll(drawerWidth).toBeLessThan(viewport);
+
+  await page.evaluate(() => window.drawerNav('dpTags'));
+  await expect(page.locator('#drawer')).toHaveClass(/detail-active/);
+  await expect.poll(drawerWidth).toBe(viewport);
+
+  // Back to the settings list: narrow again.
+  await page.evaluate(() => window.drawerBack());
+  await expect(page.locator('#drawer')).not.toHaveClass(/detail-active/);
+  await expect.poll(drawerWidth).toBeLessThan(viewport);
+});
