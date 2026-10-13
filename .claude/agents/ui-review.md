@@ -7,6 +7,11 @@ You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVEN
 
 ## What to check
 
+**Overall concept & visual verification (always first)**
+- The change fits the whole app: it reuses existing components, tokens and patterns; no one-off styling. A new pattern is documented in `DESIGN_CONVENTIONS.md` in the same change and applied everywhere it belongs.
+- Check the neighbours: the same component in other views must still match (rows, cards, badges, buttons, pickers).
+- Before/after screenshots exist (or take them): phone 390 px, wide layout when affected, light + dark, every touched state — see `DESIGN_CONVENTIONS.md` → "Verifying UI Changes". Flag a visual change that was only verified by tests.
+
 **Layout & responsiveness**
 - Mobile-first base (iPhone, < 768 px) untouched and visually identical to before the change
 - `env(safe-area-inset-*)` used wherever content can be clipped by iPhone notch/home bar

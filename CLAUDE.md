@@ -162,6 +162,10 @@ Two static bundles (`i18n/de.json`, `i18n/en.json`); `i18n.js` provides `window.
 ## Deployment → [`README.md`](README.md)
 ## Design Conventions (Frontend) → Consult [`DESIGN_CONVENTIONS.md`](DESIGN_CONVENTIONS.md) before every frontend change.
 
+**Every UI change must fit the overall concept and be verified with screenshots** — both are required, not optional:
+- **One system:** reuse the existing components, tokens and patterns; no one-off styling. A change that needs a new pattern documents it in `DESIGN_CONVENTIONS.md` in the same PR and applies it everywhere it belongs. Check the neighbours too — the same component elsewhere must still match.
+- **Screenshots before the PR:** before/after against `dev` with the same data; phone (390 px) always, 768 / 1280 px when the wide layout is affected; light and dark; every state the change touches. Look at them — passing tests don't see spacing, wrapping, contrast or a colour that no longer matches. Show them to the user and reference them in the PR. Details: `DESIGN_CONVENTIONS.md` → "Verifying UI Changes".
+
 ## Conventions
 
 **Branching/PR workflow:** `feature/*` → `dev` (PRs always against `dev`); `dev → main` = release. `main`/`dev` are protected. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md).

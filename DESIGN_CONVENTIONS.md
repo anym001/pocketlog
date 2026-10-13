@@ -7,12 +7,38 @@ i18n; code and comments are English (see "Language" convention in [`CLAUDE.md`](
 
 ## Core Principles
 
+- **One system:** every change fits the whole app — the same components,
+  tokens and patterns as everywhere else, no one-off styling. A change that
+  needs a new pattern documents it here in the same PR and applies it
+  everywhere it belongs. Every UI change is verified with screenshots (see
+  "Verifying UI Changes" below).
 - **Clarity:** function before decoration, no visual noise.
 - **Restraint:** the UI frames the data — transactions and amounts in the foreground.
 - **Depth:** hierarchy through layers and shadows, not skeuomorphism.
 - **Mobile-first:** max-width `430px`, single-column, touch targets ≥ 44×44 px.
 - **Content first:** DM Serif Display dominant for amounts, DM Sans recedes.
 - **Platform look on iOS:** `standalone` mode, `theme-color` = `--bg-grouped`, `apple-touch-icon` set.
+
+## Verifying UI Changes
+
+Every UI change is checked visually before it goes into a PR. Passing tests
+are not enough: they don't see spacing, wrapping, contrast, clipped amounts or
+a colour that no longer matches its neighbour.
+
+- **Before / after** against `dev`, with the same data.
+- **Widths:** phone (390 px) always; 768 and 1280 px when the tablet/desktop
+  layout is affected; 320 / 360 px for anything with amounts or long labels.
+- **Light and dark mode.**
+- **Every state the change touches:** empty, loading, error, long text, many
+  items, keyboard focus.
+- **The neighbours, not just the changed element:** the same component in
+  other views (rows, cards, badges, buttons, pickers) must still match — that
+  is where "fits the overall concept" is decided.
+- **How:** serve the frontend locally (symlink `backend/static` →
+  `../frontend`, gitignored, then run uvicorn from `backend/`), capture with
+  Playwright's Chromium (already set up in `frontend/e2e`) or the browser's
+  device mode. Compare before/after side by side, fix what doesn't fit, and
+  show the pairs to the reviewer / reference them in the PR description.
 
 ## Layout & Safe Areas
 
