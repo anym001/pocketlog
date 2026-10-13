@@ -4,6 +4,16 @@
 // until the CSP dropped script-src 'unsafe-inline'; the file is tiny, so
 // the extra request costs less than keeping the CSP escape hatch open.
 
+// Versioned URL for an app file fetched at runtime (i18n bundles, the
+// category sprite, CSV samples): the same ?v=<release> the script and style
+// tags in index.html carry, read from <meta name="app-version">. A page then
+// only ever loads files of its own release; the service worker precaches
+// exactly these URLs. Defined here because this is the first script to run.
+window.assetUrl = function (path) {
+  var meta = document.querySelector('meta[name="app-version"]');
+  return path + '?v=' + (meta ? meta.getAttribute('content') : '');
+};
+
 // Single early decision for the active theme. Sets two attributes:
 //   data-theme  — the user's preference: 'dark' | 'light' | (none = system)
 //   data-dark   — the effective, resolved value used for CSS theming

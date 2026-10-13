@@ -28,6 +28,13 @@ COPY frontend/icons ./static/icons
 COPY frontend/fonts ./static/fonts
 COPY frontend/vendor ./static/vendor
 
+# The version lands verbatim in JS strings and URLs: anything beyond this
+# set (quotes, &, |, #, spaces) would break the sed, the code or the ?v=
+# URLs, so the build fails instead.
+RUN case "${APP_VERSION}" in \
+      ''|*[!0-9A-Za-z._/+-]*) echo "APP_VERSION '${APP_VERSION}' must match [0-9A-Za-z._/+-]+" >&2; exit 1 ;; \
+    esac
+
 # Bake APP_VERSION into the service worker so each release gets a fresh
 # cache key (pocketlog-shell-${VERSION}, pocketlog-api-${VERSION}) and the
 # activate-hook can prune stale caches automatically. Without this, sw.js
@@ -37,6 +44,9 @@ COPY frontend/vendor ./static/vendor
 # slashes (branch-based tags, e.g. `feature/foo`); a `/` delimiter would
 # unparseably collide with them.
 RUN sed -i "s|'__APP_VERSION__'|'${APP_VERSION}'|" /app/static/sw.js
+# Same version into index.html: <meta name="app-version"> and the ?v= on
+# every script/style tag (see the comment there). Every occurrence, hence /g.
+RUN sed -i "s|__APP_VERSION__|${APP_VERSION}|g" /app/static/index.html
 
 # /app is owned by a build-time user and left world-readable. The container
 # starts as root so the entrypoint can chown the /config mount, then drops

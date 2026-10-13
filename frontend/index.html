@@ -8,6 +8,11 @@
     <meta name="apple-mobile-web-app-title" content="PocketLog" />
     <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f0e0c" media="(prefers-color-scheme: dark)" />
+    <!-- Release version, baked in by the Dockerfile like sw.js. Every app
+         file below is requested as ?v=<version>, so a page can only ever
+         load one release's files: fresh HTML never meets a cached older
+         script, and no reload is needed after an update. -->
+    <meta name="app-version" content="__APP_VERSION__" />
     <title data-i18n="app.documentTitle">PocketLog – Haushaltsbuch</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/favicon.ico" sizes="any" />
@@ -19,10 +24,10 @@
     <!-- Blocking on purpose (no defer): theme + sidebar state must be set
          before first paint. External file because the CSP forbids inline
          scripts (script-src 'self'). -->
-    <script src="/theme-boot.js"></script>
-    <script src="/vendor/chart.umd.min.js"></script>
-    <script src="/db.js" defer></script>
-    <link rel="stylesheet" href="/styles.css" />
+    <script src="/theme-boot.js?v=__APP_VERSION__"></script>
+    <script src="/vendor/chart.umd.min.js?v=__APP_VERSION__"></script>
+    <script src="/db.js?v=__APP_VERSION__" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=__APP_VERSION__" />
   </head>
   <body>
     <!-- Inline SVG icon sprite (chrome glyphs).
@@ -2039,19 +2044,19 @@
       </div>
     </div>
 
-    <script src="/i18n.js" defer></script>
-    <script src="/utils.js" defer></script>
-    <script src="/reportsData.js" defer></script>
-    <script src="/state.js" defer></script>
-    <script src="/core.js" defer></script>
-    <script src="/ledger.js" defer></script>
-    <script src="/reports.js" defer></script>
-    <script src="/booking.js" defer></script>
-    <script src="/categories.js" defer></script>
-    <script src="/goals.js" defer></script>
-    <script src="/budgets.js" defer></script>
-    <script src="/recurring.js" defer></script>
-    <script src="/settings.js" defer></script>
-    <script src="/app.js" defer></script>
+    <script src="/i18n.js?v=__APP_VERSION__" defer></script>
+    <script src="/utils.js?v=__APP_VERSION__" defer></script>
+    <script src="/reportsData.js?v=__APP_VERSION__" defer></script>
+    <script src="/state.js?v=__APP_VERSION__" defer></script>
+    <script src="/core.js?v=__APP_VERSION__" defer></script>
+    <script src="/ledger.js?v=__APP_VERSION__" defer></script>
+    <script src="/reports.js?v=__APP_VERSION__" defer></script>
+    <script src="/booking.js?v=__APP_VERSION__" defer></script>
+    <script src="/categories.js?v=__APP_VERSION__" defer></script>
+    <script src="/goals.js?v=__APP_VERSION__" defer></script>
+    <script src="/budgets.js?v=__APP_VERSION__" defer></script>
+    <script src="/recurring.js?v=__APP_VERSION__" defer></script>
+    <script src="/settings.js?v=__APP_VERSION__" defer></script>
+    <script src="/app.js?v=__APP_VERSION__" defer></script>
   </body>
 </html>

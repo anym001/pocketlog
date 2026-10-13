@@ -76,7 +76,9 @@
     bundle = BUNDLES.indexOf(bundle) !== -1 ? bundle : BUNDLES[0];
     if (_cache[bundle]) return _cache[bundle];
     try {
-      const res = await fetch('/i18n/' + bundle + '.json', { credentials: 'same-origin' });
+      const res = await fetch(window.assetUrl('/i18n/' + bundle + '.json'), {
+        credentials: 'same-origin',
+      });
       if (!res.ok) throw new Error('i18n ' + bundle + ' → ' + res.status);
       _cache[bundle] = _flatten(await res.json(), '', Object.create(null));
     } catch (e) {

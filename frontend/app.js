@@ -348,33 +348,53 @@ function _bootstrapFetch(path) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
   if ('serviceWorker' in navigator) {
-    // Auto-reload when a new service worker takes control DURING BOOT. The
-    // shell HTML is network-first, so after an upgrade the page can boot
-    // fresh markup while still running the previous version's cached JS/i18n
-    // until a reload — exactly the half-updated state that breaks newly
-    // added reports/keys. While the boot skeleton is still up that reload is
-    // invisible; once the app has rendered it was a visible "blink" (the
-    // classic case: an update whose install outlived the previous visit and
-    // that activates seconds after the next open). So past the boot window
-    // — unless the page is hidden anyway — we skip the reload and keep the
-    // consistent old version running; the update applies on the next open,
-    // which loads fresh HTML and fresh precache in one go.
-    // Guarded against the first-ever install (no prior controller; the new
-    // SW's clients.claim() fires controllerchange there too) and reload
-    // loops. Registration is the first thing init() does so the update
-    // check races ahead of the i18n/auth awaits below and an already-waiting
-    // worker lands inside the window.
-    const SW_RELOAD_BOOT_WINDOW_MS = 3000;
-    const _swBootStart = Date.now();
-    let _swReloading = false;
-    const _hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (_swReloading || !_hadController) return;
-      const inBootWindow = Date.now() - _swBootStart < SW_RELOAD_BOOT_WINDOW_MS;
-      if (!inBootWindow && document.visibilityState !== 'hidden') return;
-      _swReloading = true;
+    // No visible reload when a new service worker takes over. Every app
+    // file is requested under its release's ?v= URL (index.html, assetUrl in
+    // theme-boot.js) and served from exactly that release's precache
+    // (sw.js), so a page can't boot fresh HTML against an older cached
+    // script — the half-updated state the former boot-window reload
+    // repaired, at the cost of a blink on the first open after every
+    // update. A page left open across an update keeps its own consistent
+    // release: the new worker just receives the CSRF token outbox replays
+    // need, and the page switches to the new release the next time it is
+    // hidden — unseen, and never under an open modal whose input a reload
+    // would lose. Guarded against the first-ever install (clients.claim()
+    // fires controllerchange there too). Registered first so the update
+    // check races ahead of the i18n/auth awaits below.
+    const hadController = !!navigator.serviceWorker.controller;
+    let updateReady = false;
+    let reloading = false;
+    const reloadIfUnseen = () => {
+      if (!updateReady || reloading || document.visibilityState !== 'hidden') return;
+      if (document.querySelector('.modal-overlay.open')) return;
+      reloading = true;
       recordReloadEvent('sw_update');
       window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      _propagateCsrfToken(window._csrfToken);
+      if (!hadController) return;
+      updateReady = true;
+      reloadIfUnseen();
+    });
+    // Browsers only look for a new worker on a navigation. An installed app
+    // that is resumed rather than relaunched (iOS keeps it open for days)
+    // never navigates, so it asks on coming back to the foreground —
+    // throttled, the boot navigation counts as the first check.
+    const SW_UPDATE_CHECK_MS = 15 * 60 * 1000;
+    let lastUpdateCheck = Date.now();
+    const checkForUpdate = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastUpdateCheck < SW_UPDATE_CHECK_MS) return;
+      lastUpdateCheck = Date.now();
+      navigator.serviceWorker
+        .getRegistration()
+        .then((reg) => reg && reg.update())
+        .catch(() => {});
+    };
+    document.addEventListener('visibilitychange', () => {
+      reloadIfUnseen();
+      checkForUpdate();
     });
     navigator.serviceWorker
       .register('/sw.js')
