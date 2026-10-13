@@ -348,15 +348,36 @@ function _bootstrapFetch(path) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
   if ('serviceWorker' in navigator) {
-    // No reload when a new service worker takes over. Every app file is
-    // requested under its release's ?v= URL (index.html, assetUrl in
-    // theme-boot.js) and precached under exactly that URL (sw.js), so a page
-    // can't boot fresh HTML against an older cached script — the half-
-    // updated state the former boot-window reload repaired, at the cost of
-    // a visible blink on the first open after every update. A page that is
-    // already running simply keeps its own consistent release; the next
-    // open loads the new one. Registered first so the update check races
-    // ahead of the i18n/auth awaits below.
+    // No visible reload when a new service worker takes over. Every app
+    // file is requested under its release's ?v= URL (index.html, assetUrl in
+    // theme-boot.js) and served from exactly that release's precache
+    // (sw.js), so a page can't boot fresh HTML against an older cached
+    // script — the half-updated state the former boot-window reload
+    // repaired, at the cost of a blink on the first open after every
+    // update. A page left open across an update keeps its own consistent
+    // release: the new worker just receives the CSRF token outbox replays
+    // need, and the page switches to the new release the next time it is
+    // hidden — unseen, and never under an open modal whose input a reload
+    // would lose. Guarded against the first-ever install (clients.claim()
+    // fires controllerchange there too). Registered first so the update
+    // check races ahead of the i18n/auth awaits below.
+    const hadController = !!navigator.serviceWorker.controller;
+    let updateReady = false;
+    let reloading = false;
+    const reloadIfUnseen = () => {
+      if (!updateReady || reloading || document.visibilityState !== 'hidden') return;
+      if (document.querySelector('.modal-overlay.open')) return;
+      reloading = true;
+      recordReloadEvent('sw_update');
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      _propagateCsrfToken(window._csrfToken);
+      if (!hadController) return;
+      updateReady = true;
+      reloadIfUnseen();
+    });
+    document.addEventListener('visibilitychange', reloadIfUnseen);
     navigator.serviceWorker
       .register('/sw.js')
       .catch((e) => console.warn('SW registration failed:', e));

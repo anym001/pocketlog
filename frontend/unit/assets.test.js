@@ -5,7 +5,7 @@
 // of it after an update — the half-updated state that once needed a
 // visible reload to repair. These checks pin the pairing.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -33,10 +33,27 @@ describe('versioned app assets', () => {
     expect(html).toMatch(/<meta name="app-version" content="__APP_VERSION__"/);
   });
 
-  it('precaches every one of them under the same versioned URL', () => {
+  it('precaches every one of them as boot-critical under the same versioned URL', () => {
+    const critical = sw.slice(
+      sw.indexOf('const SHELL_CRITICAL'),
+      sw.indexOf('const SHELL_OPTIONAL'),
+    );
     const missing = appAssets
       .map((u) => u.replace('?v=__APP_VERSION__', ''))
-      .filter((path) => !sw.includes(`v('${path}')`));
+      .filter((path) => !critical.includes(`v('${path}')`));
     expect(missing).toEqual([]);
+  });
+
+  it('fetches static files at runtime only through assetUrl()', () => {
+    // A literal fetch('/x') outside /api/ would bypass the version and could
+    // return another release's file.
+    const offenders = readdirSync(root)
+      .filter((f) => f.endsWith('.js') && f !== 'sw.js')
+      .flatMap((f) =>
+        [
+          ...readFileSync(join(root, f), 'utf8').matchAll(/fetch\(\s*['"`](\/(?!api\/)[^'"`]*)/g),
+        ].map((m) => `${f}: ${m[1]}`),
+      );
+    expect(offenders).toEqual([]);
   });
 });

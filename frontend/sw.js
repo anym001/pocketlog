@@ -19,19 +19,27 @@
 // __APP_VERSION__ is substituted in the Dockerfile from the APP_VERSION env.
 // Every release thereby gets new cache keys; the activate hook clears old
 // caches. index.html carries the same version: every app file is requested
-// as <path>?v=<VERSION> and precached under exactly that URL, so one page
-// load only ever sees one release — fresh HTML can't meet an older cached
-// script (timeout fallback, browser HTTP cache), and an update needs no
-// reload. HTML, the manifest, fonts and app icons stay unversioned.
-
-importScripts('/db.js');
+// as <path>?v=<VERSION> and precached under exactly that URL. Those URLs are
+// immutable by design, so they are served cache-first (versionedAsset) and
+// a page never mixes releases — fresh HTML can't meet an older cached
+// script, and an update needs no visible reload. The cached HTML shell stays
+// exactly as install wrote it (never overwritten at runtime), so offline it
+// always points at files this cache holds. HTML, the manifest, fonts and
+// app icons stay unversioned. Unsubstituted (local dev, no Docker build)
+// the version never changes, so ?v= gets no special treatment there.
 
 const VERSION = '__APP_VERSION__';
-const CACHE = `pocketlog-shell-${VERSION}`;
-const API_CACHE = `pocketlog-api-${VERSION}`;
+// Split literal: the Dockerfile sed rewrites the quoted placeholder on every
+// line — a plain comparison would turn into VERSION === '<release>'.
+const DEV_BUILD = VERSION === '__APP_' + 'VERSION__';
 
 // The versioned URL index.html / assetUrl() (theme-boot.js) request.
 const v = (path) => `${path}?v=${VERSION}`;
+
+importScripts(v('/db.js'));
+
+const CACHE = `pocketlog-shell-${VERSION}`;
+const API_CACHE = `pocketlog-api-${VERSION}`;
 
 // Boot-critical shell: HTML, CSS, the full classic-script chain (a single
 // missing module aborts init() with a ReferenceError offline), the offline
@@ -86,8 +94,10 @@ const SHELL_OPTIONAL = [
 
 // HTML shell + app code (styles.css, every app script from core.js to
 // app.js, db.js): fetched fresh on every online request, cache only when
-// offline. Icons, fonts and the versioned Chart.js bundle under /vendor/
-// practically never change and stay cache-first.
+// offline. In a release build the app code arrives as versioned URLs and
+// takes the versionedAsset path instead; this list then only governs the
+// HTML, the manifest and dev builds. Icons, fonts and the Chart.js bundle
+// under /vendor/ practically never change and stay cache-first.
 function isNetworkFirstShell(url) {
   if (url.origin !== self.location.origin) return false;
   return (
@@ -236,13 +246,14 @@ async function networkFirst(request, cacheName) {
   // server (a timed-out stale `me` would pin the user in the wrong view),
   // so they stay on a plain unbounded fetch and never serve from cache.
   const cachedFallback = isAuthPath(url) ? null : await caches.match(request);
+  const writeBack = !isPinnedShellHtml(url);
   try {
     const fresh = cachedFallback
       ? await fetchWithTimeout(request, (res) => {
           // Clone synchronously, before the page consumes the body — the
           // cache write below runs a microtask later and res.clone() would
           // otherwise throw "body already used".
-          if (res && res.ok) {
+          if (writeBack && res && res.ok) {
             const copy = res.clone();
             // Fire-and-forget by design (the response must not wait on
             // this), but still caught: an uncaught QuotaExceededError here
@@ -275,7 +286,7 @@ async function networkFirst(request, cacheName) {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
-    } else if (fresh.ok && !cachedFallback) {
+    } else if (writeBack && fresh.ok && !cachedFallback) {
       // Only cache successful responses. Caching 4xx/5xx would let a
       // transient error linger as the offline fallback. On the warm-cache
       // (timeout) path the onFresh callback already wrote the cache, so we
@@ -308,6 +319,47 @@ async function networkFirst(request, cacheName) {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+}
+
+// A release's own app file: <path>?v=<release> (see the header). Same
+// origin only, never the HTML shell, never in a dev build.
+function isVersionedAsset(url) {
+  return (
+    !DEV_BUILD &&
+    url.origin === self.location.origin &&
+    url.searchParams.has('v') &&
+    url.pathname !== '/' &&
+    url.pathname !== '/index.html'
+  );
+}
+
+// The HTML shell is pinned in a release build: the precached copy references
+// exactly the ?v= files of this cache, and a runtime write could replace it
+// with a newer release's HTML whose files no cache holds — a white screen on
+// the next offline open. A new release's HTML only arrives with the new
+// service worker's install, together with its files.
+function isPinnedShellHtml(url) {
+  return !DEV_BUILD && (url.pathname === '/' || url.pathname === '/index.html');
+}
+
+// Versioned files never change under their URL, so the cache wins without a
+// network round trip. A miss (an optional precache entry that failed, or a
+// page of another release) goes to the network; only this release's files
+// are written back — the server ignores ?v= and would return its current
+// file under any version.
+async function versionedAsset(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  try {
+    const res = await fetch(request);
+    if (res.ok && new URL(request.url).searchParams.get('v') === VERSION) {
+      const cache = await caches.open(CACHE);
+      await cache.put(request, res.clone()).catch(() => {});
+    }
+    return res;
+  } catch (e) {
+    return new Response('', { status: 503, statusText: 'Offline' });
   }
 }
 
@@ -425,7 +477,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (req.method === 'GET') {
-    if (isNetworkFirstShell(url)) {
+    if (isVersionedAsset(url)) {
+      event.respondWith(versionedAsset(req));
+    } else if (isNetworkFirstShell(url)) {
       event.respondWith(networkFirst(req, CACHE));
     } else {
       event.respondWith(cacheFirst(req));

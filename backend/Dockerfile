@@ -28,6 +28,13 @@ COPY frontend/icons ./static/icons
 COPY frontend/fonts ./static/fonts
 COPY frontend/vendor ./static/vendor
 
+# The version lands verbatim in JS strings and URLs: anything beyond this
+# set (quotes, &, |, #, spaces) would break the sed, the code or the ?v=
+# URLs, so the build fails instead.
+RUN case "${APP_VERSION}" in \
+      ''|*[!0-9A-Za-z._/+-]*) echo "APP_VERSION '${APP_VERSION}' must match [0-9A-Za-z._/+-]+" >&2; exit 1 ;; \
+    esac
+
 # Bake APP_VERSION into the service worker so each release gets a fresh
 # cache key (pocketlog-shell-${VERSION}, pocketlog-api-${VERSION}) and the
 # activate-hook can prune stale caches automatically. Without this, sw.js

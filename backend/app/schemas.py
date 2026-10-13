@@ -962,9 +962,6 @@ class ReloadEventIn(BaseModel):
     # _loadBootData); js_error marks an uncaught client-side error (message
     # and stack deliberately stay in the browser console). Neither is a
     # reload, but both ride the same breadcrumb buffer and endpoint.
-    # "sw_update" is no longer sent (versioned assets made the update reload
-    # unnecessary) but stays accepted: a client still running an older
-    # release delivers its buffered events on its next boot.
     reason: Literal["sw_update", "session_expired", "boot_failed", "js_error"]
     occurred_at: datetime
 
