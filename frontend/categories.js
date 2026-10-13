@@ -1153,11 +1153,12 @@ function catIconSvg(id) {
 
 // Fetch the sprite once at boot and inject it inline so document-local
 // <use href="#cat-…"> references resolve everywhere (transaction rows,
-// category breakdown, picker). The file is cache-first via the SW.
+// category breakdown, picker). Cache-first via the SW under its versioned
+// URL, so a release with new glyphs never shows the previous sprite.
 async function loadCategoryIconSprite() {
   if (document.getElementById('cat-icon-sprite')) return;
   try {
-    const res = await fetch('/icons/categories/sprite.svg');
+    const res = await fetch(assetUrl('/icons/categories/sprite.svg'));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     // Strip the XML prolog if present — invalid as inline HTML.

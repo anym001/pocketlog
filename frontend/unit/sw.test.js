@@ -49,12 +49,15 @@ function makeCaches() {
 // Fresh sandbox per test: evaluate sw.js and expose the functions + the const
 // cache names (top-level `const`s aren't global object properties in a vm
 // script, so sw.js can't reach them from outside — we append an export line).
-function loadSw() {
-  const src =
-    readFileSync(SW_PATH, 'utf8') +
+// `version` mimics the Dockerfile substitution (a release build); without it
+// sw.js runs as a dev build with the literal placeholder.
+function loadSw({ version } = {}) {
+  let src = readFileSync(SW_PATH, 'utf8');
+  if (version) src = src.replace("'__APP_VERSION__'", `'${version}'`);
+  src +=
     '\n;self.__exports = { networkFirst, fetchWithTimeout, isAuthPath, ' +
-    'handleWrite, fetchWriteWithTimeout, CACHE, API_CACHE, ' +
-    'NETWORK_TIMEOUT_MS, WRITE_TIMEOUT_MS };';
+    'handleWrite, fetchWriteWithTimeout, versionedAsset, isVersionedAsset, ' +
+    'CACHE, API_CACHE, NETWORK_TIMEOUT_MS, WRITE_TIMEOUT_MS };';
   const caches = makeCaches();
   const sandbox = {
     self: {
@@ -158,6 +161,68 @@ describe('networkFirst — weak-connection timeout', () => {
     const result = await sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
     expect(result.status).toBe(401);
     expect(caches._store.has(sw.API_CACHE)).toBe(false);
+  });
+});
+
+describe('release build — versioned assets and the pinned HTML shell', () => {
+  const REL = '1.4.0';
+  const ROOT_URL = 'https://app.test/';
+  const VERSIONED = `https://app.test/core.js?v=${REL}`;
+  let sw, sandbox, caches;
+  beforeEach(() => {
+    ({ sw, sandbox, caches } = loadSw({ version: REL }));
+  });
+
+  it('routes ?v= app files to the versioned path, the HTML shell never', () => {
+    expect(sw.isVersionedAsset(new URL(VERSIONED))).toBe(true);
+    expect(sw.isVersionedAsset(new URL('https://app.test/core.js'))).toBe(false);
+    expect(sw.isVersionedAsset(new URL(`https://app.test/?v=${REL}`))).toBe(false);
+    expect(sw.isVersionedAsset(new URL(`https://cdn.test/x.js?v=${REL}`))).toBe(false);
+  });
+
+  it('a dev build (placeholder unsubstituted) keeps ?v= on the regular paths', () => {
+    const dev = loadSw().sw;
+    expect(dev.isVersionedAsset(new URL('https://app.test/core.js?v=__APP_VERSION__'))).toBe(false);
+  });
+
+  it('serves a cached versioned file without touching the network', async () => {
+    const c = await caches.open(sw.CACHE);
+    await c.put(reqOf(VERSIONED), resp('REL-CODE'));
+    sandbox.fetch = vi.fn();
+    const result = await sw.versionedAsset(reqOf(VERSIONED));
+    expect(await result.text()).toBe('REL-CODE');
+    expect(sandbox.fetch).not.toHaveBeenCalled();
+  });
+
+  it("caches a miss of this release's file, never another release's", async () => {
+    sandbox.fetch = async () => resp('NET', { status: 200 });
+    await sw.versionedAsset(reqOf(VERSIONED));
+    expect(await (await caches.match(reqOf(VERSIONED))).text()).toBe('NET');
+
+    const other = 'https://app.test/core.js?v=1.5.0';
+    const result = await sw.versionedAsset(reqOf(other));
+    expect(await result.text()).toBe('NET');
+    expect(await caches.match(reqOf(other))).toBeUndefined();
+  });
+
+  it('answers an offline miss with a 503', async () => {
+    sandbox.fetch = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    const result = await sw.versionedAsset(reqOf(VERSIONED));
+    expect(result.status).toBe(503);
+  });
+
+  it('never overwrites the precached HTML shell with a fresher one', async () => {
+    const c = await caches.open(sw.CACHE);
+    await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
+    sandbox.fetch = async () => resp('HTML-NEXT', { status: 200 });
+
+    const result = await sw.networkFirst(reqOf(ROOT_URL), sw.CACHE);
+    expect(await result.text()).toBe('HTML-NEXT'); // online: the live page
+    await tick();
+    // Offline it must still be the HTML whose ?v= files this cache holds.
+    expect(await (await caches.match(reqOf(ROOT_URL))).text()).toBe('HTML-REL');
   });
 });
 
