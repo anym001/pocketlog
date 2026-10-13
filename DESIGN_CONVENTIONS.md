@@ -163,13 +163,12 @@ via two breakpoints — the breakpoint value lives literally in `@media`
   Closing paths: the in-pane back button, Esc, the sidebar back button, any
   main destination, and crossing the breakpoint (the panel returns to the
   drawer). Forms there cap at 640 px.
-- **Phone drawer widths — menus narrow, pages wide:** below 768 px the
-  drawer's menus (main menu, Auswertungen, Einstellungen) stay a 300-px
-  sheet over the app, so the dimmed app beside them keeps it reading as a
-  menu and a tap there closes it. A settings detail page (the same list as
-  above) takes the full width, like a pushed iOS settings page:
-  `.drawer.detail-active`, toggled by `_syncDrawerDetail` (`core.js`) from
-  the top of the drawer stack. Its back button returns to the narrow menu.
+- **Phone drawer:** below 768 px the drawer is a full-screen menu at
+  every level — main menu, Auswertungen, Einstellungen and every settings
+  page share the whole width, so navigating inside it never changes its
+  size and long names have room. It closes with the X in the drawer head
+  (top level) or by picking a destination; sub-pages lead back there with
+  their back button.
 - **Settings rows (one component):** every settings panel uses the grouped
   `.drawer-nav` card.
   - Navigation rows end in a chevron.

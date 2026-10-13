@@ -899,7 +899,6 @@ function drawerNav(panelId) {
     document.getElementById(panelId).dataset.state = 'active';
     _drawerStack.push(panelId);
     document.getElementById('drawer').classList.add('sub-active');
-    _syncDrawerDetail();
   }
   if (panelId === 'dpCats') renderCategories();
   if (panelId === 'dpTags') renderTagList();
@@ -921,19 +920,6 @@ function drawerBack() {
   document.getElementById(current).dataset.state = 'right';
   document.getElementById(prev).dataset.state = 'active';
   if (!_drawerStack.length) document.getElementById('drawer').classList.remove('sub-active');
-  _syncDrawerDetail();
-}
-
-// Phones: the drawer's menus (main, Reports, Settings) stay a narrow sheet
-// over the app, a settings detail page (tags, categories, import …) takes the
-// full width like a pushed iOS settings page (styles.css: .detail-active).
-// ≥768 px those details open in the content pane instead, so the class never
-// matters there.
-function _syncDrawerDetail() {
-  const top = _drawerStack[_drawerStack.length - 1];
-  document
-    .getElementById('drawer')
-    .classList.toggle('detail-active', _SETTINGS_DETAILS.includes(top));
 }
 
 function _drawerResetPanels() {
@@ -944,7 +930,6 @@ function _drawerResetPanels() {
   });
   _drawerStack.length = 0;
   document.getElementById('drawer').classList.remove('sub-active');
-  _syncDrawerDetail();
 }
 
 // ≥768px: drawer is a persistent sidebar — open/close become no-ops
@@ -1045,7 +1030,6 @@ _mqTablet.addEventListener('change', (e) => {
       document.getElementById('dpSettings').dataset.state = 'left';
       document.getElementById(id).dataset.state = 'active';
       _drawerStack.push(id);
-      _syncDrawerDetail();
     }
     return;
   }
@@ -1055,7 +1039,6 @@ _mqTablet.addEventListener('change', (e) => {
     _drawerStack.pop();
     document.getElementById('dpSettings').dataset.state = 'active';
     _openSettingsDetail(top);
-    _syncDrawerDetail();
   }
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
@@ -1084,7 +1067,7 @@ function handleRowActivate(e, fn) {
 
 // ── DRAWER LIST FILTER ────────────────────────────────────────────────────────
 // The drawer's two management lists — categories and tags — are plain lists of
-// names in a 300px-wide panel. A permanent filter field there would cost a full
+// names in the drawer. A permanent filter field there would cost a full
 // row of that width for a list you can usually take in at a glance, so it
 // appears only once the list stops fitting: above DRAWER_FILTER_MIN entries.
 // Both panels share this so neither grows an affordance the other lacks.
