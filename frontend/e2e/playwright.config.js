@@ -10,11 +10,18 @@ module.exports = defineConfig({
   expect: { timeout: 10_000 },
   // Fail the build if someone leaves test.only in.
   forbidOnly: !!process.env.CI,
+  // No retries: a flaky test must show up as red, not pass on attempt two.
   retries: 0,
-  reporter: [['list']],
+  // The HTML report bundles each failure's trace and screenshot; CI uploads
+  // it as an artifact when the job fails.
+  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
     baseURL: process.env.BASE_URL || 'http://127.0.0.1:8000',
-    trace: 'on-first-retry',
+    // With retries off, 'on-first-retry' never recorded anything. Record
+    // every test and keep the trace (DOM snapshots, network, console) only
+    // for failures, so a one-off flake can be diagnosed after the fact.
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   projects: [
     // Mobile viewport throughout: PocketLog is mobile-first and switches to a
