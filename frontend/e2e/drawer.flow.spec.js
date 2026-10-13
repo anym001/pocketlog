@@ -3,7 +3,7 @@
 // Nothing in the suite touched the drawer before this file. Two behaviours
 // worth pinning live here:
 //
-//   1. The filter field is conditional. It costs a full row of a 300px panel,
+//   1. The filter field is conditional. It costs a full row of the panel,
 //      so it appears only above DRAWER_FILTER_MIN entries and goes away again
 //      when the list shrinks back under it. A threshold that silently drifts
 //      would either clutter every short list or strand a long one, and neither
@@ -200,26 +200,24 @@ test('the drawer keeps focus to itself while open, and out of the way while clos
   expect(pageErrors, `Uncaught page errors: ${pageErrors.join(' | ')}`).toEqual([]);
 });
 
-// Phone widths: the menus stay a narrow sheet over the app, a settings detail
-// page takes the full width (DESIGN_CONVENTIONS "menus narrow, pages wide").
-test('on a phone, menus stay narrow and settings detail pages use the full width', async ({
-  page,
-}) => {
+// Phone: the drawer is a full-screen menu — every level of it, the main
+// menu, the settings list and a settings page, fills the viewport, so
+// navigating inside it never changes its width (DESIGN_CONVENTIONS "Phone
+// drawer").
+test('on a phone, the drawer fills the screen at every level', async ({ page }) => {
   await loginViaApi(page.context());
   await bootIntoApp(page);
   const drawerWidth = () => page.evaluate(() => document.getElementById('drawer').offsetWidth);
   const viewport = page.viewportSize().width;
 
   await page.evaluate(() => window.openDrawer());
-  await page.evaluate(() => window.drawerNav('dpSettings'));
-  await expect.poll(drawerWidth).toBeLessThan(viewport);
-
-  await page.evaluate(() => window.drawerNav('dpTags'));
-  await expect(page.locator('#drawer')).toHaveClass(/detail-active/);
   await expect.poll(drawerWidth).toBe(viewport);
-
-  // Back to the settings list: narrow again.
+  await page.evaluate(() => window.drawerNav('dpSettings'));
+  await expect.poll(drawerWidth).toBe(viewport);
+  await page.evaluate(() => window.drawerNav('dpTags'));
+  await expect.poll(drawerWidth).toBe(viewport);
+  // The close button stays reachable once back at the top level.
   await page.evaluate(() => window.drawerBack());
-  await expect(page.locator('#drawer')).not.toHaveClass(/detail-active/);
-  await expect.poll(drawerWidth).toBeLessThan(viewport);
+  await page.evaluate(() => window.drawerBack());
+  await expect(page.locator('#drawer .drawer-head')).toBeVisible();
 });
