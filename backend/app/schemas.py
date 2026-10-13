@@ -130,6 +130,9 @@ class CategoryOut(CategoryBase):
     count: int = 0
     count_in: int = 0
     count_out: int = 0
+    # All bookings ever, no window: the category list in the settings shows
+    # this one, where a 0 must mean "never used".
+    count_total: int = 0
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -241,6 +244,8 @@ class TagOut(BaseModel):
     count: int
     count_in: int = 0
     count_out: int = 0
+    # All bookings ever, no window — what the tag list in the settings shows.
+    count_total: int = 0
 
 
 # -------- Transactions --------
