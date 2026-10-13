@@ -18,8 +18,9 @@
     "nameRequired": "Name is required.",
     "loading": "Loading …",
     "queuedOffline": "Saved offline. Will sync once you’re back online.",
-    "usage90": "Used {n} times in the last 90 days",
-    "usage90One": "Used once in the last 90 days"
+    "usageNone": "Not used",
+    "usageOne": "Used once",
+    "usageMany": "Used {n} times"
   },
   "menu": {
     "title": "Menu",

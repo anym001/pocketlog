@@ -173,8 +173,9 @@ via two breakpoints — the breakpoint value lives literally in `@media`
 - **Settings rows (one component):** every settings panel uses the grouped
   `.drawer-nav` card.
   - Navigation rows end in a chevron.
-  - Management rows (categories, tags) show the 90-day usage count, then
-    a chevron.
+  - Management rows (categories, tags) show how often the item was ever
+    used (all bookings, no time window, so 0 means "never used"), then a
+    chevron.
   - Actions are `.action-list` rows tinted `--accent-text` (`.is-action`)
     or `--red` (`.is-destructive`). A row that opens a dialog asking for
     more input ends in "…" ("Passwort ändern…"); one that only asks to

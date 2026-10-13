@@ -64,7 +64,8 @@ def list_categories(db: Session, user_id: int) -> list[models.Category]:
 
 
 def list_categories_with_usage(db: Session, user_id: int) -> list[dict]:
-    """Categories plus their recent usage, split by transaction type.
+    """Categories plus their recent usage, split by transaction type, and
+    their all-time booking count (``count_total``).
 
     The counts drive the frontend's category chooser: it shows only the top
     two rows of chips and reaches the rest through search, so the ranking is
@@ -92,6 +93,10 @@ def list_categories_with_usage(db: Session, user_id: int) -> list[dict]:
             func.coalesce(func.sum(recent), 0),
             func.coalesce(func.sum(recent_in), 0),
             func.coalesce(func.sum(recent_out), 0),
+            # All-time, unwindowed: what the category list shows, so a 0
+            # there means "never used". COUNT of a column skips the NULLs
+            # the LEFT JOIN yields for a category without transactions.
+            func.count(models.Transaction.id),
         )
         .select_from(models.Category)
         .join(
@@ -114,8 +119,9 @@ def list_categories_with_usage(db: Session, user_id: int) -> list[dict]:
             "count": int(count or 0),
             "count_in": int(c_in or 0),
             "count_out": int(c_out or 0),
+            "count_total": int(total or 0),
         }
-        for cat, count, c_in, c_out in rows
+        for cat, count, c_in, c_out, total in rows
     ]
 
 

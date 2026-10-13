@@ -77,7 +77,7 @@ test('drawer tag list: filter appears with the list, and rows work by keyboard',
   // Filtering narrows to the one row that matches.
   await page.fill('#dpTagSearch', ODD.toLowerCase());
   await expect(page.locator('#tagList .cat-pill-edit')).toHaveCount(1);
-  // The row also carries its 90-day usage count; the name is its label.
+  // The row also carries its all-time usage count; the name is its label.
   await expect(page.locator('#tagList .cat-pill-edit .drawer-nav-label')).toHaveText(ODD);
 
   // A miss reads as a miss, not as an empty account.
