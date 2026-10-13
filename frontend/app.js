@@ -377,7 +377,25 @@ async function init() {
       updateReady = true;
       reloadIfUnseen();
     });
-    document.addEventListener('visibilitychange', reloadIfUnseen);
+    // Browsers only look for a new worker on a navigation. An installed app
+    // that is resumed rather than relaunched (iOS keeps it open for days)
+    // never navigates, so it asks on coming back to the foreground —
+    // throttled, the boot navigation counts as the first check.
+    const SW_UPDATE_CHECK_MS = 15 * 60 * 1000;
+    let lastUpdateCheck = Date.now();
+    const checkForUpdate = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastUpdateCheck < SW_UPDATE_CHECK_MS) return;
+      lastUpdateCheck = Date.now();
+      navigator.serviceWorker
+        .getRegistration()
+        .then((reg) => reg && reg.update())
+        .catch(() => {});
+    };
+    document.addEventListener('visibilitychange', () => {
+      reloadIfUnseen();
+      checkForUpdate();
+    });
     navigator.serviceWorker
       .register('/sw.js')
       .catch((e) => console.warn('SW registration failed:', e));
