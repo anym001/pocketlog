@@ -749,8 +749,8 @@ async function downloadExampleCSV() {
   const bundle = window.I18N ? I18N.getBundle() : 'de';
   const filename = tr('importExport.exampleFilename');
   try {
-    let res = await fetch('/example-import-' + bundle + '.csv');
-    if (!res.ok) res = await fetch('/example-import-de.csv');
+    let res = await fetch(assetUrl('/example-import-' + bundle + '.csv'));
+    if (!res.ok) res = await fetch(assetUrl('/example-import-de.csv'));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const blob = await res.blob();
     const file = new File([blob], filename, { type: 'text/csv' });

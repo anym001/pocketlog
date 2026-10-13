@@ -10,6 +10,7 @@ You are a PWA reviewer for PocketLog. The Service Worker is the most fragile par
 ## Cache strategy (intended architecture)
 
 - Cache keys are built from `__APP_VERSION__` — the Dockerfile substitutes the real release version at build time
+- Every app file (scripts, stylesheet, i18n bundles, category sprite, CSV samples) is requested as `<path>?v=<release>` — `index.html` tags carry `?v=__APP_VERSION__`, runtime fetches use `assetUrl()` (`theme-boot.js`) — and precached under exactly that URL (`v('<path>')` in `sw.js`). A new or renamed file that skips either side reintroduces the half-updated boot (fresh HTML + older cached script). `frontend/unit/assets.test.js` pins this; there is deliberately no reload on `controllerchange`
 - The `activate` hook cleans up old caches — any cache name not matching the current version is deleted
 - **Network-first** (with cache fallback): HTML shell, all app JS/CSS files, both i18n bundles (`i18n/de.json`, `i18n/en.json`), `GET /api/*`
 - **Cache-first**: icons, fonts, vendor bundles (Chart.js)

@@ -18,13 +18,20 @@
 //
 // __APP_VERSION__ is substituted in the Dockerfile from the APP_VERSION env.
 // Every release thereby gets new cache keys; the activate hook clears old
-// caches.
+// caches. index.html carries the same version: every app file is requested
+// as <path>?v=<VERSION> and precached under exactly that URL, so one page
+// load only ever sees one release — fresh HTML can't meet an older cached
+// script (timeout fallback, browser HTTP cache), and an update needs no
+// reload. HTML, the manifest, fonts and app icons stay unversioned.
 
 importScripts('/db.js');
 
 const VERSION = '__APP_VERSION__';
 const CACHE = `pocketlog-shell-${VERSION}`;
 const API_CACHE = `pocketlog-api-${VERSION}`;
+
+// The versioned URL index.html / assetUrl() (theme-boot.js) request.
+const v = (path) => `${path}?v=${VERSION}`;
 
 // Boot-critical shell: HTML, CSS, the full classic-script chain (a single
 // missing module aborts init() with a ReferenceError offline), the offline
@@ -34,43 +41,43 @@ const API_CACHE = `pocketlog-api-${VERSION}`;
 const SHELL_CRITICAL = [
   '/',
   '/index.html',
-  '/styles.css',
-  '/theme-boot.js',
-  '/app.js',
-  '/core.js',
-  '/ledger.js',
-  '/reports.js',
-  '/booking.js',
-  '/categories.js',
-  '/goals.js',
-  '/budgets.js',
-  '/recurring.js',
-  '/settings.js',
-  '/utils.js',
-  '/reportsData.js',
-  '/state.js',
-  '/i18n.js',
+  v('/styles.css'),
+  v('/theme-boot.js'),
+  v('/app.js'),
+  v('/core.js'),
+  v('/ledger.js'),
+  v('/reports.js'),
+  v('/booking.js'),
+  v('/categories.js'),
+  v('/goals.js'),
+  v('/budgets.js'),
+  v('/recurring.js'),
+  v('/settings.js'),
+  v('/utils.js'),
+  v('/reportsData.js'),
+  v('/state.js'),
+  v('/i18n.js'),
   '/manifest.webmanifest',
-  '/db.js',
-  '/vendor/chart.umd.min.js',
+  v('/db.js'),
+  v('/vendor/chart.umd.min.js'),
   // Both language bundles are precached so switching language works
   // offline, not just the one that happened to be active first.
-  '/i18n/de.json',
-  '/i18n/en.json',
+  v('/i18n/de.json'),
+  v('/i18n/en.json'),
 ];
 
 // Cosmetic assets: best-effort precache, a miss only degrades visuals or a
 // download nicety — never the boot.
 const SHELL_OPTIONAL = [
   // Per-language CSV import samples.
-  '/example-import-de.csv',
-  '/example-import-en.csv',
+  v('/example-import-de.csv'),
+  v('/example-import-en.csv'),
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-192.png',
   '/icons/icon-maskable-512.png',
   '/icons/apple-touch-icon.png',
-  '/icons/categories/sprite.svg',
+  v('/icons/categories/sprite.svg'),
   '/fonts/dm-sans-latin.woff2',
   '/fonts/dm-sans-latin-ext.woff2',
   '/fonts/dm-serif-display-latin.woff2',

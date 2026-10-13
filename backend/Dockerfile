@@ -37,6 +37,9 @@ COPY frontend/vendor ./static/vendor
 # slashes (branch-based tags, e.g. `feature/foo`); a `/` delimiter would
 # unparseably collide with them.
 RUN sed -i "s|'__APP_VERSION__'|'${APP_VERSION}'|" /app/static/sw.js
+# Same version into index.html: <meta name="app-version"> and the ?v= on
+# every script/style tag (see the comment there). Every occurrence, hence /g.
+RUN sed -i "s|__APP_VERSION__|${APP_VERSION}|g" /app/static/index.html
 
 # /app is owned by a build-time user and left world-readable. The container
 # starts as root so the entrypoint can chown the /config mount, then drops

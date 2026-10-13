@@ -348,34 +348,15 @@ function _bootstrapFetch(path) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function init() {
   if ('serviceWorker' in navigator) {
-    // Auto-reload when a new service worker takes control DURING BOOT. The
-    // shell HTML is network-first, so after an upgrade the page can boot
-    // fresh markup while still running the previous version's cached JS/i18n
-    // until a reload — exactly the half-updated state that breaks newly
-    // added reports/keys. While the boot skeleton is still up that reload is
-    // invisible; once the app has rendered it was a visible "blink" (the
-    // classic case: an update whose install outlived the previous visit and
-    // that activates seconds after the next open). So past the boot window
-    // — unless the page is hidden anyway — we skip the reload and keep the
-    // consistent old version running; the update applies on the next open,
-    // which loads fresh HTML and fresh precache in one go.
-    // Guarded against the first-ever install (no prior controller; the new
-    // SW's clients.claim() fires controllerchange there too) and reload
-    // loops. Registration is the first thing init() does so the update
-    // check races ahead of the i18n/auth awaits below and an already-waiting
-    // worker lands inside the window.
-    const SW_RELOAD_BOOT_WINDOW_MS = 3000;
-    const _swBootStart = Date.now();
-    let _swReloading = false;
-    const _hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (_swReloading || !_hadController) return;
-      const inBootWindow = Date.now() - _swBootStart < SW_RELOAD_BOOT_WINDOW_MS;
-      if (!inBootWindow && document.visibilityState !== 'hidden') return;
-      _swReloading = true;
-      recordReloadEvent('sw_update');
-      window.location.reload();
-    });
+    // No reload when a new service worker takes over. Every app file is
+    // requested under its release's ?v= URL (index.html, assetUrl in
+    // theme-boot.js) and precached under exactly that URL (sw.js), so a page
+    // can't boot fresh HTML against an older cached script — the half-
+    // updated state the former boot-window reload repaired, at the cost of
+    // a visible blink on the first open after every update. A page that is
+    // already running simply keeps its own consistent release; the next
+    // open loads the new one. Registered first so the update check races
+    // ahead of the i18n/auth awaits below.
     navigator.serviceWorker
       .register('/sw.js')
       .catch((e) => console.warn('SW registration failed:', e));
