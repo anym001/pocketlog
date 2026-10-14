@@ -168,6 +168,9 @@ const appState = {
     // _warmFullHistoryCache in ledger.js). Throttles the background GET so
     // rapid month stepping doesn't refetch the whole history each time.
     fullHistoryWarmedAt: 0,
+    // Bumped by every loadAndRender; a response that arrives after a newer
+    // load started (e.g. the month switched meanwhile) is dropped.
+    loadGen: 0,
   },
 
   // Navigation / cross-cutting UI state. _activePanel / _bookingModalOpenedAt /

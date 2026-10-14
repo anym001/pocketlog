@@ -544,6 +544,7 @@
     "title": "API-Schlüssel",
     "empty": "Noch keine Schlüssel erstellt.",
     "create": "Schlüssel erstellen…",
+    "newTitle": "Neuer Schlüssel",
     "name": "Name",
     "scopes": "Berechtigungen",
     "scope.import": "Importieren",
