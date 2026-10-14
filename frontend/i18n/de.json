@@ -20,7 +20,8 @@
     "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist.",
     "usageNone": "Nicht verwendet",
     "usageOne": "Einmal verwendet",
-    "usageMany": "{n}-mal verwendet"
+    "usageMany": "{n}-mal verwendet",
+    "notConnectedYet": "Noch keine Verbindung zum Server – bitte gleich erneut versuchen."
   },
   "menu": {
     "title": "Menü",
@@ -631,7 +632,8 @@
     "logoutTitle": "Trotzdem abmelden?",
     "logoutBodyOne": "{n} noch nicht synchronisierte Änderung geht beim Abmelden verloren.",
     "logoutBodyOther": "{n} noch nicht synchronisierte Änderungen gehen beim Abmelden verloren.",
-    "logoutConfirm": "Trotzdem abmelden"
+    "logoutConfirm": "Trotzdem abmelden",
+    "logoutFailed": "Abmelden fehlgeschlagen. Prüfe die Verbindung und versuche es erneut."
   },
   "sync": {
     "synced": "Gespeichert",
@@ -673,7 +675,8 @@
       "delete": "Löschen"
     },
     "reasonRejected": "Vom Server abgelehnt (HTTP {status})",
-    "reasonSession": "Sitzungsproblem – „Erneut versuchen“ sollte helfen."
+    "reasonSession": "Sitzungsproblem – „Erneut versuchen“ sollte helfen.",
+    "unconfirmed": "Nicht verbunden – zuletzt synchronisierter Stand"
   },
   "date": {
     "today": "Heute",

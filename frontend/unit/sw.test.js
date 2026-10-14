@@ -32,7 +32,13 @@ function makeCaches() {
         async match(req) {
           return m.get(keyOf(req));
         },
+        async keys() {
+          return [...m.keys()].map((url) => ({ url }));
+        },
       };
+    },
+    async keys() {
+      return [...store.keys()];
     },
     async match(req) {
       const k = keyOf(req);
@@ -56,12 +62,16 @@ function loadSw({ version } = {}) {
   if (version) src = src.replace("'__APP_VERSION__'", `'${version}'`);
   src +=
     '\n;self.__exports = { networkFirst, fetchWithTimeout, isAuthPath, ' +
-    'handleWrite, fetchWriteWithTimeout, versionedAsset, isVersionedAsset, ' +
+    'handleWrite, fetchWriteWithTimeout, versionedAsset, isVersionedAsset, pinnedShell, ' +
+    'carryOverApiCache, ' +
     'CACHE, API_CACHE, NETWORK_TIMEOUT_MS, WRITE_TIMEOUT_MS };';
   const caches = makeCaches();
   const sandbox = {
     self: {
-      addEventListener() {},
+      _listeners: {},
+      addEventListener(type, fn) {
+        this._listeners[type] = fn;
+      },
       location: { origin: 'https://app.test' },
       registration: {},
       clients: { matchAll: async () => [] },
@@ -213,6 +223,46 @@ describe('release build — versioned assets and the pinned HTML shell', () => {
     expect(result.status).toBe(503);
   });
 
+  it('serves the precached HTML shell without waiting on the network', async () => {
+    // A long pause in the background leaves iOS with a dead connection; the
+    // shell must not sit behind it (it was seconds of white screen).
+    const c = await caches.open(sw.CACHE);
+    await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
+    sandbox.fetch = vi.fn(() => new Promise(() => {})); // a stalled network
+    const result = await sw.pinnedShell(reqOf(ROOT_URL));
+    expect(await result.text()).toBe('HTML-REL');
+    expect(sandbox.fetch).not.toHaveBeenCalled();
+  });
+
+  it('fetches the shell when the precache lacks it', async () => {
+    sandbox.fetch = async () => resp('HTML-NET', { status: 200 });
+    const result = await sw.pinnedShell(reqOf(ROOT_URL));
+    expect(await result.text()).toBe('HTML-NET');
+  });
+
+  it('lets a ?reauth navigation reach the network past the pinned shell', async () => {
+    // An auth proxy answers it with its login page; the cached shell must
+    // not hide that.
+    const c = await caches.open(sw.CACHE);
+    await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
+    sandbox.fetch = vi.fn(async () => resp('PROXY-LOGIN', { status: 200 }));
+    const result = await sw.pinnedShell(reqOf(`${ROOT_URL}?reauth=1`));
+    expect(await result.text()).toBe('PROXY-LOGIN');
+    expect(sandbox.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves the pinned shell for ?reauth while offline', async () => {
+    const c = await caches.open(sw.CACHE);
+    await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
+    // The mock cache ignores the query like match({ ignoreSearch }) does.
+    await c.put(reqOf(`${ROOT_URL}?reauth=1`), resp('HTML-REL'));
+    sandbox.fetch = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    const result = await sw.pinnedShell(reqOf(`${ROOT_URL}?reauth=1`));
+    expect(await result.text()).toBe('HTML-REL');
+  });
+
   it('never overwrites the precached HTML shell with a fresher one', async () => {
     const c = await caches.open(sw.CACHE);
     await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
@@ -329,6 +379,105 @@ describe('handleWrite — write timeout queues offline', () => {
     });
     const res = await sw.handleWrite(request);
     expect(res.status).toBe(201);
+    expect(queued).toHaveLength(0);
+  });
+});
+
+describe('activate — the API cache survives a release switch', () => {
+  let sw, caches;
+  beforeEach(() => {
+    ({ sw, caches } = loadSw({ version: '2.0.0' }));
+  });
+
+  it("carries the previous release's API responses over without overwriting newer ones", async () => {
+    // The instant start reads this cache; the first open after an update
+    // must still find the last synced state.
+    const old = await caches.open('pocketlog-api-1.9.0');
+    await old.put(reqOf(API_URL), resp('OLD-TX'));
+    await old.put(reqOf('https://app.test/api/categories'), resp('OLD-CATS'));
+    const cur = await caches.open(sw.API_CACHE);
+    await cur.put(reqOf(API_URL), resp('NEW-TX'));
+    await caches.open('pocketlog-shell-1.9.0');
+
+    await sw.carryOverApiCache(await caches.keys());
+
+    const target = await caches.open(sw.API_CACHE);
+    expect(await (await target.match(reqOf(API_URL))).text()).toBe('NEW-TX');
+    const cats = await target.match(reqOf('https://app.test/api/categories'));
+    expect(await cats.text()).toBe('OLD-CATS');
+  });
+});
+
+describe('networkFirst — auth proxy redirects', () => {
+  it("never caches a redirected answer as the API's content", async () => {
+    const { sw, sandbox, caches } = loadSw();
+    sandbox.fetch = async () => {
+      const r = resp('<html>proxy login</html>', { status: 200 });
+      Object.defineProperty(r, 'redirected', { value: true });
+      return r;
+    };
+    await sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
+    await tick();
+    expect(await caches.match(reqOf(API_URL))).toBeUndefined();
+  });
+});
+
+describe('API cache — sign-out boundaries', () => {
+  const json = (body) =>
+    resp(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  it('drops a response that arrives after CLEAR_API_CACHE instead of caching it', async () => {
+    // Signing out while the full-history GET is in flight on a slow link:
+    // its late answer must not bring the signed-out account's data back.
+    const { sw, sandbox, caches } = loadSw();
+    let answer;
+    sandbox.fetch = () => new Promise((r) => (answer = r));
+    const pending = sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
+
+    const port = { postMessage: vi.fn() };
+    const waits = [];
+    sandbox.self._listeners.message({
+      data: { type: 'CLEAR_API_CACHE' },
+      ports: [port],
+      waitUntil: (p) => waits.push(p),
+    });
+    await Promise.all(waits);
+    expect(port.postMessage).toHaveBeenCalledWith('cleared');
+
+    answer(json([{ id: 1 }]));
+    await pending;
+    await tick();
+    expect(await caches.match(reqOf(API_URL))).toBeUndefined();
+  });
+
+  it('caches API answers only when they are JSON', async () => {
+    const { sw, sandbox, caches } = loadSw();
+    sandbox.fetch = async () => resp('<html>login</html>', { status: 200 });
+    await sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
+    expect(await caches.match(reqOf(API_URL))).toBeUndefined();
+
+    sandbox.fetch = async () => json([]);
+    await sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
+    expect(await caches.match(reqOf(API_URL))).toBeDefined();
+  });
+
+  it('never queues an admin action offline', async () => {
+    const { sw, sandbox } = loadSw();
+    const queued = [];
+    sandbox.self.PocketLogOutbox = { enqueue: async (e) => queued.push(e) };
+    sandbox.fetch = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    const res = await sw.handleWrite({
+      url: 'https://app.test/api/admin/users',
+      method: 'POST',
+      headers: { get: () => 'application/json' },
+      clone() {
+        return this;
+      },
+      json: async () => ({ username: 'x', password: 'secret' }),
+    });
+    expect(res.status).toBe(503);
     expect(queued).toHaveLength(0);
   });
 });

@@ -262,19 +262,186 @@ window._csrfToken = '';
 // page load would hit a cached me response (force-change view without
 // a session), or the outbox would send a stale CSRF token along
 // (403 on replay → silent data loss).
+// Returns a promise that settles once the cached API responses are gone, so a
+// caller that reloads next can await it (the instant start reads that cache).
 function _resetAuthClientState() {
-  try {
-    if (navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
-    }
-  } catch (_) {}
-  // Clear the in-page outbox token too (the SW's is cleared via the message
-  // above). The drain guard then defers any queued writes until a fresh login
+  _clearSessionHint();
+  // Clear the in-page outbox token too (the SW's is cleared with its cache,
+  // below). The drain guard then defers any queued writes until a fresh login
   // re-seeds the token, rather than replaying them with a stale one.
   try {
     window.PocketLogOutbox?.setCsrfToken?.('');
   } catch (_) {}
   window._csrfToken = '';
+  appState.boot.sessionConfirmed = false;
+  return _clearSwApiCache().then(_purgeApiCaches);
+}
+
+// Ask the controlling worker to drop its API cache and CSRF token, and wait
+// for its answer (1 s at most): from then on the worker discards responses
+// still in flight instead of writing them back (sw.js apiCacheEpoch), so the
+// page's own purge that follows leaves nothing behind.
+function _clearSwApiCache() {
+  const sw = navigator.serviceWorker?.controller;
+  if (!sw) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 1000);
+    try {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      sw.postMessage({ type: 'CLEAR_API_CACHE' }, [channel.port2]);
+    } catch (_) {
+      clearTimeout(timer);
+      resolve();
+    }
+  });
+}
+
+// The page deletes the API caches itself as well: the SW message above only
+// reaches a controlling worker (none after a hard reload or a failed
+// registration), and the worker deletes asynchronously while the page may
+// already be reloading.
+function _purgeApiCaches() {
+  try {
+    if (!('caches' in window)) return Promise.resolve();
+    return caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k.startsWith('pocketlog-api-')).map((k) => caches.delete(k)),
+        ),
+      )
+      .catch(() => {});
+  } catch (_) {
+    return Promise.resolve();
+  }
+}
+
+// ── INSTANT START ─────────────────────────────────────────────────────────────
+// A boot used to show nothing until /auth/me and the data loads came back.
+// When the app is reopened after a long pause, iOS hands it a dead network
+// connection that takes seconds to recover — a white screen for that long.
+// Now a returning user sees the last synced state at once (read from the
+// service worker's API cache, which already backs offline use) while the
+// session check and fresh loads run behind it (app.js _bootFromCache).
+//
+// The hint says "this browser had a signed-in user" and carries only what
+// the chrome shows (user id, username, admin flag) plus when the server last
+// confirmed the session; it never authorizes anything — every request still
+// needs the session cookie. It goes whenever the session does: logout, any
+// 401, a failed session check.
+//
+// Security bounds (financial data): the cached state is only drawn while the
+// browser still holds the session cookie — the readable CSRF cookie is set,
+// refreshed and deleted together with it (backend deps.py), so an expired or
+// signed-out session never shows data. Writes stay blocked until the server
+// has confirmed the session (api(), authFetch(), appState.boot.sessionConfirmed),
+// so nothing can be queued for replay under someone else's login, and every
+// confirmed account first claims the local data (_claimLocalData) — another
+// account's cache and outbox are discarded before anything is shown. A session
+// revoked elsewhere (other device, admin) is noticed as soon as this device
+// reaches the server; while offline, the cookie lifetime (24 h, 30 days with
+// "stay signed in") bounds how long the last state can be shown.
+const SESSION_HINT_KEY = 'pocketlog.sessionHint';
+// Upper bound on top of the cookie: never older than the longest absolute
+// session lifetime (backend SESSION_REMEMBER_ABSOLUTE_DAYS default).
+const SESSION_HINT_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
+function _readSessionHint() {
+  try {
+    const h = JSON.parse(localStorage.getItem(SESSION_HINT_KEY) || 'null');
+    if (!h || typeof h.username !== 'string' || typeof h.id !== 'number') return null;
+    if (!(Date.now() - Number(h.ts) < SESSION_HINT_MAX_AGE_MS)) return null;
+    return h;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _writeSessionHint(me) {
+  try {
+    localStorage.setItem(
+      SESSION_HINT_KEY,
+      JSON.stringify({ id: me.id, username: me.username, is_admin: !!me.is_admin, ts: Date.now() }),
+    );
+  } catch (_) {}
+}
+
+function _clearSessionHint() {
+  try {
+    localStorage.removeItem(SESSION_HINT_KEY);
+  } catch (_) {}
+}
+
+// Which account this browser's local data — the API cache and the offline
+// outbox — belongs to. Unlike the hint it survives a session that merely
+// expired, so the same user signing back in keeps their queued offline
+// writes; any other account starts from nothing (_claimLocalData).
+const DATA_OWNER_KEY = 'pocketlog.dataOwner';
+
+function _readDataOwner() {
+  try {
+    const id = Number(localStorage.getItem(DATA_OWNER_KEY));
+    return Number.isInteger(id) && id > 0 ? id : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _writeDataOwner(id) {
+  try {
+    if (id == null) localStorage.removeItem(DATA_OWNER_KEY);
+    else localStorage.setItem(DATA_OWNER_KEY, String(id));
+  } catch (_) {}
+}
+
+// Called with every account the server confirms, before anything of it is
+// loaded or shown. Local data of another account is thrown away: its cached
+// responses, the hint, and its queued and dead-lettered offline writes (which
+// would otherwise replay under this account). With no known owner (first use,
+// or data from before owners were recorded) the cache goes and the outbox
+// stays. Returns whether anything was discarded.
+async function _claimLocalData(userId) {
+  const owner = _readDataOwner();
+  if (owner === userId) return false;
+  _clearSessionHint();
+  await _clearSwApiCache();
+  await _purgeApiCaches();
+  if (owner !== null && window.PocketLogOutbox) {
+    try {
+      await window.PocketLogOutbox.clear();
+      await window.PocketLogOutbox.failedClear?.();
+    } catch (_) {}
+  }
+  // The worker's CSRF token went with its cache; this account's is current.
+  if (window._csrfToken) _propagateCsrfToken(window._csrfToken);
+  _writeDataOwner(userId);
+  return true;
+}
+
+// The service worker's last copy of a GET, read straight from Cache Storage
+// without touching the network; null when there is none. Same URL key the SW
+// stored it under (API + path, exactly as api() requests it).
+async function cachedApi(path) {
+  try {
+    if (!('caches' in window)) return null;
+    const res = await caches.match(API + path, { ignoreVary: true });
+    if (!res || !res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
+// The CSRF cookie is readable by design (double submit) and lives exactly as
+// long as the HttpOnly session cookie, so its presence says "this browser
+// still holds a session" — the gate for drawing cached data.
+function _csrfFromCookie() {
+  const m = document.cookie.match(/(?:^|;\s*)pocketlog_csrf=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
 }
 
 // ── BOOT/RELOAD DIAGNOSTICS ───────────────────────────────────────────────────
@@ -390,7 +557,21 @@ function _isOfflineWriteError(e) {
   return !!e && e.status == null;
 }
 
+// The write gate of api() and authFetch(): throws (status 0, so it is never
+// queued) for a write before /auth/me has confirmed this page's session.
+function _refuseUnconfirmedWrite(method, path) {
+  if (method === 'GET' || appState.boot.sessionConfirmed) return;
+  toast(tr('common.notConnectedYet'), 'error');
+  const err = new Error(`API ${method} ${path} → session not confirmed`);
+  err.status = 0;
+  throw err;
+}
+
 async function api(method, path, body) {
+  // Instant start: until the server has confirmed the session, writes are
+  // refused rather than sent or queued — a queued write would replay under
+  // whoever signs in next.
+  _refuseUnconfirmedWrite(method, path);
   const headers = { 'Content-Type': 'application/json' };
   if (method !== 'GET' && window._csrfToken) {
     headers['X-CSRF-Token'] = window._csrfToken;
@@ -415,7 +596,7 @@ async function api(method, path, body) {
   }
   if (res.status === 401) {
     if (!window._suppressAuthReload) {
-      _resetAuthClientState();
+      await _resetAuthClientState();
       recordReloadEvent('session_expired');
       location.reload();
     }
@@ -438,6 +619,9 @@ async function api(method, path, body) {
     throw err;
   }
   if (method !== 'GET') invalidateReportCache();
+  // A server answer while an instant start still waits on the session check:
+  // the network works again, so confirm now instead of at the next retry.
+  else if (appState.boot.authPending) window.dispatchEvent(new Event('pocketlog:reachable'));
   if (res.status === 204) return null;
   return res.json();
 }
@@ -447,16 +631,25 @@ async function api(method, path, body) {
 // BUT: if the caller leaves ``opts.reloadOn401 !== false`` and a 401
 // arrives, we still do the hard reload — otherwise the user is stuck
 // in a view their session state no longer matches.
+// Auth calls that work without a confirmed session: signing in creates one,
+// signing out must work from the instant-start state too.
+const UNCONFIRMED_AUTH_PATHS = new Set(['/auth/login', '/auth/setup', '/auth/logout']);
+
 async function authFetch(method, path, body, opts = {}) {
+  if (!UNCONFIRMED_AUTH_PATHS.has(path)) _refuseUnconfirmedWrite(method, path);
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  if (opts.csrf !== false && method !== 'GET' && window._csrfToken) {
-    headers['X-CSRF-Token'] = window._csrfToken;
+  // Before /auth/me answered (instant start) the token comes from its cookie
+  // — the double-submit value itself; without it a sign-out would be
+  // rejected (403) and the session would live on.
+  const csrf = window._csrfToken || _csrfFromCookie();
+  if (opts.csrf !== false && method !== 'GET' && csrf) {
+    headers['X-CSRF-Token'] = csrf;
   }
   const init = { method, headers, credentials: 'same-origin' };
   if (body !== undefined) init.body = JSON.stringify(body);
   const res = await fetch(API + path, init);
   if (res.status === 401 && opts.reloadOn401 !== false) {
-    _resetAuthClientState();
+    await _resetAuthClientState();
     recordReloadEvent('session_expired');
     location.reload();
   }

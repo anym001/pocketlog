@@ -15,9 +15,11 @@ async function loadCategories(opts = {}) {
   }
 }
 
-async function loadTags() {
+async function loadTags({ cached } = {}) {
   try {
-    const tags = await api('GET', '/tags');
+    const tags = cached ? await cachedApi('/tags') : await api('GET', '/tags');
+    // Instant start: no cached copy leaves the (still empty) state alone.
+    if (cached && !tags) return;
     const list = Array.isArray(tags) ? tags : [];
     appState.ledger.availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
     tagCounts.clear();

@@ -10,7 +10,13 @@
 
 // Recurring rules list + edit-modal draft live in appState.recurring (state.js).
 
-async function loadRecurringRules() {
+async function loadRecurringRules({ cached } = {}) {
+  // Instant start: the last synced copy, or nothing (state stays as it is).
+  if (cached) {
+    const list = await cachedApi('/recurring');
+    if (Array.isArray(list)) appState.recurring.rules = list;
+    return;
+  }
   try {
     appState.recurring.rules = await api('GET', '/recurring');
   } catch (e) {

@@ -20,7 +20,8 @@
     "queuedOffline": "Saved offline. Will sync once you’re back online.",
     "usageNone": "Not used",
     "usageOne": "Used once",
-    "usageMany": "Used {n} times"
+    "usageMany": "Used {n} times",
+    "notConnectedYet": "Not connected to the server yet – please try again in a moment."
   },
   "menu": {
     "title": "Menu",
@@ -631,7 +632,8 @@
     "logoutTitle": "Sign out anyway?",
     "logoutBodyOne": "{n} unsynced change will be lost when you sign out.",
     "logoutBodyOther": "{n} unsynced changes will be lost when you sign out.",
-    "logoutConfirm": "Sign out anyway"
+    "logoutConfirm": "Sign out anyway",
+    "logoutFailed": "Couldn’t sign out. Check your connection and try again."
   },
   "sync": {
     "synced": "Saved",
@@ -673,7 +675,8 @@
       "delete": "Delete"
     },
     "reasonRejected": "Rejected by the server (HTTP {status})",
-    "reasonSession": "Session issue — “Try again” should fix it."
+    "reasonSession": "Session issue — “Try again” should fix it.",
+    "unconfirmed": "Not connected – showing the last synced state"
   },
   "date": {
     "today": "Today",

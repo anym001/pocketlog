@@ -8,7 +8,13 @@
 // counts `out`-type down from initial_amount toward target.
 // Goals list + edit-modal draft live in appState.goals (state.js).
 
-async function loadGoals() {
+async function loadGoals({ cached } = {}) {
+  // Instant start: the last synced copy, or nothing (state stays as it is).
+  if (cached) {
+    const list = await cachedApi('/goals');
+    if (Array.isArray(list)) appState.goals.list = list;
+    return;
+  }
   try {
     appState.goals.list = await api('GET', '/goals');
   } catch (e) {

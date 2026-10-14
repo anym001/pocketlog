@@ -46,6 +46,7 @@ You are a security reviewer for PocketLog. Focus on real vulnerabilities — not
 - No `innerHTML` with unsanitized user data (XSS)
 - No secrets or tokens stored in `localStorage` / `sessionStorage`
 - Service Worker does not cache auth headers or sensitive API responses beyond what's needed
+- Instant start (cached finances drawn before `/auth/me`): only while the session hint and the `pocketlog_csrf` cookie exist (cookie Max-Age capped at the session's expiry); writes refused in `api()` and `authFetch()` until the session is confirmed; another account never inherits cache or outbox (`_claimLocalData`); every sign-out/other-account/auth-proxy path purges all `pocketlog-api-*` caches before reloading — see CLAUDE.md "Instant start"
 
 **Dependencies**
 - Vendored JS/fonts come from known registries with verified checksums (not arbitrary URLs)
