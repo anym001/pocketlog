@@ -52,16 +52,24 @@ function _warmFullHistoryCache() {
 }
 
 // The visible month's transactions. Boot fetches this alongside its other
-// loads and hands the request to loadAndRender as `prefetched`.
+// loads and hands the request to loadAndRender as `prefetched` ({ path,
+// request }); it is only used while that path is still the visible month.
 function _monthTransactionsPath() {
   return `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`;
 }
 
 async function loadAndRender({ prefetched } = {}) {
+  const gen = ++appState.ledger.loadGen;
   document.getElementById('monthLabelText').textContent =
     `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
+  const path = _monthTransactionsPath();
   try {
-    const raw = await (prefetched || api('GET', _monthTransactionsPath()));
+    const raw = await (prefetched && prefetched.path === path
+      ? prefetched.request
+      : api('GET', path));
+    // The month changed (or another load started) while this one waited:
+    // its result would show one month's bookings under another's label.
+    if (gen !== appState.ledger.loadGen) return;
     appState.ledger.transactions = raw.map(normalizeTx);
     // Warm the full history in the background so other months stay browsable
     // offline (the SW caches whatever URL it fetches).
@@ -70,7 +78,9 @@ async function loadAndRender({ prefetched } = {}) {
     // Per-month request failed — offline and this month's own URL wasn't
     // cached. Fall back to the cached full history, filtered to this month,
     // so any month we've ever synced still shows instead of blanking out.
-    appState.ledger.transactions = await _monthFromFullHistory();
+    const fallback = await _monthFromFullHistory();
+    if (gen !== appState.ledger.loadGen) return;
+    appState.ledger.transactions = fallback;
   }
   renderAll();
   if (appState.nav.searchQuery) {

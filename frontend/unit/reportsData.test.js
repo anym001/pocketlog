@@ -328,6 +328,22 @@ describe('_detailSummary', () => {
     ]);
   });
 
+  it('ranks the untagged remainder by amount when it outweighs the tags', () => {
+    // Most bookings carry no tag, so the remainder is usually the largest
+    // row; it must lead the list, or the bars scaled to the first row
+    // overflow.
+    const many = [
+      { id: 1, date: '2026-10-01', type: 'out', amount: 20, category_id: 7, tags: ['urlaub'] },
+      { id: 2, date: '2026-10-02', type: 'out', amount: 300, category_id: 7, tags: [] },
+      { id: 3, date: '2026-10-03', type: 'out', amount: 50, category_id: 7, tags: ['bahn'] },
+    ];
+    expect(_detailSummary(many, { kind: 'category', catId: 7 }).inner).toEqual([
+      { kind: 'untagged', amount: 300 },
+      { kind: 'tag', name: 'bahn', amount: 50 },
+      { kind: 'tag', name: 'urlaub', amount: 20 },
+    ]);
+  });
+
   it('breaks a tag down by category in its dominant direction', () => {
     const r = _detailSummary(txs, { kind: 'tag', name: 'urlaub' });
     expect(r.txs.map((t) => t.id)).toEqual([1, 3, 4]);

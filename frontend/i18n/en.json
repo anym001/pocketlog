@@ -544,6 +544,7 @@
     "title": "API Keys",
     "empty": "No keys created yet.",
     "create": "Create key…",
+    "newTitle": "New key",
     "name": "Name",
     "scopes": "Permissions",
     "scope.import": "Import",

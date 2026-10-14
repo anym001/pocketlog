@@ -263,10 +263,11 @@ async function _loadBootData(me) {
     loadBudgets(),
     loadRecurringRules(),
   ]);
-  const monthTx = api('GET', _monthTransactionsPath());
+  const monthTx = { path: _monthTransactionsPath() };
+  monthTx.request = api('GET', monthTx.path);
   // Rejections are handled where these are awaited; on the boot-failed path
   // below nothing awaits them, which must not surface as unhandled.
-  monthTx.catch(() => {});
+  monthTx.request.catch(() => {});
   try {
     await loadCategories({ rethrow: true });
   } catch (e) {

@@ -381,7 +381,12 @@ function _detailSummary(txs, entity) {
     for (const t of matched) {
       if (t.type === dir && !(Array.isArray(t.tags) && t.tags.length)) untagged += t.amount;
     }
-    if (inner.length && untagged > 0) inner.push({ kind: 'untagged', amount: untagged });
+    // The untagged rest is usually the biggest share (most bookings carry no
+    // tag), so it ranks by amount like the tags rather than trailing them.
+    if (inner.length && untagged > 0) {
+      inner.push({ kind: 'untagged', amount: untagged });
+      inner.sort((a, b) => b.amount - a.amount);
+    }
   } else {
     inner = _totalsByCategory(matched, dir).map((r) => ({
       kind: 'category',

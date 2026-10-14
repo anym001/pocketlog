@@ -160,9 +160,9 @@ via two breakpoints — the breakpoint value lives literally in `@media`
   The sidebar keeps the settings list with the open entry marked.
   `_openSettingsDetail` (`core.js`) moves the panel node into
   `#settingsHost` and back, so ids, handlers and loaders stay the same.
-  Closing paths: the in-pane back button, Esc, the sidebar back button, any
-  main destination, and crossing the breakpoint (the panel returns to the
-  drawer). Forms there cap at 640 px.
+  Closing paths: Esc, the sidebar back button, any main destination, and
+  crossing the breakpoint (the panel returns to the drawer). Forms there
+  cap at 640 px.
 - **Phone drawer:** below 768 px the drawer is a full-screen menu at
   every level — main menu, Auswertungen, Einstellungen and every settings
   page share the whole width, so navigating inside it never changes its

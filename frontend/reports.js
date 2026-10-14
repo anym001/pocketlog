@@ -467,8 +467,8 @@ async function renderReportOverview(body, txs) {
 }
 
 // ── REPORTS — COURSE (over time) ──────────────────────────────────────────────
-// One report that follows the period picker: a single month draws daily bars,
-// any wider range (quarter / year / custom) draws a monthly in/out line. Merges
+// One report that follows the period picker: a single month draws cumulative
+// lines, any wider range (quarter / year / custom) a monthly in/out line. Merges
 // the former month- and year-trend reports so there is one "Verlauf" instead of
 // two near-identical ones locked to their granularity.
 
@@ -765,11 +765,10 @@ function _breakdownCategories(body, txs, controls) {
 
 // The ledger search filtered to one category or tag over the report range —
 // the detail report's "show in the ledger" link, where bulk actions live.
-async function drillDownCategory(catId, fromIso, toIso) {
+async function drillDownCategory(catId) {
   appState.reports.searchExitTarget = 'charts';
   appState.nav.categoryFilterId = catId;
-  const from = fromIso || appState.reports.range.from;
-  const to = toIso || appState.reports.range.to;
+  const { from, to } = appState.reports.range;
   appState.ledger.all = await loadRangeTxs(from, to);
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);
@@ -864,11 +863,10 @@ function _bindTagDrill(scope) {
   });
 }
 
-async function drillDownTag(name, fromIso, toIso) {
+async function drillDownTag(name) {
   appState.reports.searchExitTarget = 'charts';
   appState.nav.tagFilterName = name;
-  const from = fromIso || appState.reports.range.from;
-  const to = toIso || appState.reports.range.to;
+  const { from, to } = appState.reports.range;
   appState.ledger.all = await loadRangeTxs(from, to);
   document.body.classList.add('searching');
   await _setSearchPanelActive(true);

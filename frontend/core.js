@@ -773,8 +773,10 @@ function onFabTap() {
 // panel restore. Everything else lands here because the user picked a
 // destination, and the drawer they picked it from has to get out of the way.
 function showPanel(id, opts) {
-  // Picking a destination closes an open settings detail (split view).
-  _closeSettingsDetail();
+  // Picking a destination closes an open settings detail (split view) — but
+  // not the boot restore (keepDrawer), which must not undo a settings pane the
+  // user opened while the app was still loading.
+  if (!opts || !opts.keepDrawer) _closeSettingsDetail();
   if (
     appState.nav.searchQuery ||
     appState.nav.categoryFilterId != null ||
@@ -910,10 +912,9 @@ function drawerNav(panelId) {
 }
 
 function drawerBack() {
-  // The back button inside the settings host just closes the detail; the
-  // sidebar's own back button closes it too and then leaves Settings.
-  const fromHost = this instanceof Element && !!this.closest('#settingsHost');
-  if (_closeSettingsDetail({ focusItem: fromHost }) && fromHost) return;
+  // Split view: the sidebar's back button also closes an open settings detail
+  // (the pane itself has no back button) and then leaves Settings.
+  _closeSettingsDetail();
   if (!_drawerStack.length) return;
   const current = _drawerStack.pop();
   const prev = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
