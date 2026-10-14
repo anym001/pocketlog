@@ -139,21 +139,24 @@ def clear_session_cookies(response: Response, request: Request | None = None) ->
 def _refresh_cookie_if_needed(
     response: Response, session: models.Session, refreshed: bool, request: Request
 ) -> None:
-    """Wenn der Sliding-Refresh getriggert hat, setzen wir das
-    Session-Cookie mit neuer Max-Age neu. Sonst lassen wir den Cookie
-    in Ruhe — die Cookie-Lebensdauer im Browser läuft dann zwar weiter,
-    aber die Server-Seite ist die Source of Truth, ein Cookie-Replay
-    nach absolute_expires_at bringt nichts."""
+    """When the sliding refresh fired, re-issue BOTH cookies with the new
+    Max-Age. Refreshing only the CSRF cookie (as before) let the session
+    cookie expire in the browser while the server still extended the
+    session, and left a CSRF cookie that outlived it — the frontend treats
+    a present CSRF cookie as "this browser still holds a session" (instant
+    start), so the two must expire together. The server stays the source of
+    truth: a replay after absolute_expires_at gets nothing."""
     if not refreshed:
         return
-    response.set_cookie(
-        key=CSRF_COOKIE_NAME,
-        value=session.csrf_token,
-        max_age=auth.cookie_max_age_seconds(session.remember_me),
-        httponly=False,
-        secure=_cookie_secure(request),
-        samesite=COOKIE_SAMESITE,
-        path=COOKIE_PATH,
+    plain = request.cookies.get(SESSION_COOKIE_NAME)
+    if not plain:
+        return
+    set_session_cookies(
+        response,
+        plain,
+        session.csrf_token,
+        remember_me=session.remember_me,
+        request=request,
     )
 
 

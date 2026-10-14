@@ -20,7 +20,8 @@
     "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist.",
     "usageNone": "Nicht verwendet",
     "usageOne": "Einmal verwendet",
-    "usageMany": "{n}-mal verwendet"
+    "usageMany": "{n}-mal verwendet",
+    "notConnectedYet": "Noch keine Verbindung zum Server – bitte gleich erneut versuchen."
   },
   "menu": {
     "title": "Menü",
@@ -673,7 +674,8 @@
       "delete": "Löschen"
     },
     "reasonRejected": "Vom Server abgelehnt (HTTP {status})",
-    "reasonSession": "Sitzungsproblem – „Erneut versuchen“ sollte helfen."
+    "reasonSession": "Sitzungsproblem – „Erneut versuchen“ sollte helfen.",
+    "unconfirmed": "Nicht verbunden – zuletzt synchronisierter Stand"
   },
   "date": {
     "today": "Heute",

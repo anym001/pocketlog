@@ -1,9 +1,10 @@
 // PocketLog Service Worker
 // Strategy:
-//   - Shell HTML/CSS/JS → network-first (/, /index.html, /styles.css, every
-//                          app script from core.js to app.js plus db.js and
-//                          /manifest.webmanifest), so updates become visible
-//                          without a double reload; the cache only serves as
+//   - HTML shell (/, /index.html) → cache-first from this release's precache
+//                          (pinnedShell); updates arrive with a new worker.
+//   - App files requested as <path>?v=<VERSION> → cache-first (versionedAsset).
+//   - Unversioned shell files (/manifest.webmanifest; everything in a dev
+//                          build) → network-first, the cache only serves as
 //                          the offline fallback.
 //   - Static shell assets (icons, fonts, Chart.js vendor bundle) → cache-first.
 //   - GET /api/...   → network-first, falling back to the cache.
@@ -25,8 +26,8 @@
 // script, and an update needs no visible reload. The cached HTML shell stays
 // exactly as install wrote it (never overwritten at runtime), so offline it
 // always points at files this cache holds, and it is served cache-first
-// (pinnedShell): the page appears without waiting on the network. HTML, the manifest, fonts and
-// app icons stay unversioned. Unsubstituted (local dev, no Docker build)
+// (pinnedShell): the page appears without waiting on the network. HTML, the
+// manifest, fonts and app icons stay unversioned. Unsubstituted (local dev, no Docker build)
 // the version never changes, so ?v= gets no special treatment there.
 
 const VERSION = '__APP_VERSION__';
@@ -154,15 +155,31 @@ self.addEventListener('install', (event) => {
   );
 });
 
+// The previous release's API responses move into this release's API cache
+// before the old caches go: the instant start (app.js) reads them, and the
+// first open after an update is exactly when it should not miss. Entries the
+// new cache already holds are fresher and stay.
+async function carryOverApiCache(keys) {
+  const target = await caches.open(API_CACHE);
+  for (const k of keys) {
+    if (k === API_CACHE || !k.startsWith('pocketlog-api-')) continue;
+    const old = await caches.open(k);
+    for (const req of await old.keys()) {
+      if (await target.match(req)) continue;
+      const res = await old.match(req);
+      if (res) await target.put(req, res).catch(() => {});
+    }
+  }
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE && k !== API_CACHE).map((k) => caches.delete(k)),
-        ),
-      ),
+    caches.keys().then(async (keys) => {
+      await carryOverApiCache(keys).catch(() => {});
+      await Promise.all(
+        keys.filter((k) => k !== CACHE && k !== API_CACHE).map((k) => caches.delete(k)),
+      );
+    }),
   );
   self.clients.claim();
 });
@@ -254,7 +271,7 @@ async function networkFirst(request, cacheName) {
           // Clone synchronously, before the page consumes the body — the
           // cache write below runs a microtask later and res.clone() would
           // otherwise throw "body already used".
-          if (writeBack && res && res.ok) {
+          if (writeBack && res && res.ok && !res.redirected) {
             const copy = res.clone();
             // Fire-and-forget by design (the response must not wait on
             // this), but still caught: an uncaught QuotaExceededError here
@@ -272,7 +289,9 @@ async function networkFirst(request, cacheName) {
     // different Authentik identity is signed in. Drop the API cache so
     // the next online request repopulates it from scratch — never serve
     // a previous identity's data from cache. Threat model is one user
-    // per device, so we don't keep per-user buckets.
+    // per device, so we don't keep per-user buckets. The instant start
+    // (app.js) reads this cache only while the session cookie exists and
+    // drops it when the confirmed account differs from the cached one.
     if (cacheName === API_CACHE && fresh.status === 401) {
       await caches.delete(API_CACHE);
     } else if (fresh.status === 304) {
@@ -287,9 +306,10 @@ async function networkFirst(request, cacheName) {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
-    } else if (writeBack && fresh.ok && !cachedFallback) {
+    } else if (writeBack && fresh.ok && !fresh.redirected && !cachedFallback) {
       // Only cache successful responses. Caching 4xx/5xx would let a
-      // transient error linger as the offline fallback. On the warm-cache
+      // transient error linger as the offline fallback. A redirected answer
+      // is an auth proxy's login page, not this URL's content. On the warm-cache
       // (timeout) path the onFresh callback already wrote the cache, so we
       // skip the redundant put here.
       const cache = await caches.open(cacheName);
@@ -344,23 +364,36 @@ function isPinnedShellHtml(url) {
   return !DEV_BUILD && (url.pathname === '/' || url.pathname === '/index.html');
 }
 
-// Versioned files never change under their URL, so the cache wins without a
-// network round trip. A miss (an optional precache entry that failed, or a
-// page of another release) goes to the network; only this release's files
-// are written back — the server ignores ?v= and would return its current
-// file under any version.
 // The pinned HTML shell, straight from this release's cache: the page shows
 // immediately instead of waiting on the network, which after a long pause in
 // the background (a dead connection on iOS) took seconds of white screen. It
 // is always consistent with this cache's ?v= files; a new release's shell
 // arrives with the new worker's install, and the page switches to it unseen
 // (app.js). Falls back to the network only when the precache lacks it.
+// `?reauth=` (app.js _reauthenticateAtGate) goes to the network first: an
+// auth proxy in front of PocketLog wants to answer that navigation with its
+// own login page, which the cached shell would hide.
 async function pinnedShell(request) {
-  const cached = await caches.open(CACHE).then((c) => c.match(request, { ignoreSearch: true }));
+  const fromCache = () => caches.open(CACHE).then((c) => c.match(request, { ignoreSearch: true }));
+  if (new URL(request.url).searchParams.has('reauth')) {
+    try {
+      return await fetch(request);
+    } catch (e) {
+      const cached = await fromCache();
+      if (cached) return cached;
+      throw e;
+    }
+  }
+  const cached = await fromCache();
   if (cached) return cached;
   return networkFirst(request, CACHE);
 }
 
+// Versioned files never change under their URL, so the cache wins without a
+// network round trip. A miss (an optional precache entry that failed, or a
+// page of another release) goes to the network; only this release's files
+// are written back — the server ignores ?v= and would return its current
+// file under any version.
 async function versionedAsset(request) {
   const cached = await caches.match(request);
   if (cached) return cached;

@@ -41,7 +41,9 @@ async function primeInstantStart(page, desc) {
   expect(await page.evaluate(() => !!_readSessionHint())).toBe(true);
 }
 
-const appReady = (page) => page.evaluate(() => appState.boot.ready);
+// Some paths reload the page themselves; a poll landing mid-navigation just
+// counts as "not ready yet".
+const appReady = (page) => page.evaluate(() => appState.boot.ready).catch(() => false);
 
 test('the last synced state shows before the session check returns', async ({ page }) => {
   const desc = `InstantCached ${RUN}`;
@@ -77,6 +79,7 @@ test('a session the server rejects ends on an empty login view, hint gone', asyn
   // Nothing of the cached state stays behind the login view.
   await expect(page.locator('.tx-row', { hasText: desc })).toHaveCount(0);
   expect(await page.evaluate(() => _readSessionHint())).toBeNull();
+  expect(await page.evaluate(() => caches.has('pocketlog-api-e2e'))).toBe(false);
 });
 
 test('an unreachable server keeps the cached state and confirms later', async ({ page }) => {
@@ -87,10 +90,103 @@ test('an unreachable server keeps the cached state and confirms later', async ({
   await expect(page.locator('.tx-row', { hasText: desc })).toBeVisible();
   await expect(page.locator('#loginView')).toBeHidden();
   await expect.poll(() => page.evaluate(() => appState.boot.authPending)).toBe(true);
+  // The header says it: not connected, last synced state.
+  await expect(page.locator('#syncDot')).toHaveClass(/offline/);
 
   // Back online: the session is confirmed and the fresh pass runs.
   await page.unroute('**/api/**');
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   await expect.poll(() => appReady(page), { timeout: 15000 }).toBe(true);
   expect(await page.evaluate(() => appState.boot.authPending)).toBe(false);
+});
+
+test('writes stay blocked until the server has confirmed the session', async ({ page }) => {
+  const desc = `InstantWriteGate ${RUN}`;
+  await primeInstantStart(page, desc);
+  let writes = 0;
+  let release;
+  const held = new Promise((r) => (release = r));
+  await page.route('**/api/**', async (route) => {
+    if (route.request().method() !== 'GET') writes++;
+    await held;
+    await route.continue();
+  });
+  await page.reload();
+  await expect(page.locator('.tx-row', { hasText: desc })).toBeVisible({ timeout: 2000 });
+
+  // Before the confirmation a write never leaves the page (nor lands in the
+  // outbox): the cached state could belong to a session revoked elsewhere.
+  const blocked = await page.evaluate(async () => {
+    try {
+      await api('DELETE', '/transactions/1');
+      return false;
+    } catch (e) {
+      return e.status === 0;
+    }
+  });
+  expect(blocked).toBe(true);
+  expect(writes).toBe(0);
+
+  release();
+  await expect.poll(() => appReady(page), { timeout: 15000 }).toBe(true);
+  expect(await page.evaluate(() => appState.boot.sessionConfirmed)).toBe(true);
+});
+
+test('no session cookie, no cached state', async ({ page, context }) => {
+  const desc = `InstantNoCookie ${RUN}`;
+  await primeInstantStart(page, desc);
+  // The session ended (cookies expired or cleared) — the hint alone must not
+  // put the cached finances on screen, even for a moment.
+  await context.clearCookies();
+  let release;
+  const held = new Promise((r) => (release = r));
+  await page.route('**/api/**', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.reload();
+  await page.waitForTimeout(1000);
+  await expect(page.locator('.tx-row', { hasText: desc })).toHaveCount(0);
+  release();
+  await expect(page.locator('#loginView')).toBeVisible();
+  await expect(page.locator('.tx-row', { hasText: desc })).toHaveCount(0);
+  expect(await page.evaluate(() => _readSessionHint())).toBeNull();
+  expect(await page.evaluate(() => caches.has('pocketlog-api-e2e'))).toBe(false);
+});
+
+test('a confirmed session of another account discards the cached state', async ({ page }) => {
+  const desc = `InstantOtherUser ${RUN}`;
+  await primeInstantStart(page, desc);
+  const realId = await page.evaluate(() => appState.admin.me.id);
+  // The cached state was written for another account on this browser.
+  await page.evaluate(() => {
+    const h = JSON.parse(localStorage.getItem('pocketlog.sessionHint'));
+    localStorage.setItem('pocketlog.sessionHint', JSON.stringify({ ...h, id: h.id + 1000 }));
+  });
+  await page.reload();
+  // Reset + reload, then a regular boot for the real account.
+  await expect.poll(() => appReady(page), { timeout: 15000 }).toBe(true);
+  expect(await page.evaluate(() => caches.has('pocketlog-api-e2e'))).toBe(false);
+  expect(await page.evaluate(() => appState.boot.fromCache)).toBe(false);
+  expect(await page.evaluate(() => _readSessionHint().id)).toBe(realId);
+});
+
+test('an auth proxy redirect drops the cached state and re-authenticates once', async ({
+  page,
+}) => {
+  const desc = `InstantGate ${RUN}`;
+  await primeInstantStart(page, desc);
+  // SSO forward auth in front of PocketLog: its session ended, so it answers
+  // API calls with a redirect to its own login.
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({ status: 302, headers: { Location: 'https://sso.invalid/login' } }),
+  );
+  await page.reload();
+  // One navigation to /?reauth (which a real proxy would answer with its
+  // login page); the loop guard then stops on PocketLog's own login view.
+  await expect(page).toHaveURL(/[?&]reauth=\d+/);
+  await expect(page.locator('#loginView')).toBeVisible();
+  await expect(page.locator('.tx-row', { hasText: desc })).toHaveCount(0);
+  expect(await page.evaluate(() => _readSessionHint())).toBeNull();
+  expect(await page.evaluate(() => caches.has('pocketlog-api-e2e'))).toBe(false);
 });

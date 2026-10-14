@@ -221,6 +221,15 @@ async function syncNow() {
     }
   }
 
+  if (!networkErr && appState.boot.authPending) {
+    // The server answers again: confirm the instant start's session now
+    // (app.js _confirmSessionLater); that pass reloads everything.
+    dot.classList.remove('syncing');
+    window.dispatchEvent(new Event('pocketlog:reachable'));
+    await updateSyncBadge();
+    return;
+  }
+
   const remaining = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
   dot.classList.remove('syncing');
 
@@ -596,6 +605,17 @@ async function reconcileSettingsFromServer() {
 async function updateSyncBadge() {
   const btn = document.getElementById('syncBtn');
   const dot = document.getElementById('syncDot');
+  if (appState.boot.authPending) {
+    // Instant start without a confirmed session: the screen shows the last
+    // synced state and writes are blocked — the offline look says so.
+    const pending = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+    btn.classList.add('error');
+    dot.classList.remove('error');
+    dot.classList.add('offline');
+    setSyncBadge(pending);
+    setSyncAria(tr('sync.unconfirmed'));
+    return;
+  }
   if (!window.PocketLogOutbox) {
     btn.classList.remove('error');
     dot.classList.remove('error', 'offline');
@@ -1509,6 +1529,9 @@ async function logoutWithConfirm() {
       navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
     }
   } catch (_) {}
+  // The worker clears asynchronously; the reload must not boot (or another
+  // user sign in) while the signed-out account's responses are still cached.
+  await _purgeApiCaches();
   location.reload();
 }
 

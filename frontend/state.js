@@ -200,6 +200,15 @@ const appState = {
     // same moment — anything that must not race the remaining loads waits on
     // this rather than on the first render.
     ready: false,
+    // True once /auth/me has confirmed the session on this page; writes are
+    // refused before that (core.js api()).
+    sessionConfirmed: false,
+    // The page was first drawn from the cache (instant start): later boot
+    // passes refresh in place instead of navigating to the default view.
+    // `cachedUserId` is the session hint's account that state belongs to — a
+    // confirmed session of another account discards it (app.js).
+    fromCache: false,
+    cachedUserId: null,
     // Instant start whose session check could not reach the server yet
     // (app.js _confirmSessionLater): retry bookkeeping.
     authPending: false,

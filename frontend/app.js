@@ -226,6 +226,14 @@ function _applyMe(me) {
 // `fromCache`: the instant-start pass already put the last synced state on
 // screen; this pass replaces it with fresh data without re-navigating.
 async function _afterAuthSuccess(me, { fromCache } = {}) {
+  appState.boot.sessionConfirmed = true;
+  // The cached state belonged to another account than the one the server
+  // just confirmed: drop all of it and start clean.
+  if (fromCache && appState.boot.cachedUserId != null && me.id !== appState.boot.cachedUserId) {
+    await _resetAuthClientState();
+    location.reload();
+    return;
+  }
   _applyMe(me);
   if (me.force_change_password) {
     // In the force-change state the old password is administrative
@@ -241,26 +249,95 @@ async function _afterAuthSuccess(me, { fromCache } = {}) {
   // Deliver reload breadcrumbs from before this boot to the server log.
   // Fire-and-forget — diagnostics must not delay the first render.
   reportReloadEvents();
+  if (fromCache) {
+    // The cache-first shell skipped the navigation's update check on the dead
+    // connection this start was built for; the network works now, so look for
+    // a new release here (the switch itself stays unseen, see init).
+    navigator.serviceWorker
+      ?.getRegistration()
+      .then((reg) => reg && reg.update())
+      .catch(() => {});
+  }
   await _loadBootData(me, { fromCache });
 }
 
+// The outcome of a session check (/auth/me): 'ok' with `me`; 'signedOut'
+// (401/403); 'gate' — an auth proxy in front of PocketLog (SSO forward auth)
+// answered instead, with a redirect or a non-JSON page; 'unreachable' (network
+// error, timeout, 5xx, the service worker's offline 503).
+async function _sessionCheck(request) {
+  try {
+    const res = await request;
+    if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
+      return { kind: 'gate' };
+    }
+    if (res.status === 401 || res.status === 403) return { kind: 'signedOut' };
+    if (!res.ok) return { kind: 'unreachable' };
+    if (!(res.headers.get('content-type') || '').includes('application/json')) {
+      return { kind: 'gate' };
+    }
+    return { kind: 'ok', me: await res.json() };
+  } catch (_) {
+    return { kind: 'unreachable' };
+  }
+}
+
+// The auth proxy wants the user to sign in again. Nothing cached may stay,
+// and the navigation has to reach the network past the cache-first shell
+// (sw.js pinnedShell skips the cache for ?reauth) so the proxy can answer it
+// with its login page. Returns false — without navigating — when this page
+// load already came from such a redirect, so a proxy that keeps redirecting
+// API calls cannot cause a reload loop.
+async function _reauthenticateAtGate() {
+  await _resetAuthClientState();
+  if (_justReauthenticated()) return false;
+  recordReloadEvent('session_expired');
+  location.replace('/?reauth=' + Date.now());
+  return true;
+}
+
+function _justReauthenticated() {
+  const m = /[?&]reauth=(\d+)/.exec(location.search);
+  return !!m && Date.now() - Number(m[1]) < 30000;
+}
+
+// Signed out behind an instant start: the cached state is already in the
+// DOM, so clear everything and reload — the login view then starts from an
+// empty page (the hint is gone, so that boot runs the regular way).
+async function _signedOutAfterCache() {
+  await _resetAuthClientState();
+  recordReloadEvent('session_expired');
+  location.reload();
+}
+
 // Instant start (see core.js): draw the last synced state from the service
-// worker's API cache before the server has answered anything. Only for a
-// browser that had a signed-in user, and only when the two slices the main
+// worker's API cache before the server has answered anything. Only while the
+// browser still holds the session cookie, and only when the slices the main
 // views cannot do without — categories and the visible month — are cached;
-// otherwise the regular boot runs as before. Returns whether it drew.
+// otherwise the regular boot runs as before. Returns whether it drew. Never
+// touches the network.
 async function _bootFromCache(hint) {
+  if (!_csrfFromCookie()) return false;
   const monthPath = _monthTransactionsPath();
-  const [cats, month] = await Promise.all([cachedApi('/categories'), cachedApi(monthPath)]);
-  if (!Array.isArray(cats) || !Array.isArray(month)) return false;
-  _applyMe({ username: hint.username, is_admin: hint.is_admin });
-  // Writes made before /auth/me answers carry the token from the cookie.
-  window._csrfToken = _csrfFromCookie();
-  _propagateCsrfToken(window._csrfToken);
+  const [cats, cachedMonth] = await Promise.all([cachedApi('/categories'), cachedApi(monthPath)]);
+  if (!Array.isArray(cats)) return false;
+  let month = cachedMonth;
+  if (!Array.isArray(month)) {
+    // First open in a new month: the full history (warmed in the background
+    // on every online boot) still holds whatever this month already has.
+    const all = await cachedApi('/transactions');
+    if (!Array.isArray(all)) return false;
+    const prefix = `${appState.view.year}-${String(appState.view.month + 1).padStart(2, '0')}-`;
+    month = all.filter((t) => typeof t.date === 'string' && t.date.startsWith(prefix));
+  }
+  appState.boot.fromCache = true;
+  appState.boot.cachedUserId = hint.id;
+  _applyMe({ id: hint.id, username: hint.username, is_admin: hint.is_admin });
   appState.ledger.categories = cats;
   _showAuthView(null);
+  // Not awaited: on a precache miss it would go to the network.
+  loadCategoryIconSprite();
   await Promise.all([
-    loadCategoryIconSprite(),
     loadTags({ cached: true }),
     loadGoals({ cached: true }),
     loadBudgets({ cached: true }),
@@ -271,49 +348,61 @@ async function _bootFromCache(hint) {
     cached: true,
   });
   showPanel(loadDefaultView(), { keepDrawer: true });
+  // Pending and failed offline writes from an earlier session stay visible
+  // even while the session check waits (read from IndexedDB only).
+  updateSyncBadge();
+  updateFailedNotice();
   return true;
 }
 
 // The server could not be reached to confirm the session behind an instant
-// start: keep the cached state up (it is the offline view) and ask again once
-// the network plausibly works — on reconnect, on returning to the app, and on
-// a backoff timer. A definite "signed out" ends in the login view.
+// start: keep the cached state up (the offline view; writes stay blocked) and
+// ask again as soon as the network plausibly works — any successful API
+// answer, reconnect, returning to the app, and a short backoff timer (the dead
+// connection after a pause usually recovers within seconds). A definite
+// "signed out" ends in the login view.
 function _confirmSessionLater() {
   const boot = appState.boot;
   boot.authPending = true;
+  boot.authDelay = 1500;
+  updateSyncBadge();
   const attempt = async () => {
     if (!boot.authPending || boot.authRetrying) return;
     boot.authRetrying = true;
     clearTimeout(boot.authTimer);
+    let done = false;
     try {
-      const res = await _bootstrapFetch('/auth/me');
-      if (res.ok) {
-        const me = await res.json();
+      const check = await _sessionCheck(_bootstrapFetch('/auth/me', { manualRedirect: true }));
+      if (check.kind === 'ok') {
+        done = true;
         boot.authPending = false;
-        window._csrfToken = me.csrf_token;
+        window._csrfToken = check.me.csrf_token;
         _propagateCsrfToken(window._csrfToken);
-        await _afterAuthSuccess(me, { fromCache: true });
-      } else if (res.status === 401 || res.status === 403) {
+        await _afterAuthSuccess(check.me, { fromCache: true });
+      } else if (check.kind === 'signedOut') {
+        done = true;
         boot.authPending = false;
-        _resetAuthClientState();
-        recordReloadEvent('session_expired');
-        location.reload();
+        await _signedOutAfterCache();
+      } else if (check.kind === 'gate') {
+        done = true;
+        boot.authPending = false;
+        if (!(await _reauthenticateAtGate())) location.reload();
       }
-    } catch (_) {
-      // Still unreachable — the next trigger tries again.
     } finally {
       boot.authRetrying = false;
     }
-    if (boot.authPending) {
-      boot.authDelay = Math.min((boot.authDelay || 5000) * 2, 60000);
+    if (!done && boot.authPending) {
       boot.authTimer = setTimeout(attempt, boot.authDelay);
+      boot.authDelay = Math.min(boot.authDelay * 2, 30000);
     }
   };
   window.addEventListener('online', attempt);
+  window.addEventListener('pocketlog:reachable', attempt);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') attempt();
   });
-  boot.authTimer = setTimeout(attempt, 5000);
+  boot.authTimer = setTimeout(attempt, boot.authDelay);
+  boot.authDelay *= 2;
 }
 
 // The post-login data loads, separated from _afterAuthSuccess so they can be
@@ -368,6 +457,11 @@ async function _loadBootData(me, { fromCache } = {}) {
   // default view: refresh whatever is showing instead of navigating
   // (month-scoped panels were already redrawn by loadAndRender).
   if (fromCache) {
+    // Whatever the cached phase derived (report year slices, the full
+    // history, the earliest booking) may predate the fresh data.
+    invalidateReportCache();
+    appState.ledger.all = null;
+    appState.trend.earliestTxDate = null;
     const cfg = PANELS[appState.nav.activePanel];
     if (cfg && cfg.render && !cfg.monthScoped) cfg.render();
   } else {
@@ -403,7 +497,7 @@ function _setBootError(failed) {
 function retryBoot() {
   if (!appState.boot.failed || appState.boot.retrying) return;
   appState.boot.retrying = true;
-  _loadBootData(appState.admin.me).finally(() => {
+  _loadBootData(appState.admin.me, { fromCache: appState.boot.fromCache }).finally(() => {
     appState.boot.retrying = false;
     // The retry succeeded: deliver the boot_failed breadcrumb recorded by
     // the failed attempt now instead of waiting for the next full boot.
@@ -438,12 +532,15 @@ function onI18nChanged() {
 // answer before we give up.
 const BOOTSTRAP_TIMEOUT_MS = 5000;
 
-function _bootstrapFetch(path) {
+// `manualRedirect`: the session check must see an auth proxy's redirect
+// (_sessionCheck) instead of following it to the proxy's login page.
+function _bootstrapFetch(path, { manualRedirect } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), BOOTSTRAP_TIMEOUT_MS);
   return fetch(API + path, {
     credentials: 'same-origin',
     signal: controller.signal,
+    redirect: manualRedirect ? 'manual' : 'follow',
   }).finally(() => clearTimeout(timer));
 }
 
@@ -514,7 +611,7 @@ async function init() {
   // in a row they cost two extra round trips on every start. /auth/me simply
   // answers 401 on a fresh instance, where its result goes unused.
   const setupStatus = _bootstrapFetch('/auth/setup-status');
-  const meReq = _bootstrapFetch('/auth/me');
+  const meReq = _bootstrapFetch('/auth/me', { manualRedirect: true });
   // Awaited (and their rejections caught) further down; until then a fast
   // failure must not count as an unhandled rejection (js_error breadcrumb).
   setupStatus.catch(() => {});
@@ -587,8 +684,15 @@ async function init() {
     }
     const sl = document.getElementById('setupLocale');
     if (sl && window.I18N) sl.value = I18N.getLocale();
-    // A reset instance: nothing cached belongs to it any more.
-    if (hint) _resetAuthClientState();
+    // A reset instance: nothing cached belongs to it any more. An instant
+    // start already drew it — reload onto an empty page.
+    if (hint) {
+      await _resetAuthClientState();
+      if (fromCache) {
+        location.reload();
+        return;
+      }
+    }
     _showAuthView('setup');
     setTimeout(() => {
       const focusEl = document.getElementById(suggested ? 'setupPassword' : 'setupUsername');
@@ -597,40 +701,35 @@ async function init() {
     return;
   }
 
-  // 2) Bin ich eingeloggt?
+  // 2) Signed in?
   window._suppressAuthReload = true;
-  let me = null;
-  let signedOut = false;
-  try {
-    const res = await meReq;
-    if (res.ok) me = await res.json();
-    else signedOut = res.status === 401 || res.status === 403;
-  } catch (e) {}
+  const check = await _sessionCheck(meReq);
   window._suppressAuthReload = false;
 
-  if (!me) {
-    // Unreachable (not signed out) behind an instant start: stay on the
-    // cached state and confirm the session once the server answers.
-    if (fromCache && !signedOut) {
-      _confirmSessionLater();
-      return;
-    }
-    // Signed out: drop the hint and every cached response that came with it.
-    // After an instant start the cached state is already in the DOM; reload
-    // so the login view starts from an empty page (the hint is gone now, so
-    // this boot runs the regular way).
-    if (signedOut && hint) {
-      _resetAuthClientState();
-      if (fromCache) {
-        recordReloadEvent('session_expired');
-        location.reload();
+  if (check.kind !== 'ok') {
+    if (fromCache) {
+      // Unreachable behind an instant start: stay on the cached state (writes
+      // stay blocked) and confirm the session once the server answers.
+      if (check.kind === 'unreachable') {
+        _confirmSessionLater();
         return;
       }
+      if (check.kind === 'gate') {
+        if (!(await _reauthenticateAtGate())) location.reload();
+        return;
+      }
+      await _signedOutAfterCache();
+      return;
     }
+    // Signed out or stopped at an auth proxy: drop the hint and every cached
+    // response that came with it.
+    if (check.kind !== 'unreachable' && hint) await _resetAuthClientState();
+    if (check.kind === 'gate' && (await _reauthenticateAtGate())) return;
     _showAuthView('login');
     focusOnOpen(document.getElementById('loginView'), 'loginUsername', 50);
     return;
   }
+  const me = check.me;
   window._csrfToken = me.csrf_token;
   _propagateCsrfToken(window._csrfToken);
   await _afterAuthSuccess(me, { fromCache });

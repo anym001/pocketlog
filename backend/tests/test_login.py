@@ -253,3 +253,35 @@ def test_session_sliding_refresh_extends_expires_at(app, regular_user, db_sessio
 
     db_session.refresh(session)
     assert session.expires_at > original_expires
+
+
+def test_sliding_refresh_reissues_both_cookies(app, regular_user, db_session):
+    """The refresh re-issues the session AND the CSRF cookie with the new
+    Max-Age. Refreshing only the CSRF cookie let it outlive the session
+    cookie; the frontend's instant start reads a present CSRF cookie as
+    "this browser still holds a session", so both must expire together."""
+    from sqlalchemy import select as sa_select
+
+    from app import auth, models
+    from app.deps import CSRF_COOKIE_NAME, SESSION_COOKIE_NAME
+
+    client = _fresh(app)
+    client.post(
+        "/api/auth/login",
+        json={"username": regular_user.username, "password": TEST_PASSWORD},
+    )
+    plain = client.cookies.get(SESSION_COOKIE_NAME)
+    session = db_session.scalar(
+        sa_select(models.Session).where(models.Session.user_id == regular_user.id)
+    )
+    session.last_seen_at = auth._utcnow() - timedelta(hours=2)
+    db_session.commit()
+
+    res = client.get("/api/auth/me")
+    set_cookie = res.headers.get_list("set-cookie")
+    names = {c.split("=", 1)[0] for c in set_cookie}
+    assert {SESSION_COOKIE_NAME, CSRF_COOKIE_NAME} <= names
+    session_cookie = next(c for c in set_cookie if c.startswith(SESSION_COOKIE_NAME))
+    # Same token (no rotation), HttpOnly kept.
+    assert f"{SESSION_COOKIE_NAME}={plain}" in session_cookie
+    assert "httponly" in session_cookie.lower()

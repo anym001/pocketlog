@@ -262,6 +262,8 @@ window._csrfToken = '';
 // page load would hit a cached me response (force-change view without
 // a session), or the outbox would send a stale CSRF token along
 // (403 on replay → silent data loss).
+// Returns a promise that settles once the cached API responses are gone, so a
+// caller that reloads next can await it (the instant start reads that cache).
 function _resetAuthClientState() {
   _clearSessionHint();
   try {
@@ -276,6 +278,28 @@ function _resetAuthClientState() {
     window.PocketLogOutbox?.setCsrfToken?.('');
   } catch (_) {}
   window._csrfToken = '';
+  appState.boot.sessionConfirmed = false;
+  return _purgeApiCaches();
+}
+
+// The page deletes the API caches itself as well: the SW message above only
+// reaches a controlling worker (none after a hard reload or a failed
+// registration), and the worker deletes asynchronously while the page may
+// already be reloading.
+function _purgeApiCaches() {
+  try {
+    if (!('caches' in window)) return Promise.resolve();
+    return caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k.startsWith('pocketlog-api-')).map((k) => caches.delete(k)),
+        ),
+      )
+      .catch(() => {});
+  } catch (_) {
+    return Promise.resolve();
+  }
 }
 
 // ── INSTANT START ─────────────────────────────────────────────────────────────
@@ -287,15 +311,31 @@ function _resetAuthClientState() {
 // session check and fresh loads run behind it (app.js _bootFromCache).
 //
 // The hint says "this browser had a signed-in user" and carries only what
-// the chrome shows (username, admin flag); it never authorizes anything —
-// every request still needs the session cookie. It goes whenever the
-// session does: logout, any 401, a failed session check.
+// the chrome shows (user id, username, admin flag) plus when the server last
+// confirmed the session; it never authorizes anything — every request still
+// needs the session cookie. It goes whenever the session does: logout, any
+// 401, a failed session check.
+//
+// Security bounds (financial data): the cached state is only drawn while the
+// browser still holds the session cookie — the readable CSRF cookie is set,
+// refreshed and deleted together with it (backend deps.py), so an expired or
+// signed-out session never shows data. Writes stay blocked until the server
+// has confirmed the session (api(), appState.boot.sessionConfirmed), so
+// nothing can be queued for replay under someone else's login. A session
+// revoked elsewhere (other device, admin) is noticed as soon as this device
+// reaches the server; while offline, the cookie lifetime (24 h, 30 days with
+// "stay signed in") bounds how long the last state can be shown.
 const SESSION_HINT_KEY = 'pocketlog.sessionHint';
+// Upper bound on top of the cookie: never older than the longest absolute
+// session lifetime (backend SESSION_REMEMBER_ABSOLUTE_DAYS default).
+const SESSION_HINT_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
 function _readSessionHint() {
   try {
     const h = JSON.parse(localStorage.getItem(SESSION_HINT_KEY) || 'null');
-    return h && typeof h.username === 'string' ? h : null;
+    if (!h || typeof h.username !== 'string' || typeof h.id !== 'number') return null;
+    if (!(Date.now() - Number(h.ts) < SESSION_HINT_MAX_AGE_MS)) return null;
+    return h;
   } catch (_) {
     return null;
   }
@@ -305,7 +345,7 @@ function _writeSessionHint(me) {
   try {
     localStorage.setItem(
       SESSION_HINT_KEY,
-      JSON.stringify({ username: me.username, is_admin: !!me.is_admin }),
+      JSON.stringify({ id: me.id, username: me.username, is_admin: !!me.is_admin, ts: Date.now() }),
     );
   } catch (_) {}
 }
@@ -330,8 +370,9 @@ async function cachedApi(path) {
   }
 }
 
-// The CSRF cookie is readable by design (double submit). Reading it lets a
-// cache-first start send writes before /auth/me has returned the token.
+// The CSRF cookie is readable by design (double submit) and lives exactly as
+// long as the HttpOnly session cookie, so its presence says "this browser
+// still holds a session" — the gate for drawing cached data.
 function _csrfFromCookie() {
   const m = document.cookie.match(/(?:^|;\s*)pocketlog_csrf=([^;]+)/);
   return m ? decodeURIComponent(m[1]) : '';
@@ -451,6 +492,15 @@ function _isOfflineWriteError(e) {
 }
 
 async function api(method, path, body) {
+  // Instant start: until the server has confirmed the session, writes are
+  // refused rather than sent or queued — a queued write would replay under
+  // whoever signs in next.
+  if (method !== 'GET' && !appState.boot.sessionConfirmed) {
+    toast(tr('common.notConnectedYet'), 'error');
+    const err = new Error(`API ${method} ${path} → session not confirmed`);
+    err.status = 0;
+    throw err;
+  }
   const headers = { 'Content-Type': 'application/json' };
   if (method !== 'GET' && window._csrfToken) {
     headers['X-CSRF-Token'] = window._csrfToken;
@@ -475,7 +525,7 @@ async function api(method, path, body) {
   }
   if (res.status === 401) {
     if (!window._suppressAuthReload) {
-      _resetAuthClientState();
+      await _resetAuthClientState();
       recordReloadEvent('session_expired');
       location.reload();
     }
@@ -498,6 +548,9 @@ async function api(method, path, body) {
     throw err;
   }
   if (method !== 'GET') invalidateReportCache();
+  // A server answer while an instant start still waits on the session check:
+  // the network works again, so confirm now instead of at the next retry.
+  else if (appState.boot.authPending) window.dispatchEvent(new Event('pocketlog:reachable'));
   if (res.status === 204) return null;
   return res.json();
 }
@@ -516,7 +569,7 @@ async function authFetch(method, path, body, opts = {}) {
   if (body !== undefined) init.body = JSON.stringify(body);
   const res = await fetch(API + path, init);
   if (res.status === 401 && opts.reloadOn401 !== false) {
-    _resetAuthClientState();
+    await _resetAuthClientState();
     recordReloadEvent('session_expired');
     location.reload();
   }

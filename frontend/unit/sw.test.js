@@ -32,7 +32,13 @@ function makeCaches() {
         async match(req) {
           return m.get(keyOf(req));
         },
+        async keys() {
+          return [...m.keys()].map((url) => ({ url }));
+        },
       };
+    },
+    async keys() {
+      return [...store.keys()];
     },
     async match(req) {
       const k = keyOf(req);
@@ -57,6 +63,7 @@ function loadSw({ version } = {}) {
   src +=
     '\n;self.__exports = { networkFirst, fetchWithTimeout, isAuthPath, ' +
     'handleWrite, fetchWriteWithTimeout, versionedAsset, isVersionedAsset, pinnedShell, ' +
+    'carryOverApiCache, ' +
     'CACHE, API_CACHE, NETWORK_TIMEOUT_MS, WRITE_TIMEOUT_MS };';
   const caches = makeCaches();
   const sandbox = {
@@ -230,6 +237,29 @@ describe('release build — versioned assets and the pinned HTML shell', () => {
     expect(await result.text()).toBe('HTML-NET');
   });
 
+  it('lets a ?reauth navigation reach the network past the pinned shell', async () => {
+    // An auth proxy answers it with its login page; the cached shell must
+    // not hide that.
+    const c = await caches.open(sw.CACHE);
+    await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
+    sandbox.fetch = vi.fn(async () => resp('PROXY-LOGIN', { status: 200 }));
+    const result = await sw.pinnedShell(reqOf(`${ROOT_URL}?reauth=1`));
+    expect(await result.text()).toBe('PROXY-LOGIN');
+    expect(sandbox.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves the pinned shell for ?reauth while offline', async () => {
+    const c = await caches.open(sw.CACHE);
+    await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
+    // The mock cache ignores the query like match({ ignoreSearch }) does.
+    await c.put(reqOf(`${ROOT_URL}?reauth=1`), resp('HTML-REL'));
+    sandbox.fetch = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    const result = await sw.pinnedShell(reqOf(`${ROOT_URL}?reauth=1`));
+    expect(await result.text()).toBe('HTML-REL');
+  });
+
   it('never overwrites the precached HTML shell with a fresher one', async () => {
     const c = await caches.open(sw.CACHE);
     await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
@@ -347,5 +377,44 @@ describe('handleWrite — write timeout queues offline', () => {
     const res = await sw.handleWrite(request);
     expect(res.status).toBe(201);
     expect(queued).toHaveLength(0);
+  });
+});
+
+describe('activate — the API cache survives a release switch', () => {
+  let sw, caches;
+  beforeEach(() => {
+    ({ sw, caches } = loadSw({ version: '2.0.0' }));
+  });
+
+  it("carries the previous release's API responses over without overwriting newer ones", async () => {
+    // The instant start reads this cache; the first open after an update
+    // must still find the last synced state.
+    const old = await caches.open('pocketlog-api-1.9.0');
+    await old.put(reqOf(API_URL), resp('OLD-TX'));
+    await old.put(reqOf('https://app.test/api/categories'), resp('OLD-CATS'));
+    const cur = await caches.open(sw.API_CACHE);
+    await cur.put(reqOf(API_URL), resp('NEW-TX'));
+    await caches.open('pocketlog-shell-1.9.0');
+
+    await sw.carryOverApiCache(await caches.keys());
+
+    const target = await caches.open(sw.API_CACHE);
+    expect(await (await target.match(reqOf(API_URL))).text()).toBe('NEW-TX');
+    const cats = await target.match(reqOf('https://app.test/api/categories'));
+    expect(await cats.text()).toBe('OLD-CATS');
+  });
+});
+
+describe('networkFirst — auth proxy redirects', () => {
+  it("never caches a redirected answer as the API's content", async () => {
+    const { sw, sandbox, caches } = loadSw();
+    sandbox.fetch = async () => {
+      const r = resp('<html>proxy login</html>', { status: 200 });
+      Object.defineProperty(r, 'redirected', { value: true });
+      return r;
+    };
+    await sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
+    await tick();
+    expect(await caches.match(reqOf(API_URL))).toBeUndefined();
   });
 });
