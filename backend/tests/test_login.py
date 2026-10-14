@@ -285,3 +285,38 @@ def test_sliding_refresh_reissues_both_cookies(app, regular_user, db_session):
     # Same token (no rotation), HttpOnly kept.
     assert f"{SESSION_COOKIE_NAME}={plain}" in session_cookie
     assert "httponly" in session_cookie.lower()
+
+
+def test_refreshed_cookies_never_outlive_the_absolute_cap(
+    app, regular_user, db_session
+):
+    """Near the absolute cap the refresh must not hand out a full sliding
+    Max-Age: a present CSRF cookie keeps the frontend's instant start open,
+    so the cookies end when the session ends."""
+    import re
+
+    from sqlalchemy import select as sa_select
+
+    from app import auth, models
+    from app.deps import CSRF_COOKIE_NAME, SESSION_COOKIE_NAME
+
+    client = _fresh(app)
+    client.post(
+        "/api/auth/login",
+        json={"username": regular_user.username, "password": TEST_PASSWORD},
+    )
+    session = db_session.scalar(
+        sa_select(models.Session).where(models.Session.user_id == regular_user.id)
+    )
+    now = auth._utcnow()
+    session.last_seen_at = now - timedelta(hours=2)
+    session.absolute_expires_at = now + timedelta(minutes=30)
+    db_session.commit()
+
+    res = client.get("/api/auth/me")
+    for name in (SESSION_COOKIE_NAME, CSRF_COOKIE_NAME):
+        cookie = next(
+            c for c in res.headers.get_list("set-cookie") if c.startswith(name)
+        )
+        max_age = int(re.search(r"Max-Age=(\d+)", cookie, re.I).group(1))
+        assert 0 < max_age <= 30 * 60

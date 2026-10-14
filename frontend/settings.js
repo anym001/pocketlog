@@ -1515,22 +1515,28 @@ async function logoutWithConfirm() {
     });
     if (!ok) return;
   }
+  let res = null;
   try {
-    await authFetch('POST', '/auth/logout', undefined, { reloadOn401: false });
+    res = await authFetch('POST', '/auth/logout', undefined, { reloadOn401: false });
   } catch (_) {}
+  // Only a server that ended the session (204) — or had none left (401) —
+  // signs out. Offline or rejected, the session would live on and the next
+  // start would be signed in again: say so instead of pretending.
+  if (!res || (res.status !== 204 && res.status !== 401)) {
+    toast(tr('account.logoutFailed'), 'error');
+    return;
+  }
   try {
     if (window.PocketLogOutbox) {
       await window.PocketLogOutbox.clear();
+      await window.PocketLogOutbox.failedClear();
     }
   } catch (_) {}
   _clearSessionHint();
-  try {
-    if (navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
-    }
-  } catch (_) {}
-  // The worker clears asynchronously; the reload must not boot (or another
-  // user sign in) while the signed-out account's responses are still cached.
+  _writeDataOwner(null);
+  // Awaited: the reload must not boot (or another user sign in) while the
+  // signed-out account's responses are still cached.
+  await _clearSwApiCache();
   await _purgeApiCaches();
   location.reload();
 }

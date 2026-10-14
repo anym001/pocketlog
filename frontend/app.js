@@ -226,16 +226,21 @@ function _applyMe(me) {
 // `fromCache`: the instant-start pass already put the last synced state on
 // screen; this pass replaces it with fresh data without re-navigating.
 async function _afterAuthSuccess(me, { fromCache } = {}) {
-  appState.boot.sessionConfirmed = true;
-  // The cached state belonged to another account than the one the server
-  // just confirmed: drop all of it and start clean.
-  if (fromCache && appState.boot.cachedUserId != null && me.id !== appState.boot.cachedUserId) {
+  // Local data of another account (cache, outbox) goes before anything of
+  // this one is loaded. If the instant start already drew such data — or
+  // drew another account's hint — drop all of it and start clean.
+  const discarded = await _claimLocalData(me.id);
+  if (fromCache && (discarded || me.id !== appState.boot.cachedUserId)) {
     await _resetAuthClientState();
     location.reload();
     return;
   }
+  appState.boot.sessionConfirmed = true;
   _applyMe(me);
   if (me.force_change_password) {
+    // No instant start into this state: the hint returns with the next
+    // fully signed-in boot.
+    _clearSessionHint();
     // In the force-change state the old password is administrative
     // (admin reset or CLI) — backend verification is switched off,
     // the field would be a UI lie. The user only sets a new password

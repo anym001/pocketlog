@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import math
 import os
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -174,8 +175,18 @@ def _absolute_lifetime(remember_me: bool) -> timedelta:
     return timedelta(days=SESSION_ABSOLUTE_DAYS)
 
 
-def cookie_max_age_seconds(remember_me: bool) -> int:
-    return int(_sliding_lifetime(remember_me).total_seconds())
+def cookie_max_age_seconds(
+    remember_me: bool, expires_at: datetime | None = None
+) -> int:
+    """Cookie Max-Age: the sliding lifetime, but never past the session's
+    own ``expires_at`` (which the absolute cap bounds). The frontend reads
+    the CSRF cookie's presence as "this browser still holds a session"
+    (instant start), so the cookies must not outlive the server session."""
+    sliding = int(_sliding_lifetime(remember_me).total_seconds())
+    if expires_at is None:
+        return sliding
+    left = math.ceil((expires_at - _utcnow()).total_seconds())
+    return max(0, min(sliding, left))
 
 
 def create_session(

@@ -632,7 +632,8 @@
     "logoutTitle": "Trotzdem abmelden?",
     "logoutBodyOne": "{n} noch nicht synchronisierte Änderung geht beim Abmelden verloren.",
     "logoutBodyOther": "{n} noch nicht synchronisierte Änderungen gehen beim Abmelden verloren.",
-    "logoutConfirm": "Trotzdem abmelden"
+    "logoutConfirm": "Trotzdem abmelden",
+    "logoutFailed": "Abmelden fehlgeschlagen. Prüfe die Verbindung und versuche es erneut."
   },
   "sync": {
     "synced": "Gespeichert",

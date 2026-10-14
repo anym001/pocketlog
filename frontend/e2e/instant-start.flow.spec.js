@@ -125,6 +125,16 @@ test('writes stay blocked until the server has confirmed the session', async ({ 
     }
   });
   expect(blocked).toBe(true);
+  // The auth helper's writes too (admin user management).
+  const adminBlocked = await page.evaluate(async () => {
+    try {
+      await authFetch('POST', '/admin/users', { username: 'x', password: 'y' });
+      return false;
+    } catch (e) {
+      return e.status === 0;
+    }
+  });
+  expect(adminBlocked).toBe(true);
   expect(writes).toBe(0);
 
   release();
@@ -189,4 +199,54 @@ test('an auth proxy redirect drops the cached state and re-authenticates once', 
   await expect(page.locator('.tx-row', { hasText: desc })).toHaveCount(0);
   expect(await page.evaluate(() => _readSessionHint())).toBeNull();
   expect(await page.evaluate(() => caches.has('pocketlog-api-e2e'))).toBe(false);
+});
+
+test('signing out before the session is confirmed ends it on the server', async ({
+  page,
+  context,
+}) => {
+  const desc = `InstantLogout ${RUN}`;
+  await primeInstantStart(page, desc);
+  // Only the session check is unreachable; the sign-out itself gets through.
+  await page.route('**/api/auth/me', (route) => route.abort('internetdisconnected'));
+  await page.reload();
+  await expect(page.locator('.tx-row', { hasText: desc })).toBeVisible();
+  expect(await page.evaluate(() => appState.boot.sessionConfirmed)).toBe(false);
+
+  await page.evaluate(() => logoutWithConfirm());
+  await expect(page.locator('#loginView')).toBeVisible();
+  // Not just a local reset: the server no longer knows the session.
+  expect((await context.request.get('/api/auth/me')).status()).toBe(401);
+  await expect(page.locator('.tx-row', { hasText: desc })).toHaveCount(0);
+  expect(await page.evaluate(() => caches.has('pocketlog-api-e2e'))).toBe(false);
+});
+
+test("another account signing in never inherits this browser's data", async ({ page, context }) => {
+  const desc = `InstantHandover ${RUN}`;
+  await primeInstantStart(page, desc);
+  // A second household member.
+  const other = { username: `member${RUN}`, password: 'Member-Passw0rd-123' };
+  const csrf = (await context.cookies()).find((c) => c.name === 'pocketlog_csrf').value;
+  const created = await context.request.post('/api/admin/users', {
+    data: other,
+    headers: { 'X-CSRF-Token': csrf },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { id: otherId } = await created.json();
+  // The first account left an offline write behind, then its session ended.
+  await page.evaluate(() =>
+    window.PocketLogOutbox.enqueue({ method: 'DELETE', path: '/transactions/1', body: null }),
+  );
+  await context.clearCookies();
+  await page.reload();
+  await expect(page.locator('#loginView')).toBeVisible();
+
+  await page.fill('#loginUsername', other.username);
+  await page.fill('#loginPassword', other.password);
+  await page.click('#loginSubmit');
+  await expect(page.locator('#loginView')).toBeHidden();
+  // Cache and outbox of the first account are gone before anything loads.
+  expect(await page.evaluate(() => caches.has('pocketlog-api-e2e'))).toBe(false);
+  expect(await page.evaluate(() => window.PocketLogOutbox.count())).toBe(0);
+  expect(await page.evaluate(() => _readDataOwner())).toBe(otherId);
 });

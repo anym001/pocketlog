@@ -160,12 +160,13 @@ self.addEventListener('install', (event) => {
 // first open after an update is exactly when it should not miss. Entries the
 // new cache already holds are fresher and stay.
 async function carryOverApiCache(keys) {
+  const epoch = apiCacheEpoch;
   const target = await caches.open(API_CACHE);
   for (const k of keys) {
     if (k === API_CACHE || !k.startsWith('pocketlog-api-')) continue;
     const old = await caches.open(k);
     for (const req of await old.keys()) {
-      if (await target.match(req)) continue;
+      if (epoch !== apiCacheEpoch || (await target.match(req))) continue;
       const res = await old.match(req);
       if (res) await target.put(req, res).catch(() => {});
     }
@@ -254,8 +255,24 @@ function fetchWithTimeout(request, onFresh) {
   });
 }
 
+// Bumped whenever the API cache is dropped (CLEAR_API_CACHE, a 401). A
+// response fetched before that must not be written back after it: it would
+// bring a signed-out account's data back into the cache.
+let apiCacheEpoch = 0;
+
+// Whether a network response may become this cache's copy. Never a redirect
+// or, under /api/, anything but JSON (an auth proxy's login page is not the
+// API's content), and never an API response that outlived a purge.
+function cacheable(res, cacheName, epoch) {
+  if (!res || !res.ok || res.redirected) return false;
+  if (cacheName !== API_CACHE) return true;
+  if (epoch !== apiCacheEpoch) return false;
+  return (res.headers.get('content-type') || '').includes('application/json');
+}
+
 async function networkFirst(request, cacheName) {
   const url = new URL(request.url);
+  const epoch = apiCacheEpoch;
   // If we already hold a cached copy, don't let a slow network block the
   // page: race the fetch against NETWORK_TIMEOUT_MS and serve the cache
   // the moment the network is too slow. The fetch keeps running in the
@@ -271,7 +288,7 @@ async function networkFirst(request, cacheName) {
           // Clone synchronously, before the page consumes the body — the
           // cache write below runs a microtask later and res.clone() would
           // otherwise throw "body already used".
-          if (writeBack && res && res.ok && !res.redirected) {
+          if (writeBack && cacheable(res, cacheName, epoch)) {
             const copy = res.clone();
             // Fire-and-forget by design (the response must not wait on
             // this), but still caught: an uncaught QuotaExceededError here
@@ -280,7 +297,7 @@ async function networkFirst(request, cacheName) {
             // be — a harmless outcome that doesn't deserve a console error.
             caches
               .open(cacheName)
-              .then((c) => c.put(request, copy))
+              .then((c) => cacheable(copy, cacheName, epoch) && c.put(request, copy))
               .catch(() => {});
           }
         })
@@ -293,6 +310,7 @@ async function networkFirst(request, cacheName) {
     // (app.js) reads this cache only while the session cookie exists and
     // drops it when the confirmed account differs from the cached one.
     if (cacheName === API_CACHE && fresh.status === 401) {
+      apiCacheEpoch++;
       await caches.delete(API_CACHE);
     } else if (fresh.status === 304) {
       // The backend started emitting validators (ETag/Last-Modified).
@@ -306,10 +324,9 @@ async function networkFirst(request, cacheName) {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
-    } else if (writeBack && fresh.ok && !fresh.redirected && !cachedFallback) {
+    } else if (writeBack && !cachedFallback && cacheable(fresh, cacheName, epoch)) {
       // Only cache successful responses. Caching 4xx/5xx would let a
-      // transient error linger as the offline fallback. A redirected answer
-      // is an auth proxy's login page, not this URL's content. On the warm-cache
+      // transient error linger as the offline fallback (see cacheable). On the warm-cache
       // (timeout) path the onFresh callback already wrote the cache, so we
       // skip the redundant put here.
       const cache = await caches.open(cacheName);
@@ -430,7 +447,9 @@ async function cacheFirst(request) {
 // Endpoints that must NEVER enter the outbox. Auth operations make no
 // sense offline — a login attempt replayed on the next reconnect with
 // queued credentials would be a capital security hole, and a logout
-// replay would immediately tear down the user's fresh session.
+// replay would immediately tear down the user's fresh session. Admin
+// actions (/api/admin/*: user management with passwords, bulk deletes) are
+// never queued either — they must not replay later under another session.
 const NEVER_QUEUE_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/logout',
@@ -460,7 +479,7 @@ async function handleWrite(request) {
     return await fetchWriteWithTimeout(request);
   } catch (e) {
     const url = new URL(request.url);
-    if (NEVER_QUEUE_PATHS.has(url.pathname)) {
+    if (NEVER_QUEUE_PATHS.has(url.pathname) || url.pathname.startsWith('/api/admin/')) {
       return new Response(JSON.stringify({ offline: true }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
@@ -565,6 +584,14 @@ self.addEventListener('message', (event) => {
     if (self.PocketLogOutbox?.setCsrfToken) {
       self.PocketLogOutbox.setCsrfToken('');
     }
-    event.waitUntil(caches.delete(API_CACHE));
+    apiCacheEpoch++;
+    // Answered once the cache is gone (core.js _clearSwApiCache awaits it).
+    const reply = event.ports && event.ports[0];
+    event.waitUntil(
+      caches
+        .delete(API_CACHE)
+        .catch(() => {})
+        .then(() => reply && reply.postMessage('cleared')),
+    );
   }
 });

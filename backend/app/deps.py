@@ -91,12 +91,14 @@ def set_session_cookies(
     *,
     remember_me: bool,
     request: Request,
+    expires_at: datetime | None = None,
 ) -> None:
     """Setzt das Session- und das CSRF-Cookie. Beide haben dieselbe
     Lebensdauer; das CSRF-Cookie ist NICHT HttpOnly, damit der
     Frontend-JS-Code es lesen und im ``X-CSRF-Token``-Header
-    zurückschicken kann (Double-Submit-Pattern)."""
-    max_age = auth.cookie_max_age_seconds(remember_me)
+    zurückschicken kann (Double-Submit-Pattern). ``expires_at`` (the
+    session's) caps the Max-Age so neither cookie outlives the session."""
+    max_age = auth.cookie_max_age_seconds(remember_me, expires_at)
     secure = _cookie_secure(request)
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
@@ -157,6 +159,7 @@ def _refresh_cookie_if_needed(
         session.csrf_token,
         remember_me=session.remember_me,
         request=request,
+        expires_at=session.expires_at,
     )
 
 

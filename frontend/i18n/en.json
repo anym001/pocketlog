@@ -632,7 +632,8 @@
     "logoutTitle": "Sign out anyway?",
     "logoutBodyOne": "{n} unsynced change will be lost when you sign out.",
     "logoutBodyOther": "{n} unsynced changes will be lost when you sign out.",
-    "logoutConfirm": "Sign out anyway"
+    "logoutConfirm": "Sign out anyway",
+    "logoutFailed": "Couldn’t sign out. Check your connection and try again."
   },
   "sync": {
     "synced": "Saved",

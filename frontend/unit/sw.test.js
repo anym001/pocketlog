@@ -68,7 +68,10 @@ function loadSw({ version } = {}) {
   const caches = makeCaches();
   const sandbox = {
     self: {
-      addEventListener() {},
+      _listeners: {},
+      addEventListener(type, fn) {
+        this._listeners[type] = fn;
+      },
       location: { origin: 'https://app.test' },
       registration: {},
       clients: { matchAll: async () => [] },
@@ -416,5 +419,65 @@ describe('networkFirst — auth proxy redirects', () => {
     await sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
     await tick();
     expect(await caches.match(reqOf(API_URL))).toBeUndefined();
+  });
+});
+
+describe('API cache — sign-out boundaries', () => {
+  const json = (body) =>
+    resp(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  it('drops a response that arrives after CLEAR_API_CACHE instead of caching it', async () => {
+    // Signing out while the full-history GET is in flight on a slow link:
+    // its late answer must not bring the signed-out account's data back.
+    const { sw, sandbox, caches } = loadSw();
+    let answer;
+    sandbox.fetch = () => new Promise((r) => (answer = r));
+    const pending = sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
+
+    const port = { postMessage: vi.fn() };
+    const waits = [];
+    sandbox.self._listeners.message({
+      data: { type: 'CLEAR_API_CACHE' },
+      ports: [port],
+      waitUntil: (p) => waits.push(p),
+    });
+    await Promise.all(waits);
+    expect(port.postMessage).toHaveBeenCalledWith('cleared');
+
+    answer(json([{ id: 1 }]));
+    await pending;
+    await tick();
+    expect(await caches.match(reqOf(API_URL))).toBeUndefined();
+  });
+
+  it('caches API answers only when they are JSON', async () => {
+    const { sw, sandbox, caches } = loadSw();
+    sandbox.fetch = async () => resp('<html>login</html>', { status: 200 });
+    await sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
+    expect(await caches.match(reqOf(API_URL))).toBeUndefined();
+
+    sandbox.fetch = async () => json([]);
+    await sw.networkFirst(reqOf(API_URL), sw.API_CACHE);
+    expect(await caches.match(reqOf(API_URL))).toBeDefined();
+  });
+
+  it('never queues an admin action offline', async () => {
+    const { sw, sandbox } = loadSw();
+    const queued = [];
+    sandbox.self.PocketLogOutbox = { enqueue: async (e) => queued.push(e) };
+    sandbox.fetch = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    const res = await sw.handleWrite({
+      url: 'https://app.test/api/admin/users',
+      method: 'POST',
+      headers: { get: () => 'application/json' },
+      clone() {
+        return this;
+      },
+      json: async () => ({ username: 'x', password: 'secret' }),
+    });
+    expect(res.status).toBe(503);
+    expect(queued).toHaveLength(0);
   });
 });
