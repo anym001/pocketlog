@@ -215,11 +215,18 @@ async function submitForcePassword() {
   }
 }
 
-async function _afterAuthSuccess(me) {
+// The parts of the app chrome that depend on who is signed in.
+function _applyMe(me) {
   appState.admin.me = me;
   document.body.classList.toggle('is-admin', !!me.is_admin);
   const usernameLabel = document.getElementById('accountUsername');
   if (usernameLabel) usernameLabel.textContent = tr('auth.loggedInAs', { name: me.username });
+}
+
+// `fromCache`: the instant-start pass already put the last synced state on
+// screen; this pass replaces it with fresh data without re-navigating.
+async function _afterAuthSuccess(me, { fromCache } = {}) {
+  _applyMe(me);
   if (me.force_change_password) {
     // In the force-change state the old password is administrative
     // (admin reset or CLI) — backend verification is switched off,
@@ -229,11 +236,84 @@ async function _afterAuthSuccess(me) {
     focusOnOpen(document.getElementById('forcePwView'), 'forcePwNew', 50);
     return;
   }
+  _writeSessionHint(me);
   _showAuthView(null);
   // Deliver reload breadcrumbs from before this boot to the server log.
   // Fire-and-forget — diagnostics must not delay the first render.
   reportReloadEvents();
-  await _loadBootData(me);
+  await _loadBootData(me, { fromCache });
+}
+
+// Instant start (see core.js): draw the last synced state from the service
+// worker's API cache before the server has answered anything. Only for a
+// browser that had a signed-in user, and only when the two slices the main
+// views cannot do without — categories and the visible month — are cached;
+// otherwise the regular boot runs as before. Returns whether it drew.
+async function _bootFromCache(hint) {
+  const monthPath = _monthTransactionsPath();
+  const [cats, month] = await Promise.all([cachedApi('/categories'), cachedApi(monthPath)]);
+  if (!Array.isArray(cats) || !Array.isArray(month)) return false;
+  _applyMe({ username: hint.username, is_admin: hint.is_admin });
+  // Writes made before /auth/me answers carry the token from the cookie.
+  window._csrfToken = _csrfFromCookie();
+  _propagateCsrfToken(window._csrfToken);
+  appState.ledger.categories = cats;
+  _showAuthView(null);
+  await Promise.all([
+    loadCategoryIconSprite(),
+    loadTags({ cached: true }),
+    loadGoals({ cached: true }),
+    loadBudgets({ cached: true }),
+    loadRecurringRules({ cached: true }),
+  ]);
+  await loadAndRender({
+    prefetched: { path: monthPath, request: Promise.resolve(month) },
+    cached: true,
+  });
+  showPanel(loadDefaultView(), { keepDrawer: true });
+  return true;
+}
+
+// The server could not be reached to confirm the session behind an instant
+// start: keep the cached state up (it is the offline view) and ask again once
+// the network plausibly works — on reconnect, on returning to the app, and on
+// a backoff timer. A definite "signed out" ends in the login view.
+function _confirmSessionLater() {
+  const boot = appState.boot;
+  boot.authPending = true;
+  const attempt = async () => {
+    if (!boot.authPending || boot.authRetrying) return;
+    boot.authRetrying = true;
+    clearTimeout(boot.authTimer);
+    try {
+      const res = await _bootstrapFetch('/auth/me');
+      if (res.ok) {
+        const me = await res.json();
+        boot.authPending = false;
+        window._csrfToken = me.csrf_token;
+        _propagateCsrfToken(window._csrfToken);
+        await _afterAuthSuccess(me, { fromCache: true });
+      } else if (res.status === 401 || res.status === 403) {
+        boot.authPending = false;
+        _resetAuthClientState();
+        recordReloadEvent('session_expired');
+        location.reload();
+      }
+    } catch (_) {
+      // Still unreachable — the next trigger tries again.
+    } finally {
+      boot.authRetrying = false;
+    }
+    if (boot.authPending) {
+      boot.authDelay = Math.min((boot.authDelay || 5000) * 2, 60000);
+      boot.authTimer = setTimeout(attempt, boot.authDelay);
+    }
+  };
+  window.addEventListener('online', attempt);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') attempt();
+  });
+  boot.authTimer = setTimeout(attempt, 5000);
 }
 
 // The post-login data loads, separated from _afterAuthSuccess so they can be
@@ -248,7 +328,7 @@ async function _afterAuthSuccess(me) {
 // cache came up empty, i.e. exactly the dead-boot case. Failures land in the
 // boot-error banner (tap = retry); retryBoot also re-arms on online/visible
 // (listeners in init).
-async function _loadBootData(me) {
+async function _loadBootData(me, { fromCache } = {}) {
   appState.boot.ready = false;
   // The loads are independent of one another, so they run side by side: one
   // round trip instead of seven in a row, which on a phone reaching the server
@@ -284,7 +364,15 @@ async function _loadBootData(me) {
   // Not a navigation: the auth overlay came down at the top of
   // _afterAuthSuccess, so the menu has been tappable for the whole load chain
   // above. Restoring the panel must not shut a drawer the user just opened.
-  showPanel(loadDefaultView(), { keepDrawer: true });
+  // After an instant start the user may already have moved on from the
+  // default view: refresh whatever is showing instead of navigating
+  // (month-scoped panels were already redrawn by loadAndRender).
+  if (fromCache) {
+    const cfg = PANELS[appState.nav.activePanel];
+    if (cfg && cfg.render && !cfg.monthScoped) cfg.render();
+  } else {
+    showPanel(loadDefaultView(), { keepDrawer: true });
+  }
   updateSyncBadge();
   updateFailedNotice();
   reconcileSettingsFromServer();
@@ -451,6 +539,18 @@ async function init() {
   syncDisplaySelects();
   applyRange({ skipRender: true });
 
+  // 0) Instant start: a returning user sees the last synced state right away;
+  // the session check and fresh loads below then take over behind it.
+  const hint = _readSessionHint();
+  let fromCache = false;
+  if (hint) {
+    try {
+      fromCache = await _bootFromCache(hint);
+    } catch (e) {
+      console.warn('Instant start failed, booting normally:', e);
+    }
+  }
+
   // 1) Setup status: does the DB need its first admin?
   let needsSetup = false;
   let suggested = null;
@@ -487,6 +587,8 @@ async function init() {
     }
     const sl = document.getElementById('setupLocale');
     if (sl && window.I18N) sl.value = I18N.getLocale();
+    // A reset instance: nothing cached belongs to it any more.
+    if (hint) _resetAuthClientState();
     _showAuthView('setup');
     setTimeout(() => {
       const focusEl = document.getElementById(suggested ? 'setupPassword' : 'setupUsername');
@@ -498,19 +600,39 @@ async function init() {
   // 2) Bin ich eingeloggt?
   window._suppressAuthReload = true;
   let me = null;
+  let signedOut = false;
   try {
     const res = await meReq;
     if (res.ok) me = await res.json();
+    else signedOut = res.status === 401 || res.status === 403;
   } catch (e) {}
   window._suppressAuthReload = false;
 
   if (!me) {
+    // Unreachable (not signed out) behind an instant start: stay on the
+    // cached state and confirm the session once the server answers.
+    if (fromCache && !signedOut) {
+      _confirmSessionLater();
+      return;
+    }
+    // Signed out: drop the hint and every cached response that came with it.
+    // After an instant start the cached state is already in the DOM; reload
+    // so the login view starts from an empty page (the hint is gone now, so
+    // this boot runs the regular way).
+    if (signedOut && hint) {
+      _resetAuthClientState();
+      if (fromCache) {
+        recordReloadEvent('session_expired');
+        location.reload();
+        return;
+      }
+    }
     _showAuthView('login');
     focusOnOpen(document.getElementById('loginView'), 'loginUsername', 50);
     return;
   }
   window._csrfToken = me.csrf_token;
   _propagateCsrfToken(window._csrfToken);
-  await _afterAuthSuccess(me);
+  await _afterAuthSuccess(me, { fromCache });
 }
 init();

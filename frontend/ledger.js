@@ -58,7 +58,7 @@ function _monthTransactionsPath() {
   return `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`;
 }
 
-async function loadAndRender({ prefetched } = {}) {
+async function loadAndRender({ prefetched, cached } = {}) {
   const gen = ++appState.ledger.loadGen;
   document.getElementById('monthLabelText').textContent =
     `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
@@ -72,9 +72,13 @@ async function loadAndRender({ prefetched } = {}) {
     if (gen !== appState.ledger.loadGen) return;
     appState.ledger.transactions = raw.map(normalizeTx);
     // Warm the full history in the background so other months stay browsable
-    // offline (the SW caches whatever URL it fetches).
-    _warmFullHistoryCache();
+    // offline (the SW caches whatever URL it fetches). Not from the instant-
+    // start pass: the network pass right behind it does that.
+    if (!cached) _warmFullHistoryCache();
   } catch (e) {
+    // The instant-start pass never goes to the network; the regular pass
+    // right behind it handles a miss.
+    if (cached) return;
     // Per-month request failed — offline and this month's own URL wasn't
     // cached. Fall back to the cached full history, filtered to this month,
     // so any month we've ever synced still shows instead of blanking out.

@@ -1503,6 +1503,7 @@ async function logoutWithConfirm() {
       await window.PocketLogOutbox.clear();
     }
   } catch (_) {}
+  _clearSessionHint();
   try {
     if (navigator.serviceWorker?.controller) {
       navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });

@@ -263,6 +263,7 @@ window._csrfToken = '';
 // a session), or the outbox would send a stale CSRF token along
 // (403 on replay → silent data loss).
 function _resetAuthClientState() {
+  _clearSessionHint();
   try {
     if (navigator.serviceWorker?.controller) {
       navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
@@ -275,6 +276,65 @@ function _resetAuthClientState() {
     window.PocketLogOutbox?.setCsrfToken?.('');
   } catch (_) {}
   window._csrfToken = '';
+}
+
+// ── INSTANT START ─────────────────────────────────────────────────────────────
+// A boot used to show nothing until /auth/me and the data loads came back.
+// When the app is reopened after a long pause, iOS hands it a dead network
+// connection that takes seconds to recover — a white screen for that long.
+// Now a returning user sees the last synced state at once (read from the
+// service worker's API cache, which already backs offline use) while the
+// session check and fresh loads run behind it (app.js _bootFromCache).
+//
+// The hint says "this browser had a signed-in user" and carries only what
+// the chrome shows (username, admin flag); it never authorizes anything —
+// every request still needs the session cookie. It goes whenever the
+// session does: logout, any 401, a failed session check.
+const SESSION_HINT_KEY = 'pocketlog.sessionHint';
+
+function _readSessionHint() {
+  try {
+    const h = JSON.parse(localStorage.getItem(SESSION_HINT_KEY) || 'null');
+    return h && typeof h.username === 'string' ? h : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _writeSessionHint(me) {
+  try {
+    localStorage.setItem(
+      SESSION_HINT_KEY,
+      JSON.stringify({ username: me.username, is_admin: !!me.is_admin }),
+    );
+  } catch (_) {}
+}
+
+function _clearSessionHint() {
+  try {
+    localStorage.removeItem(SESSION_HINT_KEY);
+  } catch (_) {}
+}
+
+// The service worker's last copy of a GET, read straight from Cache Storage
+// without touching the network; null when there is none. Same URL key the SW
+// stored it under (API + path, exactly as api() requests it).
+async function cachedApi(path) {
+  try {
+    if (!('caches' in window)) return null;
+    const res = await caches.match(API + path, { ignoreVary: true });
+    if (!res || !res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
+// The CSRF cookie is readable by design (double submit). Reading it lets a
+// cache-first start send writes before /auth/me has returned the token.
+function _csrfFromCookie() {
+  const m = document.cookie.match(/(?:^|;\s*)pocketlog_csrf=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
 }
 
 // ── BOOT/RELOAD DIAGNOSTICS ───────────────────────────────────────────────────

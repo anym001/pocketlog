@@ -200,6 +200,12 @@ const appState = {
     // same moment — anything that must not race the remaining loads waits on
     // this rather than on the first render.
     ready: false,
+    // Instant start whose session check could not reach the server yet
+    // (app.js _confirmSessionLater): retry bookkeeping.
+    authPending: false,
+    authRetrying: false,
+    authTimer: null,
+    authDelay: 0,
   },
 
   // Tag picker modal — only the ledger's bulk add/remove actions still use

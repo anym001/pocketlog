@@ -56,7 +56,7 @@ function loadSw({ version } = {}) {
   if (version) src = src.replace("'__APP_VERSION__'", `'${version}'`);
   src +=
     '\n;self.__exports = { networkFirst, fetchWithTimeout, isAuthPath, ' +
-    'handleWrite, fetchWriteWithTimeout, versionedAsset, isVersionedAsset, ' +
+    'handleWrite, fetchWriteWithTimeout, versionedAsset, isVersionedAsset, pinnedShell, ' +
     'CACHE, API_CACHE, NETWORK_TIMEOUT_MS, WRITE_TIMEOUT_MS };';
   const caches = makeCaches();
   const sandbox = {
@@ -211,6 +211,23 @@ describe('release build — versioned assets and the pinned HTML shell', () => {
     };
     const result = await sw.versionedAsset(reqOf(VERSIONED));
     expect(result.status).toBe(503);
+  });
+
+  it('serves the precached HTML shell without waiting on the network', async () => {
+    // A long pause in the background leaves iOS with a dead connection; the
+    // shell must not sit behind it (it was seconds of white screen).
+    const c = await caches.open(sw.CACHE);
+    await c.put(reqOf(ROOT_URL), resp('HTML-REL'));
+    sandbox.fetch = vi.fn(() => new Promise(() => {})); // a stalled network
+    const result = await sw.pinnedShell(reqOf(ROOT_URL));
+    expect(await result.text()).toBe('HTML-REL');
+    expect(sandbox.fetch).not.toHaveBeenCalled();
+  });
+
+  it('fetches the shell when the precache lacks it', async () => {
+    sandbox.fetch = async () => resp('HTML-NET', { status: 200 });
+    const result = await sw.pinnedShell(reqOf(ROOT_URL));
+    expect(await result.text()).toBe('HTML-NET');
   });
 
   it('never overwrites the precached HTML shell with a fresher one', async () => {

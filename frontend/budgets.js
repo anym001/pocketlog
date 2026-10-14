@@ -9,7 +9,13 @@
 
 const BUDGET_FREQUENCIES = ['monthly', 'quarterly', 'yearly'];
 
-async function loadBudgets() {
+async function loadBudgets({ cached } = {}) {
+  // Instant start: the last synced copy, or nothing (state stays as it is).
+  if (cached) {
+    const list = await cachedApi('/budgets');
+    if (Array.isArray(list)) appState.budgets.list = list;
+    return;
+  }
   try {
     appState.budgets.list = await api('GET', '/budgets');
   } catch (e) {

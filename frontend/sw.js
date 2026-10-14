@@ -24,7 +24,8 @@
 // a page never mixes releases — fresh HTML can't meet an older cached
 // script, and an update needs no visible reload. The cached HTML shell stays
 // exactly as install wrote it (never overwritten at runtime), so offline it
-// always points at files this cache holds. HTML, the manifest, fonts and
+// always points at files this cache holds, and it is served cache-first
+// (pinnedShell): the page appears without waiting on the network. HTML, the manifest, fonts and
 // app icons stay unversioned. Unsubstituted (local dev, no Docker build)
 // the version never changes, so ?v= gets no special treatment there.
 
@@ -348,6 +349,18 @@ function isPinnedShellHtml(url) {
 // page of another release) goes to the network; only this release's files
 // are written back — the server ignores ?v= and would return its current
 // file under any version.
+// The pinned HTML shell, straight from this release's cache: the page shows
+// immediately instead of waiting on the network, which after a long pause in
+// the background (a dead connection on iOS) took seconds of white screen. It
+// is always consistent with this cache's ?v= files; a new release's shell
+// arrives with the new worker's install, and the page switches to it unseen
+// (app.js). Falls back to the network only when the precache lacks it.
+async function pinnedShell(request) {
+  const cached = await caches.open(CACHE).then((c) => c.match(request, { ignoreSearch: true }));
+  if (cached) return cached;
+  return networkFirst(request, CACHE);
+}
+
 async function versionedAsset(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
@@ -479,6 +492,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method === 'GET') {
     if (isVersionedAsset(url)) {
       event.respondWith(versionedAsset(req));
+    } else if (isPinnedShellHtml(url)) {
+      event.respondWith(pinnedShell(req));
     } else if (isNetworkFirstShell(url)) {
       event.respondWith(networkFirst(req, CACHE));
     } else {
