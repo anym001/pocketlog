@@ -37,7 +37,8 @@ python tools/demo/seed.py          # honours BASE_URL / ADMIN_USERNAME / ADMIN_P
 ```
 
 This imports ~2 months of transactions (auto-creating + styling categories and
-tags), then adds two savings goals, four recurring rules and four per-category
+tags), dated relative to the current month so the ledger's default view is
+always populated. It then adds two savings goals, four recurring rules and four per-category
 budgets.
 
 ## 3. Capture the screenshots
