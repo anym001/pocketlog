@@ -27,12 +27,16 @@ async function boot(context, theme) {
   const page = await context.newPage();
   await page.goto('/');
   await page.locator('.fab').waitFor({ state: 'visible', timeout: 15000 });
-  // _csrfToken is set once /api/auth/me resolves; poll via evaluate (the app's
-  // CSP forbids waitForFunction's eval).
-  for (let i = 0; i < 40; i++) {
-    if (await page.evaluate(() => window._csrfToken)) break;
+  // Wait for the whole boot (appState.boot.ready) and then for the network to
+  // settle: the boot ends by reconciling the server-side settings, which would
+  // otherwise overwrite the theme set below (the other capture pass stored
+  // its own theme there). Polled via evaluate (the app's CSP forbids
+  // waitForFunction's eval).
+  for (let i = 0; i < 100; i++) {
+    if (await page.evaluate(() => typeof appState !== 'undefined' && appState.boot.ready)) break;
     await page.waitForTimeout(150);
   }
+  await page.waitForLoadState('networkidle');
   await page.evaluate((t) => window.saveTheme(t), theme);
   return page;
 }

@@ -36,7 +36,8 @@ Needs `httpx` (already a backend dependency). On first run it creates the admin
 python tools/demo/seed.py          # honours BASE_URL / ADMIN_USERNAME / ADMIN_PASSWORD
 ```
 
-This imports ~2 months of transactions (auto-creating + styling categories and
+This imports ~2 months of transactions (dated relative to the current month,
+so the ledger's default view is always populated) (auto-creating + styling categories and
 tags), then adds two savings goals, four recurring rules and four per-category
 budgets.
 
