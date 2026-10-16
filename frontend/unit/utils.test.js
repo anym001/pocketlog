@@ -15,6 +15,11 @@ const {
   _compareUsage,
   _defaultBookingDate,
   _filterTransactions,
+  _txTitle,
+  _withSign,
+  _netDirection,
+  _isoToLocalDate,
+  _fmtDate,
   _passwordErrorKey,
   _importReport,
   _recurringDaysInMonth,
@@ -316,6 +321,103 @@ describe('_filterTransactions', () => {
       lookup,
     );
     expect(out).toEqual([]);
+  });
+
+  it('matches a description-less booking on its source rule name', () => {
+    const ruleNames = { 7: 'Miete' };
+    const pool = [
+      { category_id: 2, desc: '', source_rule_id: 7, tags: [] },
+      // Own description wins: the rule name is not what the row shows.
+      { category_id: 2, desc: 'Kino', source_rule_id: 7, tags: [] },
+    ];
+    const out = _filterTransactions(
+      pool,
+      { query: 'miete', categoryFilterId: null, tagFilterName: null },
+      lookup,
+      (id) => ruleNames[id],
+    );
+    expect(out).toEqual([pool[0]]);
+  });
+
+  it('works without a rule lookup (deleted rule, older callers)', () => {
+    const out = _filterTransactions(
+      [{ category_id: 2, desc: '', source_rule_id: 7, tags: [] }],
+      { query: 'miete', categoryFilterId: null, tagFilterName: null },
+      lookup,
+    );
+    expect(out).toEqual([]);
+  });
+});
+
+describe('_txTitle', () => {
+  it('prefers the description', () => {
+    expect(_txTitle('Billa', 'Einkauf', 'Lebensmittel')).toBe('Billa');
+  });
+
+  it('falls back to the rule name, then the category name', () => {
+    expect(_txTitle('', 'Miete', 'Wohnen')).toBe('Miete');
+    expect(_txTitle('   ', null, 'Wohnen')).toBe('Wohnen');
+    expect(_txTitle(undefined, undefined, 'Wohnen')).toBe('Wohnen');
+  });
+
+  it('trims the chosen value and never returns null', () => {
+    expect(_txTitle('  Kino  ', null, 'Freizeit')).toBe('Kino');
+    expect(_txTitle(null, null, null)).toBe('');
+  });
+});
+
+describe('_withSign', () => {
+  it('uses a typographic minus (U+2212) for expenses', () => {
+    expect(_withSign('12,50 €', 'out')).toBe('\u221212,50 €');
+  });
+
+  it('uses a plus for income', () => {
+    expect(_withSign('12,50 €', 'in')).toBe('+12,50 €');
+  });
+
+  it('leaves the amount unsigned for any other direction', () => {
+    expect(_withSign('0,00 €', null)).toBe('0,00 €');
+    expect(_withSign('0,00 €', undefined)).toBe('0,00 €');
+  });
+});
+
+describe('_netDirection', () => {
+  it('maps a net amount to a sign direction', () => {
+    expect(_netDirection(12.5)).toBe('in');
+    expect(_netDirection(-0.01)).toBe('out');
+    expect(_netDirection(0)).toBe(null);
+    expect(_netDirection(0.1 + 0.2 - 0.3)).toBe(null);
+    expect(_netDirection(-0.004)).toBe(null);
+  });
+});
+
+describe('_isoToLocalDate', () => {
+  it('builds a local date without a UTC shift', () => {
+    const d = _isoToLocalDate('2026-10-01');
+    expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 9, 1]);
+  });
+});
+
+describe('_fmtDate', () => {
+  const today = new Date(2026, 9, 12);
+
+  it("'day' drops the current year and keeps the weekday", () => {
+    expect(_fmtDate(new Date(2026, 9, 10), 'day', 'de-DE', today)).toBe('Samstag, 10. Oktober');
+  });
+
+  it("'day' shows the year for another year", () => {
+    expect(_fmtDate(new Date(2025, 9, 10), 'day', 'de-DE', today)).toBe(
+      'Freitag, 10. Oktober 2025',
+    );
+  });
+
+  it("'medium' is day, short month, year", () => {
+    expect(_fmtDate(new Date(2026, 9, 3), 'medium', 'de-DE', today)).toBe('3. Okt. 2026');
+    expect(_fmtDate(new Date(2026, 9, 3), 'medium', 'en-GB', today)).toBe('3 Oct 2026');
+  });
+
+  it('falls back to medium for an unknown style', () => {
+    expect(_fmtDate(new Date(2026, 9, 3), 'nope', 'de-DE', today)).toBe('3. Okt. 2026');
   });
 });
 

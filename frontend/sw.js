@@ -1,9 +1,10 @@
 // PocketLog Service Worker
 // Strategy:
-//   - Shell HTML/CSS/JS → network-first (/, /index.html, /styles.css, every
-//                          app script from core.js to app.js plus db.js and
-//                          /manifest.webmanifest), so updates become visible
-//                          without a double reload; the cache only serves as
+//   - HTML shell (/, /index.html) → cache-first from this release's precache
+//                          (pinnedShell); updates arrive with a new worker.
+//   - App files requested as <path>?v=<VERSION> → cache-first (versionedAsset).
+//   - Unversioned shell files (/manifest.webmanifest; everything in a dev
+//                          build) → network-first, the cache only serves as
 //                          the offline fallback.
 //   - Static shell assets (icons, fonts, Chart.js vendor bundle) → cache-first.
 //   - GET /api/...   → network-first, falling back to the cache.
@@ -18,11 +19,27 @@
 //
 // __APP_VERSION__ is substituted in the Dockerfile from the APP_VERSION env.
 // Every release thereby gets new cache keys; the activate hook clears old
-// caches.
-
-importScripts('/db.js');
+// caches. index.html carries the same version: every app file is requested
+// as <path>?v=<VERSION> and precached under exactly that URL. Those URLs are
+// immutable by design, so they are served cache-first (versionedAsset) and
+// a page never mixes releases — fresh HTML can't meet an older cached
+// script, and an update needs no visible reload. The cached HTML shell stays
+// exactly as install wrote it (never overwritten at runtime), so offline it
+// always points at files this cache holds, and it is served cache-first
+// (pinnedShell): the page appears without waiting on the network. HTML, the
+// manifest, fonts and app icons stay unversioned. Unsubstituted (local dev, no Docker build)
+// the version never changes, so ?v= gets no special treatment there.
 
 const VERSION = '__APP_VERSION__';
+// Split literal: the Dockerfile sed rewrites the quoted placeholder on every
+// line — a plain comparison would turn into VERSION === '<release>'.
+const DEV_BUILD = VERSION === '__APP_' + 'VERSION__';
+
+// The versioned URL index.html / assetUrl() (theme-boot.js) request.
+const v = (path) => `${path}?v=${VERSION}`;
+
+importScripts(v('/db.js'));
+
 const CACHE = `pocketlog-shell-${VERSION}`;
 const API_CACHE = `pocketlog-api-${VERSION}`;
 
@@ -34,43 +51,43 @@ const API_CACHE = `pocketlog-api-${VERSION}`;
 const SHELL_CRITICAL = [
   '/',
   '/index.html',
-  '/styles.css',
-  '/theme-boot.js',
-  '/app.js',
-  '/core.js',
-  '/ledger.js',
-  '/reports.js',
-  '/booking.js',
-  '/categories.js',
-  '/goals.js',
-  '/budgets.js',
-  '/recurring.js',
-  '/settings.js',
-  '/utils.js',
-  '/reportsData.js',
-  '/state.js',
-  '/i18n.js',
+  v('/styles.css'),
+  v('/theme-boot.js'),
+  v('/app.js'),
+  v('/core.js'),
+  v('/ledger.js'),
+  v('/reports.js'),
+  v('/booking.js'),
+  v('/categories.js'),
+  v('/goals.js'),
+  v('/budgets.js'),
+  v('/recurring.js'),
+  v('/settings.js'),
+  v('/utils.js'),
+  v('/reportsData.js'),
+  v('/state.js'),
+  v('/i18n.js'),
   '/manifest.webmanifest',
-  '/db.js',
-  '/vendor/chart.umd.min.js',
+  v('/db.js'),
+  v('/vendor/chart.umd.min.js'),
   // Both language bundles are precached so switching language works
   // offline, not just the one that happened to be active first.
-  '/i18n/de.json',
-  '/i18n/en.json',
+  v('/i18n/de.json'),
+  v('/i18n/en.json'),
 ];
 
 // Cosmetic assets: best-effort precache, a miss only degrades visuals or a
 // download nicety — never the boot.
 const SHELL_OPTIONAL = [
   // Per-language CSV import samples.
-  '/example-import-de.csv',
-  '/example-import-en.csv',
+  v('/example-import-de.csv'),
+  v('/example-import-en.csv'),
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-192.png',
   '/icons/icon-maskable-512.png',
   '/icons/apple-touch-icon.png',
-  '/icons/categories/sprite.svg',
+  v('/icons/categories/sprite.svg'),
   '/fonts/dm-sans-latin.woff2',
   '/fonts/dm-sans-latin-ext.woff2',
   '/fonts/dm-serif-display-latin.woff2',
@@ -79,8 +96,10 @@ const SHELL_OPTIONAL = [
 
 // HTML shell + app code (styles.css, every app script from core.js to
 // app.js, db.js): fetched fresh on every online request, cache only when
-// offline. Icons, fonts and the versioned Chart.js bundle under /vendor/
-// practically never change and stay cache-first.
+// offline. In a release build the app code arrives as versioned URLs and
+// takes the versionedAsset path instead; this list then only governs the
+// HTML, the manifest and dev builds. Icons, fonts and the Chart.js bundle
+// under /vendor/ practically never change and stay cache-first.
 function isNetworkFirstShell(url) {
   if (url.origin !== self.location.origin) return false;
   return (
@@ -136,15 +155,32 @@ self.addEventListener('install', (event) => {
   );
 });
 
+// The previous release's API responses move into this release's API cache
+// before the old caches go: the instant start (app.js) reads them, and the
+// first open after an update is exactly when it should not miss. Entries the
+// new cache already holds are fresher and stay.
+async function carryOverApiCache(keys) {
+  const epoch = apiCacheEpoch;
+  const target = await caches.open(API_CACHE);
+  for (const k of keys) {
+    if (k === API_CACHE || !k.startsWith('pocketlog-api-')) continue;
+    const old = await caches.open(k);
+    for (const req of await old.keys()) {
+      if (epoch !== apiCacheEpoch || (await target.match(req))) continue;
+      const res = await old.match(req);
+      if (res) await target.put(req, res).catch(() => {});
+    }
+  }
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE && k !== API_CACHE).map((k) => caches.delete(k)),
-        ),
-      ),
+    caches.keys().then(async (keys) => {
+      await carryOverApiCache(keys).catch(() => {});
+      await Promise.all(
+        keys.filter((k) => k !== CACHE && k !== API_CACHE).map((k) => caches.delete(k)),
+      );
+    }),
   );
   self.clients.claim();
 });
@@ -219,8 +255,24 @@ function fetchWithTimeout(request, onFresh) {
   });
 }
 
+// Bumped whenever the API cache is dropped (CLEAR_API_CACHE, a 401). A
+// response fetched before that must not be written back after it: it would
+// bring a signed-out account's data back into the cache.
+let apiCacheEpoch = 0;
+
+// Whether a network response may become this cache's copy. Never a redirect
+// or, under /api/, anything but JSON (an auth proxy's login page is not the
+// API's content), and never an API response that outlived a purge.
+function cacheable(res, cacheName, epoch) {
+  if (!res || !res.ok || res.redirected) return false;
+  if (cacheName !== API_CACHE) return true;
+  if (epoch !== apiCacheEpoch) return false;
+  return (res.headers.get('content-type') || '').includes('application/json');
+}
+
 async function networkFirst(request, cacheName) {
   const url = new URL(request.url);
+  const epoch = apiCacheEpoch;
   // If we already hold a cached copy, don't let a slow network block the
   // page: race the fetch against NETWORK_TIMEOUT_MS and serve the cache
   // the moment the network is too slow. The fetch keeps running in the
@@ -229,13 +281,14 @@ async function networkFirst(request, cacheName) {
   // server (a timed-out stale `me` would pin the user in the wrong view),
   // so they stay on a plain unbounded fetch and never serve from cache.
   const cachedFallback = isAuthPath(url) ? null : await caches.match(request);
+  const writeBack = !isPinnedShellHtml(url);
   try {
     const fresh = cachedFallback
       ? await fetchWithTimeout(request, (res) => {
           // Clone synchronously, before the page consumes the body — the
           // cache write below runs a microtask later and res.clone() would
           // otherwise throw "body already used".
-          if (res && res.ok) {
+          if (writeBack && cacheable(res, cacheName, epoch)) {
             const copy = res.clone();
             // Fire-and-forget by design (the response must not wait on
             // this), but still caught: an uncaught QuotaExceededError here
@@ -244,7 +297,7 @@ async function networkFirst(request, cacheName) {
             // be — a harmless outcome that doesn't deserve a console error.
             caches
               .open(cacheName)
-              .then((c) => c.put(request, copy))
+              .then((c) => cacheable(copy, cacheName, epoch) && c.put(request, copy))
               .catch(() => {});
           }
         })
@@ -253,8 +306,11 @@ async function networkFirst(request, cacheName) {
     // different Authentik identity is signed in. Drop the API cache so
     // the next online request repopulates it from scratch — never serve
     // a previous identity's data from cache. Threat model is one user
-    // per device, so we don't keep per-user buckets.
+    // per device, so we don't keep per-user buckets. The instant start
+    // (app.js) reads this cache only while the session cookie exists and
+    // drops it when the confirmed account differs from the cached one.
     if (cacheName === API_CACHE && fresh.status === 401) {
+      apiCacheEpoch++;
       await caches.delete(API_CACHE);
     } else if (fresh.status === 304) {
       // The backend started emitting validators (ETag/Last-Modified).
@@ -268,9 +324,9 @@ async function networkFirst(request, cacheName) {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
-    } else if (fresh.ok && !cachedFallback) {
+    } else if (writeBack && !cachedFallback && cacheable(fresh, cacheName, epoch)) {
       // Only cache successful responses. Caching 4xx/5xx would let a
-      // transient error linger as the offline fallback. On the warm-cache
+      // transient error linger as the offline fallback (see cacheable). On the warm-cache
       // (timeout) path the onFresh callback already wrote the cache, so we
       // skip the redundant put here.
       const cache = await caches.open(cacheName);
@@ -304,6 +360,72 @@ async function networkFirst(request, cacheName) {
   }
 }
 
+// A release's own app file: <path>?v=<release> (see the header). Same
+// origin only, never the HTML shell, never in a dev build.
+function isVersionedAsset(url) {
+  return (
+    !DEV_BUILD &&
+    url.origin === self.location.origin &&
+    url.searchParams.has('v') &&
+    url.pathname !== '/' &&
+    url.pathname !== '/index.html'
+  );
+}
+
+// The HTML shell is pinned in a release build: the precached copy references
+// exactly the ?v= files of this cache, and a runtime write could replace it
+// with a newer release's HTML whose files no cache holds — a white screen on
+// the next offline open. A new release's HTML only arrives with the new
+// service worker's install, together with its files.
+function isPinnedShellHtml(url) {
+  return !DEV_BUILD && (url.pathname === '/' || url.pathname === '/index.html');
+}
+
+// The pinned HTML shell, straight from this release's cache: the page shows
+// immediately instead of waiting on the network, which after a long pause in
+// the background (a dead connection on iOS) took seconds of white screen. It
+// is always consistent with this cache's ?v= files; a new release's shell
+// arrives with the new worker's install, and the page switches to it unseen
+// (app.js). Falls back to the network only when the precache lacks it.
+// `?reauth=` (app.js _reauthenticateAtGate) goes to the network first: an
+// auth proxy in front of PocketLog wants to answer that navigation with its
+// own login page, which the cached shell would hide.
+async function pinnedShell(request) {
+  const fromCache = () => caches.open(CACHE).then((c) => c.match(request, { ignoreSearch: true }));
+  if (new URL(request.url).searchParams.has('reauth')) {
+    try {
+      return await fetch(request);
+    } catch (e) {
+      const cached = await fromCache();
+      if (cached) return cached;
+      throw e;
+    }
+  }
+  const cached = await fromCache();
+  if (cached) return cached;
+  return networkFirst(request, CACHE);
+}
+
+// Versioned files never change under their URL, so the cache wins without a
+// network round trip. A miss (an optional precache entry that failed, or a
+// page of another release) goes to the network; only this release's files
+// are written back — the server ignores ?v= and would return its current
+// file under any version.
+async function versionedAsset(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  try {
+    const res = await fetch(request);
+    if (res.ok && new URL(request.url).searchParams.get('v') === VERSION) {
+      const cache = await caches.open(CACHE);
+      await cache.put(request, res.clone()).catch(() => {});
+    }
+    return res;
+  } catch (e) {
+    return new Response('', { status: 503, statusText: 'Offline' });
+  }
+}
+
 async function cacheFirst(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
@@ -325,7 +447,9 @@ async function cacheFirst(request) {
 // Endpoints that must NEVER enter the outbox. Auth operations make no
 // sense offline — a login attempt replayed on the next reconnect with
 // queued credentials would be a capital security hole, and a logout
-// replay would immediately tear down the user's fresh session.
+// replay would immediately tear down the user's fresh session. Admin
+// actions (/api/admin/*: user management with passwords, bulk deletes) are
+// never queued either — they must not replay later under another session.
 const NEVER_QUEUE_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/logout',
@@ -355,7 +479,7 @@ async function handleWrite(request) {
     return await fetchWriteWithTimeout(request);
   } catch (e) {
     const url = new URL(request.url);
-    if (NEVER_QUEUE_PATHS.has(url.pathname)) {
+    if (NEVER_QUEUE_PATHS.has(url.pathname) || url.pathname.startsWith('/api/admin/')) {
       return new Response(JSON.stringify({ offline: true }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
@@ -418,7 +542,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (req.method === 'GET') {
-    if (isNetworkFirstShell(url)) {
+    if (isVersionedAsset(url)) {
+      event.respondWith(versionedAsset(req));
+    } else if (isPinnedShellHtml(url)) {
+      event.respondWith(pinnedShell(req));
+    } else if (isNetworkFirstShell(url)) {
       event.respondWith(networkFirst(req, CACHE));
     } else {
       event.respondWith(cacheFirst(req));
@@ -456,6 +584,14 @@ self.addEventListener('message', (event) => {
     if (self.PocketLogOutbox?.setCsrfToken) {
       self.PocketLogOutbox.setCsrfToken('');
     }
-    event.waitUntil(caches.delete(API_CACHE));
+    apiCacheEpoch++;
+    // Answered once the cache is gone (core.js _clearSwApiCache awaits it).
+    const reply = event.ports && event.ports[0];
+    event.waitUntil(
+      caches
+        .delete(API_CACHE)
+        .catch(() => {})
+        .then(() => reply && reply.postMessage('cleared')),
+    );
   }
 });

@@ -111,3 +111,29 @@ def test_counts_are_scoped_to_the_owner(client, app, db_session):
 
     counted = {c["id"]: c for c in client.get("/api/categories").json()}[mine]
     assert counted["count"] == 0
+
+
+def test_total_count_ignores_the_window(client):
+    """``count_total`` is what the category list shows: every booking ever,
+    so a 0 there means "never used" — a stale category still counts."""
+    cat_id = client.get("/api/categories").json()[0]["id"]
+    stale = date.today() - timedelta(days=crud.CATEGORY_COUNT_WINDOW_DAYS + 30)
+    recent = date.today() - timedelta(days=2)
+    assert _post_tx(client, cat_id, stale, desc="old").status_code == 201
+    assert _post_tx(client, cat_id, recent, desc="new", tx_type="in").status_code == 201
+
+    counted = {c["id"]: c for c in client.get("/api/categories").json()}[cat_id]
+    assert (counted["count"], counted["count_total"]) == (1, 2)
+
+
+def test_total_count_zero_when_unused_and_owner_scoped(client, app, db_session):
+    """Unused categories report 0 rather than omitting the field (also on the
+    POST response), and another user's bookings never count."""
+    stranger = other_client(app, db_session)
+    theirs = stranger.get("/api/categories").json()[0]["id"]
+    assert _post_tx(stranger, theirs, date.today()).status_code == 201
+
+    for c in client.get("/api/categories").json():
+        assert c["count_total"] == 0
+    made = client.post("/api/categories", json={"name": "Neu"}).json()
+    assert made["count_total"] == 0

@@ -147,6 +147,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             # zwar im SW-Code, aber nicht in der HTTP-Cache-Schicht
             # adressiert hat).
             response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        elif path.startswith("/api/"):
+            # Financial data, and a sliding refresh may put the session
+            # cookie on any response: no shared cache (proxy, CDN) may keep
+            # it. "private", not "no-store": the latter measurably slowed the
+            # parallel boot loads in Chromium, and the browser's own cache
+            # holds nothing the service worker's API cache doesn't already.
+            response.headers.setdefault("Cache-Control", "private")
         return response
 
 

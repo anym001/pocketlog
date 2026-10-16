@@ -51,23 +51,40 @@ function _warmFullHistoryCache() {
   }
 }
 
-async function loadAndRender() {
+// The visible month's transactions. Boot fetches this alongside its other
+// loads and hands the request to loadAndRender as `prefetched` ({ path,
+// request }); it is only used while that path is still the visible month.
+function _monthTransactionsPath() {
+  return `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`;
+}
+
+async function loadAndRender({ prefetched, cached } = {}) {
+  const gen = ++appState.ledger.loadGen;
   document.getElementById('monthLabelText').textContent =
     `${appState.calendar.months[appState.view.month]} ${appState.view.year}`;
+  const path = _monthTransactionsPath();
   try {
-    const raw = await api(
-      'GET',
-      `/transactions?year=${appState.view.year}&month=${appState.view.month + 1}`,
-    );
+    const raw = await (prefetched && prefetched.path === path
+      ? prefetched.request
+      : api('GET', path));
+    // The month changed (or another load started) while this one waited:
+    // its result would show one month's bookings under another's label.
+    if (gen !== appState.ledger.loadGen) return;
     appState.ledger.transactions = raw.map(normalizeTx);
     // Warm the full history in the background so other months stay browsable
-    // offline (the SW caches whatever URL it fetches).
-    _warmFullHistoryCache();
+    // offline (the SW caches whatever URL it fetches). Not from the instant-
+    // start pass: the network pass right behind it does that.
+    if (!cached) _warmFullHistoryCache();
   } catch (e) {
+    // The instant-start pass never goes to the network; the regular pass
+    // right behind it handles a miss.
+    if (cached) return;
     // Per-month request failed — offline and this month's own URL wasn't
     // cached. Fall back to the cached full history, filtered to this month,
     // so any month we've ever synced still shows instead of blanking out.
-    appState.ledger.transactions = await _monthFromFullHistory();
+    const fallback = await _monthFromFullHistory();
+    if (gen !== appState.ledger.loadGen) return;
+    appState.ledger.transactions = fallback;
   }
   renderAll();
   if (appState.nav.searchQuery) {
@@ -97,7 +114,9 @@ function renderAll() {
   document.getElementById('totalOut').textContent = fmtCurrency(out);
   document.getElementById('totalIn').textContent = fmtCurrency(inc);
   applySearch();
-  if (appState.nav.activePanel === 'categories') renderCategoryView();
+  // Month-scoped views follow the header month switcher (PANELS.monthScoped).
+  const cfg = PANELS[appState.nav.activePanel];
+  if (cfg && cfg.monthScoped && cfg.render) cfg.render();
 }
 
 function applySearch() {
@@ -119,12 +138,12 @@ function applySearch() {
     pool,
     { query: q, categoryFilterId: catFilter, tagFilterName: tagFilter },
     (id) => getCatById(id).name,
+    getRuleName,
   );
   renderTransactions(filtered, document.getElementById('searchResultsList'));
 }
 
 async function _setSearchPanelActive(active) {
-  const fab = document.querySelector('.fab');
   if (active) {
     document.body.classList.add('searching');
     // The search panel is chrome-less (no PANELS bodyClass). When entered via a
@@ -137,10 +156,7 @@ async function _setSearchPanelActive(active) {
     }
     document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
     document.getElementById('panel-search').classList.add('active');
-    fab.innerHTML = ICON_SVG.close;
-    fab.classList.add('search-exit');
-    fab.setAttribute('aria-label', tr('fab.exitSearch'));
-    fab.onclick = clearSearch;
+    syncFab();
     // Only load the global pool for text search — category drill-down
     // stays month-scoped via the already-loaded `transactions`.
     if (appState.nav.searchQuery && !appState.ledger.all) {
@@ -157,10 +173,7 @@ async function _setSearchPanelActive(active) {
     document.body.classList.remove('searching');
     document.getElementById('panel-search').classList.remove('active');
     document.getElementById('panel-' + appState.nav.activePanel).classList.add('active');
-    fab.innerHTML = ICON_SVG.plus;
-    fab.classList.remove('search-exit');
-    fab.setAttribute('aria-label', tr('fab.newTransaction'));
-    fab.onclick = () => openModal();
+    syncFab();
   }
 }
 
@@ -186,6 +199,18 @@ function clearSearch() {
   _resetSearch();
   if (wasActive) _setSearchPanelActive(false);
   if (exitTo) showPanel(exitTo);
+}
+
+// Name of the recurring rule a booking was materialised from, or '' when the
+// rule is gone (source_rule_id is SET NULL on delete) or not loaded.
+function getRuleName(id) {
+  if (id == null) return '';
+  return appState.recurring.rules.find((r) => r.id === Number(id))?.name || '';
+}
+
+// Title a booking row shows — see _txTitle (utils.js) for the fallback order.
+function txTitle(t, cat = getCatById(t.category_id)) {
+  return _txTitle(t.desc, getRuleName(t.source_rule_id), cat.name);
 }
 
 function getCatById(id) {
@@ -216,7 +241,6 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
   });
   el.innerHTML = Object.entries(groups)
     .map(([date, list]) => {
-      const d = new Date(date + 'T12:00:00');
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const dDay = new Date(date + 'T00:00:00');
@@ -225,12 +249,7 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
           ? tr('date.today')
           : dDay.getTime() === today.getTime() - 86400000
             ? tr('date.yesterday')
-            : d.toLocaleDateString(_locale(), {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              });
+            : fmtDate(date, 'day');
       return (
         `<div class="section-title">${label}</div>` +
         list
@@ -247,7 +266,12 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
                   `<span class="t-tag" role="button" tabindex="0" data-tag="${_escAttr(tg)}" aria-label="${_escAttr(tr('tx.tagFilterAria', { name: tg }))}">${_escText(tg)}</span>`,
               )
               .join('');
-            const note = (t.desc || '').trim();
+            const title = txTitle(t, cat);
+            // Category name as a quiet meta line, unless the title already
+            // is the category name (booking without description or rule).
+            const meta =
+              title !== cat.name ? `<span class="t-meta">${_escText(cat.name)}</span>` : '';
+            const signedAmount = fmtSignedCurrency(t.amount, t.type);
             // Badge sits as a sibling of .t-note inside .t-info,
             // not inside .t-note itself — .t-note ellipsizes,
             // which would clip the badge precisely on the rows
@@ -261,14 +285,8 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
             // state instead of naming an edit it would not perform — the same
             // split the tap makes.
             const openLabel = appState.selection.active
-              ? tr('tx.selectAria', {
-                  name: note || cat.name,
-                  amount: fmtCurrency(Math.abs(t.amount)),
-                })
-              : tr('tx.editAria', {
-                  name: note || cat.name,
-                  amount: fmtCurrency(Math.abs(t.amount)),
-                });
+              ? tr('tx.selectAria', { name: title, amount: signedAmount })
+              : tr('tx.editAria', { name: title, amount: signedAmount });
             const pressed = appState.selection.active ? ` aria-pressed="${chosen}"` : '';
             return `<div class="tx-row${selCls}" data-id="${t.id}">
         <button class="tx-action" type="button" aria-label="${_escAttr(tr('tx.deleteAria'))}">${tr('common.delete')}</button>
@@ -276,14 +294,13 @@ function renderTransactions(txs, el = document.getElementById('transactionList')
           <button class="tx-open" type="button"${pressed} aria-label="${_escAttr(openLabel)}"></button>
           <span class="tx-select-check" aria-hidden="true"><svg class="ui-icon"><use href="#icon-check"/></svg></span>
           <div class="t-icon" style="--cat-color:${cat.color}">${catIconSvg(cat.icon)}</div>
-          <span class="visually-hidden">${_escText(cat.name)}</span>
           <div class="t-info">
             <div class="t-note-row">
-              <span class="t-note">${_escText(note)}</span>${recurringBadge}
+              <span class="t-note">${_escText(title)}</span>${recurringBadge}
             </div>
-            <div class="t-tags">${tagsHtml}</div>
+            <div class="t-tags">${meta}${tagsHtml}</div>
           </div>
-          <div class="t-amount ${t.type}">${fmtCurrency(Math.abs(t.amount))}</div>
+          <div class="t-amount ${t.type}">${signedAmount}</div>
         </div>
       </div>`;
           })
@@ -348,13 +365,13 @@ function renderCategoryView() {
       data-action="openModalForCategory" data-args="[${r.id}]">
       <span class="cat-view-icon" style="--cat-color:${r.color}">${catIconSvg(r.icon)}</span>
       <span class="cat-view-name">${_escText(r.name)}</span>
-      <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtCurrency(Math.abs(r.net))}</span>
+      <span class="cat-view-amount ${r.net > 0 ? 'positive' : r.net < 0 ? 'negative' : ''}">${fmtSignedCurrency(r.net, _netDirection(r.net))}</span>
       <button
         type="button"
-        class="cat-view-more"
+        class="cat-view-list"
         aria-label="${_escAttr(tr('categories.viewTxAria', { name: r.name }))}"
         data-action="showTransactionsForCategory" data-args="[${r.id}]" data-stop
-      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-more-vertical"/></svg></button>
+      ><svg class="ui-icon" aria-hidden="true"><use href="#icon-receipt"/></svg></button>
     </div>
   `,
     )
@@ -367,6 +384,9 @@ function openModalForCategory(catId) {
   // was tapped *because* of its category, so that choice wins.
   resetCatChooser('transaction', catId);
   remeasureCatChooser('transaction');
+  // The preset is part of the opening state, not a user edit: re-take the
+  // pristine snapshot so an untouched form closes without "Discard?".
+  appState.form.pristine = _bookingFormSnapshot();
 }
 
 async function showTransactionsForCategory(catId) {

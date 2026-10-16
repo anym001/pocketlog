@@ -3,7 +3,7 @@
 // Nothing in the suite touched the drawer before this file. Two behaviours
 // worth pinning live here:
 //
-//   1. The filter field is conditional. It costs a full row of a 300px panel,
+//   1. The filter field is conditional. It costs a full row of the panel,
 //      so it appears only above DRAWER_FILTER_MIN entries and goes away again
 //      when the list shrinks back under it. A threshold that silently drifts
 //      would either clutter every short list or strand a long one, and neither
@@ -37,7 +37,7 @@ const rowCount = (page) => page.locator('#tagList .cat-pill-edit').count();
 // them is a real regression, not a cosmetic one.
 const gapBelowCreateButton = (page) =>
   page.evaluate(() => {
-    const btn = document.querySelector('#dpTags .save-btn');
+    const btn = document.querySelector('#dpTags .action-list');
     const wrap = document.getElementById('dpTagSearchWrap');
     const next = wrap.hidden ? document.getElementById('tagList') : wrap;
     return next.getBoundingClientRect().top - btn.getBoundingClientRect().bottom;
@@ -77,7 +77,8 @@ test('drawer tag list: filter appears with the list, and rows work by keyboard',
   // Filtering narrows to the one row that matches.
   await page.fill('#dpTagSearch', ODD.toLowerCase());
   await expect(page.locator('#tagList .cat-pill-edit')).toHaveCount(1);
-  await expect(page.locator('#tagList .cat-pill-edit')).toHaveText(ODD);
+  // The row also carries its all-time usage count; the name is its label.
+  await expect(page.locator('#tagList .cat-pill-edit .drawer-nav-label')).toHaveText(ODD);
 
   // A miss reads as a miss, not as an empty account.
   await page.fill('#dpTagSearch', `${ODD}-nothing-matches-this`);
@@ -92,7 +93,7 @@ test('drawer tag list: filter appears with the list, and rows work by keyboard',
   // The row takes focus and Enter opens the rename modal on it — it was a bare
   // div with a click listener before.
   const first = page.locator('#tagList .cat-pill-edit').first();
-  const name = (await first.textContent()).trim();
+  const name = (await first.locator('.drawer-nav-label').textContent()).trim();
   await first.focus();
   await expect(first).toBeFocused();
   await first.press('Enter');
@@ -197,4 +198,26 @@ test('the drawer keeps focus to itself while open, and out of the way while clos
   ).toBe(false);
 
   expect(pageErrors, `Uncaught page errors: ${pageErrors.join(' | ')}`).toEqual([]);
+});
+
+// Phone: the drawer is a full-screen menu — every level of it, the main
+// menu, the settings list and a settings page, fills the viewport, so
+// navigating inside it never changes its width (DESIGN_CONVENTIONS "Phone
+// drawer").
+test('on a phone, the drawer fills the screen at every level', async ({ page }) => {
+  await loginViaApi(page.context());
+  await bootIntoApp(page);
+  const drawerWidth = () => page.evaluate(() => document.getElementById('drawer').offsetWidth);
+  const viewport = page.viewportSize().width;
+
+  await page.evaluate(() => window.openDrawer());
+  await expect.poll(drawerWidth).toBe(viewport);
+  await page.evaluate(() => window.drawerNav('dpSettings'));
+  await expect.poll(drawerWidth).toBe(viewport);
+  await page.evaluate(() => window.drawerNav('dpTags'));
+  await expect.poll(drawerWidth).toBe(viewport);
+  // The close button stays reachable once back at the top level.
+  await page.evaluate(() => window.drawerBack());
+  await page.evaluate(() => window.drawerBack());
+  await expect(page.locator('#drawer .drawer-head')).toBeVisible();
 });

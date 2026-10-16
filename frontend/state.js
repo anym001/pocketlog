@@ -101,6 +101,9 @@ const appState = {
       to: '',
     },
     rangeLock: null,
+    // Bumped by every renderReport call; a render whose data arrives after a
+    // newer one started drops itself.
+    renderGen: 0,
     txPool: null,
     searchExitTarget: null,
     // Stepper-label popover for jumping the period further than ±1 (month grid
@@ -115,6 +118,20 @@ const appState = {
     // controls flip these.
     breakdownKind: 'category', // 'category' | 'tag'
     breakdownDir: 'out',
+    // "Detailanalyse": one category or tag over the shared period. kind,
+    // selection (['cat:42'] / ['tag:Urlaub'], same ids as the trend),
+    // pickerOpen and pickerFilter drive the shared entity picker; sort orders
+    // the booking list ('date' | 'amount'); returnTo is the report a drill-down
+    // came from, offered as the back link (null when opened from the menu).
+    detail: {
+      kind: 'category',
+      selection: [],
+      pickerOpen: false,
+      pickerFilter: '',
+      sort: 'date',
+      returnTo: null,
+      summaryTxs: null, // the rendered entity's bookings, re-sorted in place
+    },
   },
 
   // Spending-trend chart state (entity selection + year range + picker UI).
@@ -151,6 +168,9 @@ const appState = {
     // _warmFullHistoryCache in ledger.js). Throttles the background GET so
     // rapid month stepping doesn't refetch the whole history each time.
     fullHistoryWarmedAt: 0,
+    // Bumped by every loadAndRender; a response that arrives after a newer
+    // load started (e.g. the month switched meanwhile) is dropped.
+    loadGen: 0,
   },
 
   // Navigation / cross-cutting UI state. _activePanel / _bookingModalOpenedAt /
@@ -180,6 +200,21 @@ const appState = {
     // same moment — anything that must not race the remaining loads waits on
     // this rather than on the first render.
     ready: false,
+    // True once /auth/me has confirmed the session on this page; writes are
+    // refused before that (core.js api()).
+    sessionConfirmed: false,
+    // The page was first drawn from the cache (instant start): later boot
+    // passes refresh in place instead of navigating to the default view.
+    // `cachedUserId` is the session hint's account that state belongs to — a
+    // confirmed session of another account discards it (app.js).
+    fromCache: false,
+    cachedUserId: null,
+    // Instant start whose session check could not reach the server yet
+    // (app.js _confirmSessionLater): retry bookkeeping.
+    authPending: false,
+    authRetrying: false,
+    authTimer: null,
+    authDelay: 0,
   },
 
   // Tag picker modal — only the ledger's bulk add/remove actions still use

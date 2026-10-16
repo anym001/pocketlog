@@ -8,6 +8,11 @@
     <meta name="apple-mobile-web-app-title" content="PocketLog" />
     <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f0e0c" media="(prefers-color-scheme: dark)" />
+    <!-- Release version, baked in by the Dockerfile like sw.js. Every app
+         file below is requested as ?v=<version>, so a page can only ever
+         load one release's files: fresh HTML never meets a cached older
+         script, and no reload is needed after an update. -->
+    <meta name="app-version" content="__APP_VERSION__" />
     <title data-i18n="app.documentTitle">PocketLog – Haushaltsbuch</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/favicon.ico" sizes="any" />
@@ -19,10 +24,10 @@
     <!-- Blocking on purpose (no defer): theme + sidebar state must be set
          before first paint. External file because the CSP forbids inline
          scripts (script-src 'self'). -->
-    <script src="/theme-boot.js"></script>
-    <script src="/vendor/chart.umd.min.js"></script>
-    <script src="/db.js" defer></script>
-    <link rel="stylesheet" href="/styles.css" />
+    <script src="/theme-boot.js?v=__APP_VERSION__"></script>
+    <script src="/vendor/chart.umd.min.js?v=__APP_VERSION__"></script>
+    <script src="/db.js?v=__APP_VERSION__" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=__APP_VERSION__" />
   </head>
   <body>
     <!-- Inline SVG icon sprite (chrome glyphs).
@@ -126,16 +131,6 @@
           <path d="M4 13h4l1 2h6l1-2h4" />
         </symbol>
         <symbol
-          id="icon-more-vertical"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          stroke="none"
-        >
-          <circle cx="12" cy="5" r="2" />
-          <circle cx="12" cy="12" r="2" />
-          <circle cx="12" cy="19" r="2" />
-        </symbol>
-        <symbol
           id="icon-arrows-in"
           viewBox="0 0 24 24"
           fill="none"
@@ -176,6 +171,13 @@
         <symbol id="icon-chart-bar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 20V12M8 20V6M12 20V10M16 20V4M20 20V9"/>
           <path d="M2 20h20"/>
+        </symbol>
+        <!-- Budgets: a spending gauge (cap + how far along), so it no longer
+             shares the chart-bar glyph with Reports. -->
+        <symbol id="icon-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.2 19.4A9 9 0 1 1 17.8 19.4"/>
+          <path d="M12 12.5l4-4"/>
+          <circle cx="12" cy="12.5" r="1.2"/>
         </symbol>
         <symbol id="icon-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/>
@@ -272,13 +274,16 @@
         <form id="setupForm" class="auth-form" data-action-submit="submitSetup">
           <div class="form-group">
             <label for="setupLocale" data-i18n="auth.setupLanguage">Sprache &amp; Region</label>
-            <select id="setupLocale" data-action-change="setLocaleFromSetup" data-args='["@value"]'>
-              <option value="de-DE">Deutsch (Deutschland)</option>
-              <option value="de-AT">Deutsch (Österreich)</option>
-              <option value="de-CH">Deutsch (Schweiz)</option>
-              <option value="en-GB">English (UK)</option>
-              <option value="en-US">English (US)</option>
-            </select>
+            <div class="select-wrap">
+              <select id="setupLocale" data-action-change="setLocaleFromSetup" data-args='["@value"]'>
+                <option value="de-DE">Deutsch (Deutschland)</option>
+                <option value="de-AT">Deutsch (Österreich)</option>
+                <option value="de-CH">Deutsch (Schweiz)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="en-US">English (US)</option>
+              </select>
+              <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+            </div>
           </div>
           <div class="form-group">
             <label for="setupUsername" data-i18n="auth.username">Benutzername</label>
@@ -379,28 +384,30 @@
       <div class="drawer-content">
         <!-- Panel 0: main menu -->
         <div class="drawer-panel" id="dpMain" data-state="active">
+          <!-- Tile colour = group (DESIGN_CONVENTIONS.md → Icons in the UI):
+               record (accent) · plan (green) · analyse (blue) · settings (neutral). -->
           <nav class="drawer-nav" style="--sep-left: calc(var(--nav-icon-size) + var(--space-12) + var(--space-16))">
-            <button class="drawer-nav-item" data-panel="categories" data-action="showPanel" data-args='["categories"]' style="--nav-icon-bg: var(--blue)">
+            <button class="drawer-nav-item" data-panel="categories" data-action="showPanel" data-args='["categories"]' style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-squares-four" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.categories">Kategorienübersicht</span>
             </button>
-            <button class="drawer-nav-item" data-panel="transactions" data-action="showPanel" data-args='["transactions"]' style="--nav-icon-bg: var(--green)">
+            <button class="drawer-nav-item" data-panel="transactions" data-action="showPanel" data-args='["transactions"]' style="--nav-icon-bg: var(--accent)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-receipt" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.transactions">Buchungsübersicht</span>
             </button>
-            <button class="drawer-nav-item" data-panel="goals" data-action="showPanel" data-args='["goals"]' style="--nav-icon-bg: var(--blue)">
+            <button class="drawer-nav-item" data-panel="goals" data-action="showPanel" data-args='["goals"]' style="--nav-icon-bg: var(--green)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-target" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.goals">Ziele</span>
             </button>
             <button class="drawer-nav-item" data-panel="budgets" data-action="showPanel" data-args='["budgets"]' style="--nav-icon-bg: var(--green)">
-              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
+              <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-gauge" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.budgets">Budgets</span>
             </button>
-            <button class="drawer-nav-item" data-panel="recurring" data-action="showPanel" data-args='["recurring"]' style="--nav-icon-bg: var(--accent)">
+            <button class="drawer-nav-item" data-panel="recurring" data-action="showPanel" data-args='["recurring"]' style="--nav-icon-bg: var(--green)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-arrows-clockwise" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.recurring">Wiederkehrend</span>
             </button>
-            <button class="drawer-nav-item" data-action="drawerNav" data-args='["dpReports"]' style="--nav-icon-bg: var(--accent)">
+            <button class="drawer-nav-item" data-action="drawerNav" data-args='["dpReports"]' style="--nav-icon-bg: var(--blue)">
               <span class="drawer-nav-icon-wrap" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chart-bar" /></svg></span>
               <span class="drawer-nav-label" data-i18n="nav.reports">Auswertungen</span>
               <span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right" /></svg></span>
@@ -426,6 +433,7 @@
             <button class="drawer-nav-item" data-action="openReport" data-args='["course"]' data-i18n="reports.course">Verlauf</button>
             <button class="drawer-nav-item" data-action="openReport" data-args='["breakdown"]' data-i18n="reports.breakdown">Aufteilung</button>
             <button class="drawer-nav-item" data-action="openReport" data-args='["trend"]' data-i18n="reports.trend">Trend</button>
+            <button class="drawer-nav-item" data-action="openReport" data-args='["detail"]' data-i18n="reports.detail">Detailanalyse</button>
             <button class="drawer-nav-item" data-action="openReport" data-args='["forecast"]' data-i18n="reports.forecast">Ausgaben-Prognose</button>
             <button class="drawer-nav-item" data-action="openReport" data-args='["top"]' data-i18n="reports.top">Größte Buchungen</button>
           </nav>
@@ -493,7 +501,9 @@
             <span class="drawer-sub-title" data-i18n="categories.title">Kategorien</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" data-action="openCatModal" data-i18n="categories.create">Kategorie erstellen</button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openCatModal" data-i18n="categories.create">Kategorie erstellen</button>
+            </div>
             <div class="search-wrap drawer-search" id="dpCatSearchWrap" hidden>
               <span class="search-icon" aria-hidden="true">
                 <svg class="ui-icon"><use href="#icon-search" /></svg>
@@ -531,7 +541,9 @@
             <span class="drawer-sub-title" data-i18n="tags.title">Tags</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" data-action="openTagModal" data-i18n="tags.create">Tag erstellen</button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openTagModal" data-i18n="tags.create">Tag erstellen</button>
+            </div>
             <div class="search-wrap drawer-search" id="dpTagSearchWrap" hidden>
               <span class="search-icon" aria-hidden="true">
                 <svg class="ui-icon"><use href="#icon-search" /></svg>
@@ -570,15 +582,13 @@
           </div>
           <div class="drawer-section">
             <div class="settings-section">
-              <button class="save-btn" data-action="exportCSV" data-i18n="importExport.export">Als CSV exportieren</button>
-              <button
-                class="save-btn"
-                style="margin-top: var(--space-8)"
-                data-action="clickHiddenInput" data-args='["importFile"]'
-                data-i18n="importExport.import"
-              >
-                Aus CSV importieren…
-              </button>
+              <!-- Grouped action rows (same component as the settings list),
+                   tinted as actions; see DESIGN_CONVENTIONS.md → settings. -->
+              <div class="drawer-nav action-list">
+                <button class="drawer-nav-item is-action" data-action="exportCSV" data-i18n="importExport.export">Als CSV exportieren</button>
+                <button class="drawer-nav-item is-action" data-action="clickHiddenInput" data-args='["importFile"]' data-i18n="importExport.import">Aus CSV importieren…</button>
+                <button class="drawer-nav-item is-action" data-action="downloadExampleCSV" data-i18n="importExport.example">Beispieldatei herunterladen</button>
+              </div>
               <input
                 type="file"
                 id="importFile"
@@ -586,12 +596,6 @@
                 style="display: none"
                 data-action-change="importCSV" data-args='["@event"]'
               />
-              <button
-                class="save-btn"
-                style="margin-top: var(--space-8)"
-                data-action="downloadExampleCSV"
-                data-i18n="importExport.example"
-              >Beispieldatei herunterladen</button>
               <div class="status-msg" id="importStatus"></div>
             </div>
           </div>
@@ -599,21 +603,16 @@
           <div class="drawer-section">
             <h3 data-i18n="backup.title">Backup</h3>
             <div class="settings-section">
-              <p class="form-hint" data-i18n="backup.hint">
+              <div class="drawer-nav action-list">
+                <button class="drawer-nav-item is-action" data-action="exportBackup" data-i18n="backup.export">Backup erstellen</button>
+                <button class="drawer-nav-item is-action" data-action="clickHiddenInput" data-args='["backupFile"]' data-i18n="backup.restore">Backup wiederherstellen…</button>
+              </div>
+              <p class="settings-footnote" data-i18n="backup.hint">
                 Sichert alle Daten dieses Kontos als JSON-Datei – Buchungen,
                 Kategorien, Tags, Ziele, Budgets, Daueraufträge und
                 Einstellungen. Die Wiederherstellung ist nur in einem leeren
                 Konto möglich.
               </p>
-              <button class="save-btn" data-action="exportBackup" data-i18n="backup.export">Backup erstellen</button>
-              <button
-                class="save-btn"
-                style="margin-top: var(--space-8)"
-                data-action="clickHiddenInput" data-args='["backupFile"]'
-                data-i18n="backup.restore"
-              >
-                Backup wiederherstellen…
-              </button>
               <input
                 type="file"
                 id="backupFile"
@@ -641,8 +640,10 @@
           </div>
           <div class="drawer-section">
             <div class="settings-section">
-              <button class="save-btn" data-action="openApiKeyModal" data-i18n="apiKeys.create">Neuen Schlüssel erstellen</button>
-              <div id="apiKeyList" class="api-key-list"></div>
+              <div class="drawer-nav action-list">
+                <button class="drawer-nav-item is-action" data-action="openApiKeyModal" data-i18n="apiKeys.create">Schlüssel erstellen…</button>
+              </div>
+              <div id="apiKeyList" class="drawer-nav record-list"></div>
             </div>
           </div>
         </div>
@@ -663,38 +664,50 @@
           <div class="drawer-section">
             <div class="settings-field">
               <label class="settings-field-label" for="selTheme" data-i18n="display.theme">Erscheinungsbild</label>
-              <select id="selTheme" class="settings-select" data-action-change="saveTheme" data-args='["@value"]'>
-                <option value="system" data-i18n="display.themeSystem">System</option>
-                <option value="light" data-i18n="display.themeLight">Hell</option>
-                <option value="dark" data-i18n="display.themeDark">Dunkel</option>
-              </select>
+              <div class="select-wrap">
+                <select id="selTheme" class="settings-select" data-action-change="saveTheme" data-args='["@value"]'>
+                  <option value="system" data-i18n="display.themeSystem">System</option>
+                  <option value="light" data-i18n="display.themeLight">Hell</option>
+                  <option value="dark" data-i18n="display.themeDark">Dunkel</option>
+                </select>
+                <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
             <div class="settings-field">
               <label class="settings-field-label" for="selDefaultView" data-i18n="display.startView">Startansicht</label>
-              <select id="selDefaultView" class="settings-select" data-action-change="saveDefaultView" data-args='["@value"]'>
-                <option value="transactions" data-i18n="display.startTransactions">Buchungsübersicht</option>
-                <option value="categories" data-i18n="display.startCategories">Kategorienübersicht</option>
-              </select>
+              <div class="select-wrap">
+                <select id="selDefaultView" class="settings-select" data-action-change="saveDefaultView" data-args='["@value"]'>
+                  <option value="transactions" data-i18n="display.startTransactions">Buchungsübersicht</option>
+                  <option value="categories" data-i18n="display.startCategories">Kategorienübersicht</option>
+                </select>
+                <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
             <div class="settings-field">
               <label class="settings-field-label" for="selLocale" data-i18n="display.language">Sprache &amp; Region</label>
-              <select id="selLocale" class="settings-select" data-action-change="saveLocale" data-args='["@value"]'>
-                <option value="de-DE">Deutsch (Deutschland)</option>
-                <option value="de-AT">Deutsch (Österreich)</option>
-                <option value="de-CH">Deutsch (Schweiz)</option>
-                <option value="en-GB">English (UK)</option>
-                <option value="en-US">English (US)</option>
-              </select>
+              <div class="select-wrap">
+                <select id="selLocale" class="settings-select" data-action-change="saveLocale" data-args='["@value"]'>
+                  <option value="de-DE">Deutsch (Deutschland)</option>
+                  <option value="de-AT">Deutsch (Österreich)</option>
+                  <option value="de-CH">Deutsch (Schweiz)</option>
+                  <option value="en-GB">English (UK)</option>
+                  <option value="en-US">English (US)</option>
+                </select>
+                <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
             <div class="settings-field">
               <label class="settings-field-label" for="selCurrency" data-i18n="display.currency">Währung</label>
-              <select id="selCurrency" class="settings-select" data-action-change="saveCurrency" data-args='["@value"]'>
-                <option value="EUR">EUR – €</option>
-                <option value="USD">USD – $</option>
-                <option value="GBP">GBP – £</option>
-                <option value="CHF">CHF – Fr.</option>
-                <option value="JPY">JPY – ¥</option>
-              </select>
+              <div class="select-wrap">
+                <select id="selCurrency" class="settings-select" data-action-change="saveCurrency" data-args='["@value"]'>
+                  <option value="EUR">EUR – €</option>
+                  <option value="USD">USD – $</option>
+                  <option value="GBP">GBP – £</option>
+                  <option value="CHF">CHF – Fr.</option>
+                  <option value="JPY">JPY – ¥</option>
+                </select>
+                <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
           </div>
         </div>
@@ -713,31 +726,17 @@
             <span class="drawer-sub-title" data-i18n="settings.admin">Verwaltung</span>
           </div>
           <div class="drawer-section">
-            <button class="save-btn" data-action="openCacheModal" data-i18n="admin.cacheClear">
-              Cache leeren
-            </button>
-            <p
-              data-i18n="admin.cacheHint"
-              style="
-                font-size: var(--fs-caption);
-                color: var(--text3);
-                margin: var(--space-10) 0 var(--space-16);
-              "
-            >
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openCacheModal" data-i18n="admin.cacheClear">Cache leeren</button>
+            </div>
+            <p class="settings-footnote" data-i18n="admin.cacheHint">
               Verwirft den API-Cache und nicht synchronisierte Änderungen. Server-Daten bleiben
               unverändert.
             </p>
-            <button class="save-btn btn-destructive" data-action="openResetModal" data-i18n="admin.dataDelete">
-              Daten löschen
-            </button>
-            <p
-              data-i18n="admin.dataHint"
-              style="
-                font-size: var(--fs-caption);
-                color: var(--text3);
-                margin: var(--space-10) 0 0;
-              "
-            >
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-destructive" data-action="openResetModal" data-i18n="admin.dataDelete">Daten löschen…</button>
+            </div>
+            <p class="settings-footnote" data-i18n="admin.dataHint">
               Entfernt Buchungen, Kategorien oder beides serverseitig. Aktion lässt sich nicht
               rückgängig machen.
             </p>
@@ -758,10 +757,10 @@
             <span class="drawer-sub-title" data-i18n="settings.users">Benutzer</span>
           </div>
           <div class="drawer-section">
-            <div id="adminUserList" class="drawer-chip-list"></div>
-            <button class="save-btn" data-action="openAdminCreateUserModal" data-i18n="users.add">
-              Benutzer hinzufügen
-            </button>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openAdminCreateUserModal" data-i18n="users.add">Benutzer hinzufügen…</button>
+            </div>
+            <div id="adminUserList" class="drawer-nav record-list"></div>
           </div>
         </div>
 
@@ -779,35 +778,21 @@
             <span class="drawer-sub-title" data-i18n="settings.account">Konto</span>
           </div>
           <div class="drawer-section">
-            <p class="account-username" id="accountUsername" style="
-              font-size: var(--fs-body);
-              color: var(--text2);
-              margin: 0 0 var(--space-16);
-            "></p>
-            <button class="save-btn" data-action="openChangePasswordModal" data-i18n="account.changePassword">
-              Passwort ändern
-            </button>
-            <button
-              class="save-btn"
-              style="margin-top: var(--space-16)"
-              data-action="logoutWithConfirm"
-              data-i18n="account.logout"
-            >
-              Abmelden
-            </button>
+            <p class="account-username" id="accountUsername"></p>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-action" data-action="openChangePasswordModal" data-i18n="account.changePassword">Passwort ändern…</button>
+            </div>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-destructive" data-action="logoutWithConfirm" data-i18n="account.logout">Abmelden</button>
+            </div>
           </div>
           <div class="drawer-section-divider"></div>
           <div class="drawer-section">
             <h3 data-i18n="sessions.title">Angemeldete Geräte</h3>
-            <div id="sessionList" class="api-key-list"></div>
-            <button
-              class="save-btn"
-              style="margin-top: var(--space-16)"
-              data-action="revokeOtherSessions"
-              data-i18n="sessions.revokeOthers"
-            >
-              Alle anderen Geräte abmelden
-            </button>
+            <div id="sessionList" class="drawer-nav record-list"></div>
+            <div class="drawer-nav action-list">
+              <button class="drawer-nav-item is-destructive" data-action="revokeOtherSessions" data-i18n="sessions.revokeOthers">Alle anderen Geräte abmelden</button>
+            </div>
           </div>
         </div>
 
@@ -856,67 +841,75 @@
             </dl>
           </div>
           <div class="drawer-section-divider"></div>
-          <div class="drawer-section">
-            <h3 data-i18n="info.device">Gerät</h3>
-            <dl class="info-list">
-              <div class="info-row">
-                <dt data-i18n="info.platform">Plattform</dt>
-                <dd id="infoPlatform">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.browser">Browser</dt>
-                <dd id="infoBrowser">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.mode">Modus</dt>
-                <dd id="infoDisplayMode">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.pointer">Eingabe</dt>
-                <dd id="infoPointer">–</dd>
-              </div>
-            </dl>
-          </div>
-          <div class="drawer-section-divider"></div>
-          <div class="drawer-section">
-            <h3 data-i18n="info.displayHead">Anzeige</h3>
-            <dl class="info-list">
-              <div class="info-row">
-                <dt data-i18n="info.viewport">Viewport</dt>
-                <dd id="infoViewport">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.screen">Bildschirm</dt>
-                <dd id="infoScreen">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.dpr">Pixel-Dichte</dt>
-                <dd id="infoDpr">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.zoom">Zoom</dt>
-                <dd id="infoZoom">–</dd>
-              </div>
-              <div class="info-row">
-                <dt data-i18n="info.physical">Physisch</dt>
-                <dd id="infoPhysical">–</dd>
-              </div>
-            </dl>
-          </div>
-          <div class="drawer-section-divider"></div>
-          <div class="drawer-section">
-            <h3 data-i18n="info.environment">Umgebung</h3>
-            <dl class="info-list">
-              <div class="info-row">
-                <dt data-i18n="info.language">Sprache</dt>
-                <dd id="infoLang">–</dd>
-              </div>
-              <div class="info-row info-row-stack">
-                <dt data-i18n="info.userAgent">Browser-Kennung</dt>
-                <dd id="infoUserAgent">–</dd>
-              </div>
-            </dl>
-          </div>
+          <!-- Device / display / environment are diagnostics for support,
+               not something a user reads every visit: collapsed by default. -->
+          <details class="info-details">
+            <summary class="drawer-section info-details-summary">
+              <span data-i18n="info.diagnostics">Diagnose</span>
+              <svg class="ui-icon info-details-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+            </summary>
+            <div class="drawer-section">
+              <h3 data-i18n="info.device">Gerät</h3>
+              <dl class="info-list">
+                <div class="info-row">
+                  <dt data-i18n="info.platform">Plattform</dt>
+                  <dd id="infoPlatform">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.browser">Browser</dt>
+                  <dd id="infoBrowser">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.mode">Modus</dt>
+                  <dd id="infoDisplayMode">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.pointer">Eingabe</dt>
+                  <dd id="infoPointer">–</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="drawer-section-divider"></div>
+            <div class="drawer-section">
+              <h3 data-i18n="info.displayHead">Anzeige</h3>
+              <dl class="info-list">
+                <div class="info-row">
+                  <dt data-i18n="info.viewport">Viewport</dt>
+                  <dd id="infoViewport">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.screen">Bildschirm</dt>
+                  <dd id="infoScreen">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.dpr">Pixel-Dichte</dt>
+                  <dd id="infoDpr">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.zoom">Zoom</dt>
+                  <dd id="infoZoom">–</dd>
+                </div>
+                <div class="info-row">
+                  <dt data-i18n="info.physical">Physisch</dt>
+                  <dd id="infoPhysical">–</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="drawer-section-divider"></div>
+            <div class="drawer-section">
+              <h3 data-i18n="info.environment">Umgebung</h3>
+              <dl class="info-list">
+                <div class="info-row">
+                  <dt data-i18n="info.language">Sprache</dt>
+                  <dd id="infoLang">–</dd>
+                </div>
+                <div class="info-row info-row-stack">
+                  <dt data-i18n="info.userAgent">Browser-Kennung</dt>
+                  <dd id="infoUserAgent">–</dd>
+                </div>
+              </dl>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -1004,6 +997,13 @@
       <span class="sync-banner-action" data-i18n="sync.recoverFix">Beheben</span>
     </button>
 
+    <!-- VIEW TITLE — one large title for every view except reports, set by
+         showPanel() from PANELS[id].titleKey. Reports keep their own
+         .report-head (title + range subtitle) in the same spot and style. -->
+    <div class="view-head" id="viewHead">
+      <h2 class="view-title" id="viewTitle" data-i18n="nav.transactions">Buchungsübersicht</h2>
+    </div>
+
     <!-- SUMMARY -->
     <div class="summary">
       <div class="summary-card">
@@ -1029,6 +1029,11 @@
     <!-- CHARTS PANEL -->
     <div class="panel" id="panel-charts">
       <div class="report-head">
+        <!-- Back to the report a drill-down came from (Detailanalyse only). -->
+        <button type="button" class="report-back" id="reportBack" data-action="detailBack" hidden>
+          <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-left" /></svg>
+          <span id="reportBackLabel"></span>
+        </button>
         <h2 class="report-title" id="reportTitle" data-i18n="reports.overview">Übersicht</h2>
         <p class="report-subtitle" id="reportRangeLabel" aria-live="polite"></p>
       </div>
@@ -1090,27 +1095,23 @@
 
     <!-- GOALS VIEW (savings + debt trackers) -->
     <div class="panel" id="panel-goals">
-      <div class="goals-toolbar">
-        <button class="save-btn" data-action="openGoalModal" data-i18n="goals.create">Ziel erstellen</button>
-      </div>
       <div id="goalsViewList"></div>
     </div>
 
     <!-- BUDGETS VIEW (per-category spending caps) -->
     <div class="panel" id="panel-budgets">
-      <div class="goals-toolbar">
-        <button class="save-btn" data-action="openBudgetModal" data-i18n="budget.create">Budget erstellen</button>
-      </div>
       <div id="budgetsViewList"></div>
     </div>
 
     <!-- RECURRING TRANSACTIONS VIEW -->
     <div class="panel" id="panel-recurring">
-      <div class="goals-toolbar">
-        <button class="save-btn" data-action="openRecurringModal" data-i18n="recurring.create">Regel erstellen</button>
-      </div>
       <div id="recurringViewList"></div>
     </div>
+
+    <!-- SETTINGS DETAIL HOST (≥768 px): the open settings sub-panel is moved
+         here so it gets the content pane instead of the 260-px sidebar
+         (_openSettingsDetail in core.js). Empty and hidden on phones. -->
+    <section class="settings-host" id="settingsHost"></section>
 
     <!-- BOTTOM BAR -->
     <div class="bottom-bar">
@@ -1136,7 +1137,9 @@
           />
         </div>
       </form>
-      <button class="fab" data-action="openModal" aria-label="Neue Buchung" data-i18n-attr="aria-label:fab.newTransaction">
+      <!-- The view's one create action; target + label follow the active
+           panel (PANELS[id].fab, syncFab in core.js). -->
+      <button class="fab" data-action="onFabTap" aria-label="Neue Buchung" data-i18n-attr="aria-label:fab.newTransaction">
         <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus" /></svg>
       </button>
 
@@ -1488,10 +1491,13 @@
           </div>
           <div class="form-group">
             <label data-i18n="goals.direction">Art</label>
-            <select id="goalEditDirection" data-action-change="onGoalDirectionChange">
-              <option value="save_up" data-i18n="goals.directionSaveUp">Sparen</option>
-              <option value="pay_down" data-i18n="goals.directionPayDown">Schulden abbauen</option>
-            </select>
+            <div class="select-wrap">
+              <select id="goalEditDirection" data-action-change="onGoalDirectionChange">
+                <option value="save_up" data-i18n="goals.directionSaveUp">Sparen</option>
+                <option value="pay_down" data-i18n="goals.directionPayDown">Schulden abbauen</option>
+              </select>
+              <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+            </div>
           </div>
           <div class="form-group">
             <label id="goalCatSearchLabel" for="goalCatSearch" data-i18n="goals.category">Kategorie</label>
@@ -1598,11 +1604,14 @@
           </div>
           <div class="form-group">
             <label data-i18n="budget.frequency">Zeitraum</label>
-            <select id="budgetEditFrequency">
-              <option value="monthly" data-i18n="budget.freqMonthly">Monatlich</option>
-              <option value="quarterly" data-i18n="budget.freqQuarterly">Quartalsweise</option>
-              <option value="yearly" data-i18n="budget.freqYearly">Jährlich</option>
-            </select>
+            <div class="select-wrap">
+              <select id="budgetEditFrequency">
+                <option value="monthly" data-i18n="budget.freqMonthly">Monatlich</option>
+                <option value="quarterly" data-i18n="budget.freqQuarterly">Quartalsweise</option>
+                <option value="yearly" data-i18n="budget.freqYearly">Jährlich</option>
+              </select>
+              <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -1639,10 +1648,13 @@
           </div>
           <div class="form-group">
             <label data-i18n="recurring.type">Typ</label>
-            <select id="recEditType" data-action-change="onRecurringTypeChange">
-              <option value="out" data-i18n="recurring.typeExpense">Ausgabe</option>
-              <option value="in" data-i18n="recurring.typeIncome">Einnahme</option>
-            </select>
+            <div class="select-wrap">
+              <select id="recEditType" data-action-change="onRecurringTypeChange">
+                <option value="out" data-i18n="recurring.typeExpense">Ausgabe</option>
+                <option value="in" data-i18n="recurring.typeIncome">Einnahme</option>
+              </select>
+              <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+            </div>
           </div>
           <div class="form-group">
             <label data-i18n="recurring.amount">Betrag</label>
@@ -1685,13 +1697,16 @@
             <label data-i18n="recurring.interval">Intervall</label>
             <div class="rec-interval-row">
               <input type="number" id="recEditInterval" min="1" max="365" value="1" data-action-input="_refreshRecurringPreview" />
-              <select id="recEditFrequency" data-action-change="_refreshRecurringPreview">
-                <option value="daily" data-i18n="recurring.unit.day">Tag(e)</option>
-                <option value="weekly" data-i18n="recurring.unit.week">Woche(n)</option>
-                <option value="monthly" selected data-i18n="recurring.unit.month">Monat(e)</option>
-                <option value="quarterly" data-i18n="recurring.unit.quarter">Quartal(e)</option>
-                <option value="yearly" data-i18n="recurring.unit.year">Jahr(e)</option>
-              </select>
+              <div class="select-wrap">
+                <select id="recEditFrequency" data-action-change="_refreshRecurringPreview">
+                  <option value="daily" data-i18n="recurring.unit.day">Tag(e)</option>
+                  <option value="weekly" data-i18n="recurring.unit.week">Woche(n)</option>
+                  <option value="monthly" selected data-i18n="recurring.unit.month">Monat(e)</option>
+                  <option value="quarterly" data-i18n="recurring.unit.quarter">Quartal(e)</option>
+                  <option value="yearly" data-i18n="recurring.unit.year">Jahr(e)</option>
+                </select>
+                <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+              </div>
             </div>
           </div>
           <div class="form-group">
@@ -1845,7 +1860,7 @@
           <button class="modal-cancel-btn" data-action="closePwModal" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="pwModalTitle" data-i18n="account.changePassword">Passwort ändern</h2>
+          <h2 id="pwModalTitle" data-i18n="account.changePasswordTitle">Passwort ändern</h2>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -1965,7 +1980,7 @@
           <button class="modal-cancel-btn" data-action="closeApiKeyModal" aria-label="Schließen" data-i18n-attr="aria-label:common.close">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-close" /></svg>
           </button>
-          <h2 id="apiKeyFormTitle" data-i18n="apiKeys.create">Neuen Schlüssel erstellen</h2>
+          <h2 id="apiKeyFormTitle" data-i18n="apiKeys.newTitle">Neuer Schlüssel</h2>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -1981,11 +1996,14 @@
           </div>
           <div class="form-group">
             <label for="apiKeyScope" data-i18n="apiKeys.scopes">Berechtigungen</label>
-            <select id="apiKeyScope">
-              <option value="import" data-i18n="apiKeys.scope.import">Importieren</option>
-              <option value="read" data-i18n="apiKeys.scope.read">Lesen &amp; Exportieren</option>
-              <option value="write" data-i18n="apiKeys.scope.write">Schreiben</option>
-            </select>
+            <div class="select-wrap">
+              <select id="apiKeyScope">
+                <option value="import" data-i18n="apiKeys.scope.import">Importieren</option>
+                <option value="read" data-i18n="apiKeys.scope.read">Lesen &amp; Exportieren</option>
+                <option value="write" data-i18n="apiKeys.scope.write">Schreiben</option>
+              </select>
+              <svg class="ui-icon select-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
+            </div>
             <p class="form-hint" data-i18n="apiKeys.scope.hint">
               Schreiben schließt Importieren und Lesen ein.
             </p>
@@ -2026,19 +2044,19 @@
       </div>
     </div>
 
-    <script src="/i18n.js" defer></script>
-    <script src="/utils.js" defer></script>
-    <script src="/reportsData.js" defer></script>
-    <script src="/state.js" defer></script>
-    <script src="/core.js" defer></script>
-    <script src="/ledger.js" defer></script>
-    <script src="/reports.js" defer></script>
-    <script src="/booking.js" defer></script>
-    <script src="/categories.js" defer></script>
-    <script src="/goals.js" defer></script>
-    <script src="/budgets.js" defer></script>
-    <script src="/recurring.js" defer></script>
-    <script src="/settings.js" defer></script>
-    <script src="/app.js" defer></script>
+    <script src="/i18n.js?v=__APP_VERSION__" defer></script>
+    <script src="/utils.js?v=__APP_VERSION__" defer></script>
+    <script src="/reportsData.js?v=__APP_VERSION__" defer></script>
+    <script src="/state.js?v=__APP_VERSION__" defer></script>
+    <script src="/core.js?v=__APP_VERSION__" defer></script>
+    <script src="/ledger.js?v=__APP_VERSION__" defer></script>
+    <script src="/reports.js?v=__APP_VERSION__" defer></script>
+    <script src="/booking.js?v=__APP_VERSION__" defer></script>
+    <script src="/categories.js?v=__APP_VERSION__" defer></script>
+    <script src="/goals.js?v=__APP_VERSION__" defer></script>
+    <script src="/budgets.js?v=__APP_VERSION__" defer></script>
+    <script src="/recurring.js?v=__APP_VERSION__" defer></script>
+    <script src="/settings.js?v=__APP_VERSION__" defer></script>
+    <script src="/app.js?v=__APP_VERSION__" defer></script>
   </body>
 </html>

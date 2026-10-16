@@ -116,3 +116,17 @@ def test_standalone_tag_has_zero_on_both_sides(client):
 
     tag = next(t for t in client.get("/api/tags").json() if t["name"] == "unused2")
     assert (tag["count"], tag["count_in"], tag["count_out"]) == (0, 0, 0)
+
+
+def test_total_count_ignores_the_window(client):
+    """``count_total`` is what the tag list shows: every booking ever, so a 0
+    there means "never used" — a stale tag still counts."""
+    cat_id = client.get("/api/categories").json()[0]["id"]
+    stale = date.today() - timedelta(days=crud.TAG_COUNT_WINDOW_DAYS + 30)
+    _post_tx(client, cat_id, ["kept"], stale, desc="old")
+    _post_tx(client, cat_id, ["kept"], date.today(), desc="new", tx_type="in")
+    assert client.post("/api/tags", json={"name": "never"}).status_code == 201
+
+    tags = {t["name"]: t for t in client.get("/api/tags").json()}
+    assert (tags["kept"]["count"], tags["kept"]["count_total"]) == (1, 2)
+    assert tags["never"]["count_total"] == 0

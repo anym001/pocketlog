@@ -28,15 +28,25 @@ COPY frontend/icons ./static/icons
 COPY frontend/fonts ./static/fonts
 COPY frontend/vendor ./static/vendor
 
-# Bake APP_VERSION into the service worker so each release gets a fresh
-# cache key (pocketlog-shell-${VERSION}, pocketlog-api-${VERSION}) and the
-# activate-hook can prune stale caches automatically. Without this, sw.js
-# bytes never change across releases and the browser keeps serving the
-# previous cached shell.
-# Pipe delimiter for sed because APP_VERSION may legitimately contain
-# slashes (branch-based tags, e.g. `feature/foo`); a `/` delimiter would
-# unparseably collide with them.
-RUN sed -i "s|'__APP_VERSION__'|'${APP_VERSION}'|" /app/static/sw.js
+# Bake the release version into the service worker (cache keys
+# pocketlog-shell-<v> / pocketlog-api-<v>, pruned by the activate hook) and
+# into index.html (<meta name="app-version"> and the ?v= on every
+# script/style tag). Each build must get a version of its own: sw.js has to
+# change for browsers to install the new worker, and the ?v= URLs are served
+# cache-first — a reused version would pair fresh HTML with the previous
+# build's cached files. CI passes dev-<sha> / X.Y.Z; a plain local
+# `docker build` (APP_VERSION=dev) gets dev-<build time> instead.
+# The version lands verbatim in JS strings and URLs: anything beyond
+# [0-9A-Za-z._/-] (quotes, &, |, #, +, spaces) would break the sed, the code
+# or the ?v= URLs (URLSearchParams reads + as a space), so the build fails.
+# Pipe delimiter for sed because the version may contain slashes.
+RUN v="${APP_VERSION}"; \
+    if [ "$v" = dev ]; then v="dev-$(date -u +%Y%m%d%H%M%S)"; fi; \
+    case "$v" in \
+      ''|*[!0-9A-Za-z._/-]*) echo "APP_VERSION '$v' must match [0-9A-Za-z._/-]+" >&2; exit 1 ;; \
+    esac; \
+    sed -i "s|'__APP_VERSION__'|'$v'|" /app/static/sw.js && \
+    sed -i "s|__APP_VERSION__|$v|g" /app/static/index.html
 
 # /app is owned by a build-time user and left world-readable. The container
 # starts as root so the entrypoint can chown the /config mount, then drops

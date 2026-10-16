@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import date, datetime
 
 import httpx
 
@@ -31,33 +32,61 @@ PASSWORD = os.environ.get("ADMIN_PASSWORD", "Demo-Account-2026!")
 LOCALE = "en-GB"
 CURRENCY = "EUR"
 
-# date;type;amount;description;category;tags — categories and tags are
-# auto-created by the import. Dated around "today" (June 2026) so the ledger's
-# default month view is populated; May rows give the reports range some depth.
-DEMO_CSV = """date;type;amount;description;category;tags
-2026-05-01;in;3200.00;Salary;Salary;
-2026-05-02;out;1100.00;Monthly rent;Housing;fixed
-2026-05-05;out;72.10;Supermarket;Groceries;
-2026-05-09;out;55.00;Restaurant;Leisure;eating-out
-2026-05-15;out;60.00;Fuel;Transport;
-2026-05-20;out;14.99;Music streaming;Subscriptions;fixed
-2026-06-01;in;3200.00;Salary;Salary;
-2026-06-01;out;1100.00;Monthly rent;Housing;fixed
-2026-06-02;in;200.00;Holiday saving;Savings;
-2026-06-02;out;64.20;Supermarket;Groceries;
-2026-06-03;in;300.00;Buffer top-up;Reserve;
-2026-06-03;out;19.99;Mobile plan;Subscriptions;fixed
-2026-06-04;out;78.50;Electricity;Utilities;fixed
-2026-06-05;out;42.80;Dinner out;Leisure;eating-out
-2026-06-06;out;61.30;Fuel;Transport;
-2026-06-07;out;12.99;Video streaming;Subscriptions;fixed
-2026-06-08;out;51.75;Supermarket;Groceries;
-2026-06-09;in;150.00;Holiday saving;Savings;
-2026-06-09;out;23.40;Pharmacy;Health;
-2026-06-10;out;89.90;New jacket;Shopping;
-2026-06-11;out;39.00;Transport pass;Transport;
-2026-06-12;out;28.60;Coffee & lunch;Leisure;eating-out
-"""
+# (month offset, day, type, amount, description, category, tags). Dated
+# relative to the month the seeder runs in, so the ledger's default view (the
+# current month) is always populated; last month's rows give the reports some
+# depth. Categories and tags are auto-created by the CSV import.
+DEMO_ROWS = [
+    (-1, 1, "in", "3200.00", "Salary", "Salary", ""),
+    (-1, 2, "out", "1100.00", "Monthly rent", "Housing", "fixed"),
+    (-1, 5, "out", "72.10", "Supermarket", "Groceries", ""),
+    (-1, 9, "out", "55.00", "Restaurant", "Leisure", "eating-out"),
+    (-1, 15, "out", "60.00", "Fuel", "Transport", ""),
+    (-1, 20, "out", "14.99", "Music streaming", "Subscriptions", "fixed"),
+    (0, 1, "in", "3200.00", "Salary", "Salary", ""),
+    (0, 1, "out", "1100.00", "Monthly rent", "Housing", "fixed"),
+    (0, 2, "in", "200.00", "Holiday saving", "Savings", ""),
+    (0, 2, "out", "64.20", "Supermarket", "Groceries", ""),
+    (0, 3, "in", "300.00", "Buffer top-up", "Reserve", ""),
+    (0, 3, "out", "19.99", "Mobile plan", "Subscriptions", "fixed"),
+    (0, 4, "out", "78.50", "Electricity", "Utilities", "fixed"),
+    (0, 5, "out", "42.80", "Dinner out", "Leisure", "eating-out"),
+    (0, 6, "out", "61.30", "Fuel", "Transport", ""),
+    (0, 7, "out", "12.99", "Video streaming", "Subscriptions", "fixed"),
+    (0, 8, "out", "51.75", "Supermarket", "Groceries", ""),
+    (0, 9, "in", "150.00", "Holiday saving", "Savings", ""),
+    (0, 9, "out", "23.40", "Pharmacy", "Health", ""),
+    (0, 10, "out", "89.90", "New jacket", "Shopping", ""),
+    (0, 11, "out", "39.00", "Transport pass", "Transport", ""),
+    (0, 12, "out", "28.60", "Coffee & lunch", "Leisure", "eating-out"),
+]
+
+
+def _today() -> date:
+    # Local calendar day — the ledger's "current month" is the viewer's.
+    return datetime.now().astimezone().date()
+
+
+def _month_start(offset: int) -> date:
+    """First day of the month `offset` months from the current one."""
+    today = _today()
+    y, m = divmod(today.year * 12 + today.month - 1 + offset, 12)
+    return date(y, m + 1, 1)
+
+
+def _day(offset: int, day: int) -> str:
+    # Never in the future: on an early day of the month the current month's
+    # rows collapse onto today instead of showing as upcoming bookings.
+    d = _month_start(offset).replace(day=day)
+    return min(d, _today()).isoformat()
+
+
+def demo_csv() -> str:
+    lines = ["date;type;amount;description;category;tags"]
+    for off, day, typ, amount, desc, cat, tags in DEMO_ROWS:
+        lines.append(f"{_day(off, day)};{typ};{amount};{desc};{cat};{tags}")
+    return "\n".join(lines) + "\n"
+
 
 # name -> (icon id from the category sprite, hex colour). Applied after import
 # so the auto-created categories aren't all the grey "package" default.
@@ -82,7 +111,7 @@ GOALS = [
         "category": "Savings",
         "initial_amount": "0.00",
         "target_amount": "2000.00",
-        "start_date": "2026-01-01",
+        "start_date": _month_start(0).replace(month=1).isoformat(),
         "icon": "airplane",
         "color": "#d4567a",
     },
@@ -92,13 +121,13 @@ GOALS = [
         "category": "Reserve",
         "initial_amount": "1200.00",
         "target_amount": "5000.00",
-        "start_date": "2026-01-01",
+        "start_date": _month_start(0).replace(month=1).isoformat(),
         "icon": "umbrella",
         "color": "#5b7da0",
     },
 ]
 
-# Per-category spending caps. Amounts chosen against the demo June spend so the
+# Per-category spending caps. Amounts chosen against the demo month's spend so the
 # bars show a spread — Groceries/Leisure comfortably within, Subscriptions just
 # over (the red over-budget state), and Transport on a quarterly period.
 BUDGETS = [
@@ -108,8 +137,8 @@ BUDGETS = [
     {"category": "Transport", "amount": "400.00", "frequency": "quarterly"},
 ]
 
-# All start in the (near) future so they populate the recurring view as
-# upcoming bookings without materializing into the demo month.
+# All start next month so they populate the recurring view as upcoming
+# bookings without materializing into the demo month.
 RECURRING_RULES = [
     {
         "name": "Salary",
@@ -120,7 +149,7 @@ RECURRING_RULES = [
         "frequency": "monthly",
         "interval": 1,
         "day_of_month": 1,
-        "start_date": "2026-07-01",
+        "start_date": _month_start(1).isoformat(),
     },
     {
         "name": "Rent",
@@ -131,7 +160,7 @@ RECURRING_RULES = [
         "frequency": "monthly",
         "interval": 1,
         "day_of_month": 1,
-        "start_date": "2026-07-01",
+        "start_date": _month_start(1).isoformat(),
         "tags": ["fixed"],
     },
     {
@@ -143,7 +172,7 @@ RECURRING_RULES = [
         "frequency": "monthly",
         "interval": 1,
         "day_of_month": 5,
-        "start_date": "2026-07-05",
+        "start_date": _month_start(1).replace(day=5).isoformat(),
         "tags": ["fixed"],
     },
     {
@@ -155,7 +184,7 @@ RECURRING_RULES = [
         "frequency": "monthly",
         "interval": 1,
         "day_of_month": 1,
-        "start_date": "2026-07-01",
+        "start_date": _month_start(1).isoformat(),
         "tags": ["fixed"],
     },
 ]
@@ -193,7 +222,7 @@ class Seeder:
     def import_transactions(self) -> dict:
         r = self._c.post(
             "/api/import/csv",
-            files={"file": ("demo.csv", DEMO_CSV.encode("utf-8"), "text/csv")},
+            files={"file": ("demo.csv", demo_csv().encode("utf-8"), "text/csv")},
             headers=self._headers(),
         )
         r.raise_for_status()

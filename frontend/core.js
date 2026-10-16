@@ -140,7 +140,7 @@ try {
 // Which report is currently active (source of truth for panel-charts).
 // Persisted in localStorage so a reload shows the last state.
 const REPORT_STORAGE_KEY = 'pocketlog.report';
-const REPORT_IDS = ['overview', 'course', 'breakdown', 'trend', 'forecast', 'top'];
+const REPORT_IDS = ['overview', 'course', 'breakdown', 'trend', 'detail', 'forecast', 'top'];
 // Report id → i18n key. Resolved through t() at render time so the
 // titles follow the active language.
 const REPORT_TITLE_KEYS = {
@@ -148,6 +148,7 @@ const REPORT_TITLE_KEYS = {
   course: 'reports.course',
   breakdown: 'reports.breakdown',
   trend: 'reports.trend',
+  detail: 'reports.detail',
   forecast: 'reports.forecast',
   top: 'reports.top',
 };
@@ -172,7 +173,7 @@ appState.reports.current = (() => {
   return REPORT_IDS.includes(v) ? v : 'overview';
 })();
 // Chart.js instances per report, kept separate so destroy() never hits a foreign instance.
-const chartInsts = { course: null, breakdown: null, trend: null };
+const chartInsts = { course: null, breakdown: null, trend: null, detail: null };
 
 // ── TREND-STATE ───────────────────────────────────────────────────────────────
 const TREND_STORAGE_KEY = 'pocketlog.trend';
@@ -203,6 +204,24 @@ const TREND_RANGE_KEY = 'pocketlog.trend.range';
         appState.trend.yearTo = r.yearTo;
       }
     }
+  } catch (e) {}
+})();
+// "Detailanalyse" state (appState.reports.detail, state.js): kind, selection
+// and list sort survive a reload; the picker's open state and the drill-down
+// origin do not.
+const DETAIL_STORAGE_KEY = 'pocketlog.detail';
+(function _restoreDetailState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(DETAIL_STORAGE_KEY) || 'null');
+    if (!s) return;
+    const d = appState.reports.detail;
+    if (s.kind === 'category' || s.kind === 'tag') d.kind = s.kind;
+    if (Array.isArray(s.selection)) {
+      d.selection = s.selection
+        .filter((e) => typeof e === 'string' && (e.startsWith('cat:') || e.startsWith('tag:')))
+        .slice(0, 1);
+    }
+    if (s.sort === 'date' || s.sort === 'amount') d.sort = s.sort;
   } catch (e) {}
 })();
 // Per-year transaction cache. Cleared on every write.
@@ -243,19 +262,186 @@ window._csrfToken = '';
 // page load would hit a cached me response (force-change view without
 // a session), or the outbox would send a stale CSRF token along
 // (403 on replay → silent data loss).
+// Returns a promise that settles once the cached API responses are gone, so a
+// caller that reloads next can await it (the instant start reads that cache).
 function _resetAuthClientState() {
-  try {
-    if (navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
-    }
-  } catch (_) {}
-  // Clear the in-page outbox token too (the SW's is cleared via the message
-  // above). The drain guard then defers any queued writes until a fresh login
+  _clearSessionHint();
+  // Clear the in-page outbox token too (the SW's is cleared with its cache,
+  // below). The drain guard then defers any queued writes until a fresh login
   // re-seeds the token, rather than replaying them with a stale one.
   try {
     window.PocketLogOutbox?.setCsrfToken?.('');
   } catch (_) {}
   window._csrfToken = '';
+  appState.boot.sessionConfirmed = false;
+  return _clearSwApiCache().then(_purgeApiCaches);
+}
+
+// Ask the controlling worker to drop its API cache and CSRF token, and wait
+// for its answer (1 s at most): from then on the worker discards responses
+// still in flight instead of writing them back (sw.js apiCacheEpoch), so the
+// page's own purge that follows leaves nothing behind.
+function _clearSwApiCache() {
+  const sw = navigator.serviceWorker?.controller;
+  if (!sw) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 1000);
+    try {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      sw.postMessage({ type: 'CLEAR_API_CACHE' }, [channel.port2]);
+    } catch (_) {
+      clearTimeout(timer);
+      resolve();
+    }
+  });
+}
+
+// The page deletes the API caches itself as well: the SW message above only
+// reaches a controlling worker (none after a hard reload or a failed
+// registration), and the worker deletes asynchronously while the page may
+// already be reloading.
+function _purgeApiCaches() {
+  try {
+    if (!('caches' in window)) return Promise.resolve();
+    return caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k.startsWith('pocketlog-api-')).map((k) => caches.delete(k)),
+        ),
+      )
+      .catch(() => {});
+  } catch (_) {
+    return Promise.resolve();
+  }
+}
+
+// ── INSTANT START ─────────────────────────────────────────────────────────────
+// A boot used to show nothing until /auth/me and the data loads came back.
+// When the app is reopened after a long pause, iOS hands it a dead network
+// connection that takes seconds to recover — a white screen for that long.
+// Now a returning user sees the last synced state at once (read from the
+// service worker's API cache, which already backs offline use) while the
+// session check and fresh loads run behind it (app.js _bootFromCache).
+//
+// The hint says "this browser had a signed-in user" and carries only what
+// the chrome shows (user id, username, admin flag) plus when the server last
+// confirmed the session; it never authorizes anything — every request still
+// needs the session cookie. It goes whenever the session does: logout, any
+// 401, a failed session check.
+//
+// Security bounds (financial data): the cached state is only drawn while the
+// browser still holds the session cookie — the readable CSRF cookie is set,
+// refreshed and deleted together with it (backend deps.py), so an expired or
+// signed-out session never shows data. Writes stay blocked until the server
+// has confirmed the session (api(), authFetch(), appState.boot.sessionConfirmed),
+// so nothing can be queued for replay under someone else's login, and every
+// confirmed account first claims the local data (_claimLocalData) — another
+// account's cache and outbox are discarded before anything is shown. A session
+// revoked elsewhere (other device, admin) is noticed as soon as this device
+// reaches the server; while offline, the cookie lifetime (24 h, 30 days with
+// "stay signed in") bounds how long the last state can be shown.
+const SESSION_HINT_KEY = 'pocketlog.sessionHint';
+// Upper bound on top of the cookie: never older than the longest absolute
+// session lifetime (backend SESSION_REMEMBER_ABSOLUTE_DAYS default).
+const SESSION_HINT_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
+function _readSessionHint() {
+  try {
+    const h = JSON.parse(localStorage.getItem(SESSION_HINT_KEY) || 'null');
+    if (!h || typeof h.username !== 'string' || typeof h.id !== 'number') return null;
+    if (!(Date.now() - Number(h.ts) < SESSION_HINT_MAX_AGE_MS)) return null;
+    return h;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _writeSessionHint(me) {
+  try {
+    localStorage.setItem(
+      SESSION_HINT_KEY,
+      JSON.stringify({ id: me.id, username: me.username, is_admin: !!me.is_admin, ts: Date.now() }),
+    );
+  } catch (_) {}
+}
+
+function _clearSessionHint() {
+  try {
+    localStorage.removeItem(SESSION_HINT_KEY);
+  } catch (_) {}
+}
+
+// Which account this browser's local data — the API cache and the offline
+// outbox — belongs to. Unlike the hint it survives a session that merely
+// expired, so the same user signing back in keeps their queued offline
+// writes; any other account starts from nothing (_claimLocalData).
+const DATA_OWNER_KEY = 'pocketlog.dataOwner';
+
+function _readDataOwner() {
+  try {
+    const id = Number(localStorage.getItem(DATA_OWNER_KEY));
+    return Number.isInteger(id) && id > 0 ? id : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _writeDataOwner(id) {
+  try {
+    if (id == null) localStorage.removeItem(DATA_OWNER_KEY);
+    else localStorage.setItem(DATA_OWNER_KEY, String(id));
+  } catch (_) {}
+}
+
+// Called with every account the server confirms, before anything of it is
+// loaded or shown. Local data of another account is thrown away: its cached
+// responses, the hint, and its queued and dead-lettered offline writes (which
+// would otherwise replay under this account). With no known owner (first use,
+// or data from before owners were recorded) the cache goes and the outbox
+// stays. Returns whether anything was discarded.
+async function _claimLocalData(userId) {
+  const owner = _readDataOwner();
+  if (owner === userId) return false;
+  _clearSessionHint();
+  await _clearSwApiCache();
+  await _purgeApiCaches();
+  if (owner !== null && window.PocketLogOutbox) {
+    try {
+      await window.PocketLogOutbox.clear();
+      await window.PocketLogOutbox.failedClear?.();
+    } catch (_) {}
+  }
+  // The worker's CSRF token went with its cache; this account's is current.
+  if (window._csrfToken) _propagateCsrfToken(window._csrfToken);
+  _writeDataOwner(userId);
+  return true;
+}
+
+// The service worker's last copy of a GET, read straight from Cache Storage
+// without touching the network; null when there is none. Same URL key the SW
+// stored it under (API + path, exactly as api() requests it).
+async function cachedApi(path) {
+  try {
+    if (!('caches' in window)) return null;
+    const res = await caches.match(API + path, { ignoreVary: true });
+    if (!res || !res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
+// The CSRF cookie is readable by design (double submit) and lives exactly as
+// long as the HttpOnly session cookie, so its presence says "this browser
+// still holds a session" — the gate for drawing cached data.
+function _csrfFromCookie() {
+  const m = document.cookie.match(/(?:^|;\s*)pocketlog_csrf=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
 }
 
 // ── BOOT/RELOAD DIAGNOSTICS ───────────────────────────────────────────────────
@@ -371,7 +557,21 @@ function _isOfflineWriteError(e) {
   return !!e && e.status == null;
 }
 
+// The write gate of api() and authFetch(): throws (status 0, so it is never
+// queued) for a write before /auth/me has confirmed this page's session.
+function _refuseUnconfirmedWrite(method, path) {
+  if (method === 'GET' || appState.boot.sessionConfirmed) return;
+  toast(tr('common.notConnectedYet'), 'error');
+  const err = new Error(`API ${method} ${path} → session not confirmed`);
+  err.status = 0;
+  throw err;
+}
+
 async function api(method, path, body) {
+  // Instant start: until the server has confirmed the session, writes are
+  // refused rather than sent or queued — a queued write would replay under
+  // whoever signs in next.
+  _refuseUnconfirmedWrite(method, path);
   const headers = { 'Content-Type': 'application/json' };
   if (method !== 'GET' && window._csrfToken) {
     headers['X-CSRF-Token'] = window._csrfToken;
@@ -396,7 +596,7 @@ async function api(method, path, body) {
   }
   if (res.status === 401) {
     if (!window._suppressAuthReload) {
-      _resetAuthClientState();
+      await _resetAuthClientState();
       recordReloadEvent('session_expired');
       location.reload();
     }
@@ -419,6 +619,9 @@ async function api(method, path, body) {
     throw err;
   }
   if (method !== 'GET') invalidateReportCache();
+  // A server answer while an instant start still waits on the session check:
+  // the network works again, so confirm now instead of at the next retry.
+  else if (appState.boot.authPending) window.dispatchEvent(new Event('pocketlog:reachable'));
   if (res.status === 204) return null;
   return res.json();
 }
@@ -428,16 +631,25 @@ async function api(method, path, body) {
 // BUT: if the caller leaves ``opts.reloadOn401 !== false`` and a 401
 // arrives, we still do the hard reload — otherwise the user is stuck
 // in a view their session state no longer matches.
+// Auth calls that work without a confirmed session: signing in creates one,
+// signing out must work from the instant-start state too.
+const UNCONFIRMED_AUTH_PATHS = new Set(['/auth/login', '/auth/setup', '/auth/logout']);
+
 async function authFetch(method, path, body, opts = {}) {
+  if (!UNCONFIRMED_AUTH_PATHS.has(path)) _refuseUnconfirmedWrite(method, path);
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  if (opts.csrf !== false && method !== 'GET' && window._csrfToken) {
-    headers['X-CSRF-Token'] = window._csrfToken;
+  // Before /auth/me answered (instant start) the token comes from its cookie
+  // — the double-submit value itself; without it a sign-out would be
+  // rejected (403) and the session would live on.
+  const csrf = window._csrfToken || _csrfFromCookie();
+  if (opts.csrf !== false && method !== 'GET' && csrf) {
+    headers['X-CSRF-Token'] = csrf;
   }
   const init = { method, headers, credentials: 'same-origin' };
   if (body !== undefined) init.body = JSON.stringify(body);
   const res = await fetch(API + path, init);
   if (res.status === 401 && opts.reloadOn401 !== false) {
-    _resetAuthClientState();
+    await _resetAuthClientState();
     recordReloadEvent('session_expired');
     location.reload();
   }
@@ -524,8 +736,21 @@ function _passwordErrorMessage(data) {
 // next render without rebuilding cached formatters.
 const _locale = () => (window.I18N ? I18N.getLocale() : 'de-DE');
 const _currencyCode = () => (window.I18N ? I18N.getCurrency() : 'EUR');
+// Intl emits an ASCII hyphen for negatives; display text uses the
+// typographic minus (U+2212) everywhere, matching fmtSignedCurrency.
 const fmtCurrency = (n) =>
-  new Intl.NumberFormat(_locale(), { style: 'currency', currency: _currencyCode() }).format(n);
+  new Intl.NumberFormat(_locale(), { style: 'currency', currency: _currencyCode() })
+    .format(n)
+    .replace('-', '\u2212');
+// Display date in one of the app's two styles ('day' for list day headers,
+// 'medium' everywhere else — see _fmtDate in utils.js). Accepts a date-only
+// ISO string (read as a local date) or a Date.
+const fmtDate = (value, style = 'medium') =>
+  _fmtDate(typeof value === 'string' ? _isoToLocalDate(value) : value, style, _locale());
+// Row-end amount with its direction sign ('in' / 'out'; anything else stays
+// unsigned) — colour alone must never carry the direction. Summary cards and
+// sections whose label already names the direction keep fmtCurrency.
+const fmtSignedCurrency = (n, direction) => _withSign(fmtCurrency(Math.abs(n)), direction);
 // Month names are derived from the active locale via Intl rather than
 // hardcoded, so they follow the language setting. Rebuilt on startup
 // and on every i18n:changed (see registerI18nListener).
@@ -644,7 +869,7 @@ function confirmAction({
 //   activePanel; bookingModalOpenedAt (timestamp of the last booking-modal
 //   open, guards closeModalOutside against the ghost click that trails the tap
 //   which opened it); searchQuery; categoryFilterId (set when the user taps the
-//   "more" icon on a category row — mutually exclusive with text search, which
+//   bookings button on a category-view row — mutually exclusive with text search, which
 //   clears it in onSearch); tagFilterName (drill-down from the tag analysis,
 //   mutually exclusive with text search and category filter); infoPanelSeq;
 //   goalRelayoutTimer.
@@ -657,36 +882,94 @@ function _resetSearch() {
   appState.reports.searchExitTarget = null;
   document.body.classList.remove('searching');
   document.getElementById('searchInput').value = '';
-  const fab = document.querySelector('.fab');
-  if (fab) {
-    fab.innerHTML = ICON_SVG.plus;
-    fab.classList.remove('search-exit');
-    fab.setAttribute('aria-label', tr('fab.newTransaction'));
-    fab.onclick = () => openModal();
-  }
+  syncFab();
 }
 
-// Panel registry: the single source of truth for every non-ledger panel.
-// `bodyClass` (optional) is the class that hides the ledger chrome (month
-// nav, summary tiles, search bar, FAB) while the panel is active — styles.css
-// keys off it. `render` (optional) is the view renderer, run on switch. The
+// Panel registry: the single source of truth for every panel's chrome.
+// `titleKey` is the i18n key of the view's large title (#viewTitle; reports
+// render their own). `bodyClass` (optional) is the class that hides the
+// ledger chrome (month nav, summary tiles, search field) while the panel is
+// active — styles.css keys off it. `fab` (optional) names the create action
+// the FAB runs on that view and its aria-label key; without it the FAB books
+// a new transaction. `monthScoped` views show the header month switcher and
+// re-render when the viewed month changes (renderAll). `render` (optional) is
+// the view renderer, run on switch. The
 // render bodies are arrow-wrapped so the later-loaded feature modules supply
 // the functions at call time (cross-file calls are fine at runtime). Add a new
 // panel here and its body class + renderer wire up automatically — no more
 // scattered if-chains for showPanel to drift out of sync with (the missing
 // on-budgets CSS once shipped because the toggle lived apart from its CSS).
 const PANELS = {
+  transactions: { titleKey: 'nav.transactions', monthScoped: true },
   charts: { bodyClass: 'in-report', render: () => renderReport() },
-  categories: { render: () => renderCategoryView() },
-  goals: { bodyClass: 'on-goals', render: () => renderGoalsView() },
-  budgets: { bodyClass: 'on-budgets', render: () => renderBudgetsView() },
-  recurring: { bodyClass: 'on-recurring', render: () => renderRecurringView() },
+  categories: {
+    titleKey: 'nav.categories',
+    monthScoped: true,
+    render: () => renderCategoryView(),
+  },
+  goals: {
+    titleKey: 'nav.goals',
+    bodyClass: 'on-goals',
+    fab: { action: 'openGoalModal', labelKey: 'goals.create' },
+    render: () => renderGoalsView(),
+  },
+  budgets: {
+    titleKey: 'nav.budgets',
+    monthScoped: true,
+    bodyClass: 'on-budgets',
+    fab: { action: 'openBudgetModal', labelKey: 'budget.create' },
+    render: () => renderBudgetsView(),
+  },
+  recurring: {
+    titleKey: 'nav.recurring',
+    bodyClass: 'on-recurring',
+    fab: { action: 'openRecurringModal', labelKey: 'recurring.create' },
+    render: () => renderRecurringView(),
+  },
 };
+
+// Set an element's text from an i18n key and keep the key on the node, so a
+// later language switch (i18n.js re-applies data-i18n) re-translates it.
+function _setI18nText(el, key) {
+  el.setAttribute('data-i18n', key);
+  el.textContent = tr(key);
+}
+
+// The FAB is the active view's single create action. While a search or
+// drill-down is open it turns into the "exit search" button instead. Icon,
+// label and target all derive from state here (one data-action, no onclick
+// swapped in per mode), so they can't drift apart.
+function syncFab() {
+  const fab = document.querySelector('.fab');
+  if (!fab) return;
+  const searching = document.body.classList.contains('searching');
+  const labelKey = searching
+    ? 'fab.exitSearch'
+    : PANELS[appState.nav.activePanel]?.fab?.labelKey || 'fab.newTransaction';
+  fab.innerHTML = searching ? ICON_SVG.close : ICON_SVG.plus;
+  fab.classList.toggle('search-exit', searching);
+  fab.setAttribute('data-i18n-attr', 'aria-label:' + labelKey);
+  fab.setAttribute('aria-label', tr(labelKey));
+}
+
+function onFabTap() {
+  if (document.body.classList.contains('searching')) {
+    clearSearch();
+    return;
+  }
+  const action = PANELS[appState.nav.activePanel]?.fab?.action;
+  if (action) window[action]();
+  else openModal();
+}
 
 // `opts.keepDrawer` is for the one caller that is not a navigation: boot's own
 // panel restore. Everything else lands here because the user picked a
 // destination, and the drawer they picked it from has to get out of the way.
 function showPanel(id, opts) {
+  // Picking a destination closes an open settings detail (split view) — but
+  // not the boot restore (keepDrawer), which must not undo a settings pane the
+  // user opened while the app was still loading.
+  if (!opts || !opts.keepDrawer) _closeSettingsDetail();
   if (
     appState.nav.searchQuery ||
     appState.nav.categoryFilterId != null ||
@@ -705,6 +988,8 @@ function showPanel(id, opts) {
     btn.classList.toggle('active', btn.dataset.panel === id);
   });
   const cfg = PANELS[id];
+  if (cfg && cfg.titleKey) _setI18nText(document.getElementById('viewTitle'), cfg.titleKey);
+  syncFab();
   if (cfg && cfg.render) cfg.render();
   if (!opts || !opts.keepDrawer) closeDrawer();
 }
@@ -715,6 +1000,9 @@ function showPanel(id, opts) {
 function openReport(id) {
   if (!REPORT_IDS.includes(id)) id = 'overview';
   if (id === 'trend') appState.trend.pickerOpen = false;
+  // From the menu the detail report has no drill-down origin to go back to.
+  appState.reports.detail.returnTo = null;
+  appState.reports.detail.pickerOpen = false;
   appState.reports.current = id;
   try {
     localStorage.setItem(REPORT_STORAGE_KEY, id);
@@ -723,24 +1011,90 @@ function openReport(id) {
 }
 
 const _drawerStack = [];
-const _drawerSubs = [
-  'dpReports',
-  'dpSettings',
+// The settings sub-panels (one level below dpSettings).
+const _SETTINGS_DETAILS = [
+  'dpDisplay',
   'dpCats',
   'dpTags',
   'dpImport',
   'dpApiKeys',
-  'dpDisplay',
+  'dpAccount',
+  'dpAdminUsers',
   'dpAdmin',
   'dpInfo',
 ];
+const _drawerSubs = ['dpReports', 'dpSettings', ..._SETTINGS_DETAILS];
+
+// ≥768 px a settings sub-panel opens in the content pane (iPad Settings
+// split view) instead of squeezing into the 260-px sidebar, which keeps
+// showing the settings list. The panel node itself moves into
+// #settingsHost — ids, delegated handlers and loaders are unchanged — and
+// goes back to its slot in the drawer when the detail closes. Phones never
+// take this path.
+const _settingsDetail = { id: null, home: null, next: null };
+
+// The settings list row that opens `panelId` (its data-args is ["dpX"]).
+function _settingsItem(panelId) {
+  return [...document.querySelectorAll('#dpSettings .drawer-nav-item')].find((btn) => {
+    try {
+      return JSON.parse(btn.dataset.args || 'null')?.[0] === panelId;
+    } catch (e) {
+      return false;
+    }
+  });
+}
+
+function _markSettingsItem(panelId) {
+  const current = panelId ? _settingsItem(panelId) : null;
+  document.querySelectorAll('#dpSettings .drawer-nav-item').forEach((btn) => {
+    const on = btn === current;
+    btn.classList.toggle('active', on);
+    if (on) btn.setAttribute('aria-current', 'true');
+    else btn.removeAttribute('aria-current');
+  });
+}
+
+function _openSettingsDetail(panelId) {
+  _closeSettingsDetail();
+  const el = document.getElementById(panelId);
+  Object.assign(_settingsDetail, { id: panelId, home: el.parentNode, next: el.nextSibling });
+  document.getElementById('settingsHost').appendChild(el);
+  el.dataset.state = 'active';
+  document.body.classList.add('settings-detail');
+  _markSettingsItem(panelId);
+  window.scrollTo(0, 0);
+}
+
+// Returns true when a detail was open (and is now closed).
+// opts.focusItem: the user closed the pane from inside it (back button, Esc).
+// Its node moves back into the hidden drawer, which would drop focus to
+// <body>; the settings row that opened it takes the focus instead.
+function _closeSettingsDetail(opts = {}) {
+  if (!_settingsDetail.id) return false;
+  const id = _settingsDetail.id;
+  const el = document.getElementById(id);
+  el.dataset.state = 'right';
+  _settingsDetail.home.insertBefore(el, _settingsDetail.next);
+  Object.assign(_settingsDetail, { id: null, home: null, next: null });
+  document.body.classList.remove('settings-detail');
+  _markSettingsItem(null);
+  if (opts.focusItem) {
+    const item = _settingsItem(id);
+    if (item) item.focus();
+  }
+  return true;
+}
 
 function drawerNav(panelId) {
-  const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
-  document.getElementById(current).dataset.state = 'left';
-  document.getElementById(panelId).dataset.state = 'active';
-  _drawerStack.push(panelId);
-  document.getElementById('drawer').classList.add('sub-active');
+  if (_mqTablet.matches && _SETTINGS_DETAILS.includes(panelId)) {
+    _openSettingsDetail(panelId);
+  } else {
+    const current = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
+    document.getElementById(current).dataset.state = 'left';
+    document.getElementById(panelId).dataset.state = 'active';
+    _drawerStack.push(panelId);
+    document.getElementById('drawer').classList.add('sub-active');
+  }
   if (panelId === 'dpCats') renderCategories();
   if (panelId === 'dpTags') renderTagList();
   if (panelId === 'dpDisplay') syncDisplaySelects();
@@ -751,6 +1105,9 @@ function drawerNav(panelId) {
 }
 
 function drawerBack() {
+  // Split view: the sidebar's back button also closes an open settings detail
+  // (the pane itself has no back button) and then leaves Settings.
+  _closeSettingsDetail();
   if (!_drawerStack.length) return;
   const current = _drawerStack.pop();
   const prev = _drawerStack.length ? _drawerStack[_drawerStack.length - 1] : 'dpMain';
@@ -760,6 +1117,7 @@ function drawerBack() {
 }
 
 function _drawerResetPanels() {
+  _closeSettingsDetail();
   document.getElementById('dpMain').dataset.state = 'active';
   _drawerSubs.forEach((id) => {
     document.getElementById(id).dataset.state = 'right';
@@ -858,7 +1216,24 @@ _mqTablet.addEventListener('change', (e) => {
   // sidebar (reachable) or an off-screen menu (inert), so sync first and
   // leave before the sidebar-mode-only reset below.
   _syncDrawerInert();
-  if (!e.matches) return;
+  if (!e.matches) {
+    // Leaving the split view with a settings detail open: hand the panel
+    // back to the drawer as its active sub-panel, as a phone would show it.
+    const id = _settingsDetail.id;
+    if (id && _closeSettingsDetail()) {
+      document.getElementById('dpSettings').dataset.state = 'left';
+      document.getElementById(id).dataset.state = 'active';
+      _drawerStack.push(id);
+    }
+    return;
+  }
+  // Entering it with a settings sub-panel open in the drawer: move it out.
+  const top = _drawerStack[_drawerStack.length - 1];
+  if (_SETTINGS_DETAILS.includes(top)) {
+    _drawerStack.pop();
+    document.getElementById('dpSettings').dataset.state = 'active';
+    _openSettingsDetail(top);
+  }
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
   releaseFocusTrap('drawer');
@@ -886,7 +1261,7 @@ function handleRowActivate(e, fn) {
 
 // ── DRAWER LIST FILTER ────────────────────────────────────────────────────────
 // The drawer's two management lists — categories and tags — are plain lists of
-// names in a 300px-wide panel. A permanent filter field there would cost a full
+// names in the drawer. A permanent filter field there would cost a full
 // row of that width for a list you can usually take in at a glance, so it
 // appears only once the list stops fitting: above DRAWER_FILTER_MIN entries.
 // Both panels share this so neither grows an affordance the other lacks.

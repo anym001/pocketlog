@@ -20,10 +20,11 @@ function renderTagList() {
   // :focus-visible states styled for #tagList could never fire — the row was
   // pointer-only while its neighbour was not.
   box.innerHTML = shown
-    .map(
-      (t) =>
-        `<div class="cat-pill-edit" role="button" tabindex="0" data-tag="${_escAttr(t)}" aria-label="${_escAttr(tr('tags.editAria', { name: t }))}">${_escText(t)}</div>`,
-    )
+    .map((t) => {
+      const uses = tagCounts.get(t.toLowerCase())?.total || 0;
+      const aria = `${tr('tags.editAria', { name: t })}, ${usageLabel(uses)}`;
+      return `<div class="cat-pill-edit" role="button" tabindex="0" data-tag="${_escAttr(t)}" aria-label="${_escAttr(aria)}"><span class="drawer-nav-label">${_escText(t)}</span>${mgmtRowTrailer(uses)}</div>`;
+    })
     .join('');
   box.querySelectorAll('[data-tag]').forEach((el) => {
     const open = () => openTagModal(el.dataset.tag);
@@ -191,7 +192,7 @@ async function syncNow() {
   const dot = document.getElementById('syncDot');
 
   btn.classList.remove('error');
-  dot.classList.remove('error');
+  dot.classList.remove('error', 'offline');
   dot.classList.add('syncing');
   setSyncAria(tr('sync.syncing'));
 
@@ -220,12 +221,23 @@ async function syncNow() {
     }
   }
 
+  if (!networkErr && appState.boot.authPending) {
+    // The server answers again: confirm the instant start's session now
+    // (app.js _confirmSessionLater); that pass reloads everything.
+    dot.classList.remove('syncing');
+    window.dispatchEvent(new Event('pocketlog:reachable'));
+    await updateSyncBadge();
+    return;
+  }
+
   const remaining = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
   dot.classList.remove('syncing');
 
   if (networkErr) {
+    // Offline is its own state (grey dot, cloud-slash glyph): the writes
+    // are safe in the outbox, nothing failed yet.
     btn.classList.add('error');
-    dot.classList.add('error');
+    dot.classList.add('offline');
     setSyncBadge(remaining);
     const msg = tr('sync.offlineSaving');
     setSyncAria(msg);
@@ -281,7 +293,6 @@ async function updateFailedNotice() {
 // and formats (locale currency/date), so it stays out of the unit tests.
 function _recoverEntryLines(entry) {
   const s = _failedEntrySummary(entry);
-  const locale = I18N.getLocale();
   const entityText =
     s.entity === 'bulk'
       ? tr('sync.entityBulk', { n: s.label || '?' })
@@ -291,7 +302,7 @@ function _recoverEntryLines(entry) {
   if (s.amount != null && !Number.isNaN(Number(s.amount))) {
     parts.push(fmtCurrency(Number(s.amount)));
   }
-  if (s.date) parts.push(_parseServerDate(s.date).toLocaleDateString(locale));
+  if (s.date) parts.push(fmtDate(s.date));
   const reason =
     s.code === 'csrf_mismatch'
       ? tr('sync.reasonSession')
@@ -594,9 +605,20 @@ async function reconcileSettingsFromServer() {
 async function updateSyncBadge() {
   const btn = document.getElementById('syncBtn');
   const dot = document.getElementById('syncDot');
+  if (appState.boot.authPending) {
+    // Instant start without a confirmed session: the screen shows the last
+    // synced state and writes are blocked — the offline look says so.
+    const pending = window.PocketLogOutbox ? await window.PocketLogOutbox.count() : 0;
+    btn.classList.add('error');
+    dot.classList.remove('error');
+    dot.classList.add('offline');
+    setSyncBadge(pending);
+    setSyncAria(tr('sync.unconfirmed'));
+    return;
+  }
   if (!window.PocketLogOutbox) {
     btn.classList.remove('error');
-    dot.classList.remove('error');
+    dot.classList.remove('error', 'offline');
     setSyncBadge(0);
     setSyncAria(tr('sync.synced'));
     return;
@@ -607,7 +629,7 @@ async function updateSyncBadge() {
     setSyncAria(tr('sync.saving'));
   } else {
     btn.classList.remove('error');
-    dot.classList.remove('error');
+    dot.classList.remove('error', 'offline');
     setSyncBadge(0);
     setSyncAria(tr('sync.synced'));
   }
@@ -638,7 +660,15 @@ document.addEventListener('keydown', (e) => {
     if (s) s.focus();
     return;
   }
-  if (!modalOpen && !drawerOpenMobile && !inField) {
+  // Only where the month switcher is on screen — elsewhere ←/→ silently moved
+  // the ledger month behind a view that doesn't show it.
+  // An open settings detail (split view) covers the view and a search hides
+  // the switcher, so neither counts as showing it.
+  const monthView =
+    !!PANELS[appState.nav.activePanel]?.monthScoped &&
+    !document.body.classList.contains('settings-detail') &&
+    !document.body.classList.contains('searching');
+  if (!modalOpen && !drawerOpenMobile && !inField && monthView) {
     if (e.key === 'ArrowLeft') {
       changeMonth(-1);
       return;
@@ -674,13 +704,29 @@ document.addEventListener('keydown', (e) => {
     closeCatModal();
     return;
   }
+  // The three editors the FAB opens on their views (goals / budgets /
+  // recurring). The category modal above can stack on top of them.
+  for (const [id, close] of [
+    ['goalModalOverlay', closeGoalModal],
+    ['budgetModalOverlay', closeBudgetModal],
+    ['recurringModalOverlay', closeRecurringModal],
+  ]) {
+    if (document.getElementById(id).classList.contains('open')) {
+      close();
+      return;
+    }
+  }
   if (document.getElementById('modalOverlay').classList.contains('open')) {
     closeModal();
     return;
   }
   if (document.getElementById('drawer').classList.contains('open')) {
     closeDrawer();
+    return;
   }
+  // Split view (≥768 px): Esc closes the settings detail in the content
+  // pane — never from under an open modal the branches above don't own.
+  if (!document.querySelector('.modal-overlay.open')) _closeSettingsDetail({ focusItem: true });
 });
 
 if ('serviceWorker' in navigator) {
@@ -723,8 +769,8 @@ async function downloadExampleCSV() {
   const bundle = window.I18N ? I18N.getBundle() : 'de';
   const filename = tr('importExport.exampleFilename');
   try {
-    let res = await fetch('/example-import-' + bundle + '.csv');
-    if (!res.ok) res = await fetch('/example-import-de.csv');
+    let res = await fetch(assetUrl('/example-import-' + bundle + '.csv'));
+    if (!res.ok) res = await fetch(assetUrl('/example-import-de.csv'));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const blob = await res.blob();
     const file = new File([blob], filename, { type: 'text/csv' });
@@ -890,19 +936,62 @@ async function loadApiKeys() {
   } catch (_) {}
 }
 
+// One settings row for a record (API key, session, user): name, caption
+// lines below it and its actions as text buttons — trailing for a single
+// action, on their own line under the caption for several (`stacked`).
+// Rows live in a `.drawer-nav.record-list` card like every settings list.
+// Actions go through the delegation engine (data-action / data-args).
+function _recordRow({ name, meta = [], actions = [], stacked = false }) {
+  const row = document.createElement('div');
+  row.className = 'record-row' + (stacked ? ' is-stacked' : '');
+  const main = document.createElement('div');
+  main.className = 'record-main';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'record-name';
+  nameEl.textContent = name;
+  main.appendChild(nameEl);
+  meta.filter(Boolean).forEach((line) => {
+    const m = document.createElement('div');
+    m.className = 'record-meta';
+    m.textContent = line;
+    main.appendChild(m);
+  });
+  row.appendChild(main);
+  if (actions.length) {
+    const box = document.createElement('div');
+    box.className = 'record-actions';
+    actions.forEach((a) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'record-action' + (a.destructive ? ' is-destructive' : '');
+      btn.textContent = a.label;
+      if (a.ariaLabel) btn.setAttribute('aria-label', a.ariaLabel);
+      btn.dataset.action = a.action;
+      btn.dataset.args = JSON.stringify(a.args || []);
+      box.appendChild(btn);
+    });
+    row.appendChild(box);
+  }
+  return row;
+}
+
+// Empty / loading / error line inside a record list card.
+function _recordEmpty(list, text) {
+  list.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'record-empty';
+  p.textContent = text;
+  list.appendChild(p);
+}
+
 function renderApiKeys() {
   const list = document.getElementById('apiKeyList');
   if (!list) return;
-  list.innerHTML = '';
-
   if (!appState.apiKeys.list.length) {
-    const empty = document.createElement('p');
-    empty.className = 'api-key-card-empty';
-    empty.setAttribute('data-i18n', 'apiKeys.empty');
-    empty.textContent = tr('apiKeys.empty');
-    list.appendChild(empty);
+    _recordEmpty(list, tr('apiKeys.empty'));
     return;
   }
+  list.innerHTML = '';
 
   // admin is no longer an offered scope; any legacy key still carrying it
   // falls back to its raw scope name ("admin") via the `|| s` below.
@@ -913,54 +1002,27 @@ function renderApiKeys() {
   };
 
   appState.apiKeys.list.forEach((key) => {
-    const card = document.createElement('div');
-    card.className = 'api-key-card';
-
-    const name = document.createElement('div');
-    name.className = 'api-key-card-name';
-    name.textContent = key.name;
-    card.appendChild(name);
-
-    const scopes = document.createElement('div');
-    scopes.className = 'api-key-card-scopes';
-    (key.scopes || []).forEach((s) => {
-      const chip = document.createElement('span');
-      chip.className = 'api-key-scope-chip' + (s === 'admin' ? ' admin' : '');
-      chip.textContent = scopeLabels[s] || s;
-      scopes.appendChild(chip);
-    });
-    card.appendChild(scopes);
-
-    const footer = document.createElement('div');
-    footer.className = 'api-key-card-footer';
-
-    const meta = document.createElement('div');
-    meta.className = 'api-key-card-meta';
-    const locale = I18N.getLocale();
-    const created = document.createElement('span');
-    created.textContent =
-      tr('apiKeys.createdAt') + ': ' + new Date(key.created_at).toLocaleDateString(locale);
-    meta.appendChild(created);
-    const used = document.createElement('span');
-    used.textContent =
+    const scopes = (key.scopes || []).map((sc) => scopeLabels[sc] || sc).join(', ');
+    const created = tr('apiKeys.createdAt') + ': ' + fmtDate(_parseServerDate(key.created_at));
+    const used =
       tr('apiKeys.lastUsed') +
       ': ' +
-      (key.last_used_at
-        ? new Date(key.last_used_at).toLocaleDateString(locale)
-        : tr('apiKeys.never'));
-    meta.appendChild(used);
-    footer.appendChild(meta);
-
-    const revokeBtn = document.createElement('button');
-    revokeBtn.className = 'api-key-revoke-btn';
-    revokeBtn.setAttribute('data-i18n', 'apiKeys.revoke');
-    revokeBtn.textContent = tr('apiKeys.revoke');
-    revokeBtn.onclick = () => revokeApiKey(key.id, key.name);
-    footer.appendChild(revokeBtn);
-
-    card.appendChild(footer);
-
-    list.appendChild(card);
+      (key.last_used_at ? fmtDate(_parseServerDate(key.last_used_at)) : tr('apiKeys.never'));
+    list.appendChild(
+      _recordRow({
+        name: key.name,
+        meta: [scopes, `${created} · ${used}`],
+        actions: [
+          {
+            label: tr('apiKeys.revoke'),
+            ariaLabel: `${tr('apiKeys.revoke')}: ${key.name}`,
+            destructive: true,
+            action: 'revokeApiKey',
+            args: [key.id, key.name],
+          },
+        ],
+      }),
+    );
   });
 }
 
@@ -1005,53 +1067,32 @@ function renderSessions() {
   );
 
   sessions.forEach((s) => {
-    const card = document.createElement('div');
-    card.className = 'api-key-card';
-
-    const name = document.createElement('div');
-    name.className = 'api-key-card-name';
-    name.textContent = _deviceLabelFromUA(s.user_agent) || tr('sessions.unknownDevice');
-    card.appendChild(name);
-
-    if (s.current) {
-      const chips = document.createElement('div');
-      chips.className = 'api-key-card-scopes';
-      const chip = document.createElement('span');
-      chip.className = 'api-key-scope-chip';
-      chip.textContent = tr('sessions.current');
-      chips.appendChild(chip);
-      card.appendChild(chips);
-    }
-
-    const footer = document.createElement('div');
-    footer.className = 'api-key-card-footer';
-
-    const meta = document.createElement('div');
-    meta.className = 'api-key-card-meta';
-    const lastActive = document.createElement('span');
-    lastActive.textContent = tr('sessions.lastActive', {
+    const device = _deviceLabelFromUA(s.user_agent) || tr('sessions.unknownDevice');
+    const lastActive = tr('sessions.lastActive', {
       when: _fmtRelativeTime(_parseServerDate(s.last_seen_at)),
     });
-    meta.appendChild(lastActive);
-    const since = document.createElement('span');
-    since.textContent = tr('sessions.signedInSince', {
-      date: _parseServerDate(s.created_at).toLocaleDateString(I18N.getLocale()),
+    const since = tr('sessions.signedInSince', {
+      date: fmtDate(_parseServerDate(s.created_at)),
     });
-    meta.appendChild(since);
-    footer.appendChild(meta);
-
-    if (!s.current) {
-      // The current session ends via the regular logout button above —
-      // hiding its revoke action avoids an accidental self-logout here.
-      const revokeBtn = document.createElement('button');
-      revokeBtn.className = 'api-key-revoke-btn';
-      revokeBtn.textContent = tr('sessions.revoke');
-      revokeBtn.onclick = () => revokeSessionById(s.id);
-      footer.appendChild(revokeBtn);
-    }
-
-    card.appendChild(footer);
-    list.appendChild(card);
+    list.appendChild(
+      _recordRow({
+        name: device,
+        meta: [s.current ? tr('sessions.current') : '', lastActive, since],
+        // The current session ends via the regular logout row above —
+        // no revoke action here avoids an accidental self-logout.
+        actions: s.current
+          ? []
+          : [
+              {
+                label: tr('sessions.revoke'),
+                ariaLabel: `${tr('sessions.revoke')}: ${device}`,
+                destructive: true,
+                action: 'revokeSessionById',
+                args: [s.id],
+              },
+            ],
+      }),
+    );
   });
 }
 
@@ -1160,11 +1201,19 @@ async function copyApiKey() {
 }
 
 async function revokeApiKey(id, name) {
-  if (!confirm(tr('apiKeys.revokeConfirm', { name }))) return;
+  // The app's own confirm sheet, like every other destructive row (the
+  // browser's confirm() looked foreign and ignored the theme).
+  const ok = await confirmAction({
+    title: tr('apiKeys.revokeConfirm', { name }),
+    confirmLabel: tr('apiKeys.revoke'),
+  });
+  if (!ok) return;
   try {
     await api('DELETE', '/api-keys/' + id);
     await loadApiKeys();
-  } catch (_) {}
+  } catch (_) {
+    toast(tr('common.actionFailed'), 'error');
+  }
 }
 
 // ── ADMIN / DATA RESET ────────────────────────────────────────────────────────
@@ -1466,19 +1515,29 @@ async function logoutWithConfirm() {
     });
     if (!ok) return;
   }
+  let res = null;
   try {
-    await authFetch('POST', '/auth/logout', undefined, { reloadOn401: false });
+    res = await authFetch('POST', '/auth/logout', undefined, { reloadOn401: false });
   } catch (_) {}
+  // Only a server that ended the session (204) — or had none left (401) —
+  // signs out. Offline or rejected, the session would live on and the next
+  // start would be signed in again: say so instead of pretending.
+  if (!res || (res.status !== 204 && res.status !== 401)) {
+    toast(tr('account.logoutFailed'), 'error');
+    return;
+  }
   try {
     if (window.PocketLogOutbox) {
       await window.PocketLogOutbox.clear();
+      await window.PocketLogOutbox.failedClear();
     }
   } catch (_) {}
-  try {
-    if (navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_API_CACHE' });
-    }
-  } catch (_) {}
+  _clearSessionHint();
+  _writeDataOwner(null);
+  // Awaited: the reload must not boot (or another user sign in) while the
+  // signed-out account's responses are still cached.
+  await _clearSwApiCache();
+  await _purgeApiCaches();
   location.reload();
 }
 
@@ -1552,11 +1611,11 @@ async function submitChangePassword() {
 async function loadAdminUsers() {
   const list = document.getElementById('adminUserList');
   if (!list) return;
-  list.textContent = tr('common.loading');
+  _recordEmpty(list, tr('common.loading'));
   try {
     appState.admin.users = await api('GET', '/admin/users');
   } catch (e) {
-    list.textContent = tr('users.loadFailed');
+    _recordEmpty(list, tr('users.loadFailed'));
     return;
   }
   // Re-fetch the current identity in case the body flag is stale.
@@ -1571,7 +1630,7 @@ function renderAdminUserList() {
   const list = document.getElementById('adminUserList');
   if (!list) return;
   if (!appState.admin.users.length) {
-    list.textContent = tr('users.none');
+    _recordEmpty(list, tr('users.none'));
     return;
   }
   // appState.admin.me MUST be set, otherwise the UI cannot enforce its
@@ -1579,50 +1638,45 @@ function renderAdminUserList() {
   // own row even though the backend 400/403s them). Better to show a
   // render error than a UI lie.
   if (!appState.admin.me || appState.admin.me.id == null) {
-    list.textContent = tr('users.noIdentity');
+    _recordEmpty(list, tr('users.noIdentity'));
     return;
   }
   const meId = appState.admin.me.id;
-  list.innerHTML = appState.admin.users
-    .map((u) => {
-      const isSelf = u.id === meId;
-      const tags = [];
-      if (u.is_admin)
-        tags.push(`<span class="admin-user-tag admin">${tr('users.tagAdmin')}</span>`);
-      if (!u.is_active)
-        tags.push(`<span class="admin-user-tag inactive">${tr('users.tagInactive')}</span>`);
-      if (u.force_change_password)
-        tags.push(`<span class="admin-user-tag">${tr('users.pwPending')}</span>`);
-      const actions = [];
+  list.innerHTML = '';
+  appState.admin.users.forEach((u) => {
+    const isSelf = u.id === meId;
+    const flags = [];
+    if (u.is_admin) flags.push(tr('users.tagAdmin'));
+    if (!u.is_active) flags.push(tr('users.tagInactive'));
+    if (u.force_change_password) flags.push(tr('users.pwPending'));
+    const actions = [{ label: tr('users.resetPw'), action: 'openAdminResetPwModal', args: [u.id] }];
+    // Your own row offers only what you may do to yourself; the backend
+    // refuses self-deactivation and self-deletion anyway (iOS omits an
+    // unavailable action rather than greying it out).
+    if (!u.is_admin && !isSelf) {
       actions.push(
-        `<button type="button" data-action="openAdminResetPwModal" data-args="[${u.id}]">${tr('users.resetPw')}</button>`,
+        u.is_active
+          ? { label: tr('users.deactivate'), action: 'adminToggleActive', args: [u.id, false] }
+          : { label: tr('users.reactivate'), action: 'adminToggleActive', args: [u.id, true] },
       );
-      if (!u.is_admin) {
-        if (u.is_active) {
-          actions.push(
-            `<button type="button" ${isSelf ? 'disabled' : ''} ` +
-              `data-action="adminToggleActive" data-args="[${u.id}, false]">${tr('users.deactivate')}</button>`,
-          );
-        } else {
-          actions.push(
-            `<button type="button" data-action="adminToggleActive" data-args="[${u.id}, true]">${tr('users.reactivate')}</button>`,
-          );
-        }
-      }
-      actions.push(
-        `<button type="button" class="btn-destructive" ${isSelf ? 'disabled' : ''} ` +
-          `data-action="adminDeleteUserConfirm" data-args="[${u.id}]">${tr('common.delete')}</button>`,
-      );
-      return `
-              <div class="admin-user-row">
-                <div class="admin-user-row-head">
-                  <span class="admin-user-name">${_escText(u.username)}${isSelf ? tr('users.selfSuffix') : ''}</span>
-                </div>
-                ${tags.length ? `<div class="admin-user-tags">${tags.join('')}</div>` : ''}
-                <div class="admin-user-actions">${actions.join('')}</div>
-              </div>`;
-    })
-    .join('');
+    }
+    if (!isSelf) {
+      actions.push({
+        label: tr('common.delete'),
+        destructive: true,
+        action: 'adminDeleteUserConfirm',
+        args: [u.id],
+      });
+    }
+    list.appendChild(
+      _recordRow({
+        name: u.username + (isSelf ? tr('users.selfSuffix') : ''),
+        meta: [flags.join(' · ')],
+        actions,
+        stacked: true,
+      }),
+    );
+  });
 }
 
 function openAdminCreateUserModal() {

@@ -7,6 +7,11 @@ You are a UI reviewer for PocketLog. Your reference documents are `DESIGN_CONVEN
 
 ## What to check
 
+**Overall concept & visual verification (always first)**
+- The change fits the whole app: it reuses existing components, tokens and patterns; no one-off styling. A new pattern is documented in `DESIGN_CONVENTIONS.md` in the same change and applied everywhere it belongs.
+- Check the neighbours: the same component in other views must still match (rows, cards, badges, buttons, pickers).
+- Before/after screenshots exist (or take them): phone 390 px, wide layout when affected, light + dark, every touched state — see `DESIGN_CONVENTIONS.md` → "Verifying UI Changes". Flag a visual change that was only verified by tests.
+
 **Layout & responsiveness**
 - Mobile-first base (iPhone, < 768 px) untouched and visually identical to before the change
 - `env(safe-area-inset-*)` used wherever content can be clipped by iPhone notch/home bar
@@ -33,10 +38,19 @@ Flag obvious hardcoded hex/rgba/px values you notice during visual review. For a
 - Focus ring visible via `--focus-ring` token
 - Liquid Glass / blur effects degrade gracefully when `prefers-reduced-motion` or low-end device
 
+**View scaffold**
+- New views register in `PANELS` (core.js) with a `titleKey`; their create action is the FAB via `PANELS[id].fab`, not an in-view button
+- Row tap = the row's primary action; trailing buttons are distinct secondary actions with a glyph that names them; ⋮ only for real menus
+
+**Visual system**
+- Row-end amounts share `.t-amount`'s look (DM Serif Display, `--fs-headline`); expense colour `--accent`, never `--red`
+- Category tiles are the tinted style everywhere; solid tiles only for navigation
+- Dates only via `fmtDate(value, 'day' | 'medium')`
+
 **Copy & language**
 - Apple Style Guide for German UI text (see DESIGN_CONVENTIONS.md)
 - App name always „PocketLog" (one word, capital P and L)
-- Amounts via `fmtCurrency(n)` or `fmtSignedCurrency(n)`, not manual formatting
+- Amounts via `fmtCurrency(n)` or `fmtSignedCurrency(n, direction)` (row-end amounts must be signed — colour is never the only signal), not manual formatting
 
 **Code quality**
 - Repeated inline `style="…"` or duplicated style blocks → extract a CSS class

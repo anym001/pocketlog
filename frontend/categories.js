@@ -15,9 +15,11 @@ async function loadCategories(opts = {}) {
   }
 }
 
-async function loadTags() {
+async function loadTags({ cached } = {}) {
   try {
-    const tags = await api('GET', '/tags');
+    const tags = cached ? await cachedApi('/tags') : await api('GET', '/tags');
+    // Instant start: no cached copy leaves the (still empty) state alone.
+    if (cached && !tags) return;
     const list = Array.isArray(tags) ? tags : [];
     appState.ledger.availableTags = list.map((t) => (typeof t === 'string' ? t : t.name));
     tagCounts.clear();
@@ -27,6 +29,7 @@ async function loadTags() {
         all: Number(t.count) || 0,
         in: Number(t.count_in) || 0,
         out: Number(t.count_out) || 0,
+        total: Number(t.count_total) || 0,
       });
     }
   } catch (e) {
@@ -878,24 +881,47 @@ function renderCategories() {
   }
   box.innerHTML = '';
   shown.forEach((c) => {
+    const uses = Number(c.count_total) || 0;
     const row = document.createElement('div');
     row.className = 'drawer-nav-item cat-pill-edit';
     row.setAttribute('role', 'button');
     row.setAttribute('tabindex', '0');
-    row.setAttribute('aria-label', tr('categories.editAria', { name: c.name }));
+    row.setAttribute(
+      'aria-label',
+      `${tr('categories.editAria', { name: c.name })}, ${usageLabel(uses)}`,
+    );
     row.onclick = () => openCatModal(c.id);
     row.onkeydown = (e) => handleRowActivate(e, () => openCatModal(c.id));
     const iconWrap = document.createElement('div');
-    iconWrap.className = 'drawer-nav-icon-wrap';
-    iconWrap.style.setProperty('--nav-icon-bg', c.color);
+    iconWrap.className = 'drawer-nav-icon-wrap cat-tile';
+    iconWrap.style.setProperty('--cat-color', c.color);
     iconWrap.innerHTML = catIconSvg(c.icon);
     const label = document.createElement('span');
     label.className = 'drawer-nav-label';
     label.textContent = c.name;
     row.appendChild(iconWrap);
     row.appendChild(label);
+    row.insertAdjacentHTML('beforeend', mgmtRowTrailer(uses));
     box.appendChild(row);
   });
+}
+
+// Trailing part of a settings management row (categories, tags): how often it
+// was ever used (count_total — all bookings, no window, so a 0 really means
+// "never used" when tidying up), then a drill-in chevron — the row opens an
+// editor, like every other chevron row in settings. The 90-day counts stay
+// behind the choosers' ranking only.
+// Screen-reader text for the usage count those rows show.
+function usageLabel(uses) {
+  if (uses === 0) return tr('common.usageNone');
+  return tr(uses === 1 ? 'common.usageOne' : 'common.usageMany', { n: uses });
+}
+
+function mgmtRowTrailer(uses) {
+  return (
+    `<span class="drawer-nav-value" aria-hidden="true">${Number(uses) || 0}</span>` +
+    `<span class="drawer-nav-chevron" aria-hidden="true"><svg class="ui-icon"><use href="#icon-chevron-right"/></svg></span>`
+  );
 }
 
 const CAT_COLOR_PRESETS = [
@@ -1133,11 +1159,12 @@ function catIconSvg(id) {
 
 // Fetch the sprite once at boot and inject it inline so document-local
 // <use href="#cat-…"> references resolve everywhere (transaction rows,
-// category breakdown, picker). The file is cache-first via the SW.
+// category breakdown, picker). Cache-first via the SW under its versioned
+// URL, so a release with new glyphs never shows the previous sprite.
 async function loadCategoryIconSprite() {
   if (document.getElementById('cat-icon-sprite')) return;
   try {
-    const res = await fetch('/icons/categories/sprite.svg');
+    const res = await fetch(assetUrl('/icons/categories/sprite.svg'));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     // Strip the XML prolog if present — invalid as inline HTML.

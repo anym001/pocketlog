@@ -10,7 +10,13 @@
 
 // Recurring rules list + edit-modal draft live in appState.recurring (state.js).
 
-async function loadRecurringRules() {
+async function loadRecurringRules({ cached } = {}) {
+  // Instant start: the last synced copy, or nothing (state stays as it is).
+  if (cached) {
+    const list = await cachedApi('/recurring');
+    if (Array.isArray(list)) appState.recurring.rules = list;
+    return;
+  }
   try {
     appState.recurring.rules = await api('GET', '/recurring');
   } catch (e) {
@@ -49,12 +55,7 @@ function _recurringSummary(rule) {
 function _recurringFormatDate(iso) {
   if (!iso) return '';
   try {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(_locale(), {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    return fmtDate(iso);
   } catch (e) {
     return iso;
   }
@@ -158,9 +159,9 @@ async function renderRecurringView() {
         r.active && _nextDate
           ? tr('recurring.nextRunCard', { date: _recurringFormatDate(_nextDate) })
           : tr('recurring.inactive');
-      // No +/− sign — the colour (green income / red expense) carries
-      // the direction, matching the ledger summary cards.
-      const amount = fmtCurrency(Math.abs(r.amount));
+      // Signed like every list row — colour alone must not carry the
+      // direction (DESIGN_CONVENTIONS.md → Colour & Theming).
+      const amount = fmtSignedCurrency(r.amount, r.type);
       const inactiveCls = r.active ? '' : ' is-inactive';
       const cat = appState.ledger.categories.find((c) => c.id === r.category_id);
       const catColor = cat?.color || 'var(--accent)';

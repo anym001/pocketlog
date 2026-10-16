@@ -9,7 +9,13 @@
 
 const BUDGET_FREQUENCIES = ['monthly', 'quarterly', 'yearly'];
 
-async function loadBudgets() {
+async function loadBudgets({ cached } = {}) {
+  // Instant start: the last synced copy, or nothing (state stays as it is).
+  if (cached) {
+    const list = await cachedApi('/budgets');
+    if (Array.isArray(list)) appState.budgets.list = list;
+    return;
+  }
   try {
     appState.budgets.list = await api('GET', '/budgets');
   } catch (e) {
@@ -48,6 +54,9 @@ async function renderBudgetsView() {
   } catch (e) {
     pool = [];
   }
+  // The month moved on while this year loaded (fast ←/→): the newer render
+  // draws the cards; this one would show the old periods under the new month.
+  if (appState.view.year !== year || appState.view.month !== month) return;
   const cats = appState.ledger.categories;
   const sorted = [...appState.budgets.list].sort((a, b) => {
     const ca = cats.find((c) => c.id === a.category_id);

@@ -17,7 +17,11 @@
     "downloadFailed": "Download failed",
     "nameRequired": "Name is required.",
     "loading": "Loading …",
-    "queuedOffline": "Saved offline. Will sync once you’re back online."
+    "queuedOffline": "Saved offline. Will sync once you’re back online.",
+    "usageNone": "Not used",
+    "usageOne": "Used once",
+    "usageMany": "Used {n} times",
+    "notConnectedYet": "Not connected to the server yet – please try again in a moment."
   },
   "menu": {
     "title": "Menu",
@@ -129,7 +133,7 @@
   },
   "categories": {
     "title": "Categories",
-    "create": "Create category",
+    "create": "Create category…",
     "editTitle": "Edit category",
     "newTitle": "New category",
     "name": "Name",
@@ -302,7 +306,7 @@
   },
   "tags": {
     "title": "Tags",
-    "create": "Create tag",
+    "create": "Create tag…",
     "editAria": "Edit tag “{name}”",
     "editTitle": "Edit tag",
     "newTitle": "New tag",
@@ -394,6 +398,7 @@
     "course": "Over time",
     "breakdown": "Breakdown",
     "trend": "Trend",
+    "detail": "Detail analysis",
     "forecast": "Expense forecast",
     "top": "Largest transactions",
     "rangeMonth": "Month",
@@ -443,7 +448,21 @@
     "smoothing": "{label} (smoothed)",
     "monthSummary": "{month} {year}: income {income}, expenses {expenses}.",
     "courseSummary": "Income {income}, expenses {expenses} in this period.",
-    "trendSummary": "{label}, mean {mean} per month."
+    "trendSummary": "{label}, mean {mean} per month.",
+    "detailSelect": "Detail analysis selection",
+    "avgPerOut": "Avg. per expense",
+    "avgPerIn": "Avg. per income",
+    "untagged": "No tag",
+    "expensesByTag": "Expenses by tag",
+    "incomeByTag": "Income by tag",
+    "expensesByCategory": "Expenses by category",
+    "incomeByCategory": "Income by category",
+    "detailBookings": "Transactions",
+    "sortBy": "Sort order",
+    "sortDate": "Date",
+    "sortAmount": "Amount",
+    "showInLedger": "Show in Transactions",
+    "detailSummary": "{label}: income {income}, expenses {expenses} in this period."
   },
   "forecast": {
     "notEnough": "Not enough data for a forecast yet. At least four weeks of transactions are needed.",
@@ -512,7 +531,7 @@
     "unknownDevice": "Unknown device",
     "lastActive": "Last active: {when}",
     "signedInSince": "Signed in since: {date}",
-    "revoke": "Sign Out",
+    "revoke": "Sign out device",
     "revokeTitle": "Sign out device?",
     "revokeBody": "The session on this device will end. Signing in again is required to continue there.",
     "revokeOthers": "Sign Out All Other Devices",
@@ -525,7 +544,8 @@
   "apiKeys": {
     "title": "API Keys",
     "empty": "No keys created yet.",
-    "create": "New key",
+    "create": "Create key…",
+    "newTitle": "New key",
     "name": "Name",
     "scopes": "Permissions",
     "scope.import": "Import",
@@ -546,7 +566,7 @@
   "admin": {
     "cacheClear": "Clear cache",
     "cacheHint": "Discards the API cache and unsynced changes. Server data stays unchanged.",
-    "dataDelete": "Delete data",
+    "dataDelete": "Delete data…",
     "dataHint": "Removes transactions, categories, or both on the server. This action can’t be undone.",
     "cacheConfirmTitle": "Really clear the cache?",
     "cacheCleared": "Cache cleared.",
@@ -564,7 +584,7 @@
     "txDeleted": "All transactions deleted."
   },
   "users": {
-    "add": "Add user",
+    "add": "Add user…",
     "addTitle": "Add user",
     "username": "Username",
     "startPassword": "Initial password",
@@ -605,13 +625,15 @@
     "deactivate": "Deactivate"
   },
   "account": {
-    "changePassword": "Change password",
+    "changePassword": "Change password…",
+    "changePasswordTitle": "Change password",
     "currentPassword": "Current password",
     "logout": "Sign out",
     "logoutTitle": "Sign out anyway?",
     "logoutBodyOne": "{n} unsynced change will be lost when you sign out.",
     "logoutBodyOther": "{n} unsynced changes will be lost when you sign out.",
-    "logoutConfirm": "Sign out anyway"
+    "logoutConfirm": "Sign out anyway",
+    "logoutFailed": "Couldn’t sign out. Check your connection and try again."
   },
   "sync": {
     "synced": "Saved",
@@ -653,7 +675,8 @@
       "delete": "Delete"
     },
     "reasonRejected": "Rejected by the server (HTTP {status})",
-    "reasonSession": "Session issue — “Try again” should fix it."
+    "reasonSession": "Session issue — “Try again” should fix it.",
+    "unconfirmed": "Not connected – showing the last synced state"
   },
   "date": {
     "today": "Today",
@@ -700,6 +723,7 @@
     "pointerMouse": "Mouse/trackpad",
     "pointerUnknown": "Unknown",
     "touchPoints": "max {n} touch points",
-    "noHover": "no hover"
+    "noHover": "no hover",
+    "diagnostics": "Diagnostics"
   }
 }

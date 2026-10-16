@@ -331,6 +331,112 @@ function _trendStats(monthlyMap, fromIso, toIso) {
   return { mean, peak, yoy, monthCount: months.length };
 }
 
+// Running totals per day of one month for the "Verlauf" month chart: index i
+// is day i + 1. Days after `lastDay` are null, so in the current month the
+// lines stop at today instead of running flat into the future. The day comes
+// from the ISO string itself — new Date('YYYY-MM-DD') parses as UTC and lands
+// on the previous day west of Greenwich. Rounded to cents per step (display
+// only; money totals elsewhere stay Decimal-exact on the server).
+function _cumulativeByDay(txs, daysInMonth, lastDay) {
+  const perDay = { out: Array(daysInMonth).fill(0), in: Array(daysInMonth).fill(0) };
+  for (const t of txs) {
+    const d = Number(String(t.date).slice(8, 10));
+    if (d >= 1 && d <= daysInMonth && perDay[t.type]) perDay[t.type][d - 1] += Number(t.amount);
+  }
+  const run = (arr) => {
+    let sum = 0;
+    return arr.map((v, i) => {
+      if (i >= lastDay) return null;
+      sum += v;
+      return Math.round(sum * 100) / 100;
+    });
+  };
+  return { out: run(perDay.out), in: run(perDay.in) };
+}
+
+// Everything the "Detailanalyse" shows for one category or tag (an entity as
+// built by _trendEntityFromId): the matching bookings, their in/out totals,
+// count, and the breakdown one level down — the tags inside a category (plus
+// the untagged remainder) or the categories a tag spans. Like the
+// "Aufteilung" donut, the breakdown and the average booking size use one
+// direction: the entity's dominant one (`dir`), so a refund never skews a
+// spending figure. A booking with two tags counts towards both tag rows.
+function _detailSummary(txs, entity) {
+  const matched = txs.filter((t) => _trendMatchesEntity(t, entity));
+  const totals = _sumByType(matched);
+  const count = matched.length;
+  const dir = totals.out >= totals.in ? 'out' : 'in';
+  // Average size of a booking in the dominant direction — a refund mixed
+  // into a spending category would otherwise skew it.
+  const dirCount = matched.filter((t) => t.type === dir).length;
+  const avg = dirCount ? totals[dir] / dirCount : 0;
+  let inner;
+  if (entity.kind === 'category') {
+    inner = _totalsByTag(matched, dir).map((r) => ({
+      kind: 'tag',
+      name: r.name,
+      amount: r.amount,
+    }));
+    let untagged = 0;
+    for (const t of matched) {
+      if (t.type === dir && !(Array.isArray(t.tags) && t.tags.length)) untagged += t.amount;
+    }
+    // The untagged rest is usually the biggest share (most bookings carry no
+    // tag), so it ranks by amount like the tags rather than trailing them.
+    if (inner.length && untagged > 0) {
+      inner.push({ kind: 'untagged', amount: untagged });
+      inner.sort((a, b) => b.amount - a.amount);
+    }
+  } else {
+    inner = _totalsByCategory(matched, dir).map((r) => ({
+      kind: 'category',
+      catId: r.catId,
+      amount: r.amount,
+    }));
+  }
+  return { txs: matched, in: totals.in, out: totals.out, count, avg, dir, inner };
+}
+
+// In/out totals per month bucket ('YYYY-MM', see _bucketAxis) for the
+// "Detailanalyse" bar chart, rounded to cents (display only). Bookings outside
+// the axis are ignored.
+function _monthlyInOut(txs, bucketKeys) {
+  const slots = new Map(bucketKeys.map((k) => [k, { in: 0, out: 0 }]));
+  for (const t of txs) {
+    const slot = slots.get(String(t.date).slice(0, 7));
+    if (slot && (t.type === 'in' || t.type === 'out')) slot[t.type] += Number(t.amount);
+  }
+  const cents = (v) => Math.round(v * 100) / 100;
+  return {
+    in: bucketKeys.map((k) => cents(slots.get(k).in)),
+    out: bucketKeys.map((k) => cents(slots.get(k).out)),
+  };
+}
+
+// Booking list order for the "Detailanalyse": 'date' = newest first,
+// 'amount' = largest first (either direction). Ties fall back to the other
+// key, then the id, so the order is stable across renders. Returns a copy.
+function _sortDetailTxs(txs, mode) {
+  const byDate = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+  const byAmount = (a, b) => b.amount - a.amount;
+  const byId = (a, b) => (b.id || 0) - (a.id || 0);
+  const [first, second] = mode === 'amount' ? [byAmount, byDate] : [byDate, byAmount];
+  return [...txs].sort((a, b) => first(a, b) || second(a, b) || byId(a, b));
+}
+
+// A chart colour at partial opacity: '#rrggbb' → rgba(), 'hsl(h s l)' →
+// 'hsl(h s l / a)'. Anything else comes back unchanged.
+function _colorWithAlpha(color, alpha) {
+  const c = String(color).trim();
+  if (/^#[0-9a-f]{6}$/i.test(c)) {
+    const n = parseInt(c.slice(1), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  }
+  const hsl = c.match(/^hsl\(([^/)]+)\)$/i);
+  if (hsl) return `hsl(${hsl[1].trim()} / ${alpha})`;
+  return c;
+}
+
 // Node/Vitest only — the browser classic-script load skips this.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -351,5 +457,10 @@ if (typeof module !== 'undefined' && module.exports) {
     _signedTrendAmount,
     _monthlyTotals,
     _trendStats,
+    _cumulativeByDay,
+    _detailSummary,
+    _monthlyInOut,
+    _sortDetailTxs,
+    _colorWithAlpha,
   };
 }

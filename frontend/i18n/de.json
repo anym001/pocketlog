@@ -17,7 +17,11 @@
     "downloadFailed": "Download fehlgeschlagen",
     "nameRequired": "Name ist ein Pflichtfeld.",
     "loading": "Wird geladen …",
-    "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist."
+    "queuedOffline": "Offline gespeichert. Wird synchronisiert, sobald du wieder online bist.",
+    "usageNone": "Nicht verwendet",
+    "usageOne": "Einmal verwendet",
+    "usageMany": "{n}-mal verwendet",
+    "notConnectedYet": "Noch keine Verbindung zum Server – bitte gleich erneut versuchen."
   },
   "menu": {
     "title": "Menü",
@@ -129,7 +133,7 @@
   },
   "categories": {
     "title": "Kategorien",
-    "create": "Kategorie erstellen",
+    "create": "Kategorie erstellen…",
     "editTitle": "Kategorie bearbeiten",
     "newTitle": "Neue Kategorie",
     "name": "Name",
@@ -302,7 +306,7 @@
   },
   "tags": {
     "title": "Tags",
-    "create": "Tag erstellen",
+    "create": "Tag erstellen…",
     "editAria": "Tag „{name}“ bearbeiten",
     "editTitle": "Tag bearbeiten",
     "newTitle": "Neuer Tag",
@@ -394,6 +398,7 @@
     "course": "Verlauf",
     "breakdown": "Aufteilung",
     "trend": "Trend",
+    "detail": "Detailanalyse",
     "forecast": "Ausgaben-Prognose",
     "top": "Größte Buchungen",
     "rangeMonth": "Monat",
@@ -443,7 +448,21 @@
     "smoothing": "{label} (Glättung)",
     "monthSummary": "{month} {year}: Einnahmen {income}, Ausgaben {expenses}.",
     "courseSummary": "Einnahmen {income}, Ausgaben {expenses} im Zeitraum.",
-    "trendSummary": "{label}, Mittelwert {mean} pro Monat."
+    "trendSummary": "{label}, Mittelwert {mean} pro Monat.",
+    "detailSelect": "Auswahl für die Detailanalyse",
+    "avgPerOut": "Ø pro Ausgabe",
+    "avgPerIn": "Ø pro Einnahme",
+    "untagged": "Ohne Tag",
+    "expensesByTag": "Ausgaben nach Tag",
+    "incomeByTag": "Einnahmen nach Tag",
+    "expensesByCategory": "Ausgaben nach Kategorie",
+    "incomeByCategory": "Einnahmen nach Kategorie",
+    "detailBookings": "Buchungen",
+    "sortBy": "Sortierung",
+    "sortDate": "Datum",
+    "sortAmount": "Betrag",
+    "showInLedger": "In der Buchungsübersicht zeigen",
+    "detailSummary": "{label}: Einnahmen {income}, Ausgaben {expenses} im Zeitraum."
   },
   "forecast": {
     "notEnough": "Noch nicht genug Daten für eine Prognose. Mindestens vier Wochen Buchungen werden benötigt.",
@@ -512,7 +531,7 @@
     "unknownDevice": "Unbekanntes Gerät",
     "lastActive": "Zuletzt aktiv: {when}",
     "signedInSince": "Angemeldet seit: {date}",
-    "revoke": "Abmelden",
+    "revoke": "Gerät abmelden",
     "revokeTitle": "Gerät abmelden?",
     "revokeBody": "Die Sitzung auf diesem Gerät wird beendet. Zum Weiterarbeiten ist dort eine neue Anmeldung nötig.",
     "revokeOthers": "Alle anderen Geräte abmelden",
@@ -525,7 +544,8 @@
   "apiKeys": {
     "title": "API-Schlüssel",
     "empty": "Noch keine Schlüssel erstellt.",
-    "create": "Neuer Schlüssel",
+    "create": "Schlüssel erstellen…",
+    "newTitle": "Neuer Schlüssel",
     "name": "Name",
     "scopes": "Berechtigungen",
     "scope.import": "Importieren",
@@ -546,7 +566,7 @@
   "admin": {
     "cacheClear": "Cache leeren",
     "cacheHint": "Verwirft den API-Cache und nicht synchronisierte Änderungen. Server-Daten bleiben unverändert.",
-    "dataDelete": "Daten löschen",
+    "dataDelete": "Daten löschen…",
     "dataHint": "Entfernt Buchungen, Kategorien oder beides serverseitig. Aktion lässt sich nicht rückgängig machen.",
     "cacheConfirmTitle": "Cache wirklich leeren?",
     "cacheCleared": "Cache geleert.",
@@ -564,7 +584,7 @@
     "txDeleted": "Alle Buchungen gelöscht."
   },
   "users": {
-    "add": "Benutzer hinzufügen",
+    "add": "Benutzer hinzufügen…",
     "addTitle": "Benutzer hinzufügen",
     "username": "Benutzername",
     "startPassword": "Startpasswort",
@@ -605,13 +625,15 @@
     "deactivate": "Deaktivieren"
   },
   "account": {
-    "changePassword": "Passwort ändern",
+    "changePassword": "Passwort ändern…",
+    "changePasswordTitle": "Passwort ändern",
     "currentPassword": "Aktuelles Passwort",
     "logout": "Abmelden",
     "logoutTitle": "Trotzdem abmelden?",
     "logoutBodyOne": "{n} noch nicht synchronisierte Änderung geht beim Abmelden verloren.",
     "logoutBodyOther": "{n} noch nicht synchronisierte Änderungen gehen beim Abmelden verloren.",
-    "logoutConfirm": "Trotzdem abmelden"
+    "logoutConfirm": "Trotzdem abmelden",
+    "logoutFailed": "Abmelden fehlgeschlagen. Prüfe die Verbindung und versuche es erneut."
   },
   "sync": {
     "synced": "Gespeichert",
@@ -653,7 +675,8 @@
       "delete": "Löschen"
     },
     "reasonRejected": "Vom Server abgelehnt (HTTP {status})",
-    "reasonSession": "Sitzungsproblem – „Erneut versuchen“ sollte helfen."
+    "reasonSession": "Sitzungsproblem – „Erneut versuchen“ sollte helfen.",
+    "unconfirmed": "Nicht verbunden – zuletzt synchronisierter Stand"
   },
   "date": {
     "today": "Heute",
@@ -700,6 +723,7 @@
     "pointerMouse": "Maus/Trackpad",
     "pointerUnknown": "Unbekannt",
     "touchPoints": "max {n} Touch-Punkte",
-    "noHover": "kein Hover"
+    "noHover": "kein Hover",
+    "diagnostics": "Diagnose"
   }
 }

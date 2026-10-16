@@ -40,6 +40,14 @@ def test_auth_endpoints_are_no_store(app):
     assert res.headers.get("cache-control") == "no-store"
 
 
+def test_data_endpoints_are_private(app):
+    """Financial data (and a refreshed session cookie) must not land in a
+    shared cache."""
+    client = TestClient(app)
+    res = client.get("/api/health")
+    assert res.headers.get("cache-control") == "private"
+
+
 def test_shell_paths_revalidate(app):
     client = TestClient(app)
     # No static mount in the test env (404), but the middleware header

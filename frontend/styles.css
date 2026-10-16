@@ -60,7 +60,9 @@
         --bg-canvas: #ffffff;
 
         /* Glass materials — light (white-based to match the neutral canvas) */
-        --glass-thin: rgba(255, 255, 255, 0.45);
+        /* Bottom-bar strip (search, FAB, selection bar). Dense enough that
+           list text scrolling underneath can't read through the placeholder. */
+        --glass-thin: rgba(255, 255, 255, 0.82);
         --glass-chrome: rgba(255, 255, 255, 0.92);
         /* Header material — a translucent tint of the grouped canvas so the
            sticky header blends into the page (separated only by a hairline, no
@@ -101,6 +103,18 @@
         --green: #788c5d;
         --green-2: #96a87a;
         --red: #c0392b;
+        /* Red behind white text (swipe-delete). Not overridden in dark mode,
+           where --red turns lighter for text on the dark surfaces. */
+        --red-fill: #c0392b;
+        /* Text-on-surface variants of the direction colours. --accent and
+           --green stay the fills (bars, lines, icons, buttons); as text on
+           white they reach only ~3.1:1 / 3.7:1. These keep the hue and clear
+           WCAG AA (≥ 4.5:1 on --bg-canvas and --bg-grouped). The -2 stops
+           are the lighter end of the KPI amount gradients. */
+        --accent-text: #a85232;
+        --accent-text-2: #b85a3d;
+        --green-text: #5e7046;
+        --green-text-2: #647a4a;
         --red-2: #ec6b5b;
         --blue: #2a78d8;
 
@@ -154,6 +168,8 @@
         --icon-list-md: 42px; /* .t-icon / .cat-view-icon (list-row icon container) */
         --icon-list-sm: 38px; /* .cat-icon (category-breakdown icon) */
         --swipe-action-w: 92px; /* .tx-action reveal width on swipe-to-delete */
+        --settings-pane-max: 640px; /* settings detail width in the split view */
+        --card-min: 320px; /* narrowest card in the wide-screen card grid */
         --icon-select: 24px; /* .tx-select-check multi-select indicator circle */
         --cat-bar-h: 5px; /* .cat-bar progress-bar height */
         --bottom-bar-clearance: 66px; /* space content panels reserve under the floating bottom bar */
@@ -188,7 +204,13 @@
         --dur-pulse: 1.2s; /* .sync-dot syncing animation */
 
         /* Focus ring — gleiches Aussehen für alle fokussierten Inputs/Buttons. */
-        --focus-ring: 0 0 0 3px var(--accent-tint);
+        /* A canvas-coloured gap, then a solid accent ring: ≥ 3:1 against
+           the gap on any surface (WCAG 1.4.11 / 2.4.11). The old 15 %
+           tint ring was ~1.1:1 — practically invisible. */
+        --focus-ring: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent);
+        /* Rows that fill a clipped card edge to edge (settings rows, ledger
+           and category rows) draw the ring inside, or the card cuts it off. */
+        --focus-ring-inset: inset 0 0 0 2px var(--accent);
 
         /* Border shortcuts — 0.5px Hairlines sind Standard, 1px nur für
        destruktive Akzent-Outlines. Farbe weiter über --hairline*. */
@@ -256,7 +278,7 @@
         --bg-grouped: #0f0e0c;
         --bg-canvas: #221e19;
 
-        --glass-thin: rgba(38, 35, 30, 0.45);
+        --glass-thin: rgba(38, 35, 30, 0.82);
         --glass-chrome: rgba(22, 20, 17, 0.88);
 
         --hairline: rgba(209, 207, 197, 0.14);
@@ -285,6 +307,14 @@
         --accent-tint: rgba(232, 146, 110, 0.2);
         --green: #9ab07a;
         --green-2: #b3c895;
+        /* The fills already clear AA as text on the dark surfaces. */
+        --accent-text: var(--accent);
+        --accent-text-2: var(--accent-2);
+        --green-text: var(--green);
+        --green-text-2: var(--green-2);
+        /* Light --red reaches ~3:1 on --bg-canvas here; this one ~5.7:1, and
+           pinker than --accent so destructive rows stay distinct. */
+        --red: #f56a74;
 
         /* Darker specular for dark mode — white at 65% reads as a harsh
            bright edge on near-black glass; 25% keeps the depth cue without glare. */
@@ -340,7 +370,9 @@
       html[data-dark='true'] .t-icon,
       html[data-dark='true'] .cat-view-icon,
       html[data-dark='true'] .cat-icon,
-      html[data-dark='true'] .goal-card-icon {
+      html[data-dark='true'] .goal-card-icon,
+      html[data-dark='true'] .recurring-card-icon,
+      html[data-dark='true'] .drawer-nav-icon-wrap.cat-tile {
         color: var(--text);
       }
 
@@ -572,7 +604,7 @@
         box-shadow: var(--focus-ring);
       }
       .month-picker-grid .mp-month.is-today {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .month-picker-grid .mp-month.is-current {
         background: var(--accent);
@@ -587,7 +619,7 @@
       .month-picker-foot .mp-today {
         background: transparent;
         border: none;
-        color: var(--accent);
+        color: var(--accent-text);
         font-family: var(--font-body);
         font-size: var(--fs-footnote);
         font-weight: 600;
@@ -634,12 +666,47 @@
         outline: none;
         box-shadow: var(--focus-ring);
       }
+      /* Status dot with a glyph, so the state never rests on colour alone:
+         check = synced, arrows = syncing, ! = offline / failed (the pending
+         count rides on .sync-badge). Glyphs are CSS masks over --on-accent;
+         the state classes are unchanged (settings.js). */
       .sync-dot {
-        width: var(--space-14);
-        height: var(--space-14);
+        position: relative;
+        width: var(--space-16);
+        height: var(--space-16);
         border-radius: 50%;
         background: var(--green);
         box-shadow: 0 0 var(--space-8) var(--green);
+      }
+      .sync-dot::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: var(--on-accent);
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / var(--space-10) no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / var(--space-10) no-repeat;
+      }
+      .sync-dot.syncing::after {
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.5 10a8 8 0 0 0-14-3.5M4.5 14a8 8 0 0 0 14 3.5'/%3E%3Cpath d='M5 3v4h4M19 21v-4h-4'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.5 10a8 8 0 0 0-14-3.5M4.5 14a8 8 0 0 0 14 3.5'/%3E%3Cpath d='M5 3v4h4M19 21v-4h-4'/%3E%3C/svg%3E");
+      }
+      .sync-dot.error::after {
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5.5v8'/%3E%3Cpath d='M12 18.5v.01'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5.5v8'/%3E%3Cpath d='M12 18.5v.01'/%3E%3C/svg%3E");
+      }
+      .sync-dot.offline::after {
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 18h8.5a3.5 3.5 0 0 0 .6-6.95A5.5 5.5 0 0 0 6.6 10.2 3.9 3.9 0 0 0 8 18z'/%3E%3Cpath d='M3.5 3.5l17 17'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 18h8.5a3.5 3.5 0 0 0 .6-6.95A5.5 5.5 0 0 0 6.6 10.2 3.9 3.9 0 0 0 8 18z'/%3E%3Cpath d='M3.5 3.5l17 17'/%3E%3C/svg%3E");
+        -webkit-mask-size: var(--space-12);
+        mask-size: var(--space-12);
+      }
+      .sync-dot.offline {
+        background: var(--text3);
+        box-shadow: none;
+      }
+      /* The dark-mode dots are light; a white glyph on them fell below 3:1. */
+      html[data-dark='true'] .sync-dot::after {
+        background: var(--bg-canvas);
       }
       .sync-dot.syncing {
         background: var(--accent);
@@ -650,15 +717,20 @@
         background: var(--red);
         box-shadow: 0 0 var(--space-8) var(--red);
       }
+      /* Pending-writes count. Same height as the dot and the dot's state
+         colour, so the pair never shows two statuses at once: accent while
+         saving / syncing, grey offline, red on failure. Light mode uses the
+         darker text variants so the white digits clear 4.5:1; dark mode
+         takes the light fills with dark digits, like the dot's glyph. */
       .sync-badge {
         position: absolute;
         top: calc(var(--space-2) * -1);
         right: calc(var(--space-2) * -1);
-        min-width: var(--space-20);
-        height: var(--space-20);
+        min-width: var(--space-16);
+        height: var(--space-16);
         padding: 0 var(--space-4);
         border-radius: var(--r-pill);
-        background: var(--accent);
+        background: var(--accent-text);
         color: var(--on-accent);
         font-size: var(--fs-micro);
         font-weight: 700;
@@ -671,6 +743,24 @@
       }
       .sync-badge[hidden] {
         display: none;
+      }
+      .sync-dot.offline ~ .sync-badge {
+        /* Between --text3 (the dot, 3.7:1 under white) and --text2 (near
+           black): the dot's grey, dark enough for the digits. */
+        background: color-mix(in oklab, var(--text3), var(--text2));
+      }
+      .sync-dot.error ~ .sync-badge {
+        background: var(--red);
+      }
+      html[data-dark='true'] .sync-badge {
+        background: var(--accent);
+        color: var(--bg-canvas);
+      }
+      html[data-dark='true'] .sync-dot.offline ~ .sync-badge {
+        background: var(--text2);
+      }
+      html[data-dark='true'] .sync-dot.error ~ .sync-badge {
+        background: var(--red);
       }
       @keyframes pulse {
         0%,
@@ -702,36 +792,37 @@
         background: var(--bg-canvas);
         border: var(--border-hairline);
         border-radius: var(--r-md);
-        padding: var(--space-10) var(--space-14);
         box-shadow: var(--shadow-soft);
+        /* One summary-card layout app-wide (ledger + report KPIs): label on
+           top, amount below. Side by side the amount ran into the padding
+           from 390 px down and was visibly clipped at 360 px. */
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--space-8);
+        flex-direction: column;
+        gap: var(--space-4);
+        padding: var(--space-10) var(--space-12);
       }
       .summary-card .label {
         font-size: var(--fs-micro);
-        color: var(--text);
+        color: var(--text3);
         font-weight: 600;
-        flex-shrink: 0;
       }
       .summary-card .amount {
+        white-space: nowrap;
         font-family: var(--font-display);
         font-size: var(--fs-headline);
         color: var(--text);
         line-height: 1.25;
         letter-spacing: -0.02em;
-        text-align: right;
         font-variant-numeric: tabular-nums;
       }
       .summary-card .amount.positive {
-        background: linear-gradient(135deg, var(--green), var(--green-2));
+        background: linear-gradient(135deg, var(--green-text), var(--green-text-2));
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
       }
       .summary-card .amount.negative {
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        background: linear-gradient(135deg, var(--accent-text), var(--accent-text-2));
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
@@ -795,23 +886,33 @@
       }
       .cat-view-row:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
         border-radius: var(--r-md);
       }
-      .cat-view-icon {
-        width: var(--icon-list-md);
-        height: var(--icon-list-md);
-        border-radius: var(--r-sm);
+      /* The category tile — one surface wherever a category appears (ledger
+         row, category view, goal / budget / recurring cards, report rows,
+         the settings list). Each context below only sets its size. */
+      .t-icon,
+      .cat-view-icon,
+      .goal-card-icon,
+      .recurring-card-icon,
+      .cat-icon,
+      .drawer-nav-icon-wrap.cat-tile {
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        border-radius: var(--r-sm);
         background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
         color: var(--cat-color, var(--text));
+        border: var(--border-hairline);
         box-shadow:
           inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
           inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
-        border: var(--border-hairline);
+      }
+      .cat-view-icon {
+        width: var(--icon-list-md);
+        height: var(--icon-list-md);
       }
       .cat-view-icon .cat-glyph {
         width: 70%;
@@ -823,28 +924,27 @@
         color: var(--text);
       }
       .cat-view-amount {
-        font-size: var(--fs-callout);
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
       }
       .cat-view-amount.negative {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .cat-view-amount.positive {
-        color: var(--green);
+        color: var(--green-text);
       }
-      .cat-view-more {
+      /* The row itself books into its category (the view doubles as a
+         quick-entry launcher); this trailing button lists the category's
+         bookings. Receipt glyph = the drawer's "Transactions" icon, so it
+         reads as "bookings", not as a ⋮ menu it isn't. */
+      .cat-view-list {
         width: var(--btn-chrome-size);
         height: var(--btn-chrome-size);
         margin-right: calc(-1 * var(--space-10));
         border: none;
         background: transparent;
         border-radius: 50%;
-        /* Match the chrome buttons (hamburger etc.): full --text color
-           and --fs-title icon size, so the drill-down affordance has
-           the same visual weight as the rest of the toolbar chrome. */
-        color: var(--text);
-        font-size: var(--fs-title);
+        color: var(--text3);
+        font-size: var(--fs-icon-md);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -853,18 +953,15 @@
         -webkit-tap-highlight-color: transparent;
         transition: background var(--dur-base) var(--ease-spring);
       }
-      .cat-view-more:active {
+      .cat-view-list:active {
         background: var(--surface-tint);
       }
-      .cat-view-more:focus-visible {
+      .cat-view-list:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
       }
 
       /* ====== GOALS VIEW (savings + debt trackers) ====== */
-      .goals-toolbar {
-        margin-bottom: var(--space-12);
-      }
       .goal-card {
         position: relative;
         background: var(--bg-canvas);
@@ -891,17 +988,6 @@
       .goal-card-icon {
         width: var(--icon-list-md);
         height: var(--icon-list-md);
-        border-radius: var(--r-sm);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
-        color: var(--cat-color, var(--text));
-        box-shadow:
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
-          inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
-        border: var(--border-hairline);
       }
       .goal-card-icon .cat-glyph {
         width: 70%;
@@ -983,6 +1069,15 @@
         color: var(--text3);
         white-space: nowrap; /* keep "X% paid off" on a single line */
         flex-shrink: 0;
+      }
+      /* Budget: "209,10 € von 600,00 €" never breaks inside; when the pair
+         and the remainder don't fit on one line, the remainder moves below. */
+      .budget-card .goal-card-meta {
+        flex-wrap: wrap;
+        row-gap: var(--space-2);
+      }
+      .budget-card .goal-card-primary {
+        white-space: nowrap;
       }
       /* Match the standard .empty-state .icon (size, centering, opacity);
          the compound selector beats .cat-glyph's width:60% regardless of
@@ -1076,7 +1171,7 @@
         right: 0;
         bottom: 0;
         width: var(--swipe-action-w);
-        background: linear-gradient(135deg, var(--red), var(--red-2));
+        background: linear-gradient(135deg, var(--red-fill), var(--red-2));
         color: var(--on-accent);
         font-weight: 600;
         font-size: var(--fs-footnote);
@@ -1142,28 +1237,17 @@
       }
       .tx-open:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
       }
 
       .t-icon {
         width: var(--icon-list-md);
         height: var(--icon-list-md);
-        border-radius: var(--r-sm);
-        display: flex;
-        align-items: center;
-        justify-content: center;
         font-size: var(--btn-icon-size);
-        flex-shrink: 0;
         /* --cat-color is set inline per row. Background stays a soft tint
            in both themes; the glyph itself reads as cat-color in light
            mode and switches to --text in dark mode (override below) so
            the dark-on-dark category palette doesn't disappear. */
-        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
-        color: var(--cat-color, var(--text));
-        box-shadow:
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
-          inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
-        border: var(--border-hairline);
       }
       .t-info {
         flex: 1;
@@ -1173,7 +1257,7 @@
         gap: var(--space-4);
       }
       .t-note {
-        font-size: var(--fs-micro);
+        font-size: var(--fs-callout);
         font-weight: 500;
         color: var(--text);
         white-space: nowrap;
@@ -1200,6 +1284,19 @@
       .t-note-row .tx-recurring-badge {
         flex: 0 0 auto;
         margin-inline-start: 0;
+      }
+      /* Category name on the row's second line, ahead of the tag pills —
+         the row's quiet secondary text (title carries the weight). */
+      .t-meta {
+        font-size: var(--fs-caption);
+        color: var(--text2);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+      .t-tags:empty {
+        display: none;
       }
       .t-tags {
         display: flex;
@@ -1232,7 +1329,13 @@
         outline: none;
         box-shadow: var(--focus-ring);
       }
-      .t-amount {
+      /* Row-end amount — one look on every list (ledger, category view,
+         recurring cards): DM Serif Display at --fs-headline. Amounts inside a
+         sentence ("2.376,64 € von 3.000,00 €") or a table cell stay DM Sans. */
+      .t-amount,
+      .cat-view-amount,
+      .recurring-card-amount,
+      .report-tx-amount {
         font-family: var(--font-display);
         font-size: var(--fs-headline);
         font-weight: 400;
@@ -1241,10 +1344,10 @@
         font-variant-numeric: tabular-nums;
       }
       .t-amount.out {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .t-amount.in {
-        color: var(--green);
+        color: var(--green-text);
       }
 
       /* ====== CATEGORY BREAKDOWN ====== */
@@ -1254,19 +1357,22 @@
         gap: var(--space-12);
         margin-bottom: var(--space-14);
       }
+      /* Report rows that drill into the Detailanalyse: a full touch target. */
+      .cat-row[role='button'] {
+        min-height: var(--btn-chrome-size);
+        cursor: pointer;
+      }
       .cat-icon {
         width: var(--icon-list-sm);
         height: var(--icon-list-sm);
-        border-radius: var(--r-sm);
-        display: flex;
-        align-items: center;
-        justify-content: center;
         font-size: var(--fs-icon-sm);
-        flex-shrink: 0;
-        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
-        color: var(--cat-color, var(--text));
-        box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.6);
-        border: var(--border-hairline);
+      }
+      /* Detail breakdown's untagged remainder: neutral, not a tag colour. */
+      .cat-row.is-untagged {
+        --cat-color: var(--text3);
+      }
+      .cat-row.is-untagged .cat-bar {
+        background: var(--text3);
       }
       .cat-info {
         flex: 1;
@@ -1291,14 +1397,14 @@
       .cat-amount {
         font-family: var(--font-display);
         font-size: var(--fs-body);
-        color: var(--accent);
+        color: var(--accent-text);
         letter-spacing: -0.02em;
         font-variant-numeric: tabular-nums;
       }
       /* Income amounts (Top income, income breakdown) read green, matching the
          ledger's direction colours. */
       .cat-amount.is-positive {
-        color: var(--green);
+        color: var(--green-text);
       }
 
       /* ====== BOTTOM BAR (search + FAB) ====== */
@@ -1314,15 +1420,22 @@
         gap: var(--space-10);
         z-index: var(--z-floating);
       }
-      /* Search + FAB only make sense in the transactions/categories ledger
-         views. Reports (charts), the Goals view and the Recurring view have
-         neither searchable rows nor a "new transaction" affordance, so hide
-         the whole bar there. Body classes are toggled in showPanel(). */
+      /* The FAB is on every view — it is the view's one create action
+         (PANELS[id].fab in core.js). Search only filters the ledger, so the
+         views without searchable rows drop the field and the bar shrinks
+         to the FAB alone, kept at the same right-hand spot. Body classes
+         are toggled in showPanel(). */
+      body.in-report .bottom-bar .search-wrap,
+      body.on-goals .bottom-bar .search-wrap,
+      body.on-budgets .bottom-bar .search-wrap,
+      body.on-recurring .bottom-bar .search-wrap {
+        display: none;
+      }
       body.in-report .bottom-bar,
       body.on-goals .bottom-bar,
       body.on-budgets .bottom-bar,
       body.on-recurring .bottom-bar {
-        display: none;
+        justify-content: flex-end;
       }
       .search-wrap {
         flex: 1;
@@ -1353,6 +1466,13 @@
         font-size: var(--fs-callout);
         color: var(--text);
         min-width: 0;
+      }
+      /* No native clear (×) in the bottom-bar field: while searching the FAB
+         becomes the one ✕ that clears and exits (syncFab), and the native
+         one rendered in system blue right next to it. */
+      .bottom-bar .search-input::-webkit-search-cancel-button {
+        -webkit-appearance: none;
+        appearance: none;
       }
       .search-input::placeholder {
         color: var(--text3);
@@ -1461,7 +1581,7 @@
       .selection-all {
         border: none;
         background: none;
-        color: var(--accent);
+        color: var(--accent-text);
         font-family: var(--font-body);
         font-size: var(--fs-footnote);
         font-weight: 600;
@@ -1613,6 +1733,16 @@
       }
       .drawer.sub-active .drawer-head {
         display: none;
+      }
+      /* Phone: the drawer is a full-screen menu — the menus and every
+         settings page share the whole width, so navigating inside it never
+         changes its size (DESIGN_CONVENTIONS "Phone drawer"). ≥768 px it is
+         the sidebar and settings pages open in the content pane. */
+      @media (max-width: 767.98px) {
+        .drawer {
+          width: 100%;
+          border-right: none;
+        }
       }
       .drawer-content {
         position: relative;
@@ -1810,6 +1940,12 @@
         justify-content: center;
         flex-shrink: 0;
       }
+      /* A category listed in settings wears the same tinted tile as in the
+         ledger and the category view — the solid tile above is navigation
+         chrome, and a category must look the same wherever it appears. */
+      .drawer-nav-icon-wrap.cat-tile {
+        border-radius: var(--r-xs);
+      }
       .drawer-nav-label {
         flex: 1;
       }
@@ -1818,14 +1954,20 @@
       }
       .drawer-nav-item:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
       }
       .drawer-nav-item.active {
-        color: var(--accent);
+        color: var(--accent-text);
         font-weight: 600;
       }
       .drawer-nav-item.active:focus-visible {
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
+      }
+      /* Trailing value in a settings row (e.g. 90-day usage count). */
+      .drawer-nav-value {
+        color: var(--text3);
+        font-size: var(--fs-callout);
+        font-variant-numeric: tabular-nums;
       }
       .drawer-nav-chevron {
         color: var(--text3);
@@ -1884,6 +2026,158 @@
         font-size: var(--fs-body);
         font-weight: 600;
         color: var(--text);
+      }
+
+      /* Grouped action rows inside a settings section (Import/Export,
+         Account): the settings-list row component, tinted as an action —
+         accent for actions, --red for destructive ones (iOS Settings). */
+      .drawer-section .drawer-nav.action-list {
+        margin: 0;
+      }
+      .drawer-nav.action-list + .drawer-nav.action-list {
+        margin-top: var(--space-16);
+      }
+      /* Records (API keys, signed-in devices, users) as rows of the same
+         grouped card: name, caption lines, actions as text buttons —
+         trailing for one, on their own line for several (.is-stacked). */
+      .drawer-section .drawer-nav.record-list {
+        margin: 0;
+      }
+      .drawer-nav.action-list + .drawer-nav.record-list,
+      .drawer-nav.record-list + .drawer-nav.action-list {
+        margin-top: var(--space-16);
+      }
+      /* The trailing action wraps under the caption once the text column
+         would drop below ~12rem (phone drawer), instead of squeezing it. */
+      .record-row {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        column-gap: var(--space-12);
+        min-height: 50px;
+        padding: var(--space-10) var(--space-16);
+      }
+      .record-row:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: var(--space-16);
+        right: 0;
+        height: 0.5px;
+        background: var(--hairline-soft);
+      }
+      .record-row.is-stacked {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+      }
+      .record-main {
+        flex: 1 1 12rem;
+        min-width: 0;
+      }
+      /* In a column the basis would become a height. */
+      .record-row.is-stacked .record-main {
+        flex: none;
+      }
+      .record-name {
+        font-size: var(--fs-body);
+        color: var(--text);
+        overflow-wrap: anywhere;
+      }
+      .record-meta {
+        font-size: var(--fs-caption);
+        color: var(--text3);
+        line-height: 1.4;
+      }
+      .record-actions {
+        display: flex;
+        flex-wrap: wrap;
+        column-gap: var(--space-16);
+        flex-shrink: 0;
+      }
+      .record-action {
+        min-height: var(--btn-chrome-size);
+        padding: 0;
+        background: none;
+        border: 0;
+        font-family: inherit;
+        font-size: var(--fs-callout);
+        color: var(--accent-text);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .record-action.is-destructive {
+        color: var(--red);
+      }
+      .record-action:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-sm);
+      }
+      .record-empty {
+        margin: 0;
+        padding: var(--space-16);
+        font-size: var(--fs-footnote);
+        color: var(--text3);
+        text-align: center;
+      }
+      /* Explanation under a settings group (iOS group footer): indented to
+         the row text, the next card keeps the card-to-card rhythm. */
+      .settings-footnote {
+        margin: var(--space-8) var(--space-16) 0;
+        font-size: var(--fs-caption);
+        line-height: 1.4;
+        color: var(--text3);
+      }
+      .drawer-section .settings-footnote + .drawer-nav {
+        margin-top: var(--space-16);
+      }
+      .account-username {
+        margin: 0 0 var(--space-16);
+        font-size: var(--fs-body);
+        color: var(--text2);
+      }
+      .drawer-nav-item.is-action {
+        color: var(--accent-text);
+      }
+      .drawer-nav-item.is-destructive {
+        color: var(--red);
+      }
+
+      /* Info → collapsed diagnostics (device, display, environment). */
+      .info-details-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: var(--btn-chrome-size);
+        padding-bottom: var(--space-16);
+        list-style: none;
+        cursor: pointer;
+        font-size: var(--fs-caption);
+        font-weight: 600;
+        color: var(--text3);
+      }
+      .info-details-summary::-webkit-details-marker {
+        display: none;
+      }
+      .info-details-chevron {
+        width: var(--btn-icon-size);
+        height: var(--btn-icon-size);
+        transition: transform var(--dur-base) var(--ease-soft);
+      }
+      .info-details[open] .info-details-chevron {
+        transform: rotate(180deg);
+      }
+      .info-details-summary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring-inset);
+        border-radius: var(--r-sm);
+      }
+
+      /* Settings detail host: only used from 768 px (adaptive block). */
+      .settings-host {
+        display: none;
       }
 
       .bn-item {
@@ -2200,7 +2494,7 @@
         flex: 0 0 auto;
         width: calc(var(--space-56) + var(--space-24));
       }
-      .rec-interval-row select {
+      .rec-interval-row .select-wrap {
         flex: 1;
       }
 
@@ -2314,7 +2608,7 @@
       }
       .cat-pill-edit:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
       }
 
       .color-swatches {
@@ -2446,7 +2740,7 @@
         margin-top: var(--space-20);
       }
       .icon-picker-section-title {
-        color: var(--accent);
+        color: var(--accent-text);
         font-size: var(--fs-title-sm);
         font-weight: 600;
         margin-bottom: var(--space-12);
@@ -2537,7 +2831,7 @@
       .cat-create {
         border-style: dashed;
         border-color: var(--accent);
-        color: var(--accent);
+        color: var(--accent-text);
         font-weight: 600;
       }
       /* Only the not-yet-added chip reacts — an added one already carries the
@@ -2596,7 +2890,7 @@
       .save-btn.btn-destructive {
         margin-top: var(--space-8);
         background: transparent;
-        color: var(--accent);
+        color: var(--accent-text);
         border: 1px solid var(--accent);
         box-shadow: none;
       }
@@ -2643,6 +2937,26 @@
         -webkit-appearance: none;
         appearance: none;
         transition: all var(--dur-base) var(--ease-spring);
+      }
+      /* Pop-up affordance: a trailing chevron, the same glyph the month and
+         range pickers use, so a select never reads as a static card. */
+      /* Every custom select (appearance: none) wears the chevron-down glyph
+         in a .select-wrap: settings, dialogs, the trend's year picker. */
+      .select-wrap {
+        position: relative;
+      }
+      .select-wrap select {
+        padding-right: calc(var(--space-16) * 2 + var(--btn-icon-size));
+      }
+      .select-chevron {
+        position: absolute;
+        right: var(--space-16);
+        top: 50%;
+        transform: translateY(-50%);
+        width: var(--btn-icon-size);
+        height: var(--btn-icon-size);
+        color: var(--text3);
+        pointer-events: none;
       }
       .settings-select:focus {
         border-color: var(--accent);
@@ -2724,7 +3038,7 @@
       }
       @media (hover: hover) and (pointer: fine) {
         .save-btn:hover {
-          color: var(--accent);
+          color: var(--accent-text);
         }
       }
       .save-btn.primary {
@@ -2746,7 +3060,7 @@
         text-align: center;
         margin-top: var(--space-8);
         min-height: 16px;
-        color: var(--green);
+        color: var(--green-text);
         font-weight: 500;
       }
       .status-msg.err,
@@ -2754,7 +3068,7 @@
         color: var(--red);
       }
       .status-msg.ok {
-        color: var(--green);
+        color: var(--green-text);
       }
       /* Per-row CSV import errors (translated from backend codes). Capped in
          JS; scrolls if a file has many failed rows. */
@@ -2813,14 +3127,14 @@
       }
 
       /* ====== REPORTS ====== */
-      /* Reports, the Goals view and the Recurring view are not month-scoped,
-         so the month switcher and the income/expense summary are hidden for
-         all of them. */
+      /* Reports, Goals and Recurring are not month-scoped, so the month
+         switcher and the income/expense summary are hidden for them. Budgets
+         keep the switcher (their period follows the viewed month, so past
+         periods are one tap back) but not the ledger summary. */
       body.in-report .month-nav,
       body.in-report .summary,
       body.on-goals .month-nav,
       body.on-goals .summary,
-      body.on-budgets .month-nav,
       body.on-budgets .summary,
       body.on-recurring .month-nav,
       body.on-recurring .summary {
@@ -2833,11 +3147,24 @@
       }
 
       .report-head {
-        padding: var(--space-4) 0 0;
+        padding: 0;
       }
+      /* Large view title (Apple "large title"): the same type and spot on
+         every view. .view-head sits above the summary for the ledger
+         views; reports render the same look in their own .report-head. */
+      .view-head {
+        padding: var(--space-8) var(--space-20) var(--space-4);
+      }
+      body.in-report .view-head,
+      body.searching .view-head {
+        display: none;
+      }
+      /* --fs-title-sm, not --fs-title: the serif display face already
+         carries the weight; at 24 px the title out-shouted the content. */
+      .view-title,
       .report-title {
         font-family: var(--font-display);
-        font-size: var(--fs-title);
+        font-size: var(--fs-title-sm);
         letter-spacing: -0.02em;
         margin: 0;
         color: var(--text);
@@ -2864,9 +3191,12 @@
       }
       /* Breakdown report: two segmented controls (entity + direction) sharing
          one row, each taking half the width. */
+      /* Two toggles (Categories|Tags, Expenses|Income). Stacked on phones —
+         side by side four look-alike pills crowd 390 px and the second one
+         touched the card edge; the 768 px block puts them back in a row. */
       .breakdown-controls {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         gap: var(--space-8);
       }
       .breakdown-controls .segmented {
@@ -2874,7 +3204,6 @@
         min-width: 0;
       }
       .breakdown-controls .segmented button {
-        padding: var(--space-8) var(--space-4);
         white-space: nowrap;
       }
       .segmented button {
@@ -3037,10 +3366,23 @@
         text-align: right;
         text-align-last: right;
         cursor: pointer;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
-        background-repeat: no-repeat;
-        background-position: right center;
-        background-size: 12px 12px;
+      }
+      /* The year picker's compact select: the shared chevron at caption size,
+         hugging the right-aligned year. */
+      .trend-year-picker .select-wrap {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+      }
+      .trend-year-picker .select-wrap select {
+        width: 100%;
+        padding-right: calc(var(--fs-caption) + var(--space-4));
+      }
+      .trend-year-picker .select-chevron {
+        right: 0;
+        width: var(--fs-caption);
+        height: var(--fs-caption);
       }
       .trend-year-picker select:focus-visible {
         outline: none;
@@ -3103,26 +3445,105 @@
         margin: 0 0 var(--space-12);
         font-weight: 600;
       }
+      /* Section title with a control on the same line (detail report: the
+         booking list's Date|Amount sort). */
+      .report-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-12);
+        margin-bottom: var(--space-8);
+      }
+      .report-section-head .report-section-title {
+        margin: 0;
+      }
+      .segmented.is-compact {
+        flex: 0 0 auto;
+      }
+      .segmented.is-compact button {
+        position: relative;
+        padding: var(--space-4) var(--space-12);
+      }
+      /* The compact pills stay ~24 px tall to sit on a title line; the hit
+         area reaches above and below them to the 44 px touch target. */
+      .segmented.is-compact button::after {
+        content: '';
+        position: absolute;
+        inset: calc(-1 * var(--space-10)) 0;
+      }
+      /* Back to the report a drill-down came from — the same accent text
+         button as "Wechseln", sitting above the large title. */
+      .report-back {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        background: transparent;
+        border: 0;
+        color: var(--accent-text);
+        font-family: inherit;
+        font-size: var(--fs-callout);
+        font-weight: 600;
+        cursor: pointer;
+        min-height: var(--btn-chrome-size);
+        padding: 0 var(--space-4) 0 0;
+        margin-left: calc(-1 * var(--space-4));
+      }
+      .report-back[hidden] {
+        display: none;
+      }
+      .report-back:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-sm);
+      }
+      /* Closing row of a report list that leads elsewhere (detail report →
+         the ledger search with its bulk actions). */
+      .report-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        min-height: var(--btn-chrome-size);
+        margin-top: var(--space-4);
+        padding: var(--space-8) 0 0;
+        background: transparent;
+        border: 0;
+        border-top: var(--border-hairline);
+        color: var(--accent-text);
+        font-family: inherit;
+        font-size: var(--fs-callout);
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+      }
+      .report-link:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--r-sm);
+      }
 
+      /* Three equal cards while they fit; when a card's amount no longer does
+         (360 px, five-digit totals) the row wraps and the last card takes the
+         full second line. Equal growth from a zero basis, floored at the
+         content width — no breakpoint, no shrinking type. */
       .report-kpis {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: var(--space-8);
         margin-bottom: var(--space-14);
       }
       .report-kpis .summary-card {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--space-4);
-        padding: var(--space-10) var(--space-12);
+        flex: 1 1 0;
+        min-width: min-content;
       }
-      .report-kpis .summary-card .label {
-        font-size: var(--fs-micro);
-        color: var(--text3);
+      /* Four cards: 2 × 2 on phones instead of 3 + a lone full-width one. */
+      .report-kpis.is-quad .summary-card {
+        flex-basis: calc(50% - var(--space-4));
       }
-      .report-kpis .summary-card .amount {
-        font-size: var(--fs-headline);
-        text-align: left;
+      @media (min-width: 768px) {
+        .report-kpis.is-quad .summary-card {
+          flex-basis: 0;
+        }
       }
 
       .report-canvas-wrap {
@@ -3177,7 +3598,7 @@
       .trend-switch-btn {
         background: transparent;
         border: 0;
-        color: var(--accent);
+        color: var(--accent-text);
         font-family: inherit;
         font-size: var(--fs-callout);
         font-weight: 600;
@@ -3338,9 +3759,11 @@
         flex: 1;
         min-width: 0;
       }
+      /* Same primary line as a ledger row (.t-note). */
       .report-tx-desc {
-        font-size: var(--fs-footnote);
-        font-weight: 600;
+        font-size: var(--fs-callout);
+        font-weight: 500;
+        letter-spacing: -0.01em;
         color: var(--text);
         white-space: nowrap;
         overflow: hidden;
@@ -3350,17 +3773,11 @@
         font-size: var(--fs-caption);
         color: var(--text3);
       }
-      .report-tx-amount {
-        font-family: var(--font-display);
-        font-size: var(--fs-body);
-        letter-spacing: -0.02em;
-        font-variant-numeric: tabular-nums;
-      }
       .report-tx-amount.negative {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .report-tx-amount.positive {
-        color: var(--green);
+        color: var(--green-text);
       }
 
 
@@ -3472,13 +3889,13 @@
         font-weight: 600;
       }
       .forecast-status.is-ok {
-        color: var(--green);
+        color: var(--green-text);
       }
       .forecast-status.is-neutral {
         color: var(--text3);
       }
       .forecast-status.is-warn {
-        color: var(--accent);
+        color: var(--accent-text);
       }
 
       /* iOS-style hidden scrollbar inside modal */
@@ -3496,7 +3913,8 @@
         padding: var(--space-10) var(--space-16);
       }
       /* No extra top gap when button is the first element in a section */
-      .drawer-section > .save-btn:first-child {
+      .drawer-section > .save-btn:first-child,
+      .drawer-section > .action-list:first-child {
         margin-top: 0;
       }
       /* Spacing between the top button and whatever follows it. The list is no
@@ -3506,6 +3924,9 @@
          selector still covers a section that has no filter field at all. */
       .drawer-section .save-btn + .drawer-chip-list,
       .drawer-section .save-btn + .drawer-search,
+      .drawer-section .action-list + .drawer-chip-list,
+      .drawer-section .action-list + .drawer-search,
+      .drawer-section .drawer-chip-list + .action-list,
       .drawer-section .drawer-search[hidden] + .drawer-chip-list {
         margin-top: var(--space-12);
       }
@@ -3568,6 +3989,7 @@
         display: flex;
         align-items: center;
         justify-content: flex-start;
+        gap: var(--space-12);
         min-height: 50px;
         border-radius: 0 !important;
         background: none !important;
@@ -3645,7 +4067,7 @@
         flex: 0 0 auto;
         font-size: var(--fs-footnote);
         font-weight: 600;
-        color: var(--accent);
+        color: var(--accent-text);
       }
       /* ====== RECURRING — list + badge + skip rows ======
          Mirrors the .goal-card / .t-icon patterns so light/dark themes
@@ -3686,7 +4108,7 @@
       }
       .recurring-card-main:focus-visible {
         outline: none;
-        box-shadow: var(--focus-ring);
+        box-shadow: var(--focus-ring-inset);
         border-radius: var(--r-sm);
       }
       /* iOS Settings-style row: label on the left, switch on the right.
@@ -3711,14 +4133,6 @@
       .recurring-card-icon {
         width: var(--icon-list-md);
         height: var(--icon-list-md);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        border-radius: var(--r-sm);
-        background: color-mix(in oklab, var(--cat-color, var(--text)) 13%, transparent);
-        color: var(--cat-color, var(--text));
-        border: var(--border-hairline);
       }
       .recurring-card-icon .cat-glyph {
         width: 70%;
@@ -3750,16 +4164,15 @@
         max-width: 100%;
       }
       .recurring-card-amount {
-        font-variant-numeric: tabular-nums;
-        font-weight: 600;
         white-space: nowrap;
       }
-      /* Colour the amount by direction — no +/− sign needed. */
+      /* Direction colours match every other list (sign carries it too);
+         --red stays reserved for destructive actions. */
       .recurring-card-amount.in {
-        color: var(--green);
+        color: var(--green-text);
       }
       .recurring-card-amount.out {
-        color: var(--red);
+        color: var(--accent-text);
       }
       .tx-recurring-badge {
         display: inline-flex;
@@ -3818,11 +4231,11 @@
         border-radius: var(--r-sm);
       }
       .recurring-skip-list button:active {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       @media (hover: hover) and (pointer: fine) {
         .recurring-skip-list button:hover {
-          color: var(--accent);
+          color: var(--accent-text);
         }
       }
       .recurring-skip-list button:focus-visible {
@@ -4027,6 +4440,66 @@
       }
 
       @media (min-width: 768px) {
+        /* Settings split view (iPad Settings): the sidebar keeps the
+           settings list, the open sub-panel renders in the content pane.
+           _openSettingsDetail (core.js) moves the panel node into
+           #settingsHost and back. */
+        body.settings-detail .panel,
+        body.settings-detail .view-head,
+        body.settings-detail .summary,
+        body.settings-detail .bottom-bar,
+        body.settings-detail .month-nav {
+          display: none;
+        }
+        body.settings-detail .settings-host {
+          display: block;
+          padding: var(--space-8) var(--space-20) var(--space-24);
+        }
+        .settings-host .drawer-panel {
+          position: static;
+          max-width: var(--settings-pane-max);
+          overflow: visible;
+          transform: none;
+          opacity: 1;
+          pointer-events: auto;
+          transition: none;
+          padding-bottom: 0;
+        }
+        .settings-host .drawer-sub-head {
+          position: static;
+          justify-content: flex-start;
+          gap: var(--space-8);
+          min-height: 0;
+          padding: 0 0 var(--space-4);
+          background: none;
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+          border-bottom: none;
+        }
+        /* No back button in the pane (iPad Settings): the sidebar shows the
+           selection and switches it, Esc closes the pane. The title then
+           sits where every view's large title sits. */
+        .settings-host .drawer-back-btn {
+          display: none;
+        }
+        /* Same large title as every other view. */
+        .settings-host .drawer-sub-title {
+          font-family: var(--font-display);
+          font-size: var(--fs-title-sm);
+          font-weight: 400;
+          letter-spacing: -0.02em;
+        }
+        .settings-host .drawer-section {
+          padding-left: 0;
+          padding-right: 0;
+        }
+        .settings-host .drawer-section-divider {
+          margin-left: 0;
+          margin-right: 0;
+        }
+        .breakdown-controls {
+          flex-direction: row;
+        }
         /* Body lets the shell take over centering; the flat grouped canvas
            lives on <html>, so it always fills the viewport regardless of the
            body box width. */
@@ -4151,6 +4624,27 @@
       }
 
       @media (min-width: 1024px) {
+        /* Card views (goals, budgets, recurring) become a grid: full-width
+           cards with 1500-px progress bars were hard to compare. The one
+           exception to "content fills the pane" (DESIGN_CONVENTIONS.md). */
+        #goalsViewList,
+        #budgetsViewList,
+        #recurringViewList {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
+          gap: var(--space-12);
+          align-items: start;
+        }
+        #goalsViewList > *,
+        #budgetsViewList > *,
+        #recurringViewList > * {
+          margin-bottom: 0;
+        }
+        #goalsViewList > .empty-state,
+        #budgetsViewList > .empty-state,
+        #recurringViewList > .empty-state {
+          grid-column: 1 / -1;
+        }
         /* On larger displays the chart canvas gets a bit more vertical
            breathing room; the list / bar widths are unrestricted from
            the 768 px block onwards. */
@@ -4262,77 +4756,6 @@
         margin: 0;
         line-height: 1.4;
       }
-      /* ====== ADMIN USER LIST ====== */
-      .admin-user-row {
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-4);
-        padding: var(--space-12) var(--space-14);
-        background: var(--bg-canvas);
-        border: var(--border-hairline);
-        border-radius: var(--r-md);
-        margin-bottom: var(--space-8);
-      }
-      .admin-user-row-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--space-8);
-      }
-      .admin-user-name {
-        font-weight: 600;
-        color: var(--text);
-        font-size: var(--fs-body);
-      }
-      .admin-user-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--space-4);
-        font-size: var(--fs-micro);
-      }
-      .admin-user-tag {
-        background: var(--surface-tint);
-        color: var(--text2);
-        padding: var(--space-2) var(--space-8);
-        border-radius: var(--r-pill);
-      }
-      .admin-user-tag.admin {
-        background: var(--accent-tint);
-        color: var(--accent);
-      }
-      .admin-user-tag.inactive {
-        opacity: 0.7;
-      }
-      .admin-user-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--space-8);
-        margin-top: var(--space-8);
-      }
-      .admin-user-actions button {
-        flex: 0 0 auto;
-        font-size: var(--fs-caption);
-        background: var(--surface);
-        color: var(--text);
-        border: 1px solid var(--surface-tint);
-        padding: var(--space-8) var(--space-12);
-        border-radius: var(--r-md, 12px);
-        cursor: pointer;
-        min-height: var(--btn-chrome-size);
-      }
-      .admin-user-actions button.btn-destructive {
-        color: var(--red, #b3261e);
-        border-color: var(--red, #b3261e);
-      }
-      .admin-user-actions button:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-      .admin-user-actions button:focus-visible {
-        outline: none;
-        box-shadow: var(--focus-ring);
-      }
-
       /* Admin-only menu entries collapse to display:none when the
          body doesn't carry the .is-admin class. Cleaner than juggling
          `hidden` from JS, and survives view re-renders. */
@@ -4341,59 +4764,6 @@
       }
 
       /* ── API Keys ─────────────────────────────────────────────────── */
-      .api-key-list {
-        margin-top: var(--space-16);
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-12);
-      }
-      .api-key-card {
-        background: var(--bg-canvas);
-        border: var(--border-hairline);
-        border-radius: var(--r-md);
-        padding: var(--space-14) var(--space-16);
-        box-shadow: var(--shadow-soft);
-        display: flex;
-        flex-direction: column;
-      }
-      .api-key-card-name {
-        font-size: var(--fs-body);
-        font-weight: 600;
-        color: var(--text);
-        margin-bottom: var(--space-12);
-        overflow-wrap: anywhere;
-      }
-      .api-key-card-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: stretch;
-        gap: var(--space-12);
-        margin-top: auto;
-        padding-top: var(--space-12);
-      }
-      .api-key-card-meta {
-        font-size: var(--fs-caption);
-        color: var(--text3);
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-2);
-      }
-      .api-key-card-scopes {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--space-4);
-      }
-      .api-key-scope-chip {
-        font-size: var(--fs-micro);
-        background: var(--surface-tint);
-        color: var(--text2);
-        padding: var(--space-2) var(--space-8);
-        border-radius: var(--r-pill);
-      }
-      .api-key-scope-chip.admin {
-        background: var(--accent-tint);
-        color: var(--accent);
-      }
       .api-key-revoke-btn {
         font-size: var(--fs-caption);
         background: none;
@@ -4409,12 +4779,6 @@
       .api-key-revoke-btn:focus-visible {
         outline: none;
         box-shadow: var(--focus-ring);
-      }
-      .api-key-card-empty {
-        font-size: var(--fs-footnote);
-        color: var(--text3);
-        text-align: center;
-        padding: var(--space-24) 0;
       }
       /* Copy button + code block in the "key created" modal */
       .api-key-display {

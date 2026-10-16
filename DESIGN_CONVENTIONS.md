@@ -7,12 +7,38 @@ i18n; code and comments are English (see "Language" convention in [`CLAUDE.md`](
 
 ## Core Principles
 
+- **One system:** every change fits the whole app — the same components,
+  tokens and patterns as everywhere else, no one-off styling. A change that
+  needs a new pattern documents it here in the same PR and applies it
+  everywhere it belongs. Every UI change is verified with screenshots (see
+  "Verifying UI Changes" below).
 - **Clarity:** function before decoration, no visual noise.
 - **Restraint:** the UI frames the data — transactions and amounts in the foreground.
 - **Depth:** hierarchy through layers and shadows, not skeuomorphism.
 - **Mobile-first:** max-width `430px`, single-column, touch targets ≥ 44×44 px.
 - **Content first:** DM Serif Display dominant for amounts, DM Sans recedes.
 - **Platform look on iOS:** `standalone` mode, `theme-color` = `--bg-grouped`, `apple-touch-icon` set.
+
+## Verifying UI Changes
+
+Every UI change is checked visually before it goes into a PR. Passing tests
+are not enough: they don't see spacing, wrapping, contrast, clipped amounts or
+a colour that no longer matches its neighbour.
+
+- **Before / after** against `dev`, with the same data.
+- **Widths:** phone (390 px) always; 768 and 1280 px when the tablet/desktop
+  layout is affected; 320 / 360 px for anything with amounts or long labels.
+- **Light and dark mode.**
+- **Every state the change touches:** empty, loading, error, long text, many
+  items, keyboard focus.
+- **The neighbours, not just the changed element:** the same component in
+  other views (rows, cards, badges, buttons, pickers) must still match — that
+  is where "fits the overall concept" is decided.
+- **How:** serve the frontend locally (symlink `backend/static` →
+  `../frontend`, gitignored, then run uvicorn from `backend/`), capture with
+  Playwright's Chromium (already set up in `frontend/e2e`) or the browser's
+  device mode. Compare before/after side by side, fix what doesn't fit, and
+  show the pairs to the reviewer / reference them in the PR description.
 
 ## Layout & Safe Areas
 
@@ -128,6 +154,42 @@ via two breakpoints — the breakpoint value lives literally in `@media`
 - **Bottom bar clearance:** `var(--bottom-bar-clearance)` (66 px) is a layout
   constant reserved for all panels and scrollable content so nothing is obscured
   by the floating bottom bar. Apply as `padding-bottom` on scrollable containers.
+- **Settings split view:** from 768 px a settings sub-panel (Allgemein,
+  Kategorien, Tags, Import/Export, API-Schlüssel, Konto, Benutzer,
+  Verwaltung, Info) opens in the content pane, as in the iPad Settings app.
+  The sidebar keeps the settings list with the open entry marked.
+  `_openSettingsDetail` (`core.js`) moves the panel node into
+  `#settingsHost` and back, so ids, handlers and loaders stay the same.
+  Closing paths: Esc, the sidebar back button, any main destination, and
+  crossing the breakpoint (the panel returns to the drawer). Forms there
+  cap at 640 px.
+- **Phone drawer:** below 768 px the drawer is a full-screen menu at
+  every level — main menu, Auswertungen, Einstellungen and every settings
+  page share the whole width, so navigating inside it never changes its
+  size and long names have room. It closes with the X in the drawer head
+  (top level) or by picking a destination; sub-pages lead back there with
+  their back button.
+- **Settings rows (one component):** every settings panel uses the grouped
+  `.drawer-nav` card.
+  - Navigation rows end in a chevron.
+  - Management rows (categories, tags) show how often the item was ever
+    used (all bookings, no time window, so 0 means "never used"), then a
+    chevron.
+  - Actions are `.action-list` rows tinted `--accent-text` (`.is-action`)
+    or `--red` (`.is-destructive`). A row that opens a dialog asking for
+    more input ends in "…" ("Passwort ändern…"); one that only asks to
+    confirm does not ("Abmelden").
+  - Records (API keys, signed-in devices, users) are `.record-list` rows:
+    name, caption lines in `--text3`, actions as text buttons — trailing
+    for one, on their own line for several. No outlined buttons, no chips.
+  - A group's explanation is a `.settings-footnote` below the group (iOS
+    group footer), never inline-styled text above it.
+  - Create rows come first, above the list they add to.
+  - No full-width card buttons inside settings.
+  - Split view (≥ 768 px): the pane has no back button of its own — the
+    sidebar shows and switches the selection, Esc closes the pane.
+  - Support diagnostics (device, display, environment) sit collapsed under
+    "Diagnose".
 - **JS guards:** `openDrawer()` / `closeDrawer()` are no-ops from 768 px.
   `body.style.overflow = 'hidden'` may still be set in modals
   (background lock is useful on desktop too). The source of truth for the
@@ -170,6 +232,10 @@ via two breakpoints — the breakpoint value lives literally in `@media`
   collapsed state, each minus the 16-px inset for the bottom bar). The
   header top is a 3-column grid (`chrome 1fr chrome`) so the month
   navigator stays visually centred regardless of pane width.
+- **Card views are the one exception:** from 1024 px the goal, budget and
+  recurring lists become a grid (`repeat(auto-fill, minmax(var(--card-min), 1fr))`).
+  Full-width cards with 1500-px progress bars could not be compared side by
+  side. Rows stay full-width.
 - **Body-text caps** (modal body, empty states) remain useful — the HIG
   rationale "restrict text for readability" applies there. Currently
   PocketLog has only the centred modal (`max-width: 560px`).
@@ -197,7 +263,9 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | `--bg-canvas` | `#FFFFFF` | `#221e19` | Card/surface colour (sits lighter on `--bg-grouped`) |
   | `--accent` | `#D97757` (clay) | `#E8926E` | Expenses, primary action |
   | `--green` | `#788C5D` (olive) | `#9AB07A` | Income, success |
-  | `--red` / `--red-2` | `#C0392B` / `#EC6B5B` | unchanged | Destructive actions (swipe-to-delete gradient) |
+  | `--accent-text` / `--green-text` | `#A85232` / `#5E7046` | = `--accent` / `--green` | The same hues as **text** (amounts, links, action rows): ≥ 4.5 : 1 on both backgrounds. `--accent` / `--green` stay the fills (bars, lines, icons, buttons). `-2` variants are the lighter gradient stop of the KPI amounts. |
+  | `--red` | `#C0392B` | `#F56A74` | Destructive actions and their text |
+  | `--red-fill` / `--red-2` | `#C0392B` / `#EC6B5B` | unchanged | Red behind white text (swipe-to-delete gradient) |
   | `--text` | `#141413` (slate) | `#F0EEE6` | Primary text |
   | `--text2` | `#3D3D3A` | `#B0ADA6` | Secondary text |
   | `--text3` | `#87867F` | `#87867F` | Tertiary text, hints |
@@ -212,6 +280,15 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   a category colour in CSS — always reference `var(--cat-color)`.
 - **Colour is never the only signal.** Income/expenses additionally carry
   a `+` or `−` (U+2212). Error states carry text, not just a red border.
+  Row-end amounts (ledger, category view, recurring cards, report booking
+  lists, balance) go through `fmtSignedCurrency(n, 'in' | 'out')`
+  (`core.js`; net values via `_netDirection(net)`). Only amounts whose label
+  already names the direction (summary cards "Expenses"/"Income", "Top
+  expenses" sections, the breakdown with its in/out toggle) stay unsigned
+  via `fmtCurrency`, which also renders negatives with U+2212.
+- **A booking row is never blank.** Its title falls back description →
+  source recurring rule name → category name (`_txTitle` in `utils.js`); the
+  category name shows as the caption line unless it already is the title.
 - **No hard black/white backgrounds.** Page canvas always `--bg-grouped`,
   cards/surfaces `--bg-canvas`, text `--text` — so light/dark look consistent.
 - **Use accent colour sparingly:** at most one primary action per screen
@@ -228,8 +305,8 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | Token      | CSS variable      | Usage                                | Size |
   |---|---|---|---|
   | `display`  | `--fs-display`    | Balance display                      | `2.25rem` (36 px), DM Serif Display |
-  | `title`    | `--fs-title`      | Screen / modal title                 | `1.5rem` (24 px), DM Serif Display |
-  | `title-sm` | `--fs-title-sm`   | Compact title, stat number           | `1.25rem` (20 px), DM Sans 600 |
+  | `title`    | `--fs-title`      | Modal title                          | `1.5rem` (24 px), DM Serif Display |
+  | `title-sm` | `--fs-title-sm`   | View title (DM Serif Display); compact title, stat number (DM Sans 600) | `1.25rem` (20 px) |
   | `headline` | `--fs-headline`   | Card heading                         | `1.125rem` (18 px), DM Sans 600 |
   | `body`     | `--fs-body`       | Body text, form inputs               | `1rem` (16 px), DM Sans 400 |
   | `callout`  | `--fs-callout`    | Secondary buttons, labels            | `0.9375rem` (15 px), DM Sans 500 |
@@ -249,6 +326,8 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | `--btn-fab-size`    | FAB, search bar height                                 | `50px`    |
   | `--btn-icon-size`   | Glyph in chrome buttons (`‹ ✕ ⌕ …`)                    | `1.25rem` |
   | `--nav-icon-size`   | Icon container in drawer navigation rows               | `30px`    |
+  | `--settings-pane-max` | Settings detail width in the split view (≥ 768 px)   | `640px`   |
+  | `--card-min`        | Narrowest card in the wide-screen card grid (≥ 1024 px) | `320px`   |
 
 - **Adjusting a single instance:** override the token call in the CSS block
   of the relevant class, e.g. `font-size: 1rem` locally instead of
@@ -275,12 +354,33 @@ Reference: [HIG: Color](https://developer.apple.com/design/human-interface-guide
   | Easing         | `--ease-spring`                | `cubic-bezier(0.32, 0.72, 0, 1)` — default transitions |
   |                | `--ease-bounce`                | `cubic-bezier(0.34, 1.56, 0.64, 1)` — FAB + buttons |
   |                | `--ease-soft`                  | `cubic-bezier(0.4, 0, 0.2, 1)` — fades + overlays |
-  | Focus          | `--focus-ring`                 | `0 0 0 3px var(--accent-tint)` |
+  | Focus          | `--focus-ring`                 | `0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent)` (gap + solid ring, ≥ 3 : 1) |
+  |                | `--focus-ring-inset`           | `inset 0 0 0 2px var(--accent)` — rows that fill a clipped card edge to edge |
   | Border         | `--border-hairline`            | `0.5px solid var(--hairline-soft)` |
   |                | `--border-hairline-strong`     | `0.5px solid var(--hairline)` |
 
 - **Line height:** `1.25` for DM Serif Display, `1.4` for DM Sans body.
 - **Letter spacing:** leave at default; do not artificially widen.
+- **Amounts — one rule:** a standalone amount at the end of a list row
+  (ledger, category view, recurring cards, report booking rows) is DM Serif Display at
+  `--fs-headline` (shared selector with `.t-amount` in `styles.css`). Amounts
+  inside a sentence ("2.376,64 € von 3.000,00 €") or a table cell stay DM Sans.
+  Report bar rows (`.cat-amount`, Aufteilung/Übersicht) stay at `--fs-body`:
+  the bar carries the comparison, the number is secondary. A budget over its
+  limit shows its amount in `--red` — a status, always with the over-limit
+  label and bar, the one exception to "red = destructive".
+  Expense colour is always `--accent-text`, income `--green-text` (the text
+  variants of `--accent` / `--green`); `--red` is for destructive actions
+  only.
+- **Summary cards (one layout):** the ledger's Ausgaben/Einnahmen cards and
+  the report KPI cards share `.summary-card`: label (`--fs-micro`, `--text3`)
+  on top, amount below. Report KPIs sit in a wrapping flex row (equal widths
+  while they fit; the last card takes a full second line when an amount
+  would not fit). No side-by-side label/amount and no shrinking type.
+  **Order everywhere:** Ausgaben → Einnahmen → Bilanz (then any extra stat
+  such as the detail's average) — spending is what a household ledger is
+  about. Four cards sit in a 2 × 2 grid on phones (`.report-kpis.is-quad`),
+  in one row from 768 px.
 - **Numeric tables:** `font-variant-numeric: tabular-nums` for columns with
   amounts, so digits align vertically.
 - **Dynamic type (web equivalent):** no fixed `px` values for text — use `rem`
@@ -362,6 +462,16 @@ Two icon systems, strictly separated:
   - `<use href="#icon-menu|chevron-left|chevron-right|close|search|plus">`.
   - 24×24 viewport, `stroke="currentColor"` — icons inherit text colour.
   - New chrome glyph → as `<symbol id="icon-…">` in the sprite block in `index.html`.
+- **A category looks the same everywhere:** tinted tile (`--cat-color` at
+  13 %, glyph in `--cat-color`, `--text` in dark mode) in the ledger, the
+  category view, choosers and the settings list (`.drawer-nav-icon-wrap.cat-tile`).
+  Solid tiles with a white glyph are reserved for navigation chrome.
+- **Drawer navigation tiles:** one glyph per destination (no duplicates), tile
+  colour by group — record (Categories, Transactions) `--accent`, plan (Goals,
+  Budgets, Recurring) `--green`, analyse (Reports) `--blue`, Settings `--text3`.
+  The label is also the view's large title. The two ledger views are named
+  "Buchungsübersicht" / "Kategorienübersicht" so they never collide with the
+  "Kategorien" / "Tags" entries one level down in Settings.
 - **Semantics:** icon without label only when universally understood (plus = new, bin = delete).
 - **Accessibility:** `aria-label` with purpose, not appearance.
 - **Stroke style:** outline only — no mixing.
@@ -393,6 +503,43 @@ bottom bar** (primary actions). A single-page PWA needs nothing more.
   in a menu. Infrequent actions (export, settings) may go in a "…" menu.
 - **Consistency:** same toolbar style on all screens — position, height,
   material identical.
+- **View scaffold (every main view):**
+  - **Large title** below the top bar: `#viewTitle` (`.view-title`, DM Serif
+    Display, `--fs-title-sm`), set by `showPanel()` from `PANELS[id].titleKey`
+    (`core.js`). Reports render the same look in their own `.report-head`.
+  - **One create action, always the FAB** at the same bottom-right spot. Its
+    target and `aria-label` come from `PANELS[id].fab` (default: new
+    booking); `syncFab()` derives icon/label/target from state — never patch
+    the FAB per mode. No full-width "Create …" buttons inside views.
+  - The search field appears only where it filters (ledger, categories);
+    elsewhere the bottom bar shrinks to the FAB alone. Scope bottom-bar rules
+    with `.bottom-bar …` — editors reuse `.search-wrap` for their choosers.
+  - A list row's tap runs the row's primary action (usually open/drill-in;
+    the category view is a quick-entry launcher, so its row books into the
+    category). A trailing button is a distinct secondary action with a glyph
+    that names it (category view: receipt = "show bookings"). Never use a ⋮
+    glyph for anything but a menu.
+- **Pickers:** every `<select>` styled with `appearance: none` gets a trailing
+  `chevron-down` (`.select-wrap` + `.select-chevron`), the same glyph as the month and
+  range pickers, so it never reads as a static card.
+- **Month-scoped views** (`PANELS[id].monthScoped`): Buchungsübersicht,
+  Kategorienübersicht and Budgets show the header month switcher, re-render
+  on a month change, and are the only views where ←/→ change the month.
+  A budget's period (month, quarter or year) follows the viewed month, so
+  past periods are one step back.
+- **Report range control:** six reports share the Monat/Quartal/Jahr/Eigen
+  control plus stepper. Trend is the deliberate exception, with a Von/Bis year
+  pair: it compares several years month by month, which a single-period
+  control cannot express.
+- **Report drill-downs:** a category or tag row in a report (Übersicht,
+  Aufteilung, Prognose) or a month in the Trend opens the **Detailanalyse**
+  for that entity over the period. It shows a back link to the origin
+  report above the title (`#reportBack`, only after a drill-down) — like
+  the back button above an iOS large title, so the title moving down by
+  that row is accepted. The ledger
+  search with its bulk actions is the detail's closing link
+  ("In der Buchungsübersicht zeigen"), not the first stop. Trend and
+  Detailanalyse share one category/tag picker (`_entityPickerMarkup`).
 - **Content scrolls under the bar.** Do not hide/show the bar on scroll
   — it disorients more than it saves space.
 
@@ -416,11 +563,12 @@ FAB). Rules:
   use the i18n key for "Search transactions", not a vague "Search…".
 - **Behaviour:** live filter from the first character, `debounce` 150 ms.
   No submit required, no explicit search button.
-- **Cancel / Clear:**
-  - The browser's native `×` button for `type="search"` is sufficient;
-    do not render an additional custom button.
-  - With an active filter, a separate "Cancel" button on the right clears
-    the field and releases focus.
+- **Cancel / Clear:** exactly one ✕. While a search or drill-down is
+  active, the FAB turns into the ✕ that clears the field and leaves the
+  search (`syncFab`). The native `type="search"` clear button is hidden in
+  the bottom bar (`.bottom-bar .search-input::-webkit-search-cancel-button`),
+  because it duplicated that ✕ in system blue. Choosers inside modals keep
+  their native clear.
 - **Scope / Filter:** when a category filter is needed, render it as a chip
   row **below** the field; no dropdowns inside the field itself.
 - **Recent searches / suggestions:** optional as a list below the field,
@@ -459,7 +607,20 @@ Required — no exceptions "because PWA":
   transitions to `0.01ms`, no animations, no parallax.
 - **Transparency:** `@media (prefers-reduced-transparency: reduce)` →
   replace material with opaque surface.
-- **Colour never the only signal:** sign, icon, text supplement it.
+- **Colour never the only signal:** sign, icon, text supplement it. The
+  header sync dot carries a glyph per state (✓ synced, ⟳ syncing,
+  cloud-slash offline on grey, ! failed; CSS masks on `.sync-dot` — a mask
+  cannot reference the inline sprite, so these four stay data URIs).
+  The pending-writes badge beside it is the dot's height and wears the
+  dot's state colour (accent saving/syncing, grey offline, red failed), so
+  the pair never shows two statuses; digits white in light mode on the
+  darker text variants, dark in dark mode — the same rule as the glyph.
+- **Charts with both directions:** expenses are solid, income is dashed
+  (`borderDash`); in bar charts expenses are filled, income outlined.
+  Checked with the dataviz palette validator, `--accent` and `--green` are
+  nearly identical for protan readers (ΔE 0.7, target ≥ 8), so hue alone
+  never carries which line is which. Dashes mean "income" only — a helper
+  line such as the trend's smoothing is a translucent solid line.
 - **Screen-reader text:** no directional references (no "button top right"),
   no "image of…", no "click here".
 - **Images / charts:** charts have a text summary below them
@@ -473,6 +634,6 @@ Quick rules:
 - **Verb-first** for action buttons: use i18n keys for "Save", "Delete" — not "OK".
 - **Direct and active:** use the i18n key for "Amount invalid." — not "Invalid input."
 - **No "Please" / no "Sorry"** — phrase directly.
-- **Amounts** via `fmtCurrency(n)` — locale and currency come from user settings (`I18N.getLocale()` / `I18N.getCurrency()`), never hardcoded. Dates internally ISO 8601, displayed with `toLocaleDateString(I18N.getLocale())`.
+- **Amounts** via `fmtCurrency(n)` — locale and currency come from user settings (`I18N.getLocale()` / `I18N.getCurrency()`), never hardcoded. Dates internally ISO 8601, displayed only via `fmtDate(value, style)` (`core.js`) in one of two styles: `'day'` for list day headers ("Samstag, 10. Oktober", year only when not the current one) and `'medium'` everywhere else ("10. Okt. 2026"). No ad-hoc `toLocaleDateString` / `split('-')` formatting.
 - Destructive actions always paired with a "Cancel" option; dialog openers end with `…`.
 - **No hardcoded inline text strings:** static text gets `data-i18n` / `data-i18n-attr`, dynamic text goes through `tr('key')`. New strings go into **both** catalogs (`i18n/de.json`, `i18n/en.json`) with matching keys.
